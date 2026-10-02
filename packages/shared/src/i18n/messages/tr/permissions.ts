@@ -16,6 +16,8 @@ export const trPermissions = {
   'permissions.customers.manage': 'Müşteri notu ve etiketlerini düzenleme',
   'permissions.finance.view': 'Ciro ve hakediş dökümlerini görüntüleme',
   'permissions.payouts.view': 'Banka ödemelerini görüntüleme',
+  'permissions.payments.manage': 'Sanal POS bağlantısı ve ödeme modunu yönetme',
+  'permissions.invoices.view': 'Komisyon faturalarını görüntüleme',
   'permissions.subscription.manage': 'Plan ve mesaj kredisi satın alma',
   'permissions.messaging.manage': 'Bildirim şablonlarını yönetme',
   'permissions.campaigns.view': 'Kampanyaları görüntüleme',

@@ -6,7 +6,18 @@ Tek sipariş için para izi her zaman şu sıradadır:
 Müşteriden tahsil edilen -> KDV -> platform komisyonu -> PSP kesintisi -> tevkifat -> restoran hakedişi
 ```
 
-Kural kodu `packages/shared/src/settlement.ts` (`computeOrderSettlement`), testleri `settlement.spec.ts` içindedir. API'de `SettlementService` restoranın sözleşme değerlerini bağlar; `POST /restaurants/:id/orders/settlement-preview` sipariş yokken bile dökümü verir. Bu, restorana verilen şeffaflık sözünün ürünü halidir.
+Kural kodu `packages/shared/src/settlement.ts` (`computeOrderSettlement`), testleri `settlement.spec.ts` içindedir. Ödeme moduna göre sarmalayan `computeModeSettlement` (`payments.ts`) her çağrının giriş noktasıdır. API'de `SettlementService` restoranın sözleşme değerlerini ve modunu bağlar; `POST /restaurants/:id/orders/settlement-preview` sipariş yokken bile dökümü verir. Bu, restorana verilen şeffaflık sözünün ürünü halidir.
+
+## Ödeme modunun etkisi (`docs/ODEME.md`)
+
+| | `OWN_POS` | `PLATFORM_PSP` |
+|---|---|---|
+| PSP kesintisi | 0 (restoran kendi bankasıyla halleder) | restoranın sözleşme oranı |
+| Tevkifat | 0 (platform ödeme yapmaz) | bölgesel varsayılan |
+| Komisyon + KDV | `platformReceivableMinor`: ay sonu fatura | hakedişten düşülür |
+| `payoutMinor` | 0 | restoran hakedişi |
+
+Sipariş, yerleştirme anındaki modu ve tutarları anlık görüntü olarak taşır. Aylık komisyon faturası bu anlık görüntülerin toplamıdır; hiçbir zaman yeniden hesaplanmaz.
 
 ## Girdiler
 

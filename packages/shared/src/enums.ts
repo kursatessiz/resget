@@ -63,6 +63,34 @@ export enum OrderStatus {
 /** Statuses after which an order counts as completed revenue. */
 export const COMPLETED_ORDER_STATUSES: readonly OrderStatus[] = [OrderStatus.DELIVERED, OrderStatus.PICKED_UP];
 
+/**
+ * Who is the merchant of record for card payments of a restaurant
+ * (docs/ODEME.md). OWN_POS: the restaurant's own virtual POS collects into
+ * the restaurant's bank account and the platform invoices its commission
+ * afterwards. PLATFORM_PSP: the platform's PSP collects and the commission is
+ * deducted from the payout.
+ */
+export enum PaymentMode {
+  OWN_POS = 'OWN_POS',
+  PLATFORM_PSP = 'PLATFORM_PSP',
+}
+
+export enum PaymentConnectionStatus {
+  PENDING_VERIFICATION = 'PENDING_VERIFICATION',
+  ACTIVE = 'ACTIVE',
+  FAILED = 'FAILED',
+  DISABLED = 'DISABLED',
+}
+
+/** Monthly commission invoice of an OWN_POS restaurant. */
+export enum CommissionInvoiceStatus {
+  DRAFT = 'DRAFT',
+  ISSUED = 'ISSUED',
+  PAID = 'PAID',
+  OVERDUE = 'OVERDUE',
+  VOID = 'VOID',
+}
+
 export enum PaymentMethod {
   ONLINE_CARD = 'ONLINE_CARD',
   CASH_ON_DELIVERY = 'CASH_ON_DELIVERY',

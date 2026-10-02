@@ -3,6 +3,7 @@ export * from './permissions';
 export * from './money';
 export * from './settlement';
 export * from './plans';
+export * from './payments';
 export * from './courier';
 export * from './table-qr';
 export * from './validators';
