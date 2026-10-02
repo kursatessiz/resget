@@ -4,7 +4,7 @@ Büyüme coğrafi yoğunlukla ilerler. Hiperlokal pazaryerinde likidite mahalle 
 
 ## Faz 0: tek ilçe
 
-Hedef: bir ilçede 30 ila 50 restoran, masa QR menü, kendi sipariş sayfası, yüzde 1 pazaryeri. Tahsilat restoranın kendi sanal POS'u ile (`OWN_POS`), kart kasası Masterpass; platform parayı hiç tutmaz (`docs/ODEME.md`).
+Hedef: bir ilçede 30 ila 50 restoran, masa QR menü, kendi sipariş sayfası, yüzde 1 pazaryeri. Tahsilat restoranın kendi sanal POS'u ile (`OWN_POS`), kart kasası Masterpass veya bex; platform parayı hiç tutmaz (`docs/ODEME.md`).
 
 Ürün: `HANDOVER.md` A1 ila A10.
 

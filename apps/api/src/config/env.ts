@@ -46,9 +46,11 @@ export const EnvSchema = z
       .refine((v) => Buffer.from(v, 'base64').length === 32, 'must be base64 for exactly 32 bytes')
       .optional(),
     /** Card vault the customers' cards are stored with (docs/ODEME.md). MOCK is refused in production. */
-    CARD_VAULT_PROVIDER: z.enum(['MOCK', 'MASTERPASS']).default('MOCK'),
+    CARD_VAULT_PROVIDER: z.enum(['MOCK', 'MASTERPASS', 'BEX']).default('MOCK'),
     MASTERPASS_CLIENT_ID: z.string().min(1).optional(),
     MASTERPASS_CLIENT_SECRET: z.string().min(1).optional(),
+    BEX_MERCHANT_ID: z.string().min(1).optional(),
+    BEX_MERCHANT_SECRET: z.string().min(1).optional(),
     /** The platform's own PSP merchant for PLATFORM_PSP restaurants. MOCK is refused in production. */
     PAYMENT_PROVIDER: z.enum(['MOCK', 'IYZICO', 'PAYTR', 'STRIPE']).default('MOCK'),
     IYZICO_API_KEY: z.string().min(1).optional(),

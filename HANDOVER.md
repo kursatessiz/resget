@@ -14,7 +14,7 @@ Restoranlar için yüzde 1 komisyonlu sipariş ağı, üstünde ücretsiz temel 
 
 - Stack yalnızca TypeScript: Next.js (web), NestJS (API), Prisma, Postgres, Redis. Mobil uygulama Faz 1'de Expo ile eklenir; Faz 0'da tüketici yüzeyi web'dir (QR taraması uygulama kurulumu istemez).
 - Komisyon sipariş brüt tutarının yüzde 1'idir (`commissionBps = 100`, restoran başına alan, yalnızca süper admin değiştirir). Platformun satış üzerinden tek geliri budur.
-- İki ödeme modu (`docs/ODEME.md`): varsayılan `OWN_POS` (restoranın kendi sanal POS'u tahsil eder, platform ay sonunda komisyon + KDV faturası keser ve kayıtlı karttan çeker; PSP ve tevkifat platformda sıfır) ve `PLATFORM_PSP` (platform tahsil eder, hakedişten düşer; Faz 1). Kart numarası platforma asla girmez; kartlar kasa sağlayıcısında (Masterpass hedef, PSP token'ı, cihaz cüzdanları) saklanır, platform yalnızca şifreli token tutar. POS bilgileri AES-256-GCM ile şifrelenir, üretimde KMS zarf şifrelemesi.
+- İki ödeme modu (`docs/ODEME.md`): varsayılan `OWN_POS` (restoranın kendi sanal POS'u tahsil eder, platform ay sonunda komisyon + KDV faturası keser ve kayıtlı karttan çeker; PSP ve tevkifat platformda sıfır) ve `PLATFORM_PSP` (platform tahsil eder, hakedişten düşer; Faz 1). Kart numarası platforma asla girmez; kartlar kasa sağlayıcısında (Masterpass ve bex restoranlar arası, PSP token'ı, cihaz cüzdanları) saklanır, platform yalnızca şifreli token tutar. POS bilgileri AES-256-GCM ile şifrelenir, üretimde KMS zarf şifrelemesi.
 - PSP kesintisi (`PLATFORM_PSP`) restorana gerçek oranıyla yansıtılır (`Restaurant.pspPercentBps`, `pspFixedMinor`); platform üzerine marj koymaz. Hacim arttıkça düşen oran restorana da geçer.
 - Valör geliri modele dahil değildir. Bekleyen bakiyeden bir fayda doğarsa ödeme kuruluşuyla yazılı anlaşmayla ve ayrı bir gelir kalemi olarak ele alınır; hesaplara şimdiden konmaz.
 - E-ticaret tevkifatı (Türkiye yüzde 1, KDV hariç satış bedeli üzerinden) platform geliri değildir; `LedgerEntryType.WITHHOLDING_TAX` ile ayrı tutulur ve bölgesel varsayılan `settlementDefaultsFor()` içindedir.
@@ -74,6 +74,6 @@ Kardeş platformda oturmuş hat aynen uygulanır: her backlog öğesi izole bir 
 - Pilot ilçe hangisi olacak? Seed Kadıköy'ü örnek alır.
 - PRO fiyatı ve deneme süresi: seed'de 1.499 TL/ay ve 90 gün örnek değerdir.
 - İlk gateway adaptörleri hangi sırayla? Pilot ilçedeki restoranların mevcut POS sağlayıcılarına göre seçilir. Platform PSP'si için pazaryeri ürünü koşulları (BSMV dahil kesinti, iade komisyonu, transfer sıklığı, bloke) Faz 1 öncesinde netleşir.
-- Masterpass üyeliği ve `OWN_POS` modunda tevkifat yükümlülüğü için vergi danışmanı teyidi.
+- Masterpass ve bex (BKM) üye işyeri sözleşmeleri; hangisinin önce bağlanacağı pilot ilçedeki POS sağlayıcılarına göre. `OWN_POS` modunda tevkifat yükümlülüğü için vergi danışmanı teyidi.
 - Komisyon faturasında alt limit: küçük tutarlar bir sonraki aya devredilsin mi, eşik ne olsun?
 - Kapıda ödeme Faz 0'da açık mı? Açıksa PSP kesintisi olmaz ama tahsilat riski restorandadır; hakediş motoru bu durumda `psp.percentBps = 0` ile çalışır.

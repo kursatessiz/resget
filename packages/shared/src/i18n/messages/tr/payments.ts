@@ -41,6 +41,7 @@ export const trPayments = {
   'payments.cards.expiry': 'Son kullanma {month}/{year}',
   'payments.cards.vaultNote': 'Kart numaranız bizde değil, ödeme sağlayıcısında saklanır.',
   'payments.cards.provider.MASTERPASS': 'Masterpass',
+  'payments.cards.provider.BEX': 'bex',
   'payments.cards.provider.PSP_TOKEN': 'Ödeme sağlayıcısı',
   'payments.cards.provider.GOOGLE_PAY': 'Google Pay',
   'payments.cards.provider.APPLE_PAY': 'Apple Pay',

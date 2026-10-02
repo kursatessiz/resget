@@ -37,10 +37,11 @@ Hedef: müşteri kartını bir kez kaydeder, hangi restorandan sipariş verirse 
 | Kasa | Restoranlar arası kullanım | Not |
 |---|---|---|
 | **Masterpass** | Evet | Türkiye'de en yaygın kart saklama ağı. Müşteri telefon numarası ve OTP ile bağlanır; aynı Masterpass hesabı Masterpass üyesi her POS'ta çalışır. `OWN_POS` modunda restoranların POS'larının Masterpass entegrasyonu olması gerekir; büyük sağlayıcıların hepsinde var. Faz 0 hedefi. |
+| **bex** (BKM) | Evet | BKM Express'in 15 Eylül 2026'da yenilenen hali: kartlar telefon numarasıyla eşlenir, bex üyesi her işyerinde kullanılır; Türkiye'deki banka, kredi ve ön ödemeli kartların tümü eklenebilir. Üye işyeri SDK'ları ve ortak ödeme sayfası entegrasyonları mevcut. Masterpass'in yanında ikinci restoranlar arası kasa; aynı `CardVaultAdapter` arayüzüyle eklenir. |
 | **PSP token'ı** | Yalnızca `PLATFORM_PSP` içinde | iyzico `cardUserKey`, PayTR kart saklama. Tek üye işyeri olduğu için tüm platform restoranlarında geçerli, restoranın kendi POS'unda geçersiz. |
 | **Google Pay / Apple Pay** | Evet | Cihaz cüzdanı ödeme token'ı üretir, gateway üzerinden işlenir. Mobil uygulamayla (Faz 1). |
 
-BKM Express hizmetini sonlandırdığı için seçenekler arasında yoktur; BKM tarafında kart saklama yerine TROY ve FAST altyapıları vardır. Teyit: sağlayıcı sözleşmesi aşamasında.
+Hangi kasanın önce bağlanacağı, pilot ilçedeki restoranların POS sağlayıcılarının hangi cüzdanı desteklediğine göre karar verilir; iki kasa aynı anda da açık olabilir, müşteri kartını bağladığı kasayla öder.
 
 Kart numarasını kendi veritabanımızda KMS ile şifreleyip saklamak bilinçli olarak reddedilmiştir: platformu tam PCI DSS kapsamına (SAQ D, yıllık denetim, ağ segmentasyonu) sokar ve bir sızıntıda kart verisi doğrudan bizim sorumluluğumuz olur. KMS burada kart için değil, POS bilgileri ve kasa token'ları için kullanılır.
 
@@ -66,7 +67,7 @@ Müşteri uçları: `GET /me/payment-methods`, `POST /me/payment-methods/link`, 
 
 ## 6. Backlog
 
-- A4: `OWN_POS` için iyzico, PayTR, Param ve Sipay gateway adaptörleri (hosted sayfa + webhook); Masterpass kasa adaptörü; sipariş akışına ödeme adımı.
+- A4: `OWN_POS` için iyzico, PayTR, Param ve Sipay gateway adaptörleri (hosted sayfa + webhook); Masterpass ve bex kasa adaptörleri; sipariş akışına ödeme adımı.
 - A5: aylık fatura kesimi ve otomatik tahsilat işi, gecikme ve askıya alma, e-Arşiv fatura entegrasyonu.
 - B4: `PLATFORM_PSP` pazaryeri ürünü, PSP token kasası, hakediş ödemeleri, tevkifat beyanı.
-- Hukuk: `OWN_POS` modunda tevkifat yükümlülüğünün olmadığının vergi danışmanıyla teyidi; Masterpass üyelik sözleşmesi.
+- Hukuk: `OWN_POS` modunda tevkifat yükümlülüğünün olmadığının vergi danışmanıyla teyidi; Masterpass ve bex üye işyeri sözleşmeleri.

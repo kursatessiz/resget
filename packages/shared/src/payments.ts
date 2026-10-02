@@ -19,7 +19,7 @@ import type { Settlement, SettlementInput } from './settlement';
  *   deducted and the rest is paid out to the restaurant.
  *
  * Cards: the platform never sees a card number. A customer's card is stored
- * by a vault provider (Masterpass across merchants, the PSP's own
+ * by a vault provider (Masterpass or bex across merchants, the PSP's own
  * tokenization inside PLATFORM_PSP, the device wallets) and the platform
  * keeps only the provider's token, encrypted at rest. That keeps the
  * platform in the lightest PCI DSS scope (SAQ A) in both modes.
@@ -90,7 +90,8 @@ export interface PaymentSettingsDTO {
 
 // -- Card vault --------------------------------------------------------------------
 
-export const CARD_VAULT_PROVIDERS = ['MASTERPASS', 'PSP_TOKEN', 'GOOGLE_PAY', 'APPLE_PAY', 'MOCK'] as const;
+/** Cross-merchant wallets (Masterpass, bex), the PSP's own tokens, device wallets and the development vault. */
+export const CARD_VAULT_PROVIDERS = ['MASTERPASS', 'BEX', 'PSP_TOKEN', 'GOOGLE_PAY', 'APPLE_PAY', 'MOCK'] as const;
 export type CardVaultProviderCode = (typeof CARD_VAULT_PROVIDERS)[number];
 
 /** A stored card as the customer sees it: the vault's token is never exposed. */

@@ -42,6 +42,7 @@ export const enPayments: Record<keyof typeof trPayments, string> = {
   'payments.cards.expiry': 'Expires {month}/{year}',
   'payments.cards.vaultNote': 'Your card number is held by the payment provider, not by us.',
   'payments.cards.provider.MASTERPASS': 'Masterpass',
+  'payments.cards.provider.BEX': 'bex',
   'payments.cards.provider.PSP_TOKEN': 'Payment provider',
   'payments.cards.provider.GOOGLE_PAY': 'Google Pay',
   'payments.cards.provider.APPLE_PAY': 'Apple Pay',
