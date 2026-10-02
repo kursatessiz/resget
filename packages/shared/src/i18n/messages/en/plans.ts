@@ -1,0 +1,27 @@
+import type { trPlans } from '../tr/plans';
+
+export const enPlans: Record<keyof typeof trPlans, string> = {
+  'plans.BASIC.name': 'Basic',
+  'plans.BASIC.summary': 'Menu, order taking, table QR and the 1 percent marketplace. Free for good.',
+  'plans.PRO.name': 'Pro',
+  'plans.PRO.summary': 'Customer management, campaigns, analytics, loyalty and an ordering page on your own domain.',
+  'plans.trial.active': 'Your Pro trial ends on {date}.',
+  'plans.trial.ended': 'Your Pro trial has ended. Everything in the Basic plan keeps working.',
+  'plans.upgrade': 'Upgrade to Pro',
+  'plans.feature.menu': 'Menu management',
+  'plans.feature.orders': 'Order taking',
+  'plans.feature.table_qr': 'Table QR',
+  'plans.feature.marketplace': '1 percent marketplace',
+  'plans.feature.own_ordering_page': 'Your own ordering page',
+  'plans.feature.crm': 'Customer management',
+  'plans.feature.campaigns': 'SMS and WhatsApp campaigns',
+  'plans.feature.analytics': 'Advanced analytics',
+  'plans.feature.loyalty': 'Loyalty program',
+  'plans.feature.custom_domain': 'Your own domain',
+  'plans.feature.api_access': 'API access',
+  'plans.credits.title': 'Message credits',
+  'plans.credits.balance': '{channel} balance: {count} credits',
+  'plans.credits.buy': 'Buy a credit package',
+  'plans.credits.rule': 'A credit is used only when a message is actually sent.',
+  'plans.credits.package': '{credits} {channel} credits',
+};

@@ -1,0 +1,6 @@
+# Default reviewers for every change
+* @kursatessiz
+
+# Pipeline and deployment changes need the owner
+/.github/ @kursatessiz
+/deploy/ @kursatessiz

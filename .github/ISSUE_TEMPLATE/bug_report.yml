@@ -1,0 +1,29 @@
+name: Hata bildirimi
+description: Beklenmeyen bir davranış bildirin
+labels: [bug]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Bileşen
+      options: [api, web, shared, database, deploy]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Yeniden üretme adımları
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Beklenen davranış
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Gerçekleşen davranış
+    validations:
+      required: true

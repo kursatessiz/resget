@@ -1,0 +1,21 @@
+/** Public menu page opened from a table QR (/m/<token>) and the tables screen of the panel. */
+export const trQr = {
+  'qr.page.title': '{restaurant} menüsü',
+  'qr.page.table': 'Masa {label}',
+  'qr.page.orderToTable': 'Masaya sipariş ver',
+  'qr.page.orderDelivery': 'Bir dahaki sefere eve sipariş ver',
+  'qr.page.register': 'Telefon numaranla kaydol, siparişlerin tek dokunuşla gelsin',
+  'qr.page.poweredBy': 'Resget altyapısıyla',
+  'qr.page.notFound': 'Bu QR kod geçerli değil. Lütfen personele danışın.',
+  'qr.tables.title': 'Masalar ve QR kodları',
+  'qr.tables.add': 'Masa ekle',
+  'qr.tables.label': 'Masa adı',
+  'qr.tables.download': 'QR etiketini indir',
+  'qr.tables.regenerate': 'QR kodunu yenile',
+  'qr.tables.regenerateWarning': 'Eski etiketler çalışmayı durdurur.',
+  'qr.funnel.title': 'QR dönüşümü',
+  'qr.funnel.viewed': 'Menüyü gören',
+  'qr.funnel.started': 'Sipariş başlatan',
+  'qr.funnel.placed': 'Sipariş veren',
+  'qr.funnel.registered': 'Kaydolan',
+} as const satisfies Record<string, string>;

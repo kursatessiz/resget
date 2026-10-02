@@ -1,0 +1,166 @@
+@layer reset, pui.tokens, pui.components, ui, pui.utilities, pui.styles, pui.colors, pui.states;
+
+/*
+ * Design system: Perfect UI (docs/TASARIM.md). The layer statement above
+ * must come before @chrissgon/perfectui/perfectui.css, which is why the root
+ * layout imports this file first. Tailwind utilities stay unlayered and
+ * therefore win, so they are used for layout only.
+ */
+
+@import '@fontsource/inter/latin-400.css';
+@import '@fontsource/inter/latin-ext-400.css';
+@import '@fontsource/inter/latin-500.css';
+@import '@fontsource/inter/latin-ext-500.css';
+@import '@fontsource/inter/latin-600.css';
+@import '@fontsource/inter/latin-ext-600.css';
+@import '@fontsource/inter/latin-700.css';
+@import '@fontsource/inter/latin-ext-700.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer reset {
+  *,
+  ::before,
+  ::after {
+    box-sizing: border-box;
+    border-width: 0;
+    border-style: solid;
+    border-color: var(--pui-border);
+  }
+
+  html {
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body,
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  figure,
+  dl,
+  dd,
+  pre,
+  hr {
+    margin: 0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  ol,
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: inherit;
+  }
+
+  b,
+  strong {
+    font-weight: 600;
+  }
+
+  img,
+  svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  :disabled {
+    cursor: default;
+  }
+}
+
+/* Additions on top of the kit's shapes, used by src/components/ui. */
+@layer ui {
+  .ui-btn-block {
+    width: 100%;
+  }
+
+  .ui-icon {
+    width: calc(var(--pui-space) * 4);
+    height: calc(var(--pui-space) * 4);
+    flex: none;
+  }
+
+  .ui-text-muted {
+    color: var(--pui-text-muted);
+  }
+
+  .ui-title {
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .ui-display {
+    font-size: clamp(2.25rem, 5vw, 3.75rem);
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  .ui-lead {
+    font-size: 1.125rem;
+    line-height: 1.6;
+    max-width: 36rem;
+  }
+
+  .ui-heading {
+    font-size: var(--pui-font-size);
+    font-weight: 600;
+  }
+
+  .ui-caption {
+    font-size: calc(var(--pui-font-size) * 0.857);
+    color: var(--pui-text-muted);
+  }
+
+  .ui-price {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  .ui-rule {
+    border-top: var(--pui-border-width) solid var(--pui-border);
+  }
+
+  .ui-divide > * + * {
+    border-top: var(--pui-border-width) solid var(--pui-border);
+  }
+
+  .ui-text-theme {
+    color: var(--pui-theme-text, var(--pui-theme));
+  }
+}

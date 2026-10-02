@@ -1,0 +1,30 @@
+{
+  "name": "@resget/database",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "prisma generate && tsc -p tsconfig.build.json",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:prod": "prisma migrate deploy",
+    "db:seed": "ts-node prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "@resget/shared": "workspace:*",
+    "prisma": "^6.19.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "files": [
+    "dist",
+    "prisma"
+  ]
+}

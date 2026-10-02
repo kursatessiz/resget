@@ -1,0 +1,21 @@
+name: Özellik isteği
+description: Yeni bir özellik veya iyileştirme önerin
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Çözülmek istenen sorun
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Önerilen çözüm
+    validations:
+      required: true
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Yol haritası aşaması
+      options: ['Faz 0: tek ilçe', 'Faz 1: genişleme', 'Faz 2: kurye', 'Belirsiz']

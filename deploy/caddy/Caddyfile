@@ -1,0 +1,47 @@
+{
+  email {$ACME_EMAIL}
+}
+
+# Environment-specific headers, selected by SITE_ENV (default "production").
+(env_production) {
+  header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+}
+(env_preprod) {
+  header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  header X-Robots-Tag "noindex, nofollow"
+}
+
+# Restaurant panel, public menu pages (/m/<token>) and the ordering site
+{$WEB_DOMAIN} {
+  encode zstd gzip
+  import env_{$SITE_ENV:production}
+  header {
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Permissions-Policy "camera=(self), geolocation=(self), microphone=()"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    -Server
+  }
+  reverse_proxy web:3000 {
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+  }
+}
+
+# REST API (CORS is handled by the API itself with an explicit origin list)
+{$API_DOMAIN} {
+  encode zstd gzip
+  import env_{$SITE_ENV:production}
+  header {
+    X-Content-Type-Options "nosniff"
+    -Server
+  }
+  reverse_proxy api:4000 {
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+  }
+}

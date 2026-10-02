@@ -1,0 +1,36 @@
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { PLAN_FEATURE_SETS } from '@resget/shared';
+import type { PermissionKey, PlanFeature } from '@resget/shared';
+import { forbidden } from '../../../common/api-error';
+import { PERMISSIONS_KEY, PLAN_FEATURE_KEY } from '../decorators/require-permission.decorator';
+import type { AuthenticatedRequest } from '../tenant-context';
+
+/**
+ * Deny by default: a @RestaurantScoped() handler without @RequirePermission
+ * is a mistake and is refused. Then every listed permission must be in the
+ * caller's effective set, and the restaurant's plan must include the
+ * handler's feature when one is declared.
+ */
+@Injectable()
+export class PermissionGuard implements CanActivate {
+  constructor(private readonly reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const tenant = context.switchToHttp().getRequest<AuthenticatedRequest>().tenant;
+    if (!tenant) throw forbidden('FORBIDDEN', 'Tenant not resolved');
+    const targets = [context.getHandler(), context.getClass()];
+
+    const required = this.reflector.getAllAndOverride<PermissionKey[] | undefined>(PERMISSIONS_KEY, targets);
+    if (!required || required.length === 0) throw forbidden('FORBIDDEN', 'Handler declares no permission');
+    for (const permission of required) {
+      if (!tenant.permissions.has(permission)) throw forbidden('FORBIDDEN', `Missing permission ${permission}`);
+    }
+
+    const feature = this.reflector.getAllAndOverride<PlanFeature | undefined>(PLAN_FEATURE_KEY, targets);
+    if (feature && !PLAN_FEATURE_SETS[tenant.effectivePlan].includes(feature)) {
+      throw forbidden('PLAN_FEATURE_REQUIRED', `Feature ${feature} needs a higher plan`);
+    }
+    return true;
+  }
+}

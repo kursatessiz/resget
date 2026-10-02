@@ -1,0 +1,17 @@
+export const trCourier = {
+  'courier.title': 'Kurye',
+  'courier.mode.RESTAURANT_COURIER': 'Kendi kuryem',
+  'courier.mode.THIRD_PARTY_API': 'Anlaşmalı kurye ağı',
+  'courier.mode.NONE': 'Teslimat yok (gel al ve masa)',
+  'courier.quote.get': 'Kurye teklifi al',
+  'courier.quote.fee': 'Kurye ücreti',
+  'courier.quote.eta': 'Tahmini teslim: {minutes} dk',
+  'courier.quote.expires': 'Teklif {time} saatine kadar geçerli',
+  'courier.dispatch': 'Kurye çağır',
+  'courier.cancel': 'Kuryeyi iptal et',
+  'courier.feePolicy.title': 'Müşteriye yansıyan teslimat ücreti',
+  'courier.feePolicy.PASS_THROUGH': 'Kurye ücretini aynen yansıt',
+  'courier.feePolicy.FIXED': 'Sabit ücret',
+  'courier.feePolicy.FREE_ABOVE': 'Belirli tutarın üzerinde ücretsiz',
+  'courier.separateFromCommission': 'Kurye ücreti platform komisyonundan ayrı bir hizmettir.',
+} as const satisfies Record<string, string>;

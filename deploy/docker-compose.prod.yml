@@ -1,0 +1,160 @@
+# Production stack. Images are built in CI and only pulled here.
+# Required in /opt/resget/.env: IMAGE_REPO, POSTGRES_PASSWORD, REDIS_PASSWORD,
+# JWT_SECRET, WEB_DOMAIN, API_DOMAIN, ACME_EMAIL (see .env.example).
+name: resget
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      WEB_DOMAIN: ${WEB_DOMAIN:?WEB_DOMAIN required}
+      API_DOMAIN: ${API_DOMAIN:?API_DOMAIN required}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL required}
+      SITE_ENV: ${SITE_ENV:-production}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [web_net]
+    depends_on: [api, web]
+    deploy:
+      resources:
+        limits: { memory: 128M, cpus: '0.5' }
+
+  api:
+    image: ${API_IMAGE:-${IMAGE_REPO:?IMAGE_REPO required}/api:latest}
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      APP_RELEASE: ${RELEASE_TAG:-dev}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-resget}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-resget}?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
+      CORS_ORIGIN: https://${WEB_DOMAIN}
+      PUBLIC_APP_URL: https://${WEB_DOMAIN}
+      PUBLIC_API_URL: https://${API_DOMAIN}
+      # Every optional key of apps/api/src/config/env.ts is listed so a key can
+      # never be silently missing; unset ones arrive empty and read as unset.
+      SMS_PROVIDER: ${SMS_PROVIDER:-MOCK}
+      NETGSM_USER: ${NETGSM_USER:-}
+      NETGSM_PASSWORD: ${NETGSM_PASSWORD:-}
+      NETGSM_HEADER: ${NETGSM_HEADER:-}
+      ILETI_MERKEZI_USER: ${ILETI_MERKEZI_USER:-}
+      ILETI_MERKEZI_PASSWORD: ${ILETI_MERKEZI_PASSWORD:-}
+      ILETI_MERKEZI_SENDER: ${ILETI_MERKEZI_SENDER:-}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-}
+      IYZICO_API_KEY: ${IYZICO_API_KEY:-}
+      IYZICO_SECRET_KEY: ${IYZICO_SECRET_KEY:-}
+      IYZICO_BASE_URL: ${IYZICO_BASE_URL:-}
+      PAYTR_MERCHANT_ID: ${PAYTR_MERCHANT_ID:-}
+      PAYTR_MERCHANT_KEY: ${PAYTR_MERCHANT_KEY:-}
+      PAYTR_MERCHANT_SALT: ${PAYTR_MERCHANT_SALT:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      COURIER_PROVIDER: ${COURIER_PROVIDER:-MOCK}
+      COURIER_API_KEY: ${COURIER_API_KEY:-}
+      COURIER_WEBHOOK_SECRET: ${COURIER_WEBHOOK_SECRET:-}
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [web_net, internal_net]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    deploy:
+      resources:
+        # Node heap is capped at 512 MB in the image; the extra room covers native memory.
+        limits: { memory: 768M, cpus: '1.0' }
+
+  web:
+    image: ${WEB_IMAGE:-${IMAGE_REPO:?IMAGE_REPO required}/web:latest}
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      PUBLIC_API_URL: https://${API_DOMAIN}
+      # The BFF proxies to the API over the internal docker network; never baked into client bundles.
+      API_INTERNAL_URL: http://api:4000
+      APP_RELEASE: ${RELEASE_TAG:-dev}
+    networks: [web_net, internal_net]
+    read_only: true
+    tmpfs: ['/tmp', '/app/apps/web/.next/cache:uid=1000,gid=1000']
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    deploy:
+      resources:
+        limits: { memory: 768M, cpus: '1.0' }
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-resget}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      POSTGRES_DB: ${POSTGRES_DB:-resget}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [internal_net]
+    command: >
+      postgres
+      -c shared_buffers=512MB
+      -c work_mem=16MB
+      -c maintenance_work_mem=128MB
+      -c effective_cache_size=1536MB
+      -c max_connections=100
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits: { memory: 1G, cpus: '1.5' }
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?REDIS_PASSWORD required}
+    command: >
+      sh -c 'exec redis-server --requirepass "$$REDISCLI_AUTH"
+      --maxmemory 256mb --maxmemory-policy noeviction --save 60 1'
+    volumes:
+      - redis_data:/data
+    networks: [internal_net]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits: { memory: 320M, cpus: '0.5' }
+
+networks:
+  web_net:
+    driver: bridge
+  internal_net:
+    internal: true
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:
+  redis_data:
