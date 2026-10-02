@@ -18,6 +18,12 @@ if (process.env.NODE_ENV === 'production') {
 
 const prisma = new PrismaClient();
 
+/** Phones and the table token the e2e suites rely on (apps/api/test/e2e, apps/web/e2e). */
+export const DEMO_SUPER_ADMIN_PHONE = '05320000001';
+export const DEMO_OWNER_PHONE = '05320000002';
+export const DEMO_GUEST_PHONE = '05320000003';
+export const DEMO_TABLE_TOKEN = 'demo-masa-1-sabit-token-0001';
+
 function qrToken(): string {
   return randomBytes(TABLE_QR_TOKEN_BYTES).toString('base64url');
 }
@@ -64,13 +70,18 @@ async function main(): Promise<void> {
 
   // Super admin (platform owner) and a demo restaurant owner.
   const superAdmin = await prisma.user.create({
-    data: { phone: normalizePhone('05320000001')!, fullName: 'Platform Admin', isSuperAdmin: true, locale: 'tr' },
+    data: {
+      phone: normalizePhone(DEMO_SUPER_ADMIN_PHONE)!,
+      fullName: 'Platform Admin',
+      isSuperAdmin: true,
+      locale: 'tr',
+    },
   });
   const owner = await prisma.user.create({
-    data: { phone: normalizePhone('05320000002')!, fullName: 'Demo Sahip', locale: 'tr' },
+    data: { phone: normalizePhone(DEMO_OWNER_PHONE)!, fullName: 'Demo Sahip', locale: 'tr' },
   });
   const guest = await prisma.user.create({
-    data: { phone: normalizePhone('05320000003')!, fullName: 'Demo Misafir', locale: 'tr' },
+    data: { phone: normalizePhone(DEMO_GUEST_PHONE)!, fullName: 'Demo Misafir', locale: 'tr' },
   });
 
   const restaurant = await prisma.restaurant.create({
@@ -82,6 +93,10 @@ async function main(): Promise<void> {
       timezone: 'Europe/Istanbul',
       serviceAreaId: area.id,
       isListed: true,
+      // A real PSP contract is passed through at cost (docs/MUTABAKAT.md); demo values.
+      pspPercentBps: 200,
+      pspFixedMinor: 25,
+      deliveryMode: 'THIRD_PARTY_API',
       courierProviderId: mockCourier.id,
       deliveryFeePolicy: { mode: 'PASS_THROUGH', roundUpToMinor: 500 },
     },
@@ -190,9 +205,15 @@ async function main(): Promise<void> {
       },
     ],
   });
+  // Table 1 keeps a fixed token so the e2e suites and Lighthouse can open /m/<token> without a lookup.
   for (const label of ['1', '2', '3', '4']) {
     await prisma.diningTable.create({
-      data: { restaurantId: restaurant.id, branchId: branch.id, label, qrToken: qrToken() },
+      data: {
+        restaurantId: restaurant.id,
+        branchId: branch.id,
+        label,
+        qrToken: label === '1' ? DEMO_TABLE_TOKEN : qrToken(),
+      },
     });
   }
 
