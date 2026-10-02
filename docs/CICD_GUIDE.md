@@ -154,7 +154,7 @@ GitHub Free planında private repolarda CodeQL, dependency review ve Scorecard �
 
 ### Önerilen repository ayarları (sahip)
 
-- Secret scanning ve push protection; private vulnerability reporting; Dependabot alerts ve security updates.
+- Settings > Code security: **Dependency graph** açık (dependency review işi bunu ister; kapalıysa iş "Dependency review is not supported on this repository" ile kırılır), Dependabot alerts ve security updates, secret scanning ve push protection, private vulnerability reporting.
 - `main` için ruleset: PR zorunlu, CI işleri zorunlu, lineer geçmiş, en az bir review.
 - CodeQL default setup kapalı (gelişmiş `codeql.yml` zaten var).
 - Ajan workflow'ları için `CLAUDE_AGENTS_ENABLED` değişkeni ve `ANTHROPIC_API_KEY` veya `CLAUDE_CODE_OAUTH_TOKEN` secret'ı (bölüm 7).
