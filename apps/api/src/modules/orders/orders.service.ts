@@ -38,6 +38,7 @@ import type {
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 import { OrderNotificationsService } from './order-notifications.service';
 import { RealtimeService, courierTopic, dispatchTopic, orderTopic } from '../realtime/realtime.service';
 import type { TopicEvent } from '../realtime/realtime.service';
@@ -73,6 +74,11 @@ export interface ResolvedPaymentIntent {
   paidBefore: boolean;
 }
 
+export interface CreateOrderOptions {
+  /** Spend this signed-in customer's loyalty points on the order (docs/SADAKAT.md). */
+  loyaltyUserId?: string;
+}
+
 export type PaymentIntentResolver = (
   restaurantId: string,
   intent: OrderPaymentIntent,
@@ -104,6 +110,7 @@ export class OrdersService {
     private readonly config: ConfigService,
     private readonly notifications: OrderNotificationsService,
     private readonly ledger: LedgerService,
+    private readonly loyalty: LoyaltyService,
   ) {}
 
   setTripEventsProvider(provider: (tripId: string) => Promise<TopicEvent[]>): void {
@@ -121,6 +128,7 @@ export class OrdersService {
     input: CreateOrderInput,
     actorUserId: string | null,
     canSeeContacts: boolean,
+    options: CreateOrderOptions = {},
   ): Promise<OrderDetailDTO> {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
@@ -183,6 +191,16 @@ export class OrdersService {
     const paymentMode = effectivePaymentModeFor(payment?.intent.method ?? null, restaurant.paymentMode);
     const initialStatus = payment?.paidBefore ? 'PENDING_PAYMENT' : 'PLACED';
 
+    // Loyalty points (docs/SADAKAT.md): a restaurant-funded discount, sized before the settlement is computed.
+    const redemption = options.loyaltyUserId
+      ? await this.loyalty.prepareRedemption(
+          this.prisma,
+          restaurantId,
+          options.loyaltyUserId,
+          lines.reduce((sum, l) => sum + l.lineTotalMinor, 0),
+        )
+      : null;
+
     const regional = settlementDefaultsFor(restaurant.countryCode);
     const isDelivery = input.fulfillment === 'DELIVERY';
     const deliveryFee: SettlementLine | null =
@@ -193,6 +211,7 @@ export class OrdersService {
       currency: restaurant.currency,
       items: lines.map((l) => ({ amountMinor: l.lineTotalMinor, vatRateBps: l.vatRateBps })),
       deliveryFee,
+      discount: redemption ? { amountMinor: redemption.discountMinor, fundedBy: 'RESTAURANT' } : null,
       commissionBps: restaurant.commissionBps,
       commissionVatBps: regional.commissionVatBps,
       psp: { percentBps: restaurant.pspPercentBps, fixedMinor: restaurant.pspFixedMinor, bearer: 'RESTAURANT' },
@@ -301,6 +320,9 @@ export class OrdersService {
         },
         select: { id: true },
       });
+      if (redemption) {
+        await this.loyalty.applyRedemption(tx, restaurantId, redemption.customerId, created.id, redemption.points);
+      }
       if (input.qrSessionId) {
         await tx.qrScanEvent.create({
           data: {
@@ -435,7 +457,13 @@ export class OrdersService {
     if (to === 'DELIVERED' || to === 'PICKED_UP') data.estimatedDeliveryAt = null;
     await tx.order.update({ where: { id: order.id }, data });
     // A completed order settles: its statement lines join the ledger (PLATFORM_PSP only, docs/MUTABAKAT.md).
-    if (to === 'DELIVERED' || to === 'PICKED_UP') await this.ledger.recordOrderCompletion(tx, order.id, now);
+    if (to === 'DELIVERED' || to === 'PICKED_UP') {
+      await this.ledger.recordOrderCompletion(tx, order.id, now);
+      await this.loyalty.recordCompletion(tx, order.id, now);
+    }
+    if (to === 'REJECTED' || to === 'CANCELLED_BY_RESTAURANT' || to === 'CANCELLED_BY_CUSTOMER' || to === 'REFUNDED') {
+      await this.loyalty.recordReversal(tx, order.id, now);
+    }
     await tx.orderStatusHistory.create({
       data: { orderId: order.id, fromStatus: order.status, toStatus: to, actorUserId, reason: options.reason ?? null },
     });

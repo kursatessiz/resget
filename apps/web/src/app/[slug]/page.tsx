@@ -18,7 +18,7 @@ export default async function RestaurantPage({ params }: { params: Promise<{ slu
   const storefront = (await res.json()) as StorefrontDTO;
   const { t, locale } = await getT();
   const me = await getMe().catch(() => null);
-  const viewerRes = me ? await apiFetch('/me/viewer') : null;
+  const viewerRes = me ? await apiFetch(`/me/viewer?restaurantId=${storefront.restaurant.id}`) : null;
   const viewer = viewerRes?.ok ? ((await viewerRes.json()) as StorefrontViewerDTO) : null;
   return (
     <ThemeRoot

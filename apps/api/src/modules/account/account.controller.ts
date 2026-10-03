@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Patch, Post, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import type { z } from 'zod';
 import { SaveAddressSchema, UpdateAddressSchema, UpdateProfileSchema, UuidSchema } from '@resget/shared';
 import type { CustomerAccountDTO, CustomerAddressDTO, CustomerOrderDTO, StorefrontViewerDTO } from '@resget/shared';
@@ -19,9 +19,11 @@ export class AccountController {
     return this.account.account(user.id);
   }
 
+  /** `restaurantId` adds the loyalty balance at that restaurant (docs/SADAKAT.md). */
   @Get('viewer')
-  viewer(@CurrentUser() user: AuthUser): Promise<StorefrontViewerDTO> {
-    return this.account.viewer(user.id);
+  viewer(@CurrentUser() user: AuthUser, @Query('restaurantId') restaurantId?: string): Promise<StorefrontViewerDTO> {
+    const scoped = restaurantId && UuidSchema.safeParse(restaurantId).success ? restaurantId : null;
+    return this.account.viewer(user.id, scoped);
   }
 
   @Patch('profile')

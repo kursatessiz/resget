@@ -18,6 +18,8 @@ import { MealCardsService } from '../payments/meal-cards.service';
 import { CheckoutService } from '../payments/checkout.service';
 import { OrdersService } from '../orders/orders.service';
 import { CourierService } from '../courier/courier.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
+import type { AuthUser } from '../auth/tenant-context';
 import { conflict, notFound } from '../../common/api-error';
 
 const restaurantSelect = {
@@ -50,6 +52,7 @@ export class StorefrontService {
     private readonly orders: OrdersService,
     private readonly checkout: CheckoutService,
     private readonly courier: CourierService,
+    private readonly loyalty: LoyaltyService,
     private readonly config: ConfigService,
   ) {}
 
@@ -157,6 +160,7 @@ export class StorefrontService {
     token: string,
     input: PublicOrderInput,
     sessionId: string | null,
+    viewer: AuthUser | null = null,
   ): Promise<PublicOrderResultDTO> {
     const table = await this.prisma.diningTable.findUnique({
       where: { qrToken: token },
@@ -167,10 +171,15 @@ export class StorefrontService {
       channel: 'TABLE_QR',
       tableId: input.fulfillment === 'DINE_IN' ? table.id : undefined,
       sessionId,
+      viewer,
     });
   }
 
-  async placeBySlug(slug: string, input: PublicOrderInput): Promise<PublicOrderResultDTO> {
+  async placeBySlug(
+    slug: string,
+    input: PublicOrderInput,
+    viewer: AuthUser | null = null,
+  ): Promise<PublicOrderResultDTO> {
     const restaurant = await this.prisma.restaurant.findUnique({ where: { slug }, select: restaurantSelect });
     if (!restaurant || !restaurant.isActive) throw notFound('NOT_FOUND', 'Restaurant not found');
     if (input.fulfillment === 'DINE_IN') throw conflict('ORDER_TRANSITION_INVALID', 'Dine-in orders need a table QR');
@@ -180,6 +189,7 @@ export class StorefrontService {
       channel: 'RESTAURANT_SITE',
       tableId: undefined,
       sessionId: null,
+      viewer,
     });
   }
 
@@ -187,7 +197,12 @@ export class StorefrontService {
     restaurant: RestaurantRow,
     branchId: string,
     input: PublicOrderInput,
-    context: { channel: 'TABLE_QR' | 'RESTAURANT_SITE'; tableId: string | undefined; sessionId: string | null },
+    context: {
+      channel: 'TABLE_QR' | 'RESTAURANT_SITE';
+      tableId: string | undefined;
+      sessionId: string | null;
+      viewer: AuthUser | null;
+    },
   ): Promise<PublicOrderResultDTO> {
     const ordering = this.orderingOf(restaurant, context.tableId !== undefined);
     if (input.fulfillment === 'DELIVERY' && !ordering.delivery)
@@ -211,7 +226,19 @@ export class StorefrontService {
       qrSessionId: context.sessionId ?? undefined,
       marketingOptIn: input.marketingOptIn,
     };
-    const order = await this.orders.create(restaurant.id, create, null, false);
+    // Points belong to the signed-in phone; an order placed for another number cannot spend them.
+    let loyaltyUserId: string | undefined;
+    if (input.useLoyaltyPoints) {
+      if (!context.viewer) throw conflict('LOYALTY_SIGN_IN_REQUIRED', 'Sign in to use points');
+      const phone = input.customer?.phone ?? input.address?.contactPhone ?? null;
+      if (phone !== null && phone !== context.viewer.phone)
+        throw conflict('LOYALTY_PHONE_MISMATCH', 'Points belong to the signed-in phone');
+      // A dine-in order without a contact still has to belong to the person spending the points.
+      if (phone === null) create.customer = { fullName: context.viewer.fullName, phone: context.viewer.phone };
+      loyaltyUserId = context.viewer.id;
+    }
+    const order = await this.orders.create(restaurant.id, create, null, false, { loyaltyUserId });
+    const loyaltyPointsRedeemed = loyaltyUserId ? await this.loyalty.redeemedPointsOf(order.id) : 0;
     const token = order.trackingUrl.split('/t/')[1] ?? '';
     let checkoutUrl: string | null = null;
     if (order.status === 'PENDING_PAYMENT' && input.returnUrl) {
@@ -226,6 +253,8 @@ export class StorefrontService {
       fulfillment: order.fulfillment,
       chargedToCustomerMinor: order.chargedToCustomerMinor,
       deliveryFeeMinor: order.deliveryFeeMinor,
+      discountMinor: order.discountMinor,
+      loyaltyPointsRedeemed,
       currency: order.currency,
       checkoutUrl,
     };
@@ -287,9 +316,10 @@ export class StorefrontService {
   // -- Helpers -------------------------------------------------------------------------
 
   private async build(restaurant: RestaurantRow, table: { id: string; label: string } | null): Promise<StorefrontDTO> {
-    const [categories, payment] = await Promise.all([
+    const [categories, payment, loyalty] = await Promise.all([
       this.menu.menuOf(restaurant.id),
       this.mealCards.acceptedMethods(restaurant.id),
+      this.loyalty.storefrontRules(restaurant.id),
     ]);
     return {
       restaurant: {
@@ -305,6 +335,16 @@ export class StorefrontService {
       payment,
       ordering: this.orderingOf(restaurant, table !== null),
       categories,
+      loyalty: loyalty
+        ? {
+            earnPoints: loyalty.earnPoints,
+            earnStepMinor: loyalty.earnStepMinor,
+            redeemPoints: loyalty.redeemPoints,
+            redeemValueMinor: loyalty.redeemValueMinor,
+            minOrderMinor: loyalty.minOrderMinor,
+            maxDiscountBps: loyalty.maxDiscountBps,
+          }
+        : null,
     };
   }
 

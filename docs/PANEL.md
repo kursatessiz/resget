@@ -1,4 +1,4 @@
-# Restoran paneli: müşteriler, raporlar, kurye ve kampanyalar
+# Restoran paneli: müşteriler, raporlar, kurye, kampanyalar ve sadakat
 
 Panel menüsü (`PANEL_NAV`, `packages/shared/src/navigation.ts`) kullanıcının etkin izinlerinden çizilir; her bağlantının arkasında bir ekran vardır. Sipariş, sevk, menü, masa, ayar, ödeme, personel, plan ve finans ekranları kendi belgelerinde anlatılır (`docs/SIPARIS_VE_SEVK.md`, `docs/MASA_QR.md`, `docs/ODEME.md`, `docs/PERSONEL.md`, `docs/MESAJLASMA.md`, `docs/FATURALAMA.md`). Bu belge kalan dört ekranı tanımlar.
 
@@ -10,6 +10,7 @@ Masadan, restoranın kendi sipariş sayfasından veya pazaryerinden sipariş ver
 - `GET /restaurants/:id/customers/:customerId` ve `GET .../:customerId/orders` (`orders.view` de gerekir): müşteri kartı ve son 20 siparişi, sipariş ekranıyla aynı eşleme ve maskeleme.
 - `PATCH /restaurants/:id/customers/:customerId` (`customers.manage` + Pro özelliği `crm`, `PLAN_FEATURE_REQUIRED`): etiketler (en çok 20) ve not (en çok 500 karakter). Pazarlama izni (`marketingOptIn`) müşterinin kendi onayıdır, personel değiştiremez.
 - Sayaçlar (`orderCount`, `lifetimeGrossMinor`, `lastOrderAt`) sipariş yerleştirildiğinde artar; iptal edilen sipariş sayaçtan düşmez (rapor ekranı tamamlanan siparişi ayrı sayar).
+- Her müşteride sadakat puanı (`loyaltyPoints`) görünür; `loyalty.manage` izni ve Pro planıyla kartta puan düzeltme yapılır (`docs/SADAKAT.md`).
 
 ## Raporlar (`/panel/<slug>/raporlar`, izin `reports.view`)
 
@@ -26,6 +27,10 @@ Masadan, restoranın kendi sipariş sayfasından veya pazaryerinden sipariş ver
 ## Kampanyalar (`/panel/<slug>/kampanyalar`, izin `campaigns.view`)
 
 Pro özelliği `campaigns`: izinli müşterilere segment bazlı SMS / WhatsApp gönderimi, önizleme, zamanlama, vazgeçme bağlantısı ve sessiz saat kuralı `docs/KAMPANYALAR.md` içinde anlatılır. Temel planda ekran plan kuralını söyler ve Pro'ya geçişe bağlanır.
+
+## Sadakat (`/panel/<slug>/sadakat`, izin `loyalty.view`)
+
+Pro özelliği `loyalty`: tamamlanan siparişte puan, bir sonraki siparişte restoranın karşıladığı indirim. Kurallar, sayaçlar, son hareketler ve müşteri kartındaki düzeltme `docs/SADAKAT.md` içinde anlatılır. Temel planda kurallar salt okunurdur ve plan notu görünür.
 
 ## Değişmeyen kurallar
 

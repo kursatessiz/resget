@@ -7,6 +7,11 @@ export const CurrentUser = createParamDecorator((_data: unknown, ctx: ExecutionC
   return user;
 });
 
+/** The signed-in person on a public route behind OptionalJwtAuthGuard, or null for an anonymous visitor. */
+export const OptionalUser = createParamDecorator((_data: unknown, ctx: ExecutionContext): AuthUser | null => {
+  return ctx.switchToHttp().getRequest<AuthenticatedRequest>().user ?? null;
+});
+
 /** The resolved tenant of a @RestaurantScoped() route. */
 export const Tenant = createParamDecorator((_data: unknown, ctx: ExecutionContext): TenantContext => {
   const tenant = ctx.switchToHttp().getRequest<AuthenticatedRequest>().tenant;

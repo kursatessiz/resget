@@ -22,6 +22,7 @@ export const PANEL_NAV: readonly PanelNavItem[] = [
   { key: 'payments', path: '/odeme', permission: 'payments.manage' },
   { key: 'courier', path: '/kurye', permission: 'courier.manage' },
   { key: 'campaigns', path: '/kampanyalar', permission: 'campaigns.view' },
+  { key: 'loyalty', path: '/sadakat', permission: 'loyalty.view' },
   { key: 'reports', path: '/raporlar', permission: 'reports.view' },
   { key: 'subscription', path: '/plan', permission: 'subscription.manage' },
   { key: 'staff', path: '/personel', permission: 'staff.manage' },

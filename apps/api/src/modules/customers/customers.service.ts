@@ -16,6 +16,7 @@ const customerSelect = Prisma.validator<Prisma.RestaurantCustomerSelect>()({
   tags: true,
   note: true,
   marketingOptIn: true,
+  loyaltyPoints: true,
   createdAt: true,
   user: { select: { fullName: true, phone: true } },
 });
@@ -118,6 +119,7 @@ export class CustomersService {
       tags: row.tags,
       note: row.note,
       marketingOptIn: row.marketingOptIn,
+      loyaltyPoints: row.loyaltyPoints,
       createdAt: row.createdAt.toISOString(),
     };
   }
