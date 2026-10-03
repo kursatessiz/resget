@@ -46,4 +46,8 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.STAFF_ALREADY_MEMBER': 'This phone number is already on the team.',
   'errors.PACKAGE_NOT_FOUND': 'Credit package not found.',
   'errors.PAYMENT_METHOD_NOT_FOUND': 'Saved card not found.',
+  'errors.SLUG_TAKEN': 'This ordering page address is taken; choose another.',
+  'errors.SERVICE_AREA_EXISTS': 'This service area already exists.',
+  'errors.PLAN_NOT_FOUND': 'Plan not found.',
+  'errors.RESTAURANT_NOT_FOUND': 'Restaurant not found.',
 };

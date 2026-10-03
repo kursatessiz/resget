@@ -8,6 +8,14 @@ import { getMe } from './api-server';
  * session; a missing membership or permission is a 404, never a hint that
  * the restaurant exists.
  */
+/** The platform owner's console: anyone else gets a 404, never a hint that it exists. */
+export async function requireSuperAdmin(): Promise<MeDTO> {
+  const me = await getMe();
+  if (!me) redirect('/giris?next=/admin');
+  if (!me.user.isSuperAdmin) notFound();
+  return me;
+}
+
 export async function requireMembership(
   slug: string,
   permission: PermissionKey | null,

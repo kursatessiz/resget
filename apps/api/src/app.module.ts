@@ -16,6 +16,7 @@ import { RealtimeModule } from './modules/realtime/realtime.module';
 import { DispatchModule } from './modules/dispatch/dispatch.module';
 import { StaffModule } from './modules/staff/staff.module';
 import { CreditsModule } from './modules/credits/credits.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { CreditsModule } from './modules/credits/credits.module';
     DispatchModule,
     StaffModule,
     CreditsModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

@@ -5,6 +5,7 @@ export const SEED = {
   firstMenuItem: 'Izgara kofte',
   trackingToken: 'demo-siparis-takip-token-0001',
   restaurantSlug: 'demo-lokanta',
+  superAdminPhone: '05320000001',
   ownerPhone: '05320000002',
   guestPhone: '05320000003',
   courierPhone: '05320000004',

@@ -13,6 +13,7 @@ export * from './menu';
 export * from './restaurant';
 export * from './staff';
 export * from './messaging';
+export * from './admin';
 export * from './validators';
 export * from './types';
 export * from './phone';

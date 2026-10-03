@@ -45,4 +45,8 @@ export const trErrors = {
   'errors.STAFF_ALREADY_MEMBER': 'Bu telefon numarası zaten ekipte.',
   'errors.PACKAGE_NOT_FOUND': 'Kredi paketi bulunamadı.',
   'errors.PAYMENT_METHOD_NOT_FOUND': 'Kayıtlı kart bulunamadı.',
+  'errors.SLUG_TAKEN': 'Bu sipariş sayfası adresi kullanımda; başka bir ad seçin.',
+  'errors.SERVICE_AREA_EXISTS': 'Bu hizmet alanı zaten kayıtlı.',
+  'errors.PLAN_NOT_FOUND': 'Plan bulunamadı.',
+  'errors.RESTAURANT_NOT_FOUND': 'Restoran bulunamadı.',
 } as const satisfies Record<string, string>;
