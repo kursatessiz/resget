@@ -35,6 +35,8 @@ Tetikleyiciler: `pull_request`, `workflow_call` (release.yml çağırır), `work
 | `scripts` | `shellcheck -x deploy/scripts/*.sh` ve `actionlint` |
 | `images` | API ve web Dockerfile'larının derlenmesi (yalnızca PR'da; push edilmez) |
 
+Zafiyet denetimi istisnaları `package.json` içinde `pnpm.auditConfig.ignoreGhsas` listesindedir ve yalnızca yaması henüz yayımlanmamış, üretim bağımlılıklarına ulaşmayan duyurular için kullanılır (`pnpm audit --prod` temiz kalmalıdır). Mevcut istisna: `GHSA-vfj7-8cjw-p6xm` (`braces`, yalnızca jest üzerinden geliştirme bağımlılığı; `braces` düzeltme sürümü çıkınca kaldırılır).
+
 ### e2e testleri yerelde
 
 ```bash
