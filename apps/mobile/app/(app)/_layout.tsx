@@ -29,6 +29,7 @@ export default function AppLayout() {
         name="siparisler"
         options={{ title: t('mobile.tabs.orders'), href: tabs.includes('orders') ? undefined : null }}
       />
+      <Tabs.Screen name="siparislerim" options={{ title: t('mobile.tabs.myOrders') }} />
       <Tabs.Screen name="hesap" options={{ title: t('mobile.tabs.account') }} />
     </Tabs>
   );

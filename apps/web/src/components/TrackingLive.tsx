@@ -7,54 +7,16 @@ import {
   RATING_COMMENT_MAX,
   RATING_MAX,
   RATING_MIN,
+  TRACKING_STEPS,
   createTranslator,
+  isTrackingEnded,
+  trackingStatusMessageKey,
+  trackingStepIndex,
 } from '@resget/shared';
 import type { OrderTrackingDTO } from '@resget/shared';
 import { Button, Card, LinkButton, TextAreaField } from '@/components/ui';
 import { ApiError, bffJson } from '@/lib/client-api';
 import { cx } from '@/components/ui/types';
-
-type Step = 'placed' | 'accepted' | 'preparing' | 'ready' | 'onTheWay' | 'delivered' | 'pickedUp' | 'served';
-
-const STEPS: Record<OrderTrackingDTO['fulfillment'], Step[]> = {
-  DELIVERY: ['placed', 'accepted', 'preparing', 'ready', 'onTheWay', 'delivered'],
-  PICKUP: ['placed', 'accepted', 'preparing', 'ready', 'pickedUp'],
-  DINE_IN: ['placed', 'accepted', 'preparing', 'served'],
-};
-
-/** Index of the step a status has reached; -1 for a cancelled or rejected order. */
-function stepIndex(status: OrderTrackingDTO['status'], fulfillment: OrderTrackingDTO['fulfillment']): number {
-  const steps = STEPS[fulfillment];
-  switch (status) {
-    case 'PENDING_PAYMENT':
-    case 'PLACED':
-      return 0;
-    case 'ACCEPTED':
-      return 1;
-    case 'PREPARING':
-      return 2;
-    case 'READY':
-      return fulfillment === 'DINE_IN' ? 2 : 3;
-    case 'HANDED_TO_COURIER':
-    case 'OUT_FOR_DELIVERY':
-    case 'ARRIVING':
-      return 4;
-    case 'DELIVERED':
-    case 'PICKED_UP':
-      return steps.length - 1;
-    default:
-      return -1;
-  }
-}
-
-const ENDED = new Set([
-  'DELIVERED',
-  'PICKED_UP',
-  'CANCELLED_BY_CUSTOMER',
-  'CANCELLED_BY_RESTAURANT',
-  'REJECTED',
-  'REFUNDED',
-]);
 
 export function TrackingLive({ token, initial, locale }: { token: string; initial: OrderTrackingDTO; locale: string }) {
   const [tracking, setTracking] = useState(initial);
@@ -78,7 +40,7 @@ export function TrackingLive({ token, initial, locale }: { token: string; initia
   const km = useMemo(() => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }), [locale]);
 
   useEffect(() => {
-    if (ENDED.has(tracking.status) || typeof EventSource === 'undefined') return undefined;
+    if (isTrackingEnded(tracking.status) || typeof EventSource === 'undefined') return undefined;
     const source = new EventSource(`/api/bff/public/orders/${encodeURIComponent(token)}/events`);
     const onUpdate = (event: MessageEvent<string>) => {
       try {
@@ -119,13 +81,10 @@ export function TrackingLive({ token, initial, locale }: { token: string; initia
   };
   const scores = Array.from({ length: RATING_MAX - RATING_MIN + 1 }, (_, i) => RATING_MIN + i);
 
-  const steps = STEPS[tracking.fulfillment];
-  const reached = stepIndex(tracking.status, tracking.fulfillment);
+  const steps = TRACKING_STEPS[tracking.fulfillment];
+  const reached = trackingStepIndex(tracking.status, tracking.fulfillment);
   const cancelled = reached < 0;
-  const statusKey =
-    tracking.status === 'READY' && tracking.fulfillment === 'DELIVERY'
-      ? 'tracking.status.READY.DELIVERY'
-      : `tracking.status.${tracking.status}`;
+  const statusKey = trackingStatusMessageKey(tracking.status, tracking.fulfillment);
   const courier = tracking.courier;
   const mapsUrl = courier?.position
     ? `https://www.google.com/maps?q=${courier.position.lat},${courier.position.lng}`
@@ -136,7 +95,7 @@ export function TrackingLive({ token, initial, locale }: { token: string; initia
       <Card
         title={t(statusKey)}
         aside={
-          connection !== 'idle' && !ENDED.has(tracking.status) ? (
+          connection !== 'idle' && !isTrackingEnded(tracking.status) ? (
             <span className={cx('pui-badge', connection === 'live' ? 'pui-soft pui-success' : 'pui-soft pui-warn')}>
               {connection === 'live' ? t('tracking.live') : t('tracking.reconnecting')}
             </span>
