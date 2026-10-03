@@ -1,18 +1,22 @@
-import { Controller, Get, HttpCode, Patch, Post, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Patch, Post, Put, UseGuards } from '@nestjs/common';
 import type { z } from 'zod';
 import {
   CampaignsQuerySchema,
+  CountAudienceSchema,
   CreateCampaignSchema,
+  SaveSegmentSchema,
   SendCampaignSchema,
   UpdateCampaignSchema,
   UuidSchema,
 } from '@resget/shared';
 import type {
+  AudienceCountDTO,
   CampaignAudienceDTO,
   CampaignDTO,
   CampaignDetailDTO,
   CampaignPageDTO,
   CampaignPreviewDTO,
+  SavedSegmentDTO,
 } from '@resget/shared';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/zod-body.pipe';
 import {
@@ -45,6 +49,50 @@ export class CampaignsController {
   @RequirePermission('campaigns.view')
   audience(@Tenant() tenant: TenantContext): Promise<CampaignAudienceDTO> {
     return this.campaigns.audience(tenant.restaurantId);
+  }
+
+  /** How many opted-in customers an ad-hoc filter matches right now; the screen shows it before saving. */
+  @Post('audience/count')
+  @HttpCode(200)
+  @RequirePermission('campaigns.view')
+  async countAudience(
+    @Tenant() tenant: TenantContext,
+    @ZodBody(CountAudienceSchema) body: z.infer<typeof CountAudienceSchema>,
+  ): Promise<AudienceCountDTO> {
+    return { audienceCount: await this.campaigns.countAudience(tenant.restaurantId, body.segment) };
+  }
+
+  // Saved segments come before the `:campaignId` routes so the literal path wins.
+  @Get('segments')
+  @RequirePermission('campaigns.view')
+  segments(@Tenant() tenant: TenantContext): Promise<SavedSegmentDTO[]> {
+    return this.campaigns.segments(tenant.restaurantId);
+  }
+
+  @Post('segments')
+  @RequirePermission('campaigns.manage')
+  saveSegment(
+    @Tenant() tenant: TenantContext,
+    @ZodBody(SaveSegmentSchema) body: z.infer<typeof SaveSegmentSchema>,
+  ): Promise<SavedSegmentDTO> {
+    return this.campaigns.saveSegment(tenant.restaurantId, body);
+  }
+
+  @Put('segments/:segmentId')
+  @RequirePermission('campaigns.manage')
+  updateSegment(
+    @Tenant() tenant: TenantContext,
+    @ZodParam('segmentId', UuidSchema) segmentId: string,
+    @ZodBody(SaveSegmentSchema) body: z.infer<typeof SaveSegmentSchema>,
+  ): Promise<SavedSegmentDTO> {
+    return this.campaigns.saveSegment(tenant.restaurantId, body, segmentId);
+  }
+
+  @Delete('segments/:segmentId')
+  @HttpCode(204)
+  @RequirePermission('campaigns.manage')
+  deleteSegment(@Tenant() tenant: TenantContext, @ZodParam('segmentId', UuidSchema) segmentId: string): Promise<void> {
+    return this.campaigns.deleteSegment(tenant.restaurantId, segmentId);
   }
 
   @Post()

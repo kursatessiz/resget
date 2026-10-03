@@ -68,6 +68,31 @@ export type SendCampaignInput = z.infer<typeof SendCampaignSchema>;
 
 export const CampaignsQuerySchema = PaginationSchema.extend({ status: z.string().optional() }).strict();
 
+/** A segment the restaurant keeps under a name and reuses across campaigns (docs/KAMPANYALAR.md). */
+export const SaveSegmentSchema = z
+  .object({
+    name: z.string().trim().min(2).max(60),
+    segment: CampaignSegmentSchema,
+  })
+  .strict();
+export type SaveSegmentInput = z.infer<typeof SaveSegmentSchema>;
+
+export const CountAudienceSchema = z.object({ segment: CampaignSegmentSchema.default({}) }).strict();
+
+export interface SavedSegmentDTO {
+  id: string;
+  name: string;
+  segment: CampaignSegment;
+  /** Opted-in customers the segment matches right now. */
+  audienceCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AudienceCountDTO {
+  audienceCount: number;
+}
+
 export interface CampaignDTO {
   id: string;
   name: string;

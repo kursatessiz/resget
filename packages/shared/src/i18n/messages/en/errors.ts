@@ -53,6 +53,8 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.LISTING_NOT_READY': 'Listing needs at least one menu item on sale and an active branch.',
   'errors.ALREADY_LISTED': 'The restaurant is already listed in the marketplace.',
   'errors.CAMPAIGN_NOT_FOUND': 'Campaign not found.',
+  'errors.SEGMENT_NOT_FOUND': 'Saved segment not found.',
+  'errors.SEGMENT_NAME_TAKEN': 'A segment with that name already exists.',
   'errors.LOYALTY_NOT_ACTIVE': 'This restaurant has no active loyalty program.',
   'errors.LOYALTY_NOT_REDEEMABLE': 'Points cannot be used on this order: the balance or the order total is too low.',
   'errors.LOYALTY_SIGN_IN_REQUIRED': 'Sign in to use points.',

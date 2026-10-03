@@ -3,12 +3,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CAMPAIGN_BODY_MAX } from '@resget/shared';
 import type {
+  AudienceCountDTO,
   CampaignAudienceDTO,
   CampaignDTO,
   CampaignDetailDTO,
   CampaignPageDTO,
   CampaignPreviewDTO,
+  CampaignSegment,
   NotificationChannel,
+  SavedSegmentDTO,
 } from '@resget/shared';
 import { Badge, Button, Card, SelectField, TextAreaField, TextField } from '@/components/ui';
 import type { UiTone } from '@/components/ui/types';
@@ -46,6 +49,10 @@ export function CampaignsManager({
   const [inactiveFor, setInactiveFor] = useState('');
   const [tags, setTags] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
+  const [segments, setSegments] = useState<SavedSegmentDTO[]>([]);
+  const [pickedSegment, setPickedSegment] = useState('');
+  const [segmentName, setSegmentName] = useState('');
+  const [estimate, setEstimate] = useState<number | null>(null);
   const [preview, setPreview] = useState<{ id: string; data: CampaignPreviewDTO } | null>(null);
   const [detail, setDetail] = useState<CampaignDetailDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,12 +67,14 @@ export function CampaignsManager({
     new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
 
   const load = useCallback(async () => {
-    const [list, who] = await Promise.all([
+    const [list, who, saved] = await Promise.all([
       bffJson<CampaignPageDTO>(`${base}?page=1&pageSize=50`),
       bffJson<CampaignAudienceDTO>(`${base}/audience`),
+      bffJson<SavedSegmentDTO[]>(`${base}/segments`),
     ]);
     setPage(list);
     setAudience(who);
+    setSegments(saved);
   }, [base]);
 
   useEffect(() => {
@@ -99,6 +108,41 @@ export function CampaignsManager({
         }
       : {}),
   });
+
+  /** Loads a saved segment into the filter fields; an empty choice clears them. */
+  const applySegment = (id: string) => {
+    setPickedSegment(id);
+    setEstimate(null);
+    const chosen: CampaignSegment = segments.find((s) => s.id === id)?.segment ?? {};
+    setMinOrders(chosen.minOrders !== undefined ? String(chosen.minOrders) : '');
+    setLastWithin(chosen.lastOrderWithinDays !== undefined ? String(chosen.lastOrderWithinDays) : '');
+    setInactiveFor(chosen.inactiveForDays !== undefined ? String(chosen.inactiveForDays) : '');
+    setTags(chosen.tags ? chosen.tags.join(', ') : '');
+  };
+  const countNow = () =>
+    act(async () => {
+      const result = await bffJson<AudienceCountDTO>(`${base}/audience/count`, {
+        method: 'POST',
+        body: JSON.stringify({ segment: segment() }),
+      });
+      setEstimate(result.audienceCount);
+    });
+  const saveSegment = () =>
+    act(async () => {
+      const saved = await bffJson<SavedSegmentDTO>(`${base}/segments`, {
+        method: 'POST',
+        body: JSON.stringify({ name: segmentName.trim(), segment: segment() }),
+      });
+      setSegmentName('');
+      setPickedSegment(saved.id);
+      setNotice(t('campaigns.segments.saved'));
+    });
+  const deleteSegment = (id: string) =>
+    act(async () => {
+      await bffJson<void>(`${base}/segments/${id}`, { method: 'DELETE' });
+      if (pickedSegment === id) setPickedSegment('');
+      setNotice(t('campaigns.segments.deleted'));
+    });
 
   const create = () =>
     act(async () => {
@@ -191,6 +235,19 @@ export function CampaignsManager({
           </div>
           <fieldset className="grid gap-3 md:grid-cols-4">
             <legend className="ui-heading">{t('campaigns.segment.title')}</legend>
+            <SelectField
+              className="md:col-span-4"
+              label={t('campaigns.segments.pick')}
+              value={pickedSegment}
+              onChange={(e) => applySegment(e.target.value)}
+            >
+              <option value="">{t('campaigns.segments.none')}</option>
+              {segments.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({t('campaigns.segments.count', { count: s.audienceCount })})
+                </option>
+              ))}
+            </SelectField>
             <TextField
               label={t('campaigns.segment.minOrders')}
               value={minOrders}
@@ -210,6 +267,30 @@ export function CampaignsManager({
               inputMode="numeric"
             />
             <TextField label={t('campaigns.segment.tags')} value={tags} onChange={(e) => setTags(e.target.value)} />
+            <div className="flex flex-col gap-3 md:col-span-4 md:flex-row md:items-end">
+              <TextField
+                label={t('campaigns.segments.name')}
+                value={segmentName}
+                onChange={(e) => setSegmentName(e.target.value)}
+                maxLength={60}
+              />
+              <Button
+                variant="outline"
+                tone="muted"
+                onClick={saveSegment}
+                disabled={busy || segmentName.trim().length < 2}
+              >
+                {t('campaigns.segments.save')}
+              </Button>
+              <Button variant="outline" tone="muted" onClick={countNow} disabled={busy}>
+                {t('campaigns.segments.countNow')}
+              </Button>
+            </div>
+            {estimate !== null && (
+              <p role="status" className="ui-caption md:col-span-4">
+                {t('campaigns.segments.estimate', { count: estimate })}
+              </p>
+            )}
           </fieldset>
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
             <TextField
@@ -223,6 +304,24 @@ export function CampaignsManager({
             </Button>
           </div>
           <p className="ui-caption">{t('campaigns.rules')}</p>
+        </Card>
+      )}
+
+      {canManage && segments.length > 0 && (
+        <Card title={t('campaigns.segments.title')} aria-label={t('campaigns.segments.title')}>
+          <ul className="flex flex-col gap-2">
+            {segments.map((s) => (
+              <li key={s.id} className="flex flex-wrap items-center justify-between gap-2" aria-label={s.name}>
+                <span>
+                  {s.name}{' '}
+                  <span className="ui-caption">{t('campaigns.segments.count', { count: s.audienceCount })}</span>
+                </span>
+                <Button variant="outline" tone="muted" onClick={() => deleteSegment(s.id)} disabled={busy}>
+                  {t('campaigns.segments.delete')}
+                </Button>
+              </li>
+            ))}
+          </ul>
         </Card>
       )}
 

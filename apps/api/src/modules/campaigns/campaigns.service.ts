@@ -23,11 +23,15 @@ import type {
   NotificationChannel,
   SendCampaignInput,
   UpdateCampaignInput,
+  SavedSegmentDTO,
+  SaveSegmentInput,
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
 import { CONSENT_REGISTRY } from './consent-registry';
+
+type SegmentRow = Prisma.CampaignSegmentPresetGetPayload<Record<string, never>>;
 
 const campaignSelect = Prisma.validator<Prisma.CampaignSelect>()({
   id: true,
@@ -94,6 +98,59 @@ export class CampaignsService {
     ]);
     return { total, optedIn };
   }
+
+  // -- Saved segments ---------------------------------------------------------------------
+
+  async countAudience(restaurantId: string, segment: CampaignSegment, now: Date = new Date()): Promise<number> {
+    return this.prisma.restaurantCustomer.count({ where: this.audienceWhere(restaurantId, segment, now) });
+  }
+
+  async segments(restaurantId: string): Promise<SavedSegmentDTO[]> {
+    const rows = await this.prisma.campaignSegmentPreset.findMany({
+      where: { restaurantId },
+      orderBy: { name: 'asc' },
+    });
+    const now = new Date();
+    return Promise.all(rows.map((row) => this.toSegmentDto(row, now)));
+  }
+
+  async saveSegment(restaurantId: string, input: SaveSegmentInput, segmentId?: string): Promise<SavedSegmentDTO> {
+    const clash = await this.prisma.campaignSegmentPreset.findUnique({
+      where: { restaurantId_name: { restaurantId, name: input.name } },
+      select: { id: true },
+    });
+    if (clash && clash.id !== segmentId) throw conflict('SEGMENT_NAME_TAKEN', 'Segment name already used');
+    const data = { name: input.name, segment: input.segment as Prisma.InputJsonObject };
+    let row: SegmentRow;
+    if (segmentId) {
+      const existing = await this.prisma.campaignSegmentPreset.findFirst({ where: { id: segmentId, restaurantId } });
+      if (!existing) throw notFound('SEGMENT_NOT_FOUND', 'Segment not found');
+      row = await this.prisma.campaignSegmentPreset.update({ where: { id: segmentId }, data });
+    } else {
+      row = await this.prisma.campaignSegmentPreset.create({ data: { restaurantId, ...data } });
+    }
+    return this.toSegmentDto(row, new Date());
+  }
+
+  async deleteSegment(restaurantId: string, segmentId: string): Promise<void> {
+    const removed = await this.prisma.campaignSegmentPreset.deleteMany({ where: { id: segmentId, restaurantId } });
+    if (removed.count === 0) throw notFound('SEGMENT_NOT_FOUND', 'Segment not found');
+  }
+
+  private async toSegmentDto(row: SegmentRow, now: Date): Promise<SavedSegmentDTO> {
+    const parsed = CampaignSegmentSchema.safeParse(row.segment ?? {});
+    const segment = parsed.success ? parsed.data : {};
+    return {
+      id: row.id,
+      name: row.name,
+      segment,
+      audienceCount: await this.countAudience(row.restaurantId, segment, now),
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  // -- Campaigns ----------------------------------------------------------------------------
 
   async create(restaurantId: string, userId: string, input: CreateCampaignInput): Promise<CampaignDTO> {
     const row = await this.prisma.campaign.create({

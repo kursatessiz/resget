@@ -381,6 +381,7 @@ model Restaurant {
   auditLogs            AuditLog[]
   campaigns            Campaign[]
   loyaltyProgram       LoyaltyProgram?
+  campaignSegments     CampaignSegmentPreset[]
   loyaltyTransactions  LoyaltyTransaction[]
 
   @@index([serviceAreaId, isListed])
@@ -694,6 +695,21 @@ model Campaign {
   @@index([restaurantId, createdAt])
   @@index([status, scheduledAt])
   @@map("campaigns")
+}
+
+/// A named audience filter the restaurant reuses across campaigns (CampaignSegmentSchema in shared).
+model CampaignSegmentPreset {
+  id           String   @id @default(uuid())
+  restaurantId String
+  name         String
+  segment      Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, name])
+  @@map("campaign_segments")
 }
 
 model CampaignRecipient {
