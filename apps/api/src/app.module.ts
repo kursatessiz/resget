@@ -19,6 +19,8 @@ import { CreditsModule } from './modules/credits/credits.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { StorefrontModule } from './modules/storefront/storefront.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { CustomersModule } from './modules/customers/customers.module';
+import { ReportsModule } from './modules/reports/reports.module';
 
 @Module({
   imports: [
@@ -41,6 +43,8 @@ import { BillingModule } from './modules/billing/billing.module';
     AdminModule,
     StorefrontModule,
     BillingModule,
+    CustomersModule,
+    ReportsModule,
   ],
 })
 export class AppModule {}

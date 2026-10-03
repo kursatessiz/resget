@@ -459,6 +459,8 @@ export const OrdersQuerySchema = z
     fulfillment: FulfillmentTypeValueSchema.optional(),
     /** Only orders that still need attention (not terminal). */
     active: z.coerce.boolean().optional(),
+    /** Orders of one customer (the customer list's detail). */
+    customerUserId: UuidSchema.optional(),
     limit: z.coerce.number().int().min(1).max(200).default(100),
   })
   .strict();

@@ -13,6 +13,8 @@ import {
  * the English `message` is for logs and API consumers, never shown to users.
  */
 export type ApiErrorCode =
+  | 'CUSTOMER_NOT_FOUND'
+  | 'COURIER_PROVIDER_NOT_FOUND'
   | 'INVOICE_NOT_FOUND'
   | 'INVOICE_STATE_INVALID'
   | 'BILLING_CARD_REQUIRED'

@@ -310,6 +310,7 @@ export class OrdersService {
         restaurantId,
         ...(query.status ? { status: { in: query.status } } : {}),
         ...(query.fulfillment ? { fulfillment: query.fulfillment } : {}),
+        ...(query.customerUserId ? { customerUserId: query.customerUserId } : {}),
         ...(query.active
           ? {
               status: {
