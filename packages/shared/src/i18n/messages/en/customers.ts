@@ -1,0 +1,30 @@
+import type { trCustomers } from '../tr/customers';
+
+export const enCustomers: Record<keyof typeof trCustomers, string> = {
+  'customers.title': 'Customers',
+  'customers.intro':
+    'Everyone who orders from a table, your ordering page or the marketplace accumulates here as your customer. The list is yours; the platform never shares it with third parties.',
+  'customers.search': 'Search by name or phone',
+  'customers.sort': 'Sort',
+  'customers.sort.recent': 'Last order',
+  'customers.sort.orders': 'Order count',
+  'customers.sort.spend': 'Total spend',
+  'customers.summary.total': 'Customers',
+  'customers.summary.new': 'New in the last 30 days',
+  'customers.summary.returning': 'Ordered again',
+  'customers.empty': 'No customers yet. The first order will show up here.',
+  'customers.orders': '{count} orders',
+  'customers.lastOrder': 'Last order: {date}',
+  'customers.firstChannel': 'First channel: {channel}',
+  'customers.spend': 'Total: {amount}',
+  'customers.optIn': 'Marketing consent given',
+  'customers.noOptIn': 'No marketing consent',
+  'customers.tags': 'Tags (comma separated)',
+  'customers.note': 'Note',
+  'customers.save': 'Save',
+  'customers.proOnly': 'Notes and tags are part of the Pro plan.',
+  'customers.recentOrders': 'Recent orders',
+  'customers.noOrders': 'This customer has no orders.',
+  'customers.details': 'Details',
+  'customers.hide': 'Hide',
+};

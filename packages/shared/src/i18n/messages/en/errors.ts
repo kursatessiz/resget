@@ -45,6 +45,8 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.STAFF_OWNER_PROTECTED': 'The owner membership cannot be changed here.',
   'errors.STAFF_ALREADY_MEMBER': 'This phone number is already on the team.',
   'errors.PACKAGE_NOT_FOUND': 'Credit package not found.',
+  'errors.CUSTOMER_NOT_FOUND': 'Customer not found.',
+  'errors.COURIER_PROVIDER_NOT_FOUND': 'Courier network not found.',
   'errors.INVOICE_NOT_FOUND': 'Invoice not found.',
   'errors.INVOICE_STATE_INVALID': 'This invoice does not accept that action in its current state.',
   'errors.BILLING_CARD_REQUIRED': 'Choose a card for the collection.',

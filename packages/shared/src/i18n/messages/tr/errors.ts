@@ -45,6 +45,8 @@ export const trErrors = {
   'errors.STAFF_ALREADY_MEMBER': 'Bu telefon numarası zaten ekipte.',
   'errors.PACKAGE_NOT_FOUND': 'Kredi paketi bulunamadı.',
   'errors.PAYMENT_METHOD_NOT_FOUND': 'Kayıtlı kart bulunamadı.',
+  'errors.CUSTOMER_NOT_FOUND': 'Müşteri bulunamadı.',
+  'errors.COURIER_PROVIDER_NOT_FOUND': 'Kurye ağı bulunamadı.',
   'errors.INVOICE_NOT_FOUND': 'Fatura bulunamadı.',
   'errors.INVOICE_STATE_INVALID': 'Bu fatura bu aşamada işlem kabul etmiyor.',
   'errors.BILLING_CARD_REQUIRED': 'Tahsilat için bir kart seçin.',

@@ -1,11 +1,12 @@
-import { Controller, HttpCode, Post } from '@nestjs/common';
+import { Controller, Get, HttpCode, Post, Put } from '@nestjs/common';
 import { z } from 'zod';
-import { CourierQuoteRequestSchema, MinorAmountSchema } from '@resget/shared';
+import { CourierQuoteRequestSchema, MinorAmountSchema, SelectCourierProviderSchema } from '@resget/shared';
+import type { CourierOverviewDTO } from '@resget/shared';
 import { ZodBody } from '../../common/zod-body.pipe';
 import { RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
 import { Tenant } from '../auth/decorators/current-user.decorator';
 import type { TenantContext } from '../auth/tenant-context';
-import { CourierService } from './courier.service';
+import { CourierOverviewQueries, CourierService } from './courier.service';
 import type { QuoteWithCustomerFee } from './courier.service';
 
 const QuoteBodySchema = CourierQuoteRequestSchema.omit({ restaurantId: true })
@@ -15,7 +16,26 @@ const QuoteBodySchema = CourierQuoteRequestSchema.omit({ restaurantId: true })
 @Controller('restaurants/:restaurantId/courier')
 @RestaurantScoped()
 export class CourierController {
-  constructor(private readonly courier: CourierService) {}
+  constructor(
+    private readonly courier: CourierService,
+    private readonly overviewQueries: CourierOverviewQueries,
+  ) {}
+
+  /** The courier screen: own couriers, the network, recent requests and today's counts. */
+  @Get('overview')
+  @RequirePermission('courier.manage')
+  overview(@Tenant() tenant: TenantContext): Promise<CourierOverviewDTO> {
+    return this.overviewQueries.overview(tenant.restaurantId);
+  }
+
+  @Put('provider')
+  @RequirePermission('courier.manage')
+  selectProvider(
+    @Tenant() tenant: TenantContext,
+    @ZodBody(SelectCourierProviderSchema) body: z.infer<typeof SelectCourierProviderSchema>,
+  ): Promise<CourierOverviewDTO> {
+    return this.overviewQueries.selectProvider(tenant.restaurantId, body.courierProviderId);
+  }
 
   @Post('quote')
   @HttpCode(200)

@@ -1,0 +1,21 @@
+/** Restaurant reports (/panel/<slug>/raporlar). */
+export const trReports = {
+  'reports.title': 'Raporlar',
+  'reports.intro': 'Tamamlanan siparişlerin anlık görüntülerinden hesaplanır; geçmiş günler sonradan değişmez.',
+  'reports.range': 'Dönem',
+  'reports.range.days': 'Son {days} gün',
+  'reports.proRange': 'Daha uzun dönemler ve dışa aktarma Pro planında yer alır.',
+  'reports.kpi.completed': 'Tamamlanan sipariş',
+  'reports.kpi.cancelled': 'İptal ve ret',
+  'reports.kpi.gross': 'Ciro',
+  'reports.kpi.average': 'Ortalama sepet',
+  'reports.kpi.commission': 'Biriken komisyon (KDV dahil)',
+  'reports.byFulfillment': 'Teslim şekline göre',
+  'reports.byChannel': 'Kanala göre',
+  'reports.topItems': 'En çok satan ürünler',
+  'reports.daily': 'Günlük',
+  'reports.orders': '{count} sipariş',
+  'reports.quantity': '{count} adet',
+  'reports.empty': 'Bu dönemde tamamlanan sipariş yok.',
+  'reports.export': 'CSV indir',
+} as const satisfies Record<string, string>;
