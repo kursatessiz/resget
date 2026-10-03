@@ -1,0 +1,4 @@
+{
+  "NSLocationWhenInUseUsageDescription": "Sefer sırasında konumunuz işletmeye ve müşteriye gönderilir.",
+  "NSLocationAlwaysAndWhenInUseUsageDescription": "Sefer sırasında uygulama arka plandayken de konum gönderilir."
+}

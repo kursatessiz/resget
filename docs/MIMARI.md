@@ -5,6 +5,7 @@
 | Parça | Rol |
 |---|---|
 | `apps/api` | NestJS 11. Tüm iş mantığı burada. Prisma, Passport JWT, Swagger (yalnızca üretim dışı). |
+| `apps/mobile` | Expo SDK 57, expo-router. Tek uygulama; sekmeler üyeliğin izinlerinden kurulur. API'ye doğrudan bearer ile gider, jetonlar cihaz anahtarlığında (`docs/MOBIL.md`). |
 | `apps/web` | Next.js 15 App Router. Restoran paneli, herkese açık menü (`/m/<token>`), restoran sipariş sayfası (`/<slug>`), BFF proxy (`/api/bff/*`). İş mantığı yok. |
 | `packages/shared` | Tek doğruluk kaynağı: enum'lar, Zod şemaları, izin kataloğu, `Money` ve hakediş motoru, plan kuralları, kurye arayüzü, masa QR, tasarım token'ları, i18n. |
 | `packages/database` | Prisma şeması, ileri yönlü migration'lar, seed. |
