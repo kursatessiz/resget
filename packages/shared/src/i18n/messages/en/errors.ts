@@ -45,6 +45,8 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.STAFF_OWNER_PROTECTED': 'The owner membership cannot be changed here.',
   'errors.STAFF_ALREADY_MEMBER': 'This phone number is already on the team.',
   'errors.PACKAGE_NOT_FOUND': 'Credit package not found.',
+  'errors.UNSUPPORTED_FILE': 'Only PNG, JPG or WebP images can be uploaded.',
+  'errors.FILE_TOO_LARGE': 'The file is too large; the limit is 2 MB.',
   'errors.CUSTOMER_NOT_FOUND': 'Customer not found.',
   'errors.COURIER_PROVIDER_NOT_FOUND': 'Courier network not found.',
   'errors.INVOICE_NOT_FOUND': 'Invoice not found.',

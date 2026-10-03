@@ -40,6 +40,7 @@ services:
       CORS_ORIGIN: https://${WEB_DOMAIN}
       PUBLIC_APP_URL: https://${WEB_DOMAIN}
       PUBLIC_API_URL: https://${API_DOMAIN}
+      UPLOADS_DIR: /app/uploads
       # Every optional key of apps/api/src/config/env.ts is listed so a key can
       # never be silently missing; unset ones arrive empty and read as unset.
       SMS_PROVIDER: ${SMS_PROVIDER:-MOCK}
@@ -81,6 +82,9 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+    volumes:
+      # Uploaded restaurant logos (docs/TASARIM.md); backed up by backup.sh.
+      - uploads_data:/app/uploads
     networks: [web_net, internal_net]
     read_only: true
     tmpfs: [/tmp]
@@ -170,3 +174,4 @@ volumes:
   caddy_config:
   postgres_data:
   redis_data:
+  uploads_data:

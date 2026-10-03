@@ -41,6 +41,19 @@ fi
 
 find "${BACKUP_DIR}" -name 'db_*.sql.gz' -type f -mtime +14 -delete
 
+# Uploaded files (restaurant logos) live on the uploads volume, not in the
+# database; they ride along as a tarball when the api container is up.
+UPLOADS_FILE="${BACKUP_DIR}/uploads_${STAMP}.tgz"
+if compose exec -T api tar -C /app -czf - uploads > "${UPLOADS_FILE}" 2>/dev/null; then
+  chmod 600 "${UPLOADS_FILE}"
+  log "Uploads archived: ${UPLOADS_FILE} ($(du -h "${UPLOADS_FILE}" | cut -f1))"
+else
+  rm -f "${UPLOADS_FILE}"
+  UPLOADS_FILE=""
+  log "WARNING: uploads could not be archived (api container not running?)"
+fi
+find "${BACKUP_DIR}" -name 'uploads_*.tgz' -type f -mtime +14 -delete
+
 if [ -z "${BACKUP_S3_BUCKET:-}" ]; then
   log "WARNING: BACKUP_S3_BUCKET is not set; the backup exists only on this server"
   exit 0
@@ -56,12 +69,21 @@ PREFIX="${BACKUP_S3_PREFIX:-db}"
 REQUIRED="${BACKUP_OFFSITE_REQUIRED:-1}"
 
 ENCRYPTED="${FILENAME}.enc"
-cleanup() { rm -f "${ENCRYPTED}" "${ENCRYPTED}.sha256"; }
+UPLOADS_ENCRYPTED="${UPLOADS_FILE:+${UPLOADS_FILE}.enc}"
+cleanup() {
+  rm -f "${ENCRYPTED}" "${ENCRYPTED}.sha256"
+  [ -n "${UPLOADS_ENCRYPTED}" ] && rm -f "${UPLOADS_ENCRYPTED}" "${UPLOADS_ENCRYPTED}.sha256"
+  return 0
+}
 trap cleanup EXIT
 
 # The passphrase is read from the environment, never from the command line.
-openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:BACKUP_ENCRYPTION_KEY -in "${FILENAME}" -out "${ENCRYPTED}"
-sha256sum "${ENCRYPTED}" | cut -d' ' -f1 > "${ENCRYPTED}.sha256"
+encrypt() {
+  openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:BACKUP_ENCRYPTION_KEY -in "$1" -out "$1.enc"
+  sha256sum "$1.enc" | cut -d' ' -f1 > "$1.enc.sha256"
+}
+encrypt "${FILENAME}"
+[ -n "${UPLOADS_FILE}" ] && encrypt "${UPLOADS_FILE}"
 
 upload() {
   local file="$1" key="$2"
@@ -75,7 +97,12 @@ upload() {
 }
 
 REMOTE_KEY="${PREFIX}/db_${STAMP}.sql.gz.enc"
-if upload "${ENCRYPTED}" "${REMOTE_KEY}" && upload "${ENCRYPTED}.sha256" "${REMOTE_KEY}.sha256"; then
+UPLOADS_KEY="${PREFIX}/uploads_${STAMP}.tgz.enc"
+upload_uploads() {
+  [ -z "${UPLOADS_FILE}" ] && return 0
+  upload "${UPLOADS_ENCRYPTED}" "${UPLOADS_KEY}" && upload "${UPLOADS_ENCRYPTED}.sha256" "${UPLOADS_KEY}.sha256"
+}
+if upload "${ENCRYPTED}" "${REMOTE_KEY}" && upload "${ENCRYPTED}.sha256" "${REMOTE_KEY}.sha256" && upload_uploads; then
   log "Off-site copy uploaded: ${BACKUP_S3_BUCKET}/${REMOTE_KEY}"
 elif [ "${REQUIRED}" = "0" ]; then
   log "WARNING: off-site upload failed; the local backup ${FILENAME} is kept"

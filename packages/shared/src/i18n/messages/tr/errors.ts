@@ -45,6 +45,8 @@ export const trErrors = {
   'errors.STAFF_ALREADY_MEMBER': 'Bu telefon numarası zaten ekipte.',
   'errors.PACKAGE_NOT_FOUND': 'Kredi paketi bulunamadı.',
   'errors.PAYMENT_METHOD_NOT_FOUND': 'Kayıtlı kart bulunamadı.',
+  'errors.UNSUPPORTED_FILE': 'Yalnızca PNG, JPG veya WebP görsel yükleyebilirsiniz.',
+  'errors.FILE_TOO_LARGE': 'Dosya çok büyük; en çok 2 MB olabilir.',
   'errors.CUSTOMER_NOT_FOUND': 'Müşteri bulunamadı.',
   'errors.COURIER_PROVIDER_NOT_FOUND': 'Kurye ağı bulunamadı.',
   'errors.INVOICE_NOT_FOUND': 'Fatura bulunamadı.',

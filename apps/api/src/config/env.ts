@@ -76,6 +76,8 @@ export const EnvSchema = z
       .default('MOCK'),
     /** Unauthenticated order placements and funnel steps allowed per client per 10 minutes (docs/VITRIN.md). */
     /** The in-process daily billing job (docs/FATURALAMA.md); off when cron runs dist/cli/billing.js instead. */
+    /** Where uploaded files (restaurant logos) live; a named volume in production, ./uploads in development. */
+    UPLOADS_DIR: z.string().min(1).optional(),
     BILLING_SCHEDULER: z.enum(['on', 'off']).default('on'),
     /** The acceptance watchdog that alarms PLACED orders past their deadline (docs/SIPARIS_VE_SEVK.md). */
     ORDER_WATCHDOG: z.enum(['on', 'off']).default('on'),

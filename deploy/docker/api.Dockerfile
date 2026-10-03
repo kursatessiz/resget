@@ -33,6 +33,8 @@ WORKDIR /app
 COPY --from=builder --chown=node:node /out/node_modules ./node_modules
 COPY --from=builder --chown=node:node /out/package.json ./package.json
 COPY --from=builder --chown=node:node /app/apps/api/dist ./dist
+# Uploaded files (restaurant logos) mount here; the directory must be writable by the runtime user.
+RUN mkdir -p /app/uploads && chown node:node /app/uploads
 USER node
 EXPOSE 4000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \

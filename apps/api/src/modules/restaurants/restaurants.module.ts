@@ -9,6 +9,6 @@ import { RestaurantProvisioningService } from './provisioning.service';
   imports: [AuthModule],
   controllers: [RestaurantSignupController, RestaurantsController],
   providers: [RestaurantsService, RestaurantProvisioningService],
-  exports: [RestaurantProvisioningService],
+  exports: [RestaurantProvisioningService, RestaurantsService],
 })
 export class RestaurantsModule {}

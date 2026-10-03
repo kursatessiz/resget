@@ -116,7 +116,7 @@ Paketler private ise sunucuda `deploy` kullanıcısıyla bir kez `docker login g
 
 ## 5a. Yedekler
 
-`deploy/scripts/backup.sh` her gün 02:30'da (`server-init.sh`'ın kurduğu `/etc/cron.d/resget-backup`) ve her deploy'dan önce çalışır. `pg_dump` çıktısını `/opt/resget/backups/db_<UTC damga>.sql.gz` olarak yazar (14 gün yerel), `BACKUP_S3_BUCKET` doluysa AES-256 (PBKDF2) ile şifreleyip curl'ün SigV4 imzasıyla S3 uyumlu depoya yükler ve `.sha256` dosyası bırakır. Günlük çalıştırmada yükleme hatası betiği hata koduyla bitirir; deploy öncesinde yalnızca uyarıdır.
+`deploy/scripts/backup.sh` her gün 02:30'da (`server-init.sh`'ın kurduğu `/etc/cron.d/resget-backup`) ve her deploy'dan önce çalışır. `pg_dump` çıktısını `/opt/resget/backups/db_<UTC damga>.sql.gz` olarak yazar (14 gün yerel), yüklenen dosyaları (restoran logoları, `uploads_data` birimi) `uploads_<UTC damga>.tgz` olarak yanına koyar, `BACKUP_S3_BUCKET` doluysa AES-256 (PBKDF2) ile şifreleyip curl'ün SigV4 imzasıyla S3 uyumlu depoya yükler ve `.sha256` dosyası bırakır. Günlük çalıştırmada yükleme hatası betiği hata koduyla bitirir; deploy öncesinde yalnızca uyarıdır.
 
 `BACKUP_ENCRYPTION_KEY` sunucu dışında da saklanmalıdır. Geri yükleme:
 

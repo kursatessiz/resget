@@ -20,6 +20,9 @@ build/
 # Turbo
 .turbo
 
+# Uploaded files in development (UPLOADS_DIR default)
+apps/api/uploads/
+
 # Environment variables
 .env
 .env.local
