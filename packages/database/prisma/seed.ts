@@ -6,7 +6,9 @@ import {
   PRO_TRIAL_DAYS_DEFAULT,
   TABLE_QR_TOKEN_BYTES,
   WELCOME_MESSAGE_CREDITS_DEFAULT,
+  computeModeSettlement,
   normalizePhone,
+  settlementDefaultsFor,
   trialEndFrom,
 } from '@resget/shared';
 
@@ -22,7 +24,10 @@ const prisma = new PrismaClient();
 export const DEMO_SUPER_ADMIN_PHONE = '05320000001';
 export const DEMO_OWNER_PHONE = '05320000002';
 export const DEMO_GUEST_PHONE = '05320000003';
+export const DEMO_COURIER_PHONE = '05320000004';
 export const DEMO_TABLE_TOKEN = 'demo-masa-1-sabit-token-0001';
+/** A placed delivery order of the guest, so /t/<token> can be opened without creating one. */
+export const DEMO_TRACKING_TOKEN = 'demo-siparis-takip-token-0001';
 
 function qrToken(): string {
   return randomBytes(TABLE_QR_TOKEN_BYTES).toString('base64url');
@@ -82,6 +87,9 @@ async function main(): Promise<void> {
   });
   const guest = await prisma.user.create({
     data: { phone: normalizePhone(DEMO_GUEST_PHONE)!, fullName: 'Demo Misafir', locale: 'tr' },
+  });
+  const courier = await prisma.user.create({
+    data: { phone: normalizePhone(DEMO_COURIER_PHONE)!, fullName: 'Demo Kurye', locale: 'tr' },
   });
 
   const restaurant = await prisma.restaurant.create({
@@ -145,6 +153,16 @@ async function main(): Promise<void> {
       joinedAt: new Date(),
     },
   });
+  // The restaurant's own courier uses the same app with the courier role (docs/SIPARIS_VE_SEVK.md).
+  await prisma.membership.create({
+    data: {
+      userId: courier.id,
+      restaurantId: restaurant.id,
+      roleTemplateId: roles.get('courier')!,
+      status: MembershipStatus.ACTIVE,
+      joinedAt: new Date(),
+    },
+  });
 
   // PRO trial and welcome credits.
   await prisma.restaurantSubscription.create({
@@ -174,17 +192,19 @@ async function main(): Promise<void> {
   const drinks = await prisma.menuCategory.create({
     data: { restaurantId: restaurant.id, name: 'Icecekler', sortOrder: 2 },
   });
+  const kofte = await prisma.menuItem.create({
+    data: {
+      restaurantId: restaurant.id,
+      categoryId: mains.id,
+      name: 'Izgara kofte',
+      priceMinor: 42000,
+      currency: 'TRY',
+      vatRateBps: 1000,
+      sortOrder: 1,
+    },
+  });
   await prisma.menuItem.createMany({
     data: [
-      {
-        restaurantId: restaurant.id,
-        categoryId: mains.id,
-        name: 'Izgara kofte',
-        priceMinor: 42000,
-        currency: 'TRY',
-        vatRateBps: 1000,
-        sortOrder: 1,
-      },
       {
         restaurantId: restaurant.id,
         categoryId: mains.id,
@@ -219,6 +239,63 @@ async function main(): Promise<void> {
 
   await prisma.restaurantCustomer.create({
     data: { restaurantId: restaurant.id, userId: guest.id, firstChannel: 'TABLE_QR' },
+  });
+
+  // One placed delivery order with a fixed tracking token (web e2e opens /t/<token>).
+  const regional = settlementDefaultsFor(restaurant.countryCode);
+  const settlement = computeModeSettlement(restaurant.paymentMode, {
+    currency: restaurant.currency,
+    items: [{ amountMinor: kofte.priceMinor * 2, vatRateBps: kofte.vatRateBps }],
+    deliveryFee: { amountMinor: 1500, vatRateBps: 1000 },
+    commissionBps: restaurant.commissionBps,
+    commissionVatBps: regional.commissionVatBps,
+    psp: { percentBps: restaurant.pspPercentBps, fixedMinor: restaurant.pspFixedMinor, bearer: 'RESTAURANT' },
+    withholdingBps: regional.withholdingBps,
+  });
+  await prisma.order.create({
+    data: {
+      restaurantId: restaurant.id,
+      branchId: branch.id,
+      customerUserId: guest.id,
+      channel: 'RESTAURANT_SITE',
+      fulfillment: 'DELIVERY',
+      deliveryMode: 'RESTAURANT_COURIER',
+      status: 'PLACED',
+      currency: restaurant.currency,
+      itemsGrossMinor: settlement.itemsGrossMinor,
+      itemsVatMinor: settlement.itemsVatMinor,
+      deliveryFeeMinor: settlement.deliveryFeeMinor,
+      chargedToCustomerMinor: settlement.chargedToCustomerMinor,
+      commissionBps: restaurant.commissionBps,
+      platformCommissionMinor: settlement.platformCommissionMinor,
+      commissionVatMinor: settlement.commissionVatMinor,
+      pspFeeMinor: settlement.pspFeeMinor,
+      withholdingMinor: settlement.withholdingMinor,
+      restaurantPayableMinor: settlement.restaurantPayableMinor,
+      paymentMode: restaurant.paymentMode,
+      platformReceivableMinor: settlement.platformReceivableMinor,
+      trackingToken: DEMO_TRACKING_TOKEN,
+      addressSnapshot: {
+        addressLine: 'Bahariye Cad. No 20 D 4',
+        city: 'Istanbul',
+        district: 'Kadikoy',
+        contactName: guest.fullName,
+        contactPhone: guest.phone,
+        point: { lat: 40.9892, lng: 29.0301 },
+      },
+      items: {
+        create: {
+          menuItemId: kofte.id,
+          nameSnapshot: kofte.name,
+          unitPriceMinor: kofte.priceMinor,
+          quantity: 2,
+          vatRateBps: kofte.vatRateBps,
+          modifiersSnapshot: [],
+          lineTotalMinor: kofte.priceMinor * 2,
+        },
+      },
+      statusHistory: { create: { fromStatus: null, toStatus: 'PLACED', actorUserId: guest.id } },
+    },
   });
 
   // Unused plan reference keeps the free tier visible in the seed output.

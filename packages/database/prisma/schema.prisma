@@ -59,13 +59,38 @@ enum OrderStatus {
   ACCEPTED
   PREPARING
   READY
+  HANDED_TO_COURIER
   OUT_FOR_DELIVERY
+  ARRIVING
   DELIVERED
   PICKED_UP
   CANCELLED_BY_CUSTOMER
   CANCELLED_BY_RESTAURANT
   REJECTED
   REFUNDED
+}
+
+/// One courier leaving the restaurant with one or more orders (docs/SIPARIS_VE_SEVK.md).
+enum DeliveryTripStatus {
+  PLANNED
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum DeliveryStopStatus {
+  PENDING
+  EN_ROUTE
+  ARRIVING
+  DELIVERED
+  FAILED
+  REMOVED
+}
+
+enum StopSequenceMode {
+  MANUAL
+  OPTIMIZED
 }
 
 enum PaymentMode {
@@ -207,8 +232,9 @@ model User {
   restaurantCustomers RestaurantCustomer[]
   otpCodes            OtpCode[]
   savedPaymentMethods SavedPaymentMethod[]
-  invitesCreated      InviteToken[]      @relation("InviteCreatedBy")
+  invitesCreated      InviteToken[]        @relation("InviteCreatedBy")
   statusChanges       OrderStatusHistory[]
+  tripsCreated        DeliveryTrip[]
   auditLogs           AuditLog[]
 
   @@map("users")
@@ -252,64 +278,69 @@ model ServiceArea {
 }
 
 model Restaurant {
-  id            String   @id @default(uuid())
-  slug          String   @unique
+  id            String  @id @default(uuid())
+  slug          String  @unique
   name          String
   legalName     String?
   taxId         String?
   countryCode   String
   currency      String
   timezone      String
-  defaultLocale String   @default("tr")
+  defaultLocale String  @default("tr")
   serviceAreaId String?
-  isActive      Boolean  @default(true)
+  isActive      Boolean @default(true)
   /// Listed in the consumer marketplace (requires a launched service area and an approved menu).
-  isListed      Boolean  @default(false)
+  isListed      Boolean @default(false)
 
   /// Platform take rate on gross order value; 100 = 1 percent. Changed only by the super admin.
-  commissionBps Int @default(100)
+  commissionBps     Int          @default(100)
   /// Who collects card payments (docs/ODEME.md): the restaurant's own virtual POS (default) or the platform's PSP.
-  paymentMode   PaymentMode @default(OWN_POS)
+  paymentMode       PaymentMode  @default(OWN_POS)
   /// PLATFORM_PSP only: the provider's contracted fee for this restaurant, passed through at cost (docs/MUTABAKAT.md).
-  pspPercentBps Int @default(0)
-  pspFixedMinor Int @default(0)
+  pspPercentBps     Int          @default(0)
+  pspFixedMinor     Int          @default(0)
   /// How this restaurant moves food by default; per order it can differ.
-  deliveryMode  DeliveryMode @default(RESTAURANT_COURIER)
+  deliveryMode      DeliveryMode @default(RESTAURANT_COURIER)
   /// Preferred third-party courier network when deliveryMode is THIRD_PARTY_API.
   courierProviderId String?
   /// How the quoted courier fee becomes the customer's delivery fee (DeliveryFeePolicySchema in shared).
   deliveryFeePolicy Json?
+  /// Own-courier dispatch tuning (DispatchSettingsSchema in shared): speed, detour, arrival radius, stops per trip.
+  dispatchSettings  Json?
 
   logoUrl      String?
   themePrimary String  @default("#0092CD")
 
-  onboardedAt DateTime  @default(now())
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  onboardedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  serviceArea      ServiceArea?           @relation(fields: [serviceAreaId], references: [id])
-  courierProvider  CourierProvider?       @relation(fields: [courierProviderId], references: [id])
-  branches         Branch[]
-  memberships      Membership[]
-  roleTemplates    RoleTemplate[]
-  inviteTokens     InviteToken[]
-  menuCategories   MenuCategory[]
-  menuItems        MenuItem[]
-  tables           DiningTable[]
-  qrScanEvents     QrScanEvent[]
-  customers        RestaurantCustomer[]
-  orders           Order[]
-  payments         Payment[]
-  ledgerEntries    LedgerEntry[]
-  payouts          Payout[]
-  paymentConnection PaymentProviderConnection?
+  serviceArea        ServiceArea?               @relation(fields: [serviceAreaId], references: [id])
+  courierProvider    CourierProvider?           @relation(fields: [courierProviderId], references: [id])
+  branches           Branch[]
+  memberships        Membership[]
+  roleTemplates      RoleTemplate[]
+  inviteTokens       InviteToken[]
+  menuCategories     MenuCategory[]
+  menuItems          MenuItem[]
+  tables             DiningTable[]
+  qrScanEvents       QrScanEvent[]
+  customers          RestaurantCustomer[]
+  orders             Order[]
+  payments           Payment[]
+  ledgerEntries      LedgerEntry[]
+  payouts            Payout[]
+  paymentConnection  PaymentProviderConnection?
   commissionInvoices CommissionInvoice[]
-  subscription     RestaurantSubscription?
-  messageWallets   MessageWallet[]
-  messageLogs      MessageLog[]
-  deliveryRequests DeliveryRequest[]
-  featureFlags     FeatureFlag[]
-  auditLogs        AuditLog[]
+  subscription       RestaurantSubscription?
+  messageWallets     MessageWallet[]
+  messageLogs        MessageLog[]
+  deliveryRequests   DeliveryRequest[]
+  deliveryTrips      DeliveryTrip[]
+  deliveryStops      DeliveryStop[]
+  courierLocations   CourierLocation[]
+  featureFlags       FeatureFlag[]
+  auditLogs          AuditLog[]
 
   @@index([serviceAreaId, isListed])
   @@map("restaurants")
@@ -332,9 +363,10 @@ model Branch {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  restaurant Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  tables     DiningTable[]
-  orders     Order[]
+  restaurant    Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  tables        DiningTable[]
+  orders        Order[]
+  deliveryTrips DeliveryTrip[]
 
   @@index([restaurantId])
   @@map("branches")
@@ -378,9 +410,12 @@ model Membership {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  roleTemplate RoleTemplate @relation(fields: [roleTemplateId], references: [id])
+  user            User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant      Restaurant              @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  roleTemplate    RoleTemplate            @relation(fields: [roleTemplateId], references: [id])
+  courierTrips    DeliveryTrip[]
+  courierLocation CourierLocation?
+  locationSamples CourierLocationSample[]
 
   @@unique([userId, restaurantId])
   @@index([restaurantId, status])
@@ -554,19 +589,19 @@ model CustomerAddress {
 
 /// The restaurant's own customer list: the lock-in of the SaaS layer. One row per (restaurant, user).
 model RestaurantCustomer {
-  id              String       @id @default(uuid())
-  restaurantId    String
-  userId          String
-  firstChannel    OrderChannel
-  firstOrderAt    DateTime?
-  lastOrderAt     DateTime?
-  orderCount      Int          @default(0)
-  lifetimeGrossMinor Int       @default(0)
-  tags            String[]     @default([])
-  note            String?
-  marketingOptIn  Boolean      @default(false)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id                 String       @id @default(uuid())
+  restaurantId       String
+  userId             String
+  firstChannel       OrderChannel
+  firstOrderAt       DateTime?
+  lastOrderAt        DateTime?
+  orderCount         Int          @default(0)
+  lifetimeGrossMinor Int          @default(0)
+  tags               String[]     @default([])
+  note               String?
+  marketingOptIn     Boolean      @default(false)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -593,37 +628,43 @@ model Order {
   currency       String
 
   // Amounts in minor units, snapshot of computeOrderSettlement() at placement.
-  itemsGrossMinor          Int
-  itemsVatMinor            Int
-  deliveryFeeMinor         Int @default(0)
-  discountMinor            Int @default(0)
-  discountFundedBy         String?
-  chargedToCustomerMinor   Int
-  commissionBps            Int
-  platformCommissionMinor  Int
-  commissionVatMinor       Int @default(0)
-  pspFeeMinor              Int @default(0)
-  pspFeeBearer             String @default("RESTAURANT")
-  withholdingMinor         Int @default(0)
-  courierCostMinor         Int @default(0)
-  courierBearer            String?
-  restaurantPayableMinor   Int
+  itemsGrossMinor         Int
+  itemsVatMinor           Int
+  deliveryFeeMinor        Int         @default(0)
+  discountMinor           Int         @default(0)
+  discountFundedBy        String?
+  chargedToCustomerMinor  Int
+  commissionBps           Int
+  platformCommissionMinor Int
+  commissionVatMinor      Int         @default(0)
+  pspFeeMinor             Int         @default(0)
+  pspFeeBearer            String      @default("RESTAURANT")
+  withholdingMinor        Int         @default(0)
+  courierCostMinor        Int         @default(0)
+  courierBearer           String?
+  restaurantPayableMinor  Int
   /// Payment mode at placement; decides whether the commission is invoiced (OWN_POS) or deducted (PLATFORM_PSP).
-  paymentMode              PaymentMode @default(OWN_POS)
+  paymentMode             PaymentMode @default(OWN_POS)
   /// OWN_POS: commission + VAT the restaurant owes for this order. PLATFORM_PSP: 0.
-  platformReceivableMinor  Int @default(0)
+  platformReceivableMinor Int         @default(0)
 
   /// Delivery address at the time of the order (never a live reference).
-  addressSnapshot Json?
-  customerNote    String?
-  rejectReason    String?
-  placedAt        DateTime  @default(now())
-  acceptedAt      DateTime?
-  readyAt         DateTime?
-  completedAt     DateTime?
-  cancelledAt     DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  addressSnapshot     Json?
+  customerNote        String?
+  rejectReason        String?
+  /// Unguessable handle of the public tracking page (/t/<token>); set for every new order.
+  trackingToken       String?   @unique
+  /// Kitchen promise given when the order was accepted (placedAt + prepMinutes).
+  promisedReadyAt     DateTime?
+  /// Latest delivery estimate, recomputed from the courier's position while on the way.
+  estimatedDeliveryAt DateTime?
+  placedAt            DateTime  @default(now())
+  acceptedAt          DateTime?
+  readyAt             DateTime?
+  completedAt         DateTime?
+  cancelledAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   restaurant      Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   branch          Branch               @relation(fields: [branchId], references: [id])
@@ -634,6 +675,7 @@ model Order {
   payments        Payment[]
   ledgerEntries   LedgerEntry[]
   deliveryRequest DeliveryRequest?
+  deliveryStops   DeliveryStop[]
 
   @@index([restaurantId, placedAt])
   @@index([restaurantId, status])
@@ -652,6 +694,8 @@ model OrderItem {
   /// Chosen modifiers as [{ name, priceDeltaMinor }].
   modifiersSnapshot Json?
   lineTotalMinor    Int
+  /// Position in the basket, so receipts and screens list items as the customer entered them.
+  position          Int     @default(0)
 
   order    Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
   menuItem MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
@@ -661,13 +705,13 @@ model OrderItem {
 }
 
 model OrderStatusHistory {
-  id          String      @id @default(uuid())
+  id          String       @id @default(uuid())
   orderId     String
   fromStatus  OrderStatus?
   toStatus    OrderStatus
   actorUserId String?
   reason      String?
-  createdAt   DateTime    @default(now())
+  createdAt   DateTime     @default(now())
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
@@ -677,28 +721,28 @@ model OrderStatusHistory {
 }
 
 model Payment {
-  id           String        @id @default(uuid())
-  restaurantId String
-  orderId      String
-  provider     String
-  method       PaymentMethod
-  status       PaymentStatus @default(PENDING)
-  amountMinor  Int
-  currency     String
+  id                   String        @id @default(uuid())
+  restaurantId         String
+  orderId              String
+  provider             String
+  method               PaymentMethod
+  status               PaymentStatus @default(PENDING)
+  amountMinor          Int
+  currency             String
   /// The PSP's own fee as reported in its settlement, when known.
-  pspFeeMinor  Int?
-  providerRef  String?
-  capturedAt   DateTime?
-  refundedMinor Int          @default(0)
+  pspFeeMinor          Int?
+  providerRef          String?
+  capturedAt           DateTime?
+  refundedMinor        Int           @default(0)
   /// Which merchant collected: the restaurant's own POS or the platform's PSP, as it was at payment time.
-  paymentMode  PaymentMode   @default(OWN_POS)
+  paymentMode          PaymentMode   @default(OWN_POS)
   /// The stored card used, when the customer paid with a saved card.
   savedPaymentMethodId String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  restaurant         Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  order              Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
   savedPaymentMethod SavedPaymentMethod? @relation(fields: [savedPaymentMethodId], references: [id], onDelete: SetNull)
 
   @@index([restaurantId, createdAt])
@@ -799,9 +843,9 @@ model LedgerEntry {
   occurredAt   DateTime        @default(now())
   memo         String?
 
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  order      Order?     @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  payout     Payout?    @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+  restaurant Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  order      Order?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  payout     Payout?            @relation(fields: [payoutId], references: [id], onDelete: SetNull)
   invoice    CommissionInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
   @@index([restaurantId, occurredAt])
@@ -813,20 +857,20 @@ model LedgerEntry {
 
 /// A transfer of accumulated restaurant payables. Scheduled within the legal payment deadline of the region.
 model Payout {
-  id           String       @id @default(uuid())
-  restaurantId String
-  periodStart  DateTime
-  periodEnd    DateTime
-  amountMinor  Int
-  currency     String
-  status       PayoutStatus @default(SCHEDULED)
-  scheduledFor DateTime
-  sentAt       DateTime?
-  settledAt    DateTime?
-  providerRef  String?
+  id            String       @id @default(uuid())
+  restaurantId  String
+  periodStart   DateTime
+  periodEnd     DateTime
+  amountMinor   Int
+  currency      String
+  status        PayoutStatus @default(SCHEDULED)
+  scheduledFor  DateTime
+  sentAt        DateTime?
+  settledAt     DateTime?
+  providerRef   String?
   failureReason String?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   restaurant    Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   ledgerEntries LedgerEntry[]
@@ -959,22 +1003,22 @@ model CourierProvider {
 }
 
 model DeliveryRequest {
-  id              String                @id @default(uuid())
-  restaurantId    String
-  orderId         String                @unique
-  providerId      String
-  status          DeliveryRequestStatus @default(QUOTED)
-  quoteId         String?
-  quoteFeeMinor   Int
-  finalFeeMinor   Int?
-  currency        String
-  providerRef     String?
-  trackingUrl     String?
+  id                String                @id @default(uuid())
+  restaurantId      String
+  orderId           String                @unique
+  providerId        String
+  status            DeliveryRequestStatus @default(QUOTED)
+  quoteId           String?
+  quoteFeeMinor     Int
+  finalFeeMinor     Int?
+  currency          String
+  providerRef       String?
+  trackingUrl       String?
   pickupEtaMinutes  Int?
   dropoffEtaMinutes Int?
-  failureReason   String?
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  failureReason     String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
 
   restaurant Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   order      Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -988,6 +1032,110 @@ model DeliveryRequest {
 // ---------------------------------------------------------------------------
 // Compliance and platform
 // ---------------------------------------------------------------------------
+
+/// A courier's run from the restaurant with one or more orders. Owned by the
+/// restaurant; the courier is a membership with the courier.deliver permission.
+model DeliveryTrip {
+  id                     String             @id @default(uuid())
+  restaurantId           String
+  branchId               String
+  courierMembershipId    String?
+  createdByUserId        String?
+  status                 DeliveryTripStatus @default(PLANNED)
+  sequenceMode           StopSequenceMode   @default(MANUAL)
+  /// Planned road distance and travel time over all stops, from the routing adapter.
+  plannedDistanceMeters  Int?
+  plannedDurationSeconds Int?
+  assignedAt             DateTime?
+  pickedUpAt             DateTime?
+  startedAt              DateTime?
+  completedAt            DateTime?
+  cancelledAt            DateTime?
+  cancelReason           String?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  restaurant      Restaurant              @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  branch          Branch                  @relation(fields: [branchId], references: [id])
+  courier         Membership?             @relation(fields: [courierMembershipId], references: [id], onDelete: SetNull)
+  createdBy       User?                   @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  stops           DeliveryStop[]
+  locationSamples CourierLocationSample[]
+
+  @@index([restaurantId, status])
+  @@index([courierMembershipId, status])
+  @@map("delivery_trips")
+}
+
+/// One order inside a trip, in delivery sequence. An order can appear in
+/// several trips over its life (a failed delivery is re-dispatched) but in at
+/// most one active trip, which the service enforces.
+model DeliveryStop {
+  id             String             @id @default(uuid())
+  tripId         String
+  restaurantId   String
+  orderId        String
+  sequence       Int
+  status         DeliveryStopStatus @default(PENDING)
+  /// Destination snapshot copied from the order address at the time the stop was added.
+  lat            Float?
+  lng            Float?
+  /// Latest estimate for this stop: cumulative road distance and arrival time.
+  distanceMeters Int?
+  etaAt          DateTime?
+  arrivedAt      DateTime?
+  deliveredAt    DateTime?
+  failedAt       DateTime?
+  failureReason  String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  trip       DeliveryTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  restaurant Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  order      Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, sequence])
+  @@index([orderId, status])
+  @@map("delivery_stops")
+}
+
+/// Latest known position of a courier, one row per membership, overwritten on
+/// every ping. Only accepted while the courier has an active trip.
+model CourierLocation {
+  membershipId String   @id
+  restaurantId String
+  tripId       String?
+  lat          Float
+  lng          Float
+  headingDeg   Float?
+  speedMps     Float?
+  accuracyM    Float?
+  recordedAt   DateTime
+  updatedAt    DateTime @updatedAt
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+  @@map("courier_locations")
+}
+
+/// Downsampled trail of a trip (for disputes and the trip replay); append-only.
+model CourierLocationSample {
+  id           String   @id @default(uuid())
+  tripId       String
+  membershipId String
+  lat          Float
+  lng          Float
+  recordedAt   DateTime
+  createdAt    DateTime @default(now())
+
+  trip       DeliveryTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  membership Membership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, recordedAt])
+  @@map("courier_location_samples")
+}
 
 model DocumentVersion {
   id          String       @id @default(uuid())

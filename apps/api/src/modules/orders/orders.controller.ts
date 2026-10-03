@@ -1,12 +1,21 @@
-import { Controller, HttpCode, Post } from '@nestjs/common';
+import { Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { z } from 'zod';
-import { FeeBearerSchema, MinorAmountSchema, SettlementLineSchema } from '@resget/shared';
-import type { ModeSettlement } from '@resget/shared';
-import { ZodBody } from '../../common/zod-body.pipe';
+import {
+  CreateOrderSchema,
+  FeeBearerSchema,
+  MinorAmountSchema,
+  OrderTransitionSchema,
+  OrdersQuerySchema,
+  SettlementLineSchema,
+  UuidSchema,
+} from '@resget/shared';
+import type { ModeSettlement, OrderDetailDTO, OrderSummaryDTO } from '@resget/shared';
+import { ZodBody, ZodParam, ZodQuery } from '../../common/zod-body.pipe';
 import { RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
-import { Tenant } from '../auth/decorators/current-user.decorator';
-import type { TenantContext } from '../auth/tenant-context';
+import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
+import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { SettlementService } from './settlement.service';
+import { OrdersService } from './orders.service';
 
 const PreviewSchema = z
   .object({
@@ -17,10 +26,23 @@ const PreviewSchema = z
   })
   .strict();
 
+/** Query strings arrive as strings or repeated keys; normalise `status` to an array before the shared schema. */
+const ListQuerySchema = z.preprocess((raw) => {
+  if (!raw || typeof raw !== 'object') return raw;
+  const query = { ...(raw as Record<string, unknown>) };
+  if (typeof query.status === 'string') query.status = query.status.split(',').filter(Boolean);
+  return query;
+}, OrdersQuerySchema);
+
+const contacts = (tenant: TenantContext): boolean => tenant.permissions.has('customers.contact.view');
+
 @Controller('restaurants/:restaurantId/orders')
 @RestaurantScoped()
 export class OrdersController {
-  constructor(private readonly settlement: SettlementService) {}
+  constructor(
+    private readonly settlement: SettlementService,
+    private readonly orders: OrdersService,
+  ) {}
 
   /** What the restaurant will receive for a basket, before an order exists: the transparency promise of the model. */
   @Post('settlement-preview')
@@ -31,5 +53,44 @@ export class OrdersController {
     @ZodBody(PreviewSchema) body: z.infer<typeof PreviewSchema>,
   ): Promise<ModeSettlement> {
     return this.settlement.forRestaurant(tenant.restaurantId, body);
+  }
+
+  @Get()
+  @RequirePermission('orders.view')
+  list(
+    @Tenant() tenant: TenantContext,
+    @ZodQuery(ListQuerySchema) query: z.infer<typeof OrdersQuerySchema>,
+  ): Promise<OrderSummaryDTO[]> {
+    return this.orders.list(tenant.restaurantId, query, contacts(tenant));
+  }
+
+  /** An order taken by staff (phone, counter, table) or entered on behalf of a guest. */
+  @Post()
+  @RequirePermission('orders.manage')
+  create(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodBody(CreateOrderSchema) body: z.infer<typeof CreateOrderSchema>,
+  ): Promise<OrderDetailDTO> {
+    return this.orders.create(tenant.restaurantId, body, user.id, contacts(tenant));
+  }
+
+  @Get(':orderId')
+  @RequirePermission('orders.view')
+  detail(@Tenant() tenant: TenantContext, @ZodParam('orderId', UuidSchema) orderId: string): Promise<OrderDetailDTO> {
+    return this.orders.detail(tenant.restaurantId, orderId, contacts(tenant));
+  }
+
+  /** Accept (with a preparation time), reject, preparing, ready, cancel; the courier leg comes from the trip. */
+  @Post(':orderId/transition')
+  @HttpCode(200)
+  @RequirePermission('orders.manage')
+  transition(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodParam('orderId', UuidSchema) orderId: string,
+    @ZodBody(OrderTransitionSchema) body: z.infer<typeof OrderTransitionSchema>,
+  ): Promise<OrderDetailDTO> {
+    return this.orders.transition(tenant.restaurantId, orderId, body, 'RESTAURANT', user.id, contacts(tenant));
   }
 }

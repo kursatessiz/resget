@@ -39,6 +39,9 @@ export const PERMISSION_KEYS = [
   'campaigns.manage',
   'reports.view',
   'courier.manage',
+  'dispatch.view',
+  'dispatch.manage',
+  'courier.deliver',
   'integrations.manage',
 ] as const;
 
@@ -81,6 +84,8 @@ export const DEFAULT_ROLE_TEMPLATES = [
       'campaigns.manage',
       'reports.view',
       'courier.manage',
+      'dispatch.view',
+      'dispatch.manage',
     ] satisfies PermissionKey[],
   },
   {
@@ -92,12 +97,20 @@ export const DEFAULT_ROLE_TEMPLATES = [
       'orders.manage',
       'customers.view',
       'courier.manage',
+      'dispatch.view',
+      'dispatch.manage',
     ] satisfies PermissionKey[],
   },
   {
     key: 'kitchen',
     isOwner: false,
     permissions: ['menu.view', 'orders.view', 'orders.manage'] satisfies PermissionKey[],
+  },
+  /** The restaurant's own courier: sees and drives only the trips assigned to them. */
+  {
+    key: 'courier',
+    isOwner: false,
+    permissions: ['orders.view', 'courier.deliver'] satisfies PermissionKey[],
   },
 ] as const;
 

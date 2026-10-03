@@ -1,0 +1,117 @@
+# Sipariş yaşam döngüsü, sevk ve canlı takip
+
+Bu belge siparişin verilmesinden kapıya teslimine kadar olan veri akışını, restoranın kendi kuryesiyle çalışan sevk (dispatch) yapısını ve müşterinin canlı takip ekranını tanımlar. Model, bu işi ölçekte yapan platformların (Uber Eats, DoorDash) kurduğu akışın kendi kuryesi olan tek restoran ölçeğine uyarlanmış halidir: tek bir durum makinesi, her adımın olay olarak yayınlanması, kuryenin konumunun yalnızca sefer sürerken paylaşılması ve çok duraklı seferlerde sıranın restoran veya rota motoru tarafından belirlenmesi.
+
+Kod: `packages/shared/src/delivery.ts` (durum makinesi, rota, DTO'lar), `apps/api/src/modules/orders` (sipariş), `apps/api/src/modules/dispatch` (sefer, kurye, konum), `apps/api/src/modules/realtime` (SSE), `apps/web/src/app/t/[token]` (müşteri takip sayfası).
+
+## 1. Sipariş durumları
+
+`OrderStatus` yaşam döngüsü durumudur; restoranın yapılandırdığı hiçbir şey enum değildir.
+
+```
+PENDING_PAYMENT -> PLACED -> ACCEPTED -> PREPARING -> READY
+                                                      |-- eve teslim: HANDED_TO_COURIER -> OUT_FOR_DELIVERY -> ARRIVING -> DELIVERED
+                                                      |-- gel al:     PICKED_UP
+                                                      '-- masaya:     DELIVERED (servis edildi)
+Her adımdan: REJECTED, CANCELLED_BY_CUSTOMER, CANCELLED_BY_RESTAURANT; uçtan: REFUNDED
+```
+
+Geçiş tablosu `ORDER_TRANSITIONS` teslimat türüne (`FulfillmentType`) göre ayrıdır ve her geçişi kimin tetikleyebileceğini (`OrderActor`: RESTAURANT, COURIER, CUSTOMER, SYSTEM) taşır. Kurallar:
+
+- Mutfak durumlarını (kabul, hazırlanıyor, hazır, ret, iptal) restoran değiştirir. Kabulde hazırlık süresi verilir; `promisedReadyAt = şimdi + prepMinutes` (varsayılan süre sevk ayarlarından gelir).
+- Müşteri yalnızca mutfak işe başlamadan (PLACED, ACCEPTED) iptal edebilir.
+- Kurye bacağı (HANDED_TO_COURIER, OUT_FOR_DELIVERY, ARRIVING, DELIVERED) sipariş bir sefere bağlıyken yalnızca sefer uçlarından değişir; sipariş ucundan denenirse `ORDER_IN_TRIP` döner. Sefere bağlı olmayan bir eve teslim siparişinde restoran bu adımları elle de işleyebilir (uygulama kullanmayan kurye için yedek yol).
+- Teslim edilemeyen sipariş `READY` durumuna geri döner (gerekçe geçmişe yazılır); restoran yeni sefere ekler veya iptal eder.
+- Her geçiş `order_status_history` tablosuna aktör ve gerekçeyle yazılır; `acceptedAt`, `readyAt`, `completedAt`, `cancelledAt` sütunları damgalanır.
+
+Sipariş oluşturulurken `computeModeSettlement()` anlık görüntüsü, ürün ad ve fiyat anlık görüntüleri (`order_items`, sepet sırası `position`), adres anlık görüntüsü (`AddressSnapshot`, isteğe bağlı koordinat) ve tahmin edilemez bir takip anahtarı (`trackingToken`, 24 rastgele bayt) yazılır. Telefonu bilinen müşteri global `User` olarak bulunur veya açılır ve `restaurant_customers` sayaçları güncellenir. QR oturumu verilmişse `PLACED_ORDER` huni olayı kaydedilir.
+
+Uçlar (`/restaurants/:id/orders`, izinler `orders.view` / `orders.manage`): liste (`?status=`, `?fulfillment=`, `?active=true`), oluşturma, detay, `POST /:orderId/transition { to, reason?, prepMinutes? }`. Müşteri iletişim bilgisi `customers.contact.view` izni olmayan rollere maskeli döner.
+
+## 2. Sefer (DeliveryTrip) ve duraklar
+
+Sefer, restoranın kendi kuryesinin bir çıkışta taşıdığı bir veya daha fazla siparişi gruplar. Kurye, `courier.deliver` iznine sahip bir `Membership`tir (varsayılan `courier` rol şablonu); aynı uygulamayı kullanır, yalnızca kendine atanan seferleri görür.
+
+```
+PLANNED -> ASSIGNED -> IN_PROGRESS -> COMPLETED
+                 '--------------------> CANCELLED
+```
+
+Durak (`DeliveryStop`) durumları: PENDING, EN_ROUTE (kurye bu durağa gidiyor), ARRIVING (varış yarıçapı içinde), DELIVERED, FAILED, REMOVED.
+
+Akış:
+
+1. **Sefer oluşturma** (`POST /restaurants/:id/dispatch/trips`, `dispatch.manage`): READY (veya önceden planlamak için ACCEPTED / PREPARING) durumundaki, aynı şubeye ait, başka aktif sefere bağlı olmayan eve teslim siparişleri seçilir. `maxStopsPerTrip` aşılamaz. Kurye hemen atanabilir (`ASSIGNED`) veya sonra (`PUT /trips/:tripId/courier`).
+2. **Durak sırası**: iki mod vardır ve restoran istediği zaman değiştirebilir.
+   - `MANUAL`: restoran sırayı belirler (`PUT /trips/:tripId/sequence { stopIds }`; kalan durakların bir permütasyonu olmalıdır).
+   - `OPTIMIZED`: rota motoru en kısa açık yolu bulur (`POST /trips/:tripId/optimize`): en yakın komşu, ardından 2-opt iyileştirmesi (`optimizeStopOrder`). Çıkış noktası yola çıkmadan önce şube, yola çıktıktan sonra kuryenin son konumudur. Yola çıktıktan sonra kuryenin o an gittiği durak sabit kalır, yalnızca kalanlar yeniden sıralanır. Koordinatı olmayan adresler rotalanamaz ve listenin sonuna eklenir; ETA verilmez.
+3. **Teslim alma** (`POST .../pickup`): kurye paketleri aldığını onaylar; seferdeki her sipariş HANDED_TO_COURIER olur. Hazır olmayan bir sipariş varsa sefer başlamaz (`TRIP_STATE_INVALID`).
+4. **Yola çıkma** (`POST .../start`): teslim alma atlanmışsa önce yapılır; tüm siparişler OUT_FOR_DELIVERY, ilk durak EN_ROUTE, sefer IN_PROGRESS. Her durak için tahmini varış hesaplanır.
+5. **Varış** (`POST .../stops/:stopId/arrive` veya otomatik): durak ARRIVING, sipariş ARRIVING; müşteri "kapıda olun" mesajını görür.
+6. **Teslim** (`POST .../stops/:stopId/deliver`): durak ve sipariş DELIVERED, sıradaki PENDING durak EN_ROUTE olur. **Teslim edilemedi** (`POST .../stops/:stopId/fail { reason }`): durak FAILED, sipariş READY'ye döner, sefer sıradakiyle sürer.
+7. Son durak kapanınca sefer COMPLETED olur, kuryenin konum kaydındaki sefer bağı kaldırılır.
+8. **İptal** (`POST .../cancel`): kalan duraklar REMOVED, kuryedeki siparişler READY'ye döner; teslim edilmiş olanlar değişmez.
+
+Kurye uçları `/restaurants/:id/courier/me/*` altındadır (`courier.deliver`): seferlerim, sefer detayı, pickup / start / arrive / deliver / fail, konum. Kurye yalnızca kendine atanan sefer üzerinde işlem yapabilir (`COURIER_NOT_ASSIGNED`). `dispatch.manage` iznine sahip personel aynı adımları sefer uçlarından kurye adına işleyebilir.
+
+Sevk panosu (`GET /restaurants/:id/dispatch/board`, `dispatch.view`) tek yanıtta döner: sevk bekleyen hazır siparişler, mutfaktaki eve teslim siparişleri, aktif seferler (durak ve kurye konumlarıyla), kuryeler (son konum, aktif sefer) ve sevk ayarları.
+
+## 3. Konum akışı
+
+- Kurye uygulaması konumunu küçük partiler halinde gönderir (`POST /restaurants/:id/courier/me/location { points[] }`, en fazla 60 nokta). Kısa çevrimdışı aralıklar kaybolmaz, geciken noktalar sırayla işlenir.
+- Konum yalnızca kuryenin aktif bir seferi (ASSIGNED veya IN_PROGRESS) varken kabul edilir; yoksa `tracked: false` döner ve hiçbir şey saklanmaz. Kuryenin mesai dışı konumu platforma girmez.
+- Son konum `courier_locations` tablosunda üyelik başına tek satırdır (üzerine yazılır). Seferin izi `courier_location_samples` tablosuna seyreltilerek (en az 20 m veya 15 sn) eklenir; itiraz ve tekrar oynatma içindir.
+- IN_PROGRESS seferde her partide: kalan durakların mesafe ve ETA'sı kuryenin konumundan yeniden hesaplanır (`estimateStopEtas`, durak başına teslim süresi eklenir) ve `orders.estimatedDeliveryAt` güncellenir; kurye EN_ROUTE durağın `arrivalRadiusMeters` yarıçapına girince durak kendiliğinden ARRIVING olur (geofence); sevk panosuna `courier.location`, yoldaki her müşteriye kendi `tracking.updated` olayı yayınlanır. Yayın sıklığı sefer başına `locationBroadcastSeconds` ile sınırlanır.
+
+ETA bugün düz çizgi mesafesi x sapma katsayısı / ortalama hızdan hesaplanır (`HAVERSINE` sağlayıcısı). Gerçek yol motoru (OSRM, Mapbox, Google) `RoutingProviderAdapter` arayüzüyle eklenir ve `ROUTING_PROVIDER` ile seçilir; sipariş akışında kod yolu açılmaz.
+
+## 4. Sevk ayarları
+
+`Restaurant.dispatchSettings` (JSON, `DispatchSettingsSchema`), restoran verisidir; eksik alanlar varsayılanla tamamlanır:
+
+| Alan | Varsayılan | Anlam |
+|---|---|---|
+| `avgSpeedKmh` | 22 | ETA için ortalama kapıdan kapıya kurye hızı |
+| `detourFactor` | 1,35 | Düz çizgi / yol mesafesi katsayısı (HAVERSINE) |
+| `stopServiceMinutes` | 3 | Durak başına teslim süresi |
+| `arrivalRadiusMeters` | 150 | Otomatik ARRIVING yarıçapı |
+| `maxStopsPerTrip` | 6 | Sefer başına en fazla durak |
+| `locationBroadcastSeconds` | 4 | Konum yayın aralığı |
+| `defaultPrepMinutes` | 20 | Kabulde önerilen hazırlık süresi |
+
+## 5. Canlı akış (SSE)
+
+Tek yönlü akış için Server-Sent Events kullanılır (`RealtimeService`): Caddy üzerinden ek altyapı gerektirmez, tarayıcıda `EventSource`, mobilde akışlı `fetch` ile çalışır. Çok örnekli çalışmada olaylar Redis pub/sub kanalıyla tüm API örneklerine dağıtılır. Her konu kısa bir tekrar tamponu tutar; `Last-Event-ID` ile yeniden bağlanan istemci kaçırdıklarını alır. Her olay varlığın tam halini taşır; bu yüzden olay kaçıran istemci bir sonraki olayla doğru duruma gelir. 25 saniyede bir kalp atışı gönderilir.
+
+| Uç | Kitle | Olaylar |
+|---|---|---|
+| `GET /restaurants/:id/dispatch/events` (`dispatch.view`) | sevk panosu ve sipariş ekranı | `order.updated`, `trip.updated`, `courier.location` |
+| `GET /restaurants/:id/courier/me/events` (`courier.deliver`) | kurye uygulaması | `trip.updated`, `order.updated` (kendi seferleri) |
+| `GET /public/orders/:token/events` | müşteri | önce anlık görüntü, sonra `tracking.updated` |
+
+Web'de akış BFF üzerinden geçer (`/api/bff/...`); BFF gövdeyi tamponlamadan aktarır. Mobil istemci `Authorization` başlığıyla doğrudan API'ye bağlanır.
+
+## 6. Müşteri takip sayfası
+
+`https://<web>/t/<token>`: sunucuda `GET /public/orders/:token` ile çizilir, ardından `TrackingLive` bileşeni olay akışına bağlanır. Gösterilenler: adım çizelgesi (teslimat türüne göre), durum metni, söz verilen hazır olma / tahmini teslim saati, kurye bloğu (yalnızca kuryede veya yoldayken): kuryenin adı (yalnızca ad), uzaklık, önünde kaç teslimat olduğu ("kuryeniz önce yakındaki N teslimatı tamamlayacak"), haritada aç bağlantısı, sipariş içeriği, işletmeyi ara. Başka müşterinin adresi veya kimliği hiçbir zaman yer almaz; kurye konumu yalnızca sefer IN_PROGRESS iken verilir.
+
+## 7. Mobil uygulama sözleşmesi (Faz 1, Expo)
+
+Tek uygulama; rol üyelikten gelir.
+
+- **Kurye modu** (`courier.deliver`): `GET courier/me/trips` ve `courier/me/events` ile sefer listesi; sefer ekranında sıralı duraklar, her durak için adres, telefon, mesafe ve ETA; büyük tek aksiyon düğmesi (Teslim aldım -> Yola çık -> Vardım -> Teslim ettim / Teslim edilemedi); arka plan konum servisi sefer sürerken 3-5 saniyede bir nokta toplar ve partiler halinde `courier/me/location` ucuna gönderir; uygulama kapanınca konum gönderimi durur (platform da aktif sefer yoksa reddeder).
+- **Müşteri modu**: aynı takip DTO'su (`OrderTrackingDTO`) ve aynı olay akışı; harita üzerinde kurye ve varış noktası.
+- **Restoran modu** (tablet): sevk panosu, sürükleyerek sıralama, "en kısa rotayı bul", kurye atama.
+
+Harita sağlayıcısı (ücret, lisans, Türkiye kapsama) sahibin kararıdır; kod yalnızca koordinat ve bağlantı üretir.
+
+## 8. Üçüncü taraf kuryeyle ilişki
+
+`DeliveryMode.THIRD_PARTY_API` siparişlerinde hareket `DeliveryRequest` ve `CourierProviderAdapter` webhook'larından gelir (Faz 2, `docs/KURYE.md`). Bu olaylar aynı sipariş durum makinesine bağlanır (ASSIGNED -> HANDED_TO_COURIER, PICKED_UP -> OUT_FOR_DELIVERY, DELIVERED -> DELIVERED); müşteri takip sayfası her iki modda aynıdır.
+
+## 9. Sonraki adımlar
+
+- Herkese açık uçlara (takip, menü) Redis tabanlı oran sınırı.
+- Kabul zaman aşımı (`acceptDeadlineAt`) ve restorana sesli uyarı; bildirimler (A7) sipariş olaylarına bağlanır.
+- Teslim kanıtı (fotoğraf, PIN) ve kapıda ödeme tahsilat onayı durak kapanışına eklenir.
+- Gerçek yol motoru adaptörü ve trafik duyarlı ETA.

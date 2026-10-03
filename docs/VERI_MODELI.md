@@ -40,8 +40,8 @@
 
 | Tablo | Not |
 |---|---|
-| `orders` | Kanal, teslimat türü, durum, `computeModeSettlement()` anlık görüntüsü (brüt, KDV, komisyon, PSP, tevkifat, kurye, hakediş), ödeme modu ve platform alacağı, adres anlık görüntüsü. |
-| `order_items` | Ad ve fiyat anlık görüntüsü, modifiye anlık görüntüsü. |
+| `orders` | Kanal, teslimat türü, durum (`OrderStatus`, `docs/SIPARIS_VE_SEVK.md`), `computeModeSettlement()` anlık görüntüsü (brüt, KDV, komisyon, PSP, tevkifat, kurye, hakediş), ödeme modu ve platform alacağı, adres anlık görüntüsü (koordinat dahil), takip anahtarı (`trackingToken`, benzersiz), söz verilen hazır olma ve tahmini teslim zamanı. |
+| `order_items` | Ad ve fiyat anlık görüntüsü, modifiye anlık görüntüsü, sepet sırası. |
 | `order_status_history` | Her geçiş, aktör ve gerekçe. |
 | `payments` | Sağlayıcı, yöntem, durum, PSP'nin bildirdiği kesinti, iade tutarı, tahsil anındaki ödeme modu, kullanılan kayıtlı kart. |
 | `payment_provider_connections` | Restoranın kendi sanal POS'u: sağlayıcı kodu, AES-256-GCM ile şifreli bilgiler, anahtar sürümü, doğrulama durumu, maskeli etiket. Restoran başına tek. |
@@ -66,6 +66,12 @@
 |---|---|
 | `courier_providers` | Adaptör kodu, ülke. |
 | `delivery_requests` | Sipariş başına tek; teklif ve nihai ücret, sağlayıcı referansı, takip adresi, ETA. |
+| `delivery_trips` | Restoranın kendi kuryesinin bir çıkışı: şube, kurye üyeliği, durum (`DeliveryTripStatus`), sıra modu (MANUAL / OPTIMIZED), planlanan mesafe ve süre, zaman damgaları. |
+| `delivery_stops` | Seferdeki bir sipariş: sıra, durum (`DeliveryStopStatus`), hedef koordinat anlık görüntüsü, mesafe ve ETA, varış / teslim / başarısızlık zamanı ve gerekçesi. Bir sipariş aynı anda en fazla bir aktif seferde olur (servis denetler). |
+| `courier_locations` | Kuryenin son konumu, üyelik başına tek satır; yalnızca aktif seferde yazılır. |
+| `courier_location_samples` | Seferin seyreltilmiş izi (en az 20 m veya 15 sn aralıkla), yalnızca ekleme. |
+
+Sevk ayarları `restaurants.dispatchSettings` JSON alanındadır (`DispatchSettingsSchema`).
 
 ## Uyum ve platform
 
