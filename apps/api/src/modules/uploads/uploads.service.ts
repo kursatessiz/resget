@@ -21,7 +21,10 @@ const CONTENT_TYPES: Record<string, string> = { png: 'image/png', jpg: 'image/jp
 
 /** The image kind is read from the bytes, never from the client's file name or declared type. */
 export function sniffImage(buffer: Buffer): 'png' | 'jpg' | 'webp' | null {
-  if (buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+  if (
+    buffer.length >= 8 &&
+    buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  ) {
     return 'png';
   }
   if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'jpg';
@@ -60,7 +63,10 @@ export class UploadsService {
     if (file.size > LOGO_MAX_BYTES) throw badRequest('FILE_TOO_LARGE', 'Logo exceeds the size limit');
     const kind = sniffImage(file.buffer);
     if (!kind) throw badRequest('UNSUPPORTED_FILE', 'Only PNG, JPEG and WebP images are accepted');
-    const restaurant = await this.prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { logoUrl: true } });
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { logoUrl: true },
+    });
     if (!restaurant) throw notFound('RESTAURANT_NOT_FOUND', 'Restaurant not found');
     const name = `${randomUUID()}.${kind}`;
     const dir = path.join(this.root, 'logos', restaurantId);
@@ -73,7 +79,10 @@ export class UploadsService {
   }
 
   async removeLogo(restaurantId: string): Promise<void> {
-    const restaurant = await this.prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { logoUrl: true } });
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { logoUrl: true },
+    });
     if (!restaurant) throw notFound('RESTAURANT_NOT_FOUND', 'Restaurant not found');
     await this.prisma.restaurant.update({ where: { id: restaurantId }, data: { logoUrl: null } });
     await this.removeOwnFile(restaurantId, restaurant.logoUrl);
@@ -108,7 +117,9 @@ export class UploadsService {
     try {
       await unlink(path.join(this.root, 'logos', restaurantId, name));
     } catch (error) {
-      this.logger.warn(`previous logo ${name} could not be removed: ${error instanceof Error ? error.message : 'error'}`);
+      this.logger.warn(
+        `previous logo ${name} could not be removed: ${error instanceof Error ? error.message : 'error'}`,
+      );
     }
   }
 
