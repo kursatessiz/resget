@@ -47,6 +47,8 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.PACKAGE_NOT_FOUND': 'Credit package not found.',
   'errors.UNSUPPORTED_FILE': 'Only PNG, JPG or WebP images can be uploaded.',
   'errors.FILE_TOO_LARGE': 'The file is too large; the limit is 2 MB.',
+  'errors.PAYOUT_NOT_FOUND': 'Payout not found.',
+  'errors.PAYOUT_STATE_INVALID': 'The payout does not accept that action in its current state.',
   'errors.ADDRESS_NOT_FOUND': 'Address not found.',
   'errors.LISTING_NOT_READY': 'Listing needs at least one menu item on sale and an active branch.',
   'errors.ALREADY_LISTED': 'The restaurant is already listed in the marketplace.',

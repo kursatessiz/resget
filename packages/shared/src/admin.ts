@@ -114,6 +114,7 @@ export const ADMIN_NAV = [
   { key: 'areas', path: '/bolgeler' },
   { key: 'plans', path: '/planlar' },
   { key: 'invoices', path: '/faturalar' },
+  { key: 'payouts', path: '/hakedisler' },
   { key: 'system', path: '/sistem' },
 ] as const;
 

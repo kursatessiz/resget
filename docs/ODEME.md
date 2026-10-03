@@ -73,5 +73,5 @@ Yemek kartlarında üye işyeri her zaman restorandır; restoran kabul ettiği k
 
 - A4: `OWN_POS` için iyzico, PayTR, Param ve Sipay gateway adaptörleri (hosted sayfa + webhook); Masterpass ve bex kasa adaptörleri; yemek kartı kuruluşlarının gerçek adaptörleri. Ödeme adımının çekirdeği (niyet, hosted oturum, webhook, kapıda tahsilat) `docs/YEMEK_KARTI.md` ile kuruldu.
 - A5 tamamlandı (`docs/FATURALAMA.md`); kalan: gerçek e-Arşiv entegratörü adaptörü.
-- B4: `PLATFORM_PSP` pazaryeri ürünü, PSP token kasası, hakediş ödemeleri, tevkifat beyanı.
+- B4: `PLATFORM_PSP` pazaryeri ürünü, PSP token kasası, tevkifat beyanı. Defter satırları ve haftalık hakediş planlaması hazır (`docs/MUTABAKAT.md`); kalan ödeme sağlayıcısı adaptörü.
 - Hukuk: `OWN_POS` modunda tevkifat yükümlülüğünün olmadığının vergi danışmanıyla teyidi; Masterpass ve bex üye işyeri sözleşmeleri.

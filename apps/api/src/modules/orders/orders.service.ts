@@ -37,6 +37,7 @@ import type {
   DispatchSettings,
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { LedgerService } from '../ledger/ledger.service';
 import { OrderNotificationsService } from './order-notifications.service';
 import { RealtimeService, courierTopic, dispatchTopic, orderTopic } from '../realtime/realtime.service';
 import type { TopicEvent } from '../realtime/realtime.service';
@@ -102,6 +103,7 @@ export class OrdersService {
     private readonly realtime: RealtimeService,
     private readonly config: ConfigService,
     private readonly notifications: OrderNotificationsService,
+    private readonly ledger: LedgerService,
   ) {}
 
   setTripEventsProvider(provider: (tripId: string) => Promise<TopicEvent[]>): void {
@@ -432,6 +434,8 @@ export class OrdersService {
     }
     if (to === 'DELIVERED' || to === 'PICKED_UP') data.estimatedDeliveryAt = null;
     await tx.order.update({ where: { id: order.id }, data });
+    // A completed order settles: its statement lines join the ledger (PLATFORM_PSP only, docs/MUTABAKAT.md).
+    if (to === 'DELIVERED' || to === 'PICKED_UP') await this.ledger.recordOrderCompletion(tx, order.id, now);
     await tx.orderStatusHistory.create({
       data: { orderId: order.id, fromStatus: order.status, toStatus: to, actorUserId, reason: options.reason ?? null },
     });

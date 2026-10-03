@@ -16,6 +16,7 @@ import type { ResolvedPaymentIntent } from '../orders/orders.service';
 import { PaymentsRegistry } from './payments.registry';
 import { MealCardsService } from './meal-cards.service';
 import { MealCardsRegistry } from './meal-cards.registry';
+import { LedgerService } from '../ledger/ledger.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
 
 export type WebhookKind = 'meal-cards' | 'pos';
@@ -38,6 +39,7 @@ export class CheckoutService {
     private readonly mealCards: MealCardsService,
     private readonly issuers: MealCardsRegistry,
     private readonly config: ConfigService,
+    private readonly ledger: LedgerService,
   ) {
     this.orders.setPaymentIntentResolver((restaurantId, intent) => this.resolveIntent(restaurantId, intent));
   }
@@ -210,6 +212,8 @@ export class CheckoutService {
           await this.orders.applyTransition(tx, order, 'PLACED', 'SYSTEM', null, { reason: 'payment captured' });
         }
       }
+      // A refund of platform-collected money is a negative ledger line; the next payout carries it.
+      if (event.status === 'REFUNDED') await this.ledger.recordRefund(tx, payment.orderId, payment.amountMinor);
     });
     this.realtime.publishMany(await this.orders.eventsForOrder(payment.orderId));
     return { received: true, status: event.status };
