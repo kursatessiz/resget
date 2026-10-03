@@ -36,8 +36,17 @@ jobs:
           deny-licenses: AGPL-1.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later, GPL-2.0-only, GPL-2.0-or-later, GPL-3.0-only, GPL-3.0-or-later, SSPL-1.0
           # TruffleHog is AGPL-3.0 but runs only as a CI tool; nothing of it
           # is linked into or shipped with the product, so the copyleft
-          # terms do not reach our code. Every other dependency stays denied.
-          allow-dependencies-licenses: pkg:githubactions/trufflesecurity/trufflehog
+          # terms do not reach our code. node-forge is dual-licensed
+          # "BSD-3-Clause OR GPL-2.0-only" and is used under BSD-3-Clause; it
+          # reaches the tree only through @expo/cli (apps/mobile development
+          # tooling) and never ships in the app bundle. Every other dependency
+          # stays denied.
+          allow-dependencies-licenses: pkg:githubactions/trufflesecurity/trufflehog, pkg:npm/node-forge
+          # No patched node-forge release exists for this advisory; the
+          # affected code runs only in the Expo development CLI. Mirrors the
+          # pnpm.auditConfig.ignoreGhsas entry in package.json; both go once
+          # a fixed release is published.
+          allow-ghsas: GHSA-86w9-cpqp-85rv
 
   secrets:
     name: Secret scan
