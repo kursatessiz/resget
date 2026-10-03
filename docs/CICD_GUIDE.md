@@ -140,7 +140,13 @@ Preprod, production'ın birebir kopyasıdır: aynı compose, aynı Caddyfile, ay
 3. **DNS.** `WEB_DOMAIN` ve `API_DOMAIN` için A kayıtları. Caddy sertifikaları kendisi alır.
 4. **`/opt/resget/.env`.** `.env.example`'dan kopyalayıp doldurun (`chmod 600`); `SITE_ENV=preprod`; tüm sırları yeniden üretin, production değerlerini kopyalamayın; ödeme, SMS ve kurye için sağlayıcı sandbox anahtarları.
 5. **GHCR erişimi** (bölüm 5).
-6. **İlk deploy.** `DEPLOY_ENABLED=true` yapıp `main`'e push veya Actions > Release > Run workflow. `deploy.sh` migration'ları çalıştırır ve smoke test yapar. Platform verisi (planlar, kredi paketleri, kurye ağları) backlog A8 ile gelen bootstrap komutuyla oluşturulur; o güne kadar süper admin paneli veya SQL ile girilir.
+6. **İlk deploy.** `DEPLOY_ENABLED=true` yapıp `main`'e push veya Actions > Release > Run workflow. `deploy.sh` migration'ları çalıştırır, ardından `node dist/cli/bootstrap.js --defaults-only` ile platform varsayılanlarını kurar (`BOOTSTRAP_CURRENCY` para biriminde `BASIC` ve `PRO` planları yoksa oluşturur, varsa dokunmaz; `BOOTSTRAP_PRO_PRICE_MINOR` boşsa PRO ücreti 0 ile açılır ve konsoldan belirlenir) ve smoke test yapar.
+7. **İlk süper admin.** Bir kez, sunucuda elle:
+   ```bash
+   cd /opt/resget && docker compose -f docker-compose.prod.yml run --rm --no-deps api \
+     node dist/cli/bootstrap.js --super-admin-phone=+905xxxxxxxxx --super-admin-name="Ad Soyad"
+   ```
+   Komut idempotenttir: numara yoksa süper admin olarak oluşturur, varsa yetkiyi verir, zaten yetkiliyse dokunmaz; çıktıda numara maskelidir. Süper admin `/giris` ile telefon doğrulayıp `/admin` konsoluna girer; kredi paketleri, hizmet alanları ve plan fiyatları oradan girilir (`docs/PLATFORM_YONETIMI.md`). Kurye ağı MOCK yalnızca üretim dışında oluşturulur; gerçek ağlar adaptörleriyle gelir.
 
 ## 6. Güvenlik workflow'ları
 

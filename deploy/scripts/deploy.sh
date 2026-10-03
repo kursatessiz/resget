@@ -5,8 +5,11 @@
 # 1. back up the database
 # 2. pull the new images (abort if missing, nothing has changed yet)
 # 3. run migrations (abort on failure, old release keeps serving)
-# 4. start the new release and smoke test it (3 attempts)
-# 5. on failure roll back to the release that was running before
+# 4. bootstrap platform defaults (idempotent: plans when missing; never
+#    overwrites what the console changed; the first super admin is created
+#    by hand, see docs/CICD_GUIDE.md)
+# 5. start the new release and smoke test it (3 attempts)
+# 6. on failure roll back to the release that was running before
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -48,6 +51,11 @@ compose pull api web
 compose up -d --wait --wait-timeout 120 postgres redis
 compose run --rm --no-deps api \
   sh -c 'cd node_modules/@resget/database && ./node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma'
+# Defaults only: BOOTSTRAP_CURRENCY (and optionally BOOTSTRAP_PRO_PRICE_MINOR) come from /opt/resget/.env.
+compose run --rm --no-deps \
+  -e "BOOTSTRAP_CURRENCY=${BOOTSTRAP_CURRENCY:-}" \
+  -e "BOOTSTRAP_PRO_PRICE_MINOR=${BOOTSTRAP_PRO_PRICE_MINOR:-0}" \
+  api node dist/cli/bootstrap.js --defaults-only
 
 # Wait for container healthchecks; the smoke test below makes the decision.
 compose up -d --remove-orphans --wait --wait-timeout 120 || true
