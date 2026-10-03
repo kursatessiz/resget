@@ -10,6 +10,8 @@ export const trNav = {
   'nav.campaigns': 'Kampanyalar',
   'nav.reports': 'Raporlar',
   'nav.courier': 'Kurye',
+  'nav.dispatch': 'Sevk',
+  'nav.payments': 'Ödeme ve yemek kartları',
   'nav.settings': 'Ayarlar',
   'nav.subscription': 'Plan ve krediler',
   'nav.switchRestaurant': 'İşletme değiştir',

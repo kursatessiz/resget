@@ -13,6 +13,7 @@ import { trLanding } from './tr/landing';
 import { trPayments } from './tr/payments';
 import { trDispatch } from './tr/dispatch';
 import { trTracking } from './tr/tracking';
+import { trPanel } from './tr/panel';
 import { enCommon } from './en/common';
 import { enNav } from './en/nav';
 import { enAuth } from './en/auth';
@@ -28,6 +29,7 @@ import { enLanding } from './en/landing';
 import { enPayments } from './en/payments';
 import { enDispatch } from './en/dispatch';
 import { enTracking } from './en/tracking';
+import { enPanel } from './en/panel';
 
 /**
  * Bundled message catalogues. Adding strings:
@@ -54,6 +56,7 @@ export const TR_NAMESPACES = [
   trPayments,
   trDispatch,
   trTracking,
+  trPanel,
 ] as const;
 
 export const EN_NAMESPACES = [
@@ -72,6 +75,7 @@ export const EN_NAMESPACES = [
   enPayments,
   enDispatch,
   enTracking,
+  enPanel,
 ] as const;
 
 type UnionToIntersection<U> = (U extends unknown ? (arg: U) => void : never) extends (arg: infer I) => void ? I : never;

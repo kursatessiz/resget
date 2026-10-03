@@ -1,6 +1,6 @@
 import { Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
-import { PhoneSchema } from '@resget/shared';
+import { PhoneSchema, QrScanSessionSchema, TableQrTokenSchema } from '@resget/shared';
 import type { MeDTO, TokenPairDTO } from '@resget/shared';
 import { ZodBody } from '../../common/zod-body.pipe';
 import { AuthService } from './auth.service';
@@ -14,6 +14,9 @@ const VerifyCodeSchema = z
     phone: PhoneSchema,
     code: z.string().regex(/^\d{6}$/),
     fullName: z.string().trim().min(2).max(120).optional(),
+    /** Guest registering from a table QR: records the REGISTERED funnel step for that session. */
+    qrToken: TableQrTokenSchema.optional(),
+    qrSessionId: QrScanSessionSchema.optional(),
   })
   .strict();
 const RefreshSchema = z.object({ refreshToken: z.string().min(20) }).strict();
@@ -34,7 +37,10 @@ export class AuthController {
   @Post('otp/verify')
   @HttpCode(200)
   verifyCode(@ZodBody(VerifyCodeSchema) body: z.infer<typeof VerifyCodeSchema>): Promise<TokenPairDTO> {
-    return this.auth.verifyLoginCode(body.phone, body.code, body.fullName);
+    return this.auth.verifyLoginCode(body.phone, body.code, body.fullName, {
+      qrToken: body.qrToken,
+      qrSessionId: body.qrSessionId,
+    });
   }
 
   @Post('refresh')

@@ -29,6 +29,9 @@ export interface MembershipSummaryDTO {
   roleName: string;
   permissions: PermissionKey[];
   effectivePlan: PlanCode;
+  /** Brand of the restaurant, so the panel shell renders in its color without another call. */
+  themePrimary: string;
+  logoUrl: string | null;
 }
 
 /** GET /auth/me */
