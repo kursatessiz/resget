@@ -99,3 +99,26 @@ function orderStageOf(events: readonly QrScanEventLike[], sessionId: string): nu
   }
   return stage;
 }
+
+// -- Panel management ------------------------------------------------------------------
+
+import { UuidSchema } from './validators';
+
+export const TableLabelSchema = z.string().trim().min(1).max(20);
+export const CreateTableSchema = z.object({ branchId: UuidSchema, label: TableLabelSchema }).strict();
+export type CreateTableInput = z.infer<typeof CreateTableSchema>;
+
+export const UpdateTableSchema = z
+  .object({ label: TableLabelSchema.optional(), isActive: z.boolean().optional() })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, { message: 'empty update' });
+export type UpdateTableInput = z.infer<typeof UpdateTableSchema>;
+
+/** A table as the panel sees it; the token itself travels only inside the URL. */
+export interface TableDTO {
+  id: string;
+  branchId: string;
+  label: string;
+  isActive: boolean;
+  qrUrl: string;
+}

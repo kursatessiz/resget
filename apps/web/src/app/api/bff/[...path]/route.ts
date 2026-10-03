@@ -56,6 +56,8 @@ async function handle(req: NextRequest, context: { params: Promise<{ path: strin
   const res = new NextResponse(upstream.status === 204 ? null : upstream.body, { status: upstream.status });
   const contentType = upstream.headers.get('content-type');
   if (contentType) res.headers.set('content-type', contentType);
+  const disposition = upstream.headers.get('content-disposition');
+  if (disposition) res.headers.set('content-disposition', disposition);
   if (contentType?.startsWith('text/event-stream')) {
     res.headers.set('cache-control', 'no-cache, no-transform');
     res.headers.set('x-accel-buffering', 'no');

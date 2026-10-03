@@ -12,4 +12,8 @@ export const enPanel: Record<keyof typeof trPanel, string> = {
   'panel.overview.openDispatch': 'Open the dispatch board',
   'panel.comingSoon': 'This screen is being prepared.',
   'panel.restaurants': 'Your restaurants',
+  'panel.overview.openMenu': 'Manage the menu',
+  'panel.overview.openTables': 'Tables and QR',
+  'panel.overview.openPayments': 'Payment settings',
+  'panel.overview.openSettings': 'Settings',
 };

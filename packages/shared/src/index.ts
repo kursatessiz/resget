@@ -9,6 +9,8 @@ export * from './meal-cards';
 export * from './courier';
 export * from './delivery';
 export * from './table-qr';
+export * from './menu';
+export * from './restaurant';
 export * from './validators';
 export * from './types';
 export * from './phone';

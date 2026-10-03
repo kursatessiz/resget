@@ -40,6 +40,11 @@ export type ApiErrorCode =
   | 'PAYMENT_STATE_INVALID'
   | 'MEAL_CARD_PROVIDER_UNAVAILABLE'
   | 'WEBHOOK_INVALID'
+  | 'MENU_CATEGORY_NOT_FOUND'
+  | 'MENU_ITEM_NOT_FOUND'
+  | 'MENU_CATEGORY_NOT_EMPTY'
+  | 'MENU_ITEM_IN_USE'
+  | 'REORDER_MISMATCH'
   | 'RATE_LIMITED';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {

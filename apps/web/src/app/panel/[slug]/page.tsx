@@ -28,6 +28,26 @@ export default async function PanelOverviewPage({ params }: { params: Promise<{ 
               {t('panel.overview.openDispatch')}
             </LinkButton>
           )}
+          {can('menu.view') && (
+            <LinkButton href={`/panel/${slug}/menu`} variant="outline" tone="muted">
+              {t('panel.overview.openMenu')}
+            </LinkButton>
+          )}
+          {can('tables.manage') && (
+            <LinkButton href={`/panel/${slug}/masalar`} variant="outline" tone="muted">
+              {t('panel.overview.openTables')}
+            </LinkButton>
+          )}
+          {can('payments.manage') && (
+            <LinkButton href={`/panel/${slug}/odeme`} variant="outline" tone="muted">
+              {t('panel.overview.openPayments')}
+            </LinkButton>
+          )}
+          {can('restaurant.settings.view') && (
+            <LinkButton href={`/panel/${slug}/ayarlar`} variant="outline" tone="muted">
+              {t('panel.overview.openSettings')}
+            </LinkButton>
+          )}
         </div>
       </Card>
     </>

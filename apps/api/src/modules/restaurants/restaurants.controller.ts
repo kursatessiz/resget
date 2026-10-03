@@ -1,44 +1,30 @@
-import { Controller, Get } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Controller, Get, Patch } from '@nestjs/common';
+import type { z } from 'zod';
+import { UpdateRestaurantSettingsSchema } from '@resget/shared';
+import type { RestaurantSettingsDTO } from '@resget/shared';
+import { ZodBody } from '../../common/zod-body.pipe';
 import { RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
 import { Tenant } from '../auth/decorators/current-user.decorator';
 import type { TenantContext } from '../auth/tenant-context';
-import { notFound } from '../../common/api-error';
+import { RestaurantsService } from './restaurants.service';
 
 @Controller('restaurants/:restaurantId')
 @RestaurantScoped()
 export class RestaurantsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly restaurants: RestaurantsService) {}
 
   @Get()
   @RequirePermission('restaurant.settings.view')
-  async get(@Tenant() tenant: TenantContext) {
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: tenant.restaurantId },
-      select: {
-        id: true,
-        slug: true,
-        name: true,
-        countryCode: true,
-        currency: true,
-        timezone: true,
-        defaultLocale: true,
-        isListed: true,
-        commissionBps: true,
-        pspPercentBps: true,
-        pspFixedMinor: true,
-        deliveryMode: true,
-        deliveryFeePolicy: true,
-        logoUrl: true,
-        themePrimary: true,
-        branches: {
-          where: { isActive: true },
-          select: { id: true, name: true, city: true, district: true },
-          orderBy: { name: 'asc' },
-        },
-      },
-    });
-    if (!restaurant) throw notFound('NOT_FOUND', 'Restaurant not found');
-    return { ...restaurant, effectivePlan: tenant.effectivePlan, permissions: [...tenant.permissions] };
+  get(@Tenant() tenant: TenantContext): Promise<RestaurantSettingsDTO> {
+    return this.restaurants.settings(tenant);
+  }
+
+  @Patch()
+  @RequirePermission('restaurant.settings.manage')
+  update(
+    @Tenant() tenant: TenantContext,
+    @ZodBody(UpdateRestaurantSettingsSchema) body: z.infer<typeof UpdateRestaurantSettingsSchema>,
+  ): Promise<RestaurantSettingsDTO> {
+    return this.restaurants.update(tenant, body);
   }
 }

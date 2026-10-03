@@ -28,4 +28,9 @@ export const trErrors = {
   'errors.PAYMENT_STATE_INVALID': 'Bu sipariş için ödeme işlemi bu aşamada yapılamaz.',
   'errors.MEAL_CARD_PROVIDER_UNAVAILABLE': 'Bu yemek kartı için çevrim içi ödeme entegrasyonu henüz hazır değil.',
   'errors.WEBHOOK_INVALID': 'Ödeme bildirimi doğrulanamadı.',
+  'errors.MENU_CATEGORY_NOT_FOUND': 'Kategori bulunamadı.',
+  'errors.MENU_ITEM_NOT_FOUND': 'Ürün bulunamadı.',
+  'errors.MENU_CATEGORY_NOT_EMPTY': 'Kategori boş değil. Önce ürünleri taşıyın veya silin.',
+  'errors.MENU_ITEM_IN_USE': 'Bu ürün geçmiş siparişlerde kullanıldığı için silinemez; tükendi olarak işaretleyin.',
+  'errors.REORDER_MISMATCH': 'Sıralama listesi mevcut kayıtlarla eşleşmiyor. Sayfayı yenileyip tekrar deneyin.',
 } as const satisfies Record<string, string>;

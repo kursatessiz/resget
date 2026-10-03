@@ -164,3 +164,28 @@
     color: var(--pui-theme-text, var(--pui-theme));
   }
 }
+
+/* Printable QR label sheet (/panel/<slug>/masalar/yazdir): layout only, the labels are SVG documents. */
+.ui-print-sheet {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+.ui-print-label {
+  margin: 0;
+  break-inside: avoid;
+}
+.ui-print-label > img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+@media print {
+  .ui-no-print,
+  aside {
+    display: none !important;
+  }
+  .ui-print-sheet {
+    gap: 1rem;
+  }
+}
