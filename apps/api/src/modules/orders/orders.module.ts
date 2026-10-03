@@ -5,11 +5,12 @@ import { PublicTrackingController } from './public-tracking.controller';
 import { OrdersService } from './orders.service';
 import { SettlementService } from './settlement.service';
 import { OrderNotificationsService } from './order-notifications.service';
+import { OrdersWatchdog } from './orders.watchdog';
 
 @Module({
   imports: [AuthModule],
   controllers: [OrdersController, PublicTrackingController],
-  providers: [SettlementService, OrdersService, OrderNotificationsService],
-  exports: [SettlementService, OrdersService, OrderNotificationsService],
+  providers: [SettlementService, OrdersService, OrderNotificationsService, OrdersWatchdog],
+  exports: [SettlementService, OrdersService, OrderNotificationsService, OrdersWatchdog],
 })
 export class OrdersModule {}

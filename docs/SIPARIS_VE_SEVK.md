@@ -78,6 +78,7 @@ ETA bugün düz çizgi mesafesi x sapma katsayısı / ortalama hızdan hesaplan�
 | `maxStopsPerTrip` | 6 | Sefer başına en fazla durak |
 | `locationBroadcastSeconds` | 4 | Konum yayın aralığı |
 | `defaultPrepMinutes` | 20 | Kabulde önerilen hazırlık süresi |
+| `acceptTimeoutMinutes` | 10 | Yeni siparişin kabul için bekleyebileceği süre; sonrasında ekran alarm verir ve sahibe mesaj gider |
 
 ## 5. Canlı akış (SSE)
 
@@ -112,6 +113,6 @@ Harita sağlayıcısı (ücret, lisans, Türkiye kapsama) sahibin kararıdır; k
 ## 9. Sonraki adımlar
 
 - Herkese açık uçlara (takip, menü) Redis tabanlı oran sınırı.
-- Kabul zaman aşımı (`acceptDeadlineAt`) ve restorana sesli uyarı; bildirimler (A7) sipariş olaylarına bağlanır.
+- Kabul zaman aşımı tamamlandı: `PLACED` sipariş `acceptDeadlineAt` (yerleştirme + `acceptTimeoutMinutes`) taşır; önce ödenen sipariş pencereye ödeme düşünce girer, kabulde alan temizlenir. `OrdersWatchdog` dakikada bir süresi geçen ve henüz alarm vermemiş siparişleri damgalar (`acceptAlertSentAt`, bir kez), sipariş olayını yeniden yayınlar (kart kırmızıya döner, ekran sesli uyarı verir; ses tercihi tarayıcıda saklanır) ve sahibe `order.acceptOverdue` mesajını platform hesabından gönderir (kredi düşmez). Sipariş restoran adına reddedilmez; karar insana kalır. `ORDER_WATCHDOG=off` ile kapanır. Bildirimler (A7) sipariş olaylarına bağlıdır.
 - Teslim kanıtı (fotoğraf, PIN) ve kapıda ödeme tahsilat onayı durak kapanışına eklenir.
 - Gerçek yol motoru adaptörü ve trafik duyarlı ETA.

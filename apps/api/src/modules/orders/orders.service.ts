@@ -18,6 +18,7 @@ import {
   orderTimestampFor,
   settlementDefaultsFor,
   trackingUrl,
+  acceptDeadlineFor,
 } from '@resget/shared';
 import type {
   AddressSnapshot,
@@ -33,6 +34,7 @@ import type {
   OrderTransitionInput,
   OrdersQuery,
   SettlementLine,
+  DispatchSettings,
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderNotificationsService } from './order-notifications.service';
@@ -128,6 +130,7 @@ export class OrdersService {
         pspFixedMinor: true,
         paymentMode: true,
         deliveryMode: true,
+        dispatchSettings: true,
       },
     });
     if (!restaurant) throw notFound('NOT_FOUND', 'Restaurant not found');
@@ -198,6 +201,8 @@ export class OrdersService {
       input.customer ??
       (input.address ? { phone: input.address.contactPhone, fullName: input.address.contactName } : null);
 
+    // One instant for the row and the acceptance window, so the deadline is exactly the setting away from placedAt.
+    const placedAt = new Date();
     const orderId = await this.prisma.$transaction(async (tx) => {
       let customerUserId: string | null = null;
       if (contact) {
@@ -240,6 +245,11 @@ export class OrdersService {
               : restaurant.deliveryMode
             : 'NONE',
           status: initialStatus,
+          placedAt,
+          acceptDeadlineAt:
+            initialStatus === 'PLACED'
+              ? acceptDeadlineFor(placedAt, dispatchSettingsFrom(restaurant.dispatchSettings))
+              : null,
           currency: restaurant.currency,
           itemsGrossMinor: settlement.itemsGrossMinor,
           itemsVatMinor: settlement.itemsVatMinor,
@@ -405,9 +415,12 @@ export class OrdersService {
     const stamp = orderTimestampFor(to);
     if (stamp) data[stamp] = now;
     if (to === 'ACCEPTED') {
-      const minutes = options.prepMinutes ?? (await this.defaultPrepMinutes(tx, order.id));
+      const minutes = options.prepMinutes ?? (await this.dispatchSettingsOf(tx, order.id)).defaultPrepMinutes;
       data.promisedReadyAt = new Date(now.getTime() + minutes * 60_000);
     }
+    // A paid-first order enters the acceptance window when the payment lands.
+    if (to === 'PLACED') data.acceptDeadlineAt = acceptDeadlineFor(now, await this.dispatchSettingsOf(tx, order.id));
+    if (to !== 'PLACED' && order.status === 'PLACED') data.acceptDeadlineAt = null;
     if (to === 'REJECTED' || to === 'CANCELLED_BY_RESTAURANT' || to === 'CANCELLED_BY_CUSTOMER') {
       data.rejectReason = options.reason ?? null;
     }
@@ -419,12 +432,12 @@ export class OrdersService {
     order.status = to;
   }
 
-  private async defaultPrepMinutes(tx: Prisma.TransactionClient, orderId: string): Promise<number> {
+  private async dispatchSettingsOf(tx: Prisma.TransactionClient, orderId: string): Promise<DispatchSettings> {
     const row = await tx.order.findUnique({
       where: { id: orderId },
       select: { restaurant: { select: { dispatchSettings: true } } },
     });
-    return dispatchSettingsFrom(row?.restaurant.dispatchSettings).defaultPrepMinutes;
+    return dispatchSettingsFrom(row?.restaurant.dispatchSettings);
   }
 
   // -- Events -------------------------------------------------------------------------
@@ -572,6 +585,7 @@ export class OrdersService {
       readyAt: row.readyAt?.toISOString() ?? null,
       estimatedDeliveryAt: row.estimatedDeliveryAt?.toISOString() ?? null,
       completedAt: row.completedAt?.toISOString() ?? null,
+      acceptDeadlineAt: row.status === 'PLACED' ? (row.acceptDeadlineAt?.toISOString() ?? null) : null,
       activeTrip: stop
         ? { tripId: stop.tripId, stopId: stop.id, sequence: stop.sequence, tripStatus: stop.trip.status }
         : null,

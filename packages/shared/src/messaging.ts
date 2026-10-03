@@ -48,6 +48,7 @@ export const MESSAGE_TEMPLATE_KEYS = [
   'order.cancelled',
   'invoice.issued',
   'invoice.overdue',
+  'order.acceptOverdue',
 ] as const;
 export type MessageTemplateKey = (typeof MESSAGE_TEMPLATE_KEYS)[number];
 

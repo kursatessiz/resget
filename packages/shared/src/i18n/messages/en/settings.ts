@@ -36,6 +36,7 @@ export const enSettings: Record<keyof typeof trSettings, string> = {
   'settings.dispatch.arrivalRadiusMeters': 'Arrival radius (m)',
   'settings.dispatch.maxStopsPerTrip': 'Maximum stops per trip',
   'settings.dispatch.locationBroadcastSeconds': 'Location broadcast interval (s)',
+  'settings.dispatch.acceptTimeoutMinutes': 'Acceptance time limit (min)',
   'settings.dispatch.defaultPrepMinutes': 'Default preparation time (min)',
   'settings.platform.title': 'Set by the platform',
   'settings.platform.commission': 'Order commission: {percent}%',

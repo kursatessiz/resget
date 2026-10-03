@@ -23,6 +23,7 @@ const DISPATCH_FIELDS: { key: keyof DispatchSettings; step: string }[] = [
   { key: 'maxStopsPerTrip', step: '1' },
   { key: 'locationBroadcastSeconds', step: '1' },
   { key: 'defaultPrepMinutes', step: '5' },
+  { key: 'acceptTimeoutMinutes', step: '1' },
 ];
 
 function toDraft(settings: DispatchSettings): Record<keyof DispatchSettings, string> {

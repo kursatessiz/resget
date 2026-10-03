@@ -208,10 +208,17 @@ export const DispatchSettingsSchema = z
     locationBroadcastSeconds: z.number().int().min(1).max(60).default(4),
     /** Preparation time offered by default when the restaurant accepts an order. */
     defaultPrepMinutes: z.number().int().min(1).max(180).default(20),
+    /** Minutes a new order may wait for acceptance before the screen alarms and the owner is messaged. */
+    acceptTimeoutMinutes: z.number().int().min(1).max(60).default(10),
   })
   .strict();
 export type DispatchSettings = z.infer<typeof DispatchSettingsSchema>;
 export const DEFAULT_DISPATCH_SETTINGS: DispatchSettings = DispatchSettingsSchema.parse({});
+
+/** When a PLACED order must be accepted by (docs/SIPARIS_VE_SEVK.md, kabul zaman asimi). */
+export function acceptDeadlineFor(placedAt: Date, settings: Pick<DispatchSettings, 'acceptTimeoutMinutes'>): Date {
+  return new Date(placedAt.getTime() + settings.acceptTimeoutMinutes * 60_000);
+}
 
 /** Stored JSON may be null or partial; unknown keys are dropped rather than failing a restaurant. */
 export function dispatchSettingsFrom(raw: unknown): DispatchSettings {
@@ -562,6 +569,8 @@ export interface OrderSummaryDTO {
   readyAt: string | null;
   estimatedDeliveryAt: string | null;
   completedAt: string | null;
+  /** PLACED orders: the moment the acceptance alarm fires; null once accepted or for paid-first orders still pending. */
+  acceptDeadlineAt: string | null;
   /** The trip this order currently rides in, when any. */
   activeTrip: { tripId: string; stopId: string; sequence: number; tripStatus: DeliveryTripStatusValue } | null;
   /** Chosen method, issuer and what is still due at the door (docs/YEMEK_KARTI.md). */

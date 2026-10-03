@@ -268,6 +268,7 @@ async function main(): Promise<void> {
       fulfillment: 'DELIVERY',
       deliveryMode: 'RESTAURANT_COURIER',
       status: 'PLACED',
+      acceptDeadlineAt: new Date(Date.now() + 10 * 60_000),
       currency: restaurant.currency,
       itemsGrossMinor: settlement.itemsGrossMinor,
       itemsVatMinor: settlement.itemsVatMinor,

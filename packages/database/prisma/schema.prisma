@@ -669,6 +669,10 @@ model Order {
   trackingToken       String?   @unique
   /// Kitchen promise given when the order was accepted (placedAt + prepMinutes).
   promisedReadyAt     DateTime?
+  /// PLACED orders: placedAt + the restaurant's acceptTimeoutMinutes; the watchdog alarms past it (docs/SIPARIS_VE_SEVK.md).
+  acceptDeadlineAt    DateTime?
+  /// Set once the overdue alarm went out, so it goes out once.
+  acceptAlertSentAt   DateTime?
   /// Latest delivery estimate, recomputed from the courier's position while on the way.
   estimatedDeliveryAt DateTime?
   placedAt            DateTime  @default(now())
@@ -692,6 +696,7 @@ model Order {
 
   @@index([restaurantId, placedAt])
   @@index([restaurantId, status])
+  @@index([status, acceptDeadlineAt])
   @@index([customerUserId])
   @@map("orders")
 }
