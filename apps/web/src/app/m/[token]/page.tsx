@@ -1,11 +1,12 @@
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { TableQrTokenSchema } from '@resget/shared';
-import type { StorefrontDTO } from '@resget/shared';
+import type { StorefrontDTO, StorefrontViewerDTO } from '@resget/shared';
 import { Storefront } from '@/components/Storefront';
 import { ThemeRoot } from '@/components/ThemeRoot';
 import { LinkButton } from '@/components/ui';
 import { getT } from '@/lib/i18n';
+import { apiFetch, getMe } from '@/lib/api-server';
 import { apiInternalBaseUrl } from '@/lib/server-env';
 import { QR_SESSION_COOKIE } from '@/lib/session';
 
@@ -29,6 +30,9 @@ export default async function TableMenuPage({ params }: { params: Promise<{ toke
   if (!res.ok) throw new Error(`Menu request failed with ${res.status}`);
   const storefront = (await res.json()) as StorefrontDTO;
   const { t, locale } = await getT();
+  const me = await getMe().catch(() => null);
+  const viewerRes = me ? await apiFetch('/me/viewer') : null;
+  const viewer = viewerRes?.ok ? ((await viewerRes.json()) as StorefrontViewerDTO) : null;
   const mealCards = [
     ...new Set([...storefront.payment.mealCardsOnline, ...storefront.payment.mealCardsOnDelivery].map((c) => c.name)),
   ];
@@ -55,15 +59,21 @@ export default async function TableMenuPage({ params }: { params: Promise<{ toke
           )}
         </header>
 
-        <Storefront storefront={storefront} locale={locale} source={{ kind: 'qr', token }} />
+        <Storefront storefront={storefront} locale={locale} source={{ kind: 'qr', token }} viewer={viewer} />
 
         <section className="flex flex-col gap-3">
           <LinkButton href={`/${storefront.restaurant.slug}`} variant="outline" tone="muted" block>
             {t('qr.page.orderDelivery')}
           </LinkButton>
-          <LinkButton href={`/giris?kayit=1&masa=${token}&next=/m/${token}`} variant="link" tone="muted" block>
-            {t('qr.page.register')}
-          </LinkButton>
+          {viewer ? (
+            <LinkButton href="/hesabim" variant="link" tone="muted" block>
+              {t('account.shop.signedInAs', { name: viewer.fullName })} {t('account.shop.open')}
+            </LinkButton>
+          ) : (
+            <LinkButton href={`/giris?kayit=1&masa=${token}&next=/m/${token}`} variant="link" tone="muted" block>
+              {t('qr.page.register')}
+            </LinkButton>
+          )}
         </section>
 
         <footer className="ui-rule pt-4">

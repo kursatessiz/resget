@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { customerDeliveryFee, formatMoney } from '@resget/shared';
 import type {
+  CustomerAddressDTO,
+  StorefrontViewerDTO,
   FulfillmentTypeValue,
   MenuModifierGroupDTO,
   OrderLineInput,
@@ -11,7 +13,7 @@ import type {
   StorefrontDTO,
   StorefrontItemDTO,
 } from '@resget/shared';
-import { Badge, Button, Card, TextAreaField, TextField } from '@/components/ui';
+import { Badge, Button, Card, TextAreaField, TextField, SelectField } from '@/components/ui';
 import { ApiError, bffJson } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
 
@@ -34,11 +36,14 @@ export function Storefront({
   storefront,
   locale,
   source,
+  viewer = null,
 }: {
   storefront: StorefrontDTO;
   locale: string;
   /** Where the page was opened from: the table QR (token) or the restaurant page (slug). */
   source: { kind: 'qr'; token: string } | { kind: 'site' };
+  /** The signed-in customer, when there is one: name, phone and saved addresses prefill the form. */
+  viewer?: StorefrontViewerDTO | null;
 }) {
   const t = useT(locale);
   const router = useRouter();
@@ -48,12 +53,16 @@ export function Storefront({
   const [fulfillment, setFulfillment] = useState<FulfillmentTypeValue>(
     ordering.dineIn ? 'DINE_IN' : ordering.delivery ? 'DELIVERY' : 'PICKUP',
   );
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [addressLine, setAddressLine] = useState('');
-  const [city, setCity] = useState('');
-  const [district, setDistrict] = useState('');
-  const [addressNote, setAddressNote] = useState('');
+  const defaultAddress = viewer?.addresses.find((a) => a.isDefault) ?? viewer?.addresses[0] ?? null;
+  const [fullName, setFullName] = useState(viewer?.fullName ?? '');
+  const [phone, setPhone] = useState(viewer?.phone ?? '');
+  const [addressLine, setAddressLine] = useState(defaultAddress?.addressLine ?? '');
+  const [city, setCity] = useState(defaultAddress?.city ?? '');
+  const [district, setDistrict] = useState(defaultAddress?.district ?? '');
+  const [addressNote, setAddressNote] = useState(defaultAddress?.note ?? '');
+  const [savedAddressId, setSavedAddressId] = useState<string>(defaultAddress?.id ?? '');
+  const [saveAddress, setSaveAddress] = useState(false);
+  const [saveLabel, setSaveLabel] = useState('');
   const [note, setNote] = useState('');
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [startedSent, setStartedSent] = useState(false);
@@ -192,7 +201,7 @@ export function Storefront({
                 ...(addressNote.trim() ? { note: addressNote.trim() } : {}),
                 contactName: fullName.trim(),
                 contactPhone: phone.trim(),
-                point: null,
+                point: viewer?.addresses.find((a) => a.id === savedAddressId)?.point ?? null,
               },
             }
           : {}),
@@ -202,6 +211,19 @@ export function Storefront({
       };
       const path =
         source.kind === 'qr' ? `public/qr/${source.token}/orders` : `public/restaurants/${restaurant.slug}/orders`;
+      if (viewer && fulfillment === 'DELIVERY' && !savedAddressId && saveAddress && saveLabel.trim()) {
+        // The address joins the account first; a failure here must not block the order itself.
+        await bffJson<CustomerAddressDTO[]>('me/addresses', {
+          method: 'POST',
+          body: JSON.stringify({
+            label: saveLabel.trim(),
+            addressLine: addressLine.trim(),
+            city: city.trim(),
+            district: district.trim(),
+            ...(addressNote.trim() ? { note: addressNote.trim() } : {}),
+          }),
+        }).catch(() => undefined);
+      }
       const result = await bffJson<PublicOrderResultDTO>(path, { method: 'POST', body: JSON.stringify(body) });
       if (result.checkoutUrl) {
         setDone(t('shop.redirectingToPayment'));
@@ -426,6 +448,29 @@ export function Storefront({
           {fulfillment === 'DELIVERY' && (
             <fieldset className="grid gap-3 md:grid-cols-2">
               <legend className="ui-heading">{t('shop.address.title')}</legend>
+              {viewer && viewer.addresses.length > 0 && (
+                <SelectField
+                  id="sf-saved-address"
+                  label={t('account.shop.savedAddress')}
+                  className="md:col-span-2"
+                  value={savedAddressId}
+                  onChange={(e) => {
+                    const chosen = viewer.addresses.find((a) => a.id === e.target.value) ?? null;
+                    setSavedAddressId(chosen?.id ?? '');
+                    setAddressLine(chosen?.addressLine ?? '');
+                    setCity(chosen?.city ?? '');
+                    setDistrict(chosen?.district ?? '');
+                    setAddressNote(chosen?.note ?? '');
+                  }}
+                >
+                  <option value="">{t('account.shop.newAddress')}</option>
+                  {viewer.addresses.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.label}: {a.addressLine}
+                    </option>
+                  ))}
+                </SelectField>
+              )}
               <TextField
                 id="sf-address"
                 label={t('shop.address.line')}
@@ -456,6 +501,23 @@ export function Storefront({
                 onChange={(e) => setAddressNote(e.target.value)}
                 className="md:col-span-2"
               />
+              {viewer && !savedAddressId && (
+                <>
+                  <label className="flex items-center gap-2 md:col-span-2">
+                    <input type="checkbox" checked={saveAddress} onChange={(e) => setSaveAddress(e.target.checked)} />
+                    <span className="ui-caption">{t('account.shop.saveAddress')}</span>
+                  </label>
+                  {saveAddress && (
+                    <TextField
+                      id="sf-save-label"
+                      label={t('account.shop.saveAddressLabel')}
+                      value={saveLabel}
+                      onChange={(e) => setSaveLabel(e.target.value)}
+                      maxLength={40}
+                    />
+                  )}
+                </>
+              )}
             </fieldset>
           )}
 

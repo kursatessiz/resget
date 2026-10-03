@@ -29,3 +29,9 @@ Adres geokodlama (koordinat olmadan kurye ağı teklifi alınamaz; kendi kurye s
 Pazaryeri listesi yalnızca `isActive`, `isListed` ve askıda olmayan (`listingSuspendedAt` boş) restoranları gösterir; vadesi geçmiş komisyon faturası listelemeyi askıya alır, sayfanın kendisi açık kalır (`docs/FATURALAMA.md`).
 
 Listelenme kararı konsolundur: restoran menüsü hazır olunca Ayarlar sayfasından talep eder, konsol onaylar (`docs/PLATFORM_YONETIMI.md`).
+
+## Müşteri hesabı (`/hesabim`)
+
+Telefon numarası hesaptır; masa QR'ından veya restoran sayfasından giriş aynı OTP akışıdır (`/giris?kayit=1&next=...`). Giriş yapmış ziyaretçi için vitrin ad ve telefonu önceden doldurur, eve teslimde kayıtlı adresleri seçtirir (varsayılan adres hazır gelir, koordinatı varsa siparişe geçer) ve yeni adresi isteğe bağlı olarak hesaba kaydeder. `/hesabim`: ad, kayıtlı adresler (ekle, varsayılan yap, sil; liste hiçbir zaman varsayılansız kalmaz), son 50 sipariş ve takip bağlantıları, çıkış.
+
+Uçlar (`me/*`, yalnızca oturum): `GET me/account`, `GET me/viewer` (vitrin için ad, telefon, adresler), `PATCH me/profile`, `GET / POST me/addresses`, `PATCH / DELETE me/addresses/:id`, `GET me/orders`. Adresler kullanıcıya aittir; başka kullanıcının adresi 404'tür. Sipariş adres anlık görüntüsü siparişte kalır; kayıtlı adresin sonraki değişikliği geçmiş siparişi değiştirmez.
