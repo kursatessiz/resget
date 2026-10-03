@@ -15,7 +15,11 @@ describe('CredentialCipher', () => {
 
   it('rejects tampered ciphertext and foreign keys', () => {
     const payload = cipher.encrypt('secret');
-    const tampered = payload.slice(0, -2) + (payload.endsWith('A') ? 'B' : 'A') + payload.slice(-1);
+    // Flip one bit of the ciphertext body itself; editing a base64 character can land in padding bits and decode unchanged.
+    const parts = payload.split('.');
+    const body = Buffer.from(parts[4], 'base64');
+    body[0] ^= 0x01;
+    const tampered = [...parts.slice(0, 4), body.toString('base64')].join('.');
     expect(() => cipher.decrypt(tampered)).toThrow();
     const other = new CredentialCipher(new EnvKeyProvider(randomBytes(32).toString('base64')));
     expect(() => other.decrypt(payload)).toThrow();

@@ -102,9 +102,15 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
    * of what a reconnecting client missed, then live events, with a
    * heartbeat so proxies keep the connection open.
    */
-  stream(topic: string, lastEventId?: string | null, initial: readonly RealtimeEvent[] = []): Observable<MessageEvent> {
+  stream(
+    topic: string,
+    lastEventId?: string | null,
+    initial: readonly RealtimeEvent[] = [],
+    filter: (event: RealtimeEvent) => boolean = () => true,
+  ): Observable<MessageEvent> {
     return new Observable<MessageEvent>((subscriber) => {
       const send = (envelope: RealtimeEnvelope) =>
+        filter(envelope.event) &&
         subscriber.next({
           id: String(envelope.id),
           type: envelope.event.type,
