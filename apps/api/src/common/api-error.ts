@@ -56,6 +56,10 @@ export type ApiErrorCode =
   | 'STAFF_ALREADY_MEMBER'
   | 'PACKAGE_NOT_FOUND'
   | 'PAYMENT_METHOD_NOT_FOUND'
+  | 'SLUG_TAKEN'
+  | 'SERVICE_AREA_EXISTS'
+  | 'PLAN_NOT_FOUND'
+  | 'RESTAURANT_NOT_FOUND'
   | 'RATE_LIMITED';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {

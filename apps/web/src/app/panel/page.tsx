@@ -29,6 +29,11 @@ export default async function PanelIndexPage() {
           <h1 className="ui-title">{t('panel.title')}</h1>
           <p className="ui-text-muted">{t('auth.signedInAs', { name: me.user.fullName })}</p>
         </header>
+        {me.user.isSuperAdmin && (
+          <LinkButton href="/admin" variant="outline" tone="muted">
+            {t('admin.title')}
+          </LinkButton>
+        )}
         {memberships.length === 0 ? (
           <Card>
             <p>{t('auth.noMembership')}</p>

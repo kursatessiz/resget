@@ -70,10 +70,12 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
 
   const signIn = new URL('/giris', req.url);
   signIn.searchParams.set('next', `${pathname}${search}`);
+  // A visitor opening the restaurant sign-up has no account yet: the sign-in asks for a name as well.
+  if (pathname === '/kayit') signIn.searchParams.set('kayit', '1');
   const res = NextResponse.redirect(signIn);
   res.cookies.set(ACCESS_TOKEN_COOKIE, '', { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 0 });
   res.cookies.set(REFRESH_TOKEN_COOKIE, '', { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 0 });
   return res;
 }
 
-export const config = { matcher: ['/panel/:path*', '/m/:path*'] };
+export const config = { matcher: ['/panel/:path*', '/admin/:path*', '/kayit', '/m/:path*'] };
