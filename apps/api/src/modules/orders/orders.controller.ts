@@ -1,7 +1,7 @@
 import { Controller, HttpCode, Post } from '@nestjs/common';
 import { z } from 'zod';
 import { FeeBearerSchema, MinorAmountSchema, SettlementLineSchema } from '@resget/shared';
-import type { Settlement } from '@resget/shared';
+import type { ModeSettlement } from '@resget/shared';
 import { ZodBody } from '../../common/zod-body.pipe';
 import { RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
 import { Tenant } from '../auth/decorators/current-user.decorator';
@@ -29,7 +29,7 @@ export class OrdersController {
   preview(
     @Tenant() tenant: TenantContext,
     @ZodBody(PreviewSchema) body: z.infer<typeof PreviewSchema>,
-  ): Promise<Settlement> {
+  ): Promise<ModeSettlement> {
     return this.settlement.forRestaurant(tenant.restaurantId, body);
   }
 }

@@ -24,6 +24,10 @@ Kurallar:
 - OTP ve platform bildirimleri restoranı ücretlendirmez.
 - Her hareket `message_transactions` içinde bakiye sonrası değeriyle kayıtlıdır; `message_logs` her denemeyi tutar.
 
+## Komisyonun tahsili
+
+`OWN_POS` restoranlarında yüzde 1 komisyon + KDV ay sonunda tek faturada kesilir ve restoranın kayıtlı kartından (aynı kart kasası) veya otomatik ödeme talimatından çekilir. Fatura kesildikten 10 gün sonra ödenmemişse pazaryeri listelemesi askıya alınır; menü, sipariş ekranı ve masa QR çalışmaya devam eder. `PLATFORM_PSP` restoranlarında komisyon hakedişten düşülür, fatura yalnızca belge amaçlıdır. Ayrıntı: `docs/ODEME.md`.
+
 ## Fiyatın değişmesi
 
 Plan fiyatları ve paket fiyatları veritabanı verisidir; süper admin değiştirir. Para birimi plan satırındadır; kodda sabit yoktur. Mevcut abonelikler dönem sonuna kadar eski fiyatla devam eder.

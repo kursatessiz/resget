@@ -68,6 +68,26 @@ enum OrderStatus {
   REFUNDED
 }
 
+enum PaymentMode {
+  OWN_POS
+  PLATFORM_PSP
+}
+
+enum PaymentConnectionStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  FAILED
+  DISABLED
+}
+
+enum CommissionInvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  OVERDUE
+  VOID
+}
+
 enum PaymentMethod {
   ONLINE_CARD
   CASH_ON_DELIVERY
@@ -186,6 +206,7 @@ model User {
   consents            Consent[]
   restaurantCustomers RestaurantCustomer[]
   otpCodes            OtpCode[]
+  savedPaymentMethods SavedPaymentMethod[]
   invitesCreated      InviteToken[]      @relation("InviteCreatedBy")
   statusChanges       OrderStatusHistory[]
   auditLogs           AuditLog[]
@@ -247,7 +268,9 @@ model Restaurant {
 
   /// Platform take rate on gross order value; 100 = 1 percent. Changed only by the super admin.
   commissionBps Int @default(100)
-  /// The payment provider's contracted fee for this restaurant, passed through at cost (docs/MUTABAKAT.md).
+  /// Who collects card payments (docs/ODEME.md): the restaurant's own virtual POS (default) or the platform's PSP.
+  paymentMode   PaymentMode @default(OWN_POS)
+  /// PLATFORM_PSP only: the provider's contracted fee for this restaurant, passed through at cost (docs/MUTABAKAT.md).
   pspPercentBps Int @default(0)
   pspFixedMinor Int @default(0)
   /// How this restaurant moves food by default; per order it can differ.
@@ -279,6 +302,8 @@ model Restaurant {
   payments         Payment[]
   ledgerEntries    LedgerEntry[]
   payouts          Payout[]
+  paymentConnection PaymentProviderConnection?
+  commissionInvoices CommissionInvoice[]
   subscription     RestaurantSubscription?
   messageWallets   MessageWallet[]
   messageLogs      MessageLog[]
@@ -583,6 +608,10 @@ model Order {
   courierCostMinor         Int @default(0)
   courierBearer            String?
   restaurantPayableMinor   Int
+  /// Payment mode at placement; decides whether the commission is invoiced (OWN_POS) or deducted (PLATFORM_PSP).
+  paymentMode              PaymentMode @default(OWN_POS)
+  /// OWN_POS: commission + VAT the restaurant owes for this order. PLATFORM_PSP: 0.
+  platformReceivableMinor  Int @default(0)
 
   /// Delivery address at the time of the order (never a live reference).
   addressSnapshot Json?
@@ -661,16 +690,100 @@ model Payment {
   providerRef  String?
   capturedAt   DateTime?
   refundedMinor Int          @default(0)
+  /// Which merchant collected: the restaurant's own POS or the platform's PSP, as it was at payment time.
+  paymentMode  PaymentMode   @default(OWN_POS)
+  /// The stored card used, when the customer paid with a saved card.
+  savedPaymentMethodId String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  savedPaymentMethod SavedPaymentMethod? @relation(fields: [savedPaymentMethodId], references: [id], onDelete: SetNull)
 
   @@index([restaurantId, createdAt])
   @@index([orderId])
   @@index([providerRef])
   @@map("payments")
+}
+
+/// A restaurant's own virtual POS (docs/ODEME.md). Credentials are encrypted
+/// with the platform key (AES-256-GCM; envelope encryption with a KMS in
+/// production) and never leave the API.
+model PaymentProviderConnection {
+  id                   String                  @id @default(uuid())
+  restaurantId         String                  @unique
+  providerCode         String
+  encryptedCredentials String
+  /// Identifies the key that encrypted the credentials, so keys can be rotated.
+  keyVersion           String
+  status               PaymentConnectionStatus @default(PENDING_VERIFICATION)
+  /// Masked identification shown in the panel, e.g. "PAYTR ****1234".
+  label                String
+  lastVerifiedAt       DateTime?
+  failureReason        String?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("payment_provider_connections")
+}
+
+/// A customer's card as held by a vault provider; only the provider's token is stored, encrypted.
+model SavedPaymentMethod {
+  id             String   @id @default(uuid())
+  userId         String
+  provider       String
+  /// The vault's token, encrypted at rest. Never a card number.
+  encryptedToken String
+  keyVersion     String
+  tokenHash      String
+  brand          String
+  last4          String
+  expiryMonth    Int
+  expiryYear     Int
+  label          String?
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments Payment[]
+
+  @@unique([userId, provider, tokenHash])
+  @@index([userId])
+  @@map("saved_payment_methods")
+}
+
+/// Monthly commission invoice of an OWN_POS restaurant: the commission and
+/// VAT snapshotted on each paid order of the month, collected afterwards.
+model CommissionInvoice {
+  id              String                  @id @default(uuid())
+  restaurantId    String
+  periodStart     DateTime
+  periodEnd       DateTime
+  currency        String
+  orderCount      Int
+  baseMinor       Int
+  commissionMinor Int
+  vatMinor        Int
+  totalMinor      Int
+  status          CommissionInvoiceStatus @default(DRAFT)
+  issuedAt        DateTime?
+  dueAt           DateTime?
+  paidAt          DateTime?
+  /// Reference of the collection (card charge or bank transfer).
+  paymentRef      String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  restaurant    Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  ledgerEntries LedgerEntry[]
+
+  @@unique([restaurantId, periodStart])
+  @@index([restaurantId, status])
+  @@map("commission_invoices")
 }
 
 /// Append-only. Amounts are signed from the restaurant's point of view.
@@ -679,6 +792,7 @@ model LedgerEntry {
   restaurantId String
   orderId      String?
   payoutId     String?
+  invoiceId    String?
   type         LedgerEntryType
   amountMinor  Int
   currency     String
@@ -688,10 +802,12 @@ model LedgerEntry {
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   order      Order?     @relation(fields: [orderId], references: [id], onDelete: SetNull)
   payout     Payout?    @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+  invoice    CommissionInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
   @@index([restaurantId, occurredAt])
   @@index([orderId])
   @@index([payoutId])
+  @@index([invoiceId])
   @@map("ledger_entries")
 }
 

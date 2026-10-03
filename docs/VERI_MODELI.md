@@ -17,7 +17,7 @@
 | Tablo | Not |
 |---|---|
 | `service_areas` | Ülke, şehir, ilçe; `isLaunched` pazaryeri listelemesini açar. |
-| `restaurants` | Slug, para birimi, saat dilimi, `commissionBps` (varsayılan 100), `pspPercentBps` / `pspFixedMinor` (PSP sözleşmesi), `deliveryMode`, `courierProviderId`, `deliveryFeePolicy` (JSON, `DeliveryFeePolicySchema`), logo ve birincil renk. |
+| `restaurants` | Slug, para birimi, saat dilimi, `paymentMode` (`OWN_POS` varsayılan), `commissionBps` (varsayılan 100), `pspPercentBps` / `pspFixedMinor` (yalnızca `PLATFORM_PSP`), `deliveryMode`, `courierProviderId`, `deliveryFeePolicy` (JSON, `DeliveryFeePolicySchema`), logo ve birincil renk. |
 | `branches` | Adres, konum, çalışma saatleri (JSON). |
 
 ## Menü ve masa
@@ -40,10 +40,13 @@
 
 | Tablo | Not |
 |---|---|
-| `orders` | Kanal, teslimat türü, durum, `computeOrderSettlement()` anlık görüntüsü (brüt, KDV, komisyon, PSP, tevkifat, kurye, hakediş), adres anlık görüntüsü. |
+| `orders` | Kanal, teslimat türü, durum, `computeModeSettlement()` anlık görüntüsü (brüt, KDV, komisyon, PSP, tevkifat, kurye, hakediş), ödeme modu ve platform alacağı, adres anlık görüntüsü. |
 | `order_items` | Ad ve fiyat anlık görüntüsü, modifiye anlık görüntüsü. |
 | `order_status_history` | Her geçiş, aktör ve gerekçe. |
-| `payments` | Sağlayıcı, yöntem, durum, PSP'nin bildirdiği kesinti, iade tutarı. |
+| `payments` | Sağlayıcı, yöntem, durum, PSP'nin bildirdiği kesinti, iade tutarı, tahsil anındaki ödeme modu, kullanılan kayıtlı kart. |
+| `payment_provider_connections` | Restoranın kendi sanal POS'u: sağlayıcı kodu, AES-256-GCM ile şifreli bilgiler, anahtar sürümü, doğrulama durumu, maskeli etiket. Restoran başına tek. |
+| `saved_payment_methods` | Müşterinin kasa token'ı (şifreli) ve maskeli kart bilgisi; (`userId`, `provider`, `tokenHash`) benzersiz. Kart numarası yoktur. |
+| `commission_invoices` | `OWN_POS` restoranının aylık komisyon faturası: dönem, matrah, komisyon, KDV, toplam, durum, vade, ödeme referansı. |
 | `ledger_entries` | Yalnızca ekleme; restoran bakış açısıyla işaretli tutar; tür `LedgerEntryType`. |
 | `payouts` | Dönem, tutar, durum, planlanan tarih (yasal sürede). |
 

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { computeOrderSettlement, settlementDefaultsFor } from '@resget/shared';
-import type { Settlement, SettlementLine } from '@resget/shared';
+import { computeModeSettlement, settlementDefaultsFor } from '@resget/shared';
+import type { ModeSettlement, SettlementLine } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { notFound } from '../../common/api-error';
 
@@ -11,19 +11,26 @@ export interface SettlementPreviewInput {
   courier?: { costMinor: number; bearer: 'RESTAURANT' | 'PLATFORM' } | null;
 }
 
-/** Binds the pure settlement engine to a restaurant's contract (commission, PSP rate, region). */
+/** Binds the pure settlement engine to a restaurant's contract (payment mode, commission, PSP rate, region). */
 @Injectable()
 export class SettlementService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async forRestaurant(restaurantId: string, input: SettlementPreviewInput): Promise<Settlement> {
+  async forRestaurant(restaurantId: string, input: SettlementPreviewInput): Promise<ModeSettlement> {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: { currency: true, countryCode: true, commissionBps: true, pspPercentBps: true, pspFixedMinor: true },
+      select: {
+        currency: true,
+        countryCode: true,
+        commissionBps: true,
+        pspPercentBps: true,
+        pspFixedMinor: true,
+        paymentMode: true,
+      },
     });
     if (!restaurant) throw notFound('NOT_FOUND', 'Restaurant not found');
     const regional = settlementDefaultsFor(restaurant.countryCode);
-    return computeOrderSettlement({
+    return computeModeSettlement(restaurant.paymentMode, {
       currency: restaurant.currency,
       items: input.items,
       deliveryFee: input.deliveryFee ?? null,

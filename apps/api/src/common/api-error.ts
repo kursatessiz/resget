@@ -17,6 +17,7 @@ export type ApiErrorCode =
   | 'TABLE_NOT_FOUND'
   | 'MENU_UNAVAILABLE'
   | 'COURIER_QUOTE_FAILED'
+  | 'PAYMENT_CONNECTION_REQUIRED'
   | 'RATE_LIMITED';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {

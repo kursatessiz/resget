@@ -21,6 +21,10 @@ Restorana verilen mesaj tek cümledir: "Sipariş başına platform komisyonumuz 
 
 6563 sayılı Kanun Ek 1. madde, pazaryerinin restorana ödemeyi en geç 5 iş günü içinde yapmasını düzenler; TCMB düzenlemesi koruma hesaplarının nemalandırılmasını ödeme kuruluşuna bırakır, pazaryerine değil. Bu nedenle valör geliri modelde yoktur. Ödeme kuruluşuyla bekleyen bakiyeden pay anlaşması yapılırsa bu ayrı bir gelir kalemi olur ve yazılı teyitle eklenir.
 
+## 2a. Varsayılan tahsilat modeli: restoranın kendi POS'u
+
+İkinci karar (Ekim 2026): restoran kendi sanal POS'unu platforma bağlar, para doğrudan restoranın hesabına gelir, platform komisyonunu ay sonunda fatura eder (`docs/ODEME.md`). Bu, Faz 0'ın en riskli iki kalemini (nakit döngüsü, chargeback) ve ödeme kuruluşu lisans konusunu modelden çıkarır; karşılığında komisyon tahsilat riskini platforma getirir (kayıtlı karttan otomatik çekim ve gecikmede listeleme askıya alma ile yönetilir). Platformun kendi PSP'si isteyen restoranlar için Faz 1'de açılır.
+
 ## 3. Birim ekonomisi
 
 Varsayımlar: ortalama sepet 700 TL (2026 için model varsayımı; 2024 hızlı ticaret ortalaması 351 TL idi), komisyon yüzde 1, PSP maliyeti restorana yansıtılır, teslimat restoranda.

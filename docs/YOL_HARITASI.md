@@ -4,7 +4,7 @@ Büyüme coğrafi yoğunlukla ilerler. Hiperlokal pazaryerinde likidite mahalle 
 
 ## Faz 0: tek ilçe
 
-Hedef: bir ilçede 30 ila 50 restoran, masa QR menü, kendi sipariş sayfası, yüzde 1 pazaryeri.
+Hedef: bir ilçede 30 ila 50 restoran, masa QR menü, kendi sipariş sayfası, yüzde 1 pazaryeri. Tahsilat restoranın kendi sanal POS'u ile (`OWN_POS`), kart kasası Masterpass veya bex; platform parayı hiç tutmaz (`docs/ODEME.md`).
 
 Ürün: `HANDOVER.md` A1 ila A10.
 
@@ -21,6 +21,7 @@ Dağıtım: masaya QR etiketi (aktif yüzey), kapıya sticker (pasif), seçili p
 - Komşu ilçeler, lansman bayrağıyla (`ServiceArea.isLaunched`).
 - Expo tüketici uygulaması; QR taraması web'de kalır, uygulama tekrar siparişi kolaylaştırır.
 - PRO katmanı açılır: CRM, kampanyalar, sadakat, analitik, kendi alan adı.
+- `PLATFORM_PSP` modu: platformun pazaryeri PSP ürünü, hakediş ödemeleri, PSP token kasası.
 - Reklam ve öne çıkarma geliri.
 
 ## Faz 2: kurye

@@ -17,6 +17,8 @@ export const enPermissions: Record<keyof typeof trPermissions, string> = {
   'permissions.customers.manage': 'Edit customer notes and tags',
   'permissions.finance.view': 'View revenue and settlement statements',
   'permissions.payouts.view': 'View bank payouts',
+  'permissions.payments.manage': 'Manage the virtual POS connection and payment mode',
+  'permissions.invoices.view': 'View commission invoices',
   'permissions.subscription.manage': 'Buy plans and message credits',
   'permissions.messaging.manage': 'Manage notification templates',
   'permissions.campaigns.view': 'View campaigns',

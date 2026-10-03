@@ -30,6 +30,8 @@ export const PERMISSION_KEYS = [
 
   'finance.view',
   'payouts.view',
+  'payments.manage',
+  'invoices.view',
   'subscription.manage',
   'messaging.manage',
 
@@ -73,6 +75,7 @@ export const DEFAULT_ROLE_TEMPLATES = [
       'customers.manage',
       'finance.view',
       'payouts.view',
+      'invoices.view',
       'messaging.manage',
       'campaigns.view',
       'campaigns.manage',

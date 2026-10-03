@@ -5,7 +5,7 @@
 
 Restoranlar için düşük komisyonlu sipariş ve ödeme ağı. Üç katman tek üründe:
 
-- **Pazaryeri**: sipariş başına yüzde 1 platform komisyonu. Ödeme kuruluşu kesintisi restorana belgelenen gerçek oranıyla yansıtılır; üzerine marj eklenmez. Teslimatı varsayılan olarak restoran yapar.
+- **Pazaryeri**: sipariş başına yüzde 1 platform komisyonu. Restoran varsayılan olarak kendi sanal POS'unu bağlar, para doğrudan kendi hesabına gelir, komisyon ay sonunda fatura edilir; isteyen restoran için platformun kendi PSP'si de vardır. Kart numarası platforma asla girmez. Teslimatı varsayılan olarak restoran yapar.
 - **Restoran yazılımı**: menü, sipariş ekranı, masa QR ve kendi sipariş sayfası süresiz ücretsiz (`BASIC`). CRM, kampanya, analitik ve sadakat ücretli `PRO` katmanındadır; yeni restoran `PRO`'yu deneme süresiyle alır. SMS ve WhatsApp ayrı kredi paketleridir.
 - **Kurye**: platform filo kurmaz. Kendi kuryesi olmayan restoran anlaşmalı kurye ağından API ile teklif alır; ücret ayrı satırda görünür, komisyona asla girmez.
 
@@ -69,6 +69,7 @@ CI (`.github/workflows/ci.yml`) aynı adımları çalıştırır; ayrıca migrat
 | `docs/MIMARI.md` | Uygulamalar, paketler, istek akışı, guard'lar |
 | `docs/VERI_MODELI.md` | Tablolar ve ilişkiler |
 | `docs/MUTABAKAT.md` | Para akışı, hakediş motoru, defter ve tevkifat |
+| `docs/ODEME.md` | Ödeme modları (kendi POS / platform PSP), kart kasası, komisyon faturası |
 | `docs/FIYATLANDIRMA.md` | Plan katmanları, deneme süresi, mesaj kredileri |
 | `docs/KURYE.md` | Üçüncü taraf kurye entegrasyonu ve ücret politikası |
 | `docs/MASA_QR.md` | Masa QR akışı ve dönüşüm hunisi |

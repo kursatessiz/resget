@@ -37,7 +37,21 @@ export const EnvSchema = z
       .regex(/^\d{6}$/)
       .optional(),
 
-    /** Marketplace (sub-merchant) product of the payment provider. MOCK is refused in production. */
+    /**
+     * Key for encrypting POS credentials and card vault tokens at rest (32 random bytes, base64:
+     * `openssl rand -base64 32`). Required in production; development falls back to a fixed key.
+     */
+    CREDENTIAL_ENCRYPTION_KEY: z
+      .string()
+      .refine((v) => Buffer.from(v, 'base64').length === 32, 'must be base64 for exactly 32 bytes')
+      .optional(),
+    /** Card vault the customers' cards are stored with (docs/ODEME.md). MOCK is refused in production. */
+    CARD_VAULT_PROVIDER: z.enum(['MOCK', 'MASTERPASS', 'BEX']).default('MOCK'),
+    MASTERPASS_CLIENT_ID: z.string().min(1).optional(),
+    MASTERPASS_CLIENT_SECRET: z.string().min(1).optional(),
+    BEX_MERCHANT_ID: z.string().min(1).optional(),
+    BEX_MERCHANT_SECRET: z.string().min(1).optional(),
+    /** The platform's own PSP merchant for PLATFORM_PSP restaurants. MOCK is refused in production. */
     PAYMENT_PROVIDER: z.enum(['MOCK', 'IYZICO', 'PAYTR', 'STRIPE']).default('MOCK'),
     IYZICO_API_KEY: z.string().min(1).optional(),
     IYZICO_SECRET_KEY: z.string().min(1).optional(),
