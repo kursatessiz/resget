@@ -504,7 +504,9 @@ export const TRACKING_TOKEN_BYTES = 24;
 export const TrackingTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{20,64}$/);
 
 export function trackingUrl(publicAppUrl: string, token: string): string {
-  return `${publicAppUrl.replace(/\/+$/, '')}/t/${token}`;
+  let base = publicAppUrl;
+  while (base.endsWith('/')) base = base.slice(0, -1);
+  return `${base}/t/${token}`;
 }
 
 // -- DTOs --------------------------------------------------------------------------------
