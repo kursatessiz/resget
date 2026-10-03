@@ -12,6 +12,9 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:
  * and the wrapped form is what `keyVersion` identifies. Card numbers are
  * never encrypted here: the platform does not receive them.
  */
+/** Development fallback for CREDENTIAL_ENCRYPTION_KEY; production refuses to start without a real key. */
+export const DEV_CREDENTIAL_KEY = Buffer.alloc(32, 1).toString('base64');
+
 export interface KeyProvider {
   /** Version identifier of the key new ciphertexts are written with. */
   readonly currentVersion: string;

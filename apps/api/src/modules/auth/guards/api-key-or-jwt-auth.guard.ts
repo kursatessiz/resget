@@ -1,6 +1,8 @@
 import { ExecutionContext, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { API_KEY_HEADER } from '@resget/shared';
-import { unauthorized } from '../../../common/api-error';
+import { forbidden, unauthorized } from '../../../common/api-error';
+import { RateLimiterService } from '../../redis/rate-limiter.service';
 import { ApiKeysService } from '../api-keys.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import type { AuthenticatedRequest } from '../tenant-context';
@@ -12,7 +14,11 @@ import type { AuthenticatedRequest } from '../tenant-context';
  */
 @Injectable()
 export class ApiKeyOrJwtAuthGuard extends JwtAuthGuard {
-  constructor(private readonly apiKeys: ApiKeysService) {
+  constructor(
+    private readonly apiKeys: ApiKeysService,
+    private readonly limiter: RateLimiterService,
+    private readonly config: ConfigService,
+  ) {
     super();
   }
 
@@ -23,6 +29,10 @@ export class ApiKeyOrJwtAuthGuard extends JwtAuthGuard {
     if (token === undefined) return (await super.canActivate(context)) as boolean;
     const principal = await this.apiKeys.authenticate(token);
     if (!principal) throw unauthorized('Invalid API key');
+    // One window per key, not per client address: an integration behind many addresses is still one caller.
+    const limit = this.config.get<number>('API_KEY_RATE_LIMIT') ?? 600;
+    if ((await this.limiter.hit(`rl:apikey:${principal.keyId}`, 60)) > limit)
+      throw forbidden('RATE_LIMITED', 'API key rate limit exceeded');
     request.user = principal.user;
     request.apiKey = principal;
     return true;

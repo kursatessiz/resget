@@ -21,4 +21,21 @@ test.describe('API access (PRO)', () => {
     await expect(row).toContainText('İptal edildi');
     await expect(page.locator('[data-api-key-token]')).toHaveCount(0);
   });
+
+  test('the owner registers a webhook, reads its secret once, pauses and deletes it', async ({ page }) => {
+    const url = `https://example.com/hooks/${Date.now().toString(36)}`;
+    await page.goto(`/panel/${SEED.restaurantSlug}/entegrasyon`);
+    const card = page.getByRole('region', { name: 'Webhook adresleri' });
+    await card.getByLabel('Adres (https://...)').fill(url);
+    await card.getByRole('button', { name: 'Webhook ekle' }).click();
+    await expect(card.getByRole('status')).toContainText('Webhook eklendi');
+    await expect(card.locator('[data-webhook-secret]')).toContainText(/^whsec_/);
+    const row = card.getByRole('listitem', { name: url });
+    await expect(row).toContainText('Etkin');
+    await row.getByRole('button', { name: 'Duraklat' }).click();
+    await expect(row).toContainText('Duraklatıldı');
+    await row.getByRole('button', { name: 'Sil' }).click();
+    await expect(card.getByRole('status')).toContainText('Webhook silindi');
+    await expect(card.getByRole('listitem', { name: url })).toHaveCount(0);
+  });
 });

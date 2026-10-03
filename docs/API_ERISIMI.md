@@ -25,16 +25,28 @@ Restoranın kendi yazılımı (kasa, ERP, web sitesi) panelin kullandığı rest
 
 `lastUsedAt` en çok dakikada bir yazılır; yoğun bir entegrasyon her çağrıda güncelleme üretmez.
 
+## Webhook'lar
+
+Restoranın yazılımı siparişleri çekmek yerine itilmesini de isteyebilir (`packages/shared/src/webhooks.ts`, `apps/api/src/modules/webhooks`). Adres ve olaylar panelden kaydedilir (`restaurants/:id/webhooks`, `integrations.manage`, Pro, yalnızca oturum: `GET`, `POST`, `PATCH :id` (adres, olaylar, duraklat / sürdür), `DELETE :id`, `POST :id/test`, `GET :id/deliveries`). İmza sırrı (`whsec_...`) yalnızca oluşturma yanıtında görünür; platform `CredentialCipher` ile şifreli saklar. Üretimde yalnızca `https` adres kabul edilir (`WEBHOOK_URL_INVALID`).
+
+- **Olaylar**: `order.updated` (sipariş oluşturma dahil her durum değişikliği; gövde sipariş özeti, `OrderSummaryDTO`), `rating.created` (müşteri değerlendirmesi: sipariş kimliği ve kısa kodu, puan, yorum).
+- **Teslim**: her olay için `webhook_deliveries` satırı açılır; `WebhooksRunner` 30 saniyede bir vadesi gelenleri gönderir (`WEBHOOK_RUNNER=off` kapatır, testte kapalıdır ve `runPass()` doğrudan çağrılır). İstek `POST`, gövde `{ id, event, createdAt, data }`, başlıklar `x-resget-event`, `x-resget-delivery`, `x-resget-signature: t=<unix saniye>,v1=<hex>`; imza `HMAC-SHA256(sır, "<t>.<gövde>")`. Alıcı 2xx dönerse `SENT`; aksi halde 1 dk, 5 dk, 30 dk, 2 sa ve 6 sa sonra yeniden denenir, altıncı başarısızlıkta `FAILED`. Adres 20 ardışık başarısız teslimden sonra kendini duraklatır (`isActive = false`); başarılı teslim sayacı sıfırlar. Duraklatılmış adrese kuyruk açılmaz.
+- **Alıcı tarafı**: imzayı kendi sırrınızla aynı biçimde hesaplayıp sabit zamanlı karşılaştırın, `t` değerinin 5 dakikadan eski olmadığını kontrol edin (`WEBHOOK_SIGNATURE_TOLERANCE_SECONDS`), `x-resget-delivery` kimliğiyle tekrarları eleyin (yeniden deneme aynı kimlikle gelir).
+
+## Oran sınırı
+
+Her anahtar dakikada `API_KEY_RATE_LIMIT` (varsayılan 600) istek yapabilir; aşımda `RATE_LIMITED` ile 403. Sayaç Redis varsa tüm API örneklerinde ortaktır, yoksa süreç belleğinde tutulur (`RateLimiterService`).
+
 ## Ekran
 
-`/panel/<slug>/entegrasyon` (`integrations.manage`; varsayılan rollerde yalnızca sahip): nasıl kullanılır kartı (temel adres, başlık adı), yeni anahtar formu (ad ve yetki kutuları), yalnızca oluşturma anında görünen token kartı, anahtar listesi ve iptal. Temel planda form kapalı ve plan notu görünür.
+`/panel/<slug>/entegrasyon` (`integrations.manage`; varsayılan rollerde yalnızca sahip): nasıl kullanılır kartı (temel adres, başlık adı), yeni anahtar formu (ad ve yetki kutuları), yalnızca oluşturma anında görünen token kartı, anahtar listesi ve iptal; webhook kartı (adres ve olaylar, bir kez görünen sır, deneme gönderimi, duraklat / sürdür, sil, son teslimler). Temel planda formlar kapalı ve plan notu görünür.
 
 ## Testler
 
-API e2e `api-keys.e2e-spec.ts`: oluşturma ve tek seferlik token, listede sır yok, verilen ve verilmeyen yetkiler, verilemeyen yetki, yalnızca oturum uçları, başka restoran, bozuk anahtar ve bearer ile birlikte, `me/*` reddi, Temel planda 403, iptal sonrası 401, bulunamayan anahtar. Playwright `api-keys.e2e.ts`: oluşturma, token kartı, iptal.
+API e2e `webhooks.e2e-spec.ts`: yerel bir alıcıya imzalı teslim ve imza doğrulaması, 500 yanıtında geri çekilmeli yeniden deneme ve sayaç, deneme gönderimi, duraklatmada kuyruk açılmaması, silme, anahtarla yönetim reddi. API e2e `api-keys.e2e-spec.ts`: oluşturma ve tek seferlik token, listede sır yok, verilen ve verilmeyen yetkiler, verilemeyen yetki, yalnızca oturum uçları, başka restoran, bozuk anahtar ve bearer ile birlikte, `me/*` reddi, Temel planda 403, iptal sonrası 401, bulunamayan anahtar. Playwright `api-keys.e2e.ts`: oluşturma, token kartı, iptal.
 
 ## Kalan
 
-- Anahtar başına oran sınırı ve kullanım sayacı (bugün yalnızca `lastUsedAt`).
-- Webhook'lar (sipariş olaylarını restoranın adresine itme); bugün SSE ile çekilir.
+- Anahtar başına kullanım sayacı ve raporu (bugün yalnızca `lastUsedAt` ve oran sınırı).
 - Anahtar son kullanma tarihi.
+- Webhook olaylarının genişlemesi (menü değişikliği, ödeme) ve alıcıya yeniden gönderme düğmesi.
