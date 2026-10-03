@@ -1,0 +1,75 @@
+import { test, expect } from '@playwright/test';
+import { SEED } from './support/seed';
+import { bff, signIn } from './support/session';
+
+interface Me {
+  memberships: { restaurantId: string; restaurantSlug: string }[];
+}
+interface Restaurant {
+  branches: { id: string }[];
+}
+interface Category {
+  items: { id: string; name: string }[];
+}
+
+test.describe('Orders screen and dispatch board', () => {
+  test('a phone order flows from new to ready on the orders screen and into a trip on the dispatch board', async ({
+    page,
+  }) => {
+    await signIn(page, SEED.ownerPhone);
+    const me = await bff<Me>(page.request, 'auth/me');
+    const restaurantId = me.memberships.find((m) => m.restaurantSlug === SEED.restaurantSlug)!.restaurantId;
+    const restaurant = await bff<Restaurant>(page.request, `restaurants/${restaurantId}`);
+    const menu = await bff<Category[]>(page.request, `restaurants/${restaurantId}/menu`);
+    const item = menu.flatMap((c) => c.items).find((i) => i.name === SEED.firstMenuItem)!;
+    const order = await bff<{ id: string; shortCode: string }>(page.request, `restaurants/${restaurantId}/orders`, {
+      method: 'POST',
+      data: {
+        branchId: restaurant.branches[0].id,
+        channel: 'PHONE',
+        fulfillment: 'DELIVERY',
+        items: [{ menuItemId: item.id, quantity: 1 }],
+        address: {
+          addressLine: 'Bahariye Cad. No 12 D 3',
+          city: 'Istanbul',
+          district: 'Kadikoy',
+          contactName: 'Playwright Musteri',
+          contactPhone: '0532 999 03 00',
+          point: { lat: 40.9885, lng: 29.0275 },
+        },
+        payment: { method: 'CASH_ON_DELIVERY' },
+        note: 'pw-panel',
+      },
+    });
+    const card = page.locator(`[data-order-code="${order.shortCode}"]`);
+
+    await page.goto(`/panel/${SEED.restaurantSlug}/siparisler`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Siparişler');
+    await expect(card).toBeVisible();
+    await expect(card.getByText('Yeni', { exact: true })).toBeVisible();
+    await expect(card.getByText(/Kapıda tahsil edilecek/)).toBeVisible();
+
+    await card.getByRole('button', { name: 'Kabul et' }).click();
+    await card.getByRole('button', { name: 'Kabul et' }).click();
+    await expect(card.getByText('Kabul edildi', { exact: true })).toBeVisible();
+    await card.getByRole('button', { name: 'Hazırlanıyor' }).click();
+    await expect(card.getByText('Hazırlanıyor', { exact: true }).first()).toBeVisible();
+    await card.getByRole('button', { name: 'Hazır', exact: true }).click();
+    await expect(card.getByText('Hazır', { exact: true }).first()).toBeVisible();
+
+    await page.goto(`/panel/${SEED.restaurantSlug}/sevk`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sevk');
+    const ready = page.getByRole('region', { name: 'Sevk bekleyen siparişler' });
+    await ready.getByLabel(`Sipariş ${order.shortCode}`).check();
+    await page.getByLabel('Kurye').first().selectOption({ label: 'Demo Kurye' });
+    await page.getByRole('button', { name: 'Sefer oluştur' }).click();
+    const trips = page.getByRole('region', { name: 'Aktif seferler' });
+    await expect(trips.getByText('Kurye atandı')).toBeVisible();
+    await expect(trips.getByText(`Sipariş ${order.shortCode}`)).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Kuryeler' }).getByText('Seferde')).toBeVisible();
+
+    await trips.getByRole('button', { name: 'Seferi iptal et' }).click();
+    await expect(trips.getByText('Aktif sefer yok.')).toBeVisible();
+    await expect(ready.getByText(`Sipariş ${order.shortCode}`)).toBeVisible();
+  });
+});

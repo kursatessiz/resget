@@ -1,4 +1,6 @@
-import { Controller, Get, HttpCode, Post } from '@nestjs/common';
+import { Controller, Get, Headers, HttpCode, Post, Sse } from '@nestjs/common';
+import type { MessageEvent } from '@nestjs/common';
+import type { Observable } from 'rxjs';
 import { z } from 'zod';
 import {
   CreateOrderSchema,
@@ -14,6 +16,7 @@ import { ZodBody, ZodParam, ZodQuery } from '../../common/zod-body.pipe';
 import { RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
+import { RealtimeService, dispatchTopic } from '../realtime/realtime.service';
 import { SettlementService } from './settlement.service';
 import { OrdersService } from './orders.service';
 
@@ -42,7 +45,15 @@ export class OrdersController {
   constructor(
     private readonly settlement: SettlementService,
     private readonly orders: OrdersService,
+    private readonly realtime: RealtimeService,
   ) {}
+
+  /** SSE for the orders screen: order.updated only, so kitchen roles without dispatch.view can follow live. */
+  @Sse('events')
+  @RequirePermission('orders.view')
+  events(@Tenant() tenant: TenantContext, @Headers('last-event-id') lastEventId?: string): Observable<MessageEvent> {
+    return this.realtime.stream(dispatchTopic(tenant.restaurantId), lastEventId, [], (e) => e.type === 'order.updated');
+  }
 
   /** What the restaurant will receive for a basket, before an order exists: the transparency promise of the model. */
   @Post('settlement-preview')
