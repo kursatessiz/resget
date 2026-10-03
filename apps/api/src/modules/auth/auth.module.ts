@@ -9,6 +9,8 @@ import { InviteAcceptanceService } from './invite-acceptance.service';
 import { JwtStrategy } from './jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
+import { ApiKeyOrJwtAuthGuard } from './guards/api-key-or-jwt-auth.guard';
+import { ApiKeysService } from './api-keys.service';
 import { RestaurantTenantGuard } from './guards/restaurant-tenant.guard';
 import { PermissionGuard } from './guards/permission.guard';
 import { SuperAdminGuard } from './guards/super-admin.guard';
@@ -29,6 +31,8 @@ import { SuperAdminGuard } from './guards/super-admin.guard';
     JwtStrategy,
     JwtAuthGuard,
     OptionalJwtAuthGuard,
+    ApiKeyOrJwtAuthGuard,
+    ApiKeysService,
     RestaurantTenantGuard,
     PermissionGuard,
     SuperAdminGuard,
@@ -36,6 +40,8 @@ import { SuperAdminGuard } from './guards/super-admin.guard';
   exports: [
     JwtAuthGuard,
     OptionalJwtAuthGuard,
+    ApiKeyOrJwtAuthGuard,
+    ApiKeysService,
     RestaurantTenantGuard,
     PermissionGuard,
     SuperAdminGuard,

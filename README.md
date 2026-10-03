@@ -80,6 +80,7 @@ CI (`.github/workflows/ci.yml`) aynı adımları çalıştırır; ayrıca migrat
 | `docs/PLATFORM_YONETIMI.md` | Restoran kaydı, süper admin konsolu, hizmet alanı lansmanı |
 | `docs/KAMPANYALAR.md` | Pro kampanyaları: izin, segment, sessiz saat, gönderim |
 | `docs/SADAKAT.md` | Pro sadakat programı: puan kazanma, vitrinde indirim, iade, düzeltme |
+| `docs/API_ERISIMI.md` | Pro API erişimi: kapsamlı anahtarlar, kullanım, iptal |
 | `docs/PANEL.md` | Müşteriler, raporlar, kurye, kampanyalar ve sadakat ekranları |
 | `docs/FATURALAMA.md` | Komisyon faturası, tahsilat, gecikme ve askı |
 | `docs/VITRIN.md` | Masa QR sayfası, restoran sipariş sayfası, pazaryeri, oran sınırı |

@@ -54,7 +54,8 @@ function membershipRow(overrides: Record<string, unknown> = {}) {
 
 describe('RestaurantTenantGuard', () => {
   const prisma = { restaurant: { findUnique: jest.fn() }, membership: { findUnique: jest.fn() } };
-  const guard = new RestaurantTenantGuard(prisma as never);
+  const reflector = { getAllAndOverride: jest.fn().mockReturnValue(undefined) } as unknown as Reflector;
+  const guard = new RestaurantTenantGuard(prisma as never, reflector);
 
   beforeEach(() => jest.resetAllMocks());
 

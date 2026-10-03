@@ -32,6 +32,10 @@ Pro özelliği `campaigns`: izinli müşterilere segment bazlı SMS / WhatsApp g
 
 Pro özelliği `loyalty`: tamamlanan siparişte puan, bir sonraki siparişte restoranın karşıladığı indirim. Kurallar, sayaçlar, son hareketler ve müşteri kartındaki düzeltme `docs/SADAKAT.md` içinde anlatılır. Temel planda kurallar salt okunurdur ve plan notu görünür.
 
+## API erişimi (`/panel/<slug>/entegrasyon`, izin `integrations.manage`)
+
+Pro özelliği `api_access`: restoranın kendi yazılımı için kapsamlı API anahtarları; nasıl kullanılır, oluşturma, tek seferlik token, iptal `docs/API_ERISIMI.md` içinde anlatılır.
+
 ## Değişmeyen kurallar
 
 - Her uç `@RequirePermission` beyan eder; Pro özellikleri `@RequirePlanFeature` ile kapılanır ve `PLAN_FEATURE_REQUIRED` koduyla reddedilir.

@@ -25,6 +25,7 @@ export const PANEL_NAV: readonly PanelNavItem[] = [
   { key: 'loyalty', path: '/sadakat', permission: 'loyalty.view' },
   { key: 'reports', path: '/raporlar', permission: 'reports.view' },
   { key: 'subscription', path: '/plan', permission: 'subscription.manage' },
+  { key: 'integrations', path: '/entegrasyon', permission: 'integrations.manage' },
   { key: 'staff', path: '/personel', permission: 'staff.manage' },
   { key: 'settings', path: '/ayarlar', permission: 'restaurant.settings.view' },
 ];

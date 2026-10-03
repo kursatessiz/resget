@@ -18,7 +18,16 @@ export interface TenantContext {
   effectivePlan: PlanCode;
 }
 
+/** Present when the request authenticated with a restaurant API key instead of a session (docs/API_ERISIMI.md). */
+export interface ApiKeyContext {
+  id: string;
+  keyId: string;
+  restaurantId: string;
+  permissions: Set<PermissionKey>;
+}
+
 export interface AuthenticatedRequest extends Request {
   user?: AuthUser;
   tenant?: TenantContext;
+  apiKey?: ApiKeyContext;
 }
