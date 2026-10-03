@@ -52,6 +52,10 @@ export interface RestaurantSettingsDTO {
   timezone: string;
   defaultLocale: string;
   isListed: boolean;
+  /** Marketplace listing review state (docs/PLATFORM_YONETIMI.md). */
+  listingRequestedAt: string | null;
+  listingReviewedAt: string | null;
+  listingReviewNote: string | null;
   commissionBps: number;
   paymentMode: PaymentModeValue;
   pspPercentBps: number;

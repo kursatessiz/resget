@@ -51,6 +51,12 @@ export const enSettings: Record<keyof typeof trSettings, string> = {
   'settings.platform.listed': 'Listed in the marketplace.',
   'settings.platform.notListed':
     'Not listed in the marketplace yet; listing follows the service area launch and menu approval.',
+  'settings.platform.requestListing': 'Request a marketplace listing',
+  'settings.platform.requestHelp':
+    'Your menu needs at least one item on sale and an active branch. The request reaches the platform team; the decision is messaged to you.',
+  'settings.platform.requested': 'Your listing request was received on {date} and is being reviewed.',
+  'settings.platform.declined': 'Your last request was not approved. Note: {note}',
+  'settings.platform.requestSent': 'Request received.',
   'settings.platform.plan': 'Plan: {plan}',
   'settings.invalidColor': 'The color must be in #RRGGBB form.',
 };

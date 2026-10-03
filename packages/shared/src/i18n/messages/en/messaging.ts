@@ -11,6 +11,10 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
   'messaging.template.order.rejected': '{restaurant}: unfortunately your order {code} could not be accepted.{reason}',
   'messaging.template.order.cancelled': '{restaurant}: your order {code} was cancelled.{reason}',
   'messaging.template.reasonSuffix': ' Reason: {reason}',
+  'messaging.template.listing.approved':
+    '{restaurant}: your marketplace listing is approved. Customers in your district can now find you.{note}',
+  'messaging.template.listing.declined':
+    '{restaurant}: your marketplace listing request could not be approved yet.{note} Adjust and request again from the panel.',
   'messaging.template.campaign.body': '{restaurant}: {body} Opt out: {url}',
   'messaging.template.order.acceptOverdue':
     '{restaurant}: order {code} has been waiting {minutes} minutes for acceptance. Open the orders screen.',

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@resget/database';
 import type {
   AdminCreateRestaurantInput,
@@ -34,6 +34,10 @@ const restaurantSelect = Prisma.validator<Prisma.RestaurantSelect>()({
   isActive: true,
   isListed: true,
   listingSuspendedAt: true,
+  listingRequestedAt: true,
+  listingReviewedAt: true,
+  listingReviewNote: true,
+  defaultLocale: true,
   commissionBps: true,
   paymentMode: true,
   pspPercentBps: true,
@@ -55,6 +59,7 @@ const DAY_MS = 86_400_000;
 /** The platform owner's console (docs/PLATFORM_YONETIMI.md). Every write leaves an audit row. */
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly messaging: MessagingService,
@@ -66,6 +71,7 @@ export class AdminService {
   async listRestaurants(query: AdminRestaurantQuery): Promise<AdminRestaurantPageDTO> {
     const where: Prisma.RestaurantWhereInput = {
       ...(query.listed ? { isListed: query.listed === 'true' } : {}),
+      ...(query.pending ? { isListed: false, listingRequestedAt: { not: null }, listingReviewedAt: null } : {}),
       ...(query.query
         ? {
             OR: [
@@ -87,9 +93,12 @@ export class AdminService {
       }),
       this.prisma.restaurant.count({ where }),
     ]);
-    const counts = await this.ordersLast7Days(rows.map((r) => r.id));
+    const [counts, menus] = await Promise.all([
+      this.ordersLast7Days(rows.map((r) => r.id)),
+      this.menuSummaries(rows.map((r) => r.id)),
+    ]);
     return {
-      items: rows.map((r) => this.toRestaurant(r, counts.get(r.id) ?? 0)),
+      items: rows.map((r) => this.toRestaurant(r, counts.get(r.id) ?? 0, menus.get(r.id))),
       total,
       page: query.page,
       pageSize: query.pageSize,
@@ -99,8 +108,8 @@ export class AdminService {
   async getRestaurant(id: string): Promise<AdminRestaurantDTO> {
     const row = await this.prisma.restaurant.findUnique({ where: { id }, select: restaurantSelect });
     if (!row) throw notFound('RESTAURANT_NOT_FOUND', 'Restaurant not found');
-    const counts = await this.ordersLast7Days([id]);
-    return this.toRestaurant(row, counts.get(id) ?? 0);
+    const [counts, menus] = await Promise.all([this.ordersLast7Days([id]), this.menuSummaries([id])]);
+    return this.toRestaurant(row, counts.get(id) ?? 0, menus.get(id));
   }
 
   async createRestaurant(actorUserId: string, input: AdminCreateRestaurantInput): Promise<RestaurantCreatedDTO> {
@@ -131,12 +140,22 @@ export class AdminService {
       });
       if (!area) throw notFound('NOT_FOUND', 'Service area not found');
     }
-    const { serviceAreaId, ...scalars } = input;
+    const { serviceAreaId, listingReviewNote, ...scalars } = input;
+    const before = await this.prisma.restaurant.findUnique({
+      where: { id },
+      select: { isListed: true, listingRequestedAt: true, listingReviewedAt: true, name: true, defaultLocale: true },
+    });
+    if (!before) throw notFound('RESTAURANT_NOT_FOUND', 'Restaurant not found');
+    // A listing decision: isListed changes, or a note arrives on an open request.
+    const decides =
+      input.isListed !== undefined || (listingReviewNote !== undefined && before.listingRequestedAt !== null);
     await this.prisma.$transaction([
       this.prisma.restaurant.update({
         where: { id },
         data: {
           ...scalars,
+          ...(listingReviewNote !== undefined ? { listingReviewNote } : {}),
+          ...(decides ? { listingReviewedAt: new Date() } : {}),
           ...(serviceAreaId !== undefined
             ? { serviceArea: serviceAreaId ? { connect: { id: serviceAreaId } } : { disconnect: true } }
             : {}),
@@ -144,6 +163,12 @@ export class AdminService {
       }),
       this.audit(actorUserId, id, 'restaurant.updated', 'restaurant', id, input as Prisma.InputJsonObject),
     ]);
+    if (decides && before.listingRequestedAt && before.listingReviewedAt === null) {
+      const approved = input.isListed === true;
+      if (approved || input.isListed === false || listingReviewNote) {
+        await this.notifyListingDecision(id, before.name, before.defaultLocale, approved, listingReviewNote ?? null);
+      }
+    }
     return this.getRestaurant(id);
   }
 
@@ -171,6 +196,55 @@ export class AdminService {
     );
     const wallet = wallets.find((w) => w.channel === input.channel);
     return { channel: input.channel, balance: wallet?.balance ?? 0 };
+  }
+
+  /** Menu size per restaurant, for the listing review and the console list. */
+  private async menuSummaries(ids: string[]): Promise<Map<string, { categories: number; availableItems: number }>> {
+    if (ids.length === 0) return new Map();
+    const [categories, items] = await Promise.all([
+      this.prisma.menuCategory.groupBy({
+        by: ['restaurantId'],
+        where: { restaurantId: { in: ids } },
+        _count: { _all: true },
+      }),
+      this.prisma.menuItem.groupBy({
+        by: ['restaurantId'],
+        where: { restaurantId: { in: ids }, isAvailable: true },
+        _count: { _all: true },
+      }),
+    ]);
+    const map = new Map(ids.map((id) => [id, { categories: 0, availableItems: 0 }]));
+    for (const c of categories) map.get(c.restaurantId)!.categories = c._count._all;
+    for (const i of items) map.get(i.restaurantId)!.availableItems = i._count._all;
+    return map;
+  }
+
+  /** The owner hears the decision on the platform's account; a failed message never fails the decision. */
+  private async notifyListingDecision(
+    restaurantId: string,
+    name: string,
+    defaultLocale: string,
+    approved: boolean,
+    note: string | null,
+  ): Promise<void> {
+    try {
+      const owner = await this.prisma.membership.findFirst({
+        where: { restaurantId, status: 'ACTIVE', roleTemplate: { isOwner: true } },
+        select: { user: { select: { phone: true, locale: true } } },
+      });
+      if (!owner) return;
+      await this.messaging.send({
+        restaurantId,
+        channel: 'SMS',
+        to: owner.user.phone,
+        templateKey: approved ? 'listing.approved' : 'listing.declined',
+        params: { restaurant: name, note: note ? ` ${note}` : '' },
+        locale: owner.user.locale ?? defaultLocale,
+        billable: false,
+      });
+    } catch (error) {
+      this.logger.warn(`listing decision message failed: ${error instanceof Error ? error.message : 'error'}`);
+    }
   }
 
   // -- Service areas -------------------------------------------------------------------
@@ -299,14 +373,18 @@ export class AdminService {
 
   async overview(days: number): Promise<AdminOverviewDTO> {
     const since = new Date(Date.now() - 7 * DAY_MS);
-    const [restaurants, listedRestaurants, activeTrials, ordersLast7Days, density] = await Promise.all([
-      this.prisma.restaurant.count({ where: { isActive: true } }),
-      this.prisma.restaurant.count({ where: { isActive: true, isListed: true } }),
-      this.prisma.restaurantSubscription.count({ where: { status: 'TRIALING', trialEndsAt: { gt: new Date() } } }),
-      this.prisma.order.count({ where: { placedAt: { gte: since }, status: { notIn: ['PENDING_PAYMENT'] } } }),
-      this.density(days),
-    ]);
-    return { restaurants, listedRestaurants, activeTrials, ordersLast7Days, density };
+    const [restaurants, listedRestaurants, pendingListingRequests, activeTrials, ordersLast7Days, density] =
+      await Promise.all([
+        this.prisma.restaurant.count({ where: { isActive: true } }),
+        this.prisma.restaurant.count({ where: { isActive: true, isListed: true } }),
+        this.prisma.restaurant.count({
+          where: { isActive: true, isListed: false, listingRequestedAt: { not: null }, listingReviewedAt: null },
+        }),
+        this.prisma.restaurantSubscription.count({ where: { status: 'TRIALING', trialEndsAt: { gt: new Date() } } }),
+        this.prisma.order.count({ where: { placedAt: { gte: since }, status: { notIn: ['PENDING_PAYMENT'] } } }),
+        this.density(days),
+      ]);
+    return { restaurants, listedRestaurants, pendingListingRequests, activeTrials, ordersLast7Days, density };
   }
 
   /** Orders per active restaurant per day, grouped by the branch's district (service area when assigned). */
@@ -402,7 +480,11 @@ export class AdminService {
     return this.prisma.auditLog.create({ data: { actorUserId, restaurantId, action, entity, entityId, meta } });
   }
 
-  private toRestaurant(row: RestaurantRow, ordersLast7Days: number): AdminRestaurantDTO {
+  private toRestaurant(
+    row: RestaurantRow,
+    ordersLast7Days: number,
+    menu?: { categories: number; availableItems: number },
+  ): AdminRestaurantDTO {
     const owner = row.memberships[0]?.user ?? null;
     return {
       id: row.id,
@@ -416,6 +498,10 @@ export class AdminService {
       isActive: row.isActive,
       isListed: row.isListed,
       listingSuspendedAt: row.listingSuspendedAt ? row.listingSuspendedAt.toISOString() : null,
+      listingRequestedAt: row.listingRequestedAt ? row.listingRequestedAt.toISOString() : null,
+      listingReviewedAt: row.listingReviewedAt ? row.listingReviewedAt.toISOString() : null,
+      listingReviewNote: row.listingReviewNote,
+      menu: menu ?? { categories: 0, availableItems: 0 },
       commissionBps: row.commissionBps,
       paymentMode: row.paymentMode,
       pspPercentBps: row.pspPercentBps,

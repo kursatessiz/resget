@@ -1,4 +1,4 @@
-import { Controller, Get, Patch } from '@nestjs/common';
+import { Controller, Get, HttpCode, Patch, Post } from '@nestjs/common';
 import type { z } from 'zod';
 import { UpdateRestaurantSettingsSchema } from '@resget/shared';
 import type { RestaurantSettingsDTO } from '@resget/shared';
@@ -26,5 +26,13 @@ export class RestaurantsController {
     @ZodBody(UpdateRestaurantSettingsSchema) body: z.infer<typeof UpdateRestaurantSettingsSchema>,
   ): Promise<RestaurantSettingsDTO> {
     return this.restaurants.update(tenant, body);
+  }
+
+  /** Asks the console for a marketplace listing once the menu is ready (docs/PLATFORM_YONETIMI.md). */
+  @Post('listing-request')
+  @HttpCode(200)
+  @RequirePermission('restaurant.settings.manage')
+  requestListing(@Tenant() tenant: TenantContext): Promise<RestaurantSettingsDTO> {
+    return this.restaurants.requestListing(tenant);
   }
 }

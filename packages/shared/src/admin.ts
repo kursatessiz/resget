@@ -127,6 +127,8 @@ export const AdminRestaurantUpdateSchema = z
     pspFixedMinor: MinorAmountSchema.optional(),
     paymentMode: z.nativeEnum(PaymentMode).optional(),
     serviceAreaId: UuidSchema.nullable().optional(),
+    /** The console's words to the owner with a listing decision; sent with the decision message. */
+    listingReviewNote: z.string().trim().max(500).nullable().optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, { message: 'empty update' });
@@ -136,6 +138,8 @@ export const AdminRestaurantQuerySchema = z
   .object({
     query: z.string().trim().max(80).optional(),
     listed: z.enum(['true', 'false']).optional(),
+    /** Only restaurants waiting for a listing decision. */
+    pending: z.enum(['true']).optional(),
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(25),
   })
@@ -155,6 +159,11 @@ export interface AdminRestaurantDTO {
   isListed: boolean;
   /** Set while an overdue commission invoice keeps the restaurant out of the marketplace (docs/FATURALAMA.md). */
   listingSuspendedAt: string | null;
+  listingRequestedAt: string | null;
+  listingReviewedAt: string | null;
+  listingReviewNote: string | null;
+  /** What the console reviews before listing: how much menu there is. */
+  menu: { categories: number; availableItems: number };
   commissionBps: number;
   paymentMode: `${PaymentMode}`;
   pspPercentBps: number;
@@ -263,6 +272,8 @@ export interface DistrictDensityDTO {
 export interface AdminOverviewDTO {
   restaurants: number;
   listedRestaurants: number;
+  /** Restaurants that asked to be listed and have no decision yet. */
+  pendingListingRequests: number;
   activeTrials: number;
   ordersLast7Days: number;
   density: DistrictDensityDTO[];

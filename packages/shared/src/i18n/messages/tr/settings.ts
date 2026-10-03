@@ -50,5 +50,11 @@ export const trSettings = {
   'settings.platform.notListed':
     'Pazaryerinde henüz listelenmiyor; hizmet alanı açıldığında ve menü onaylandığında listelenir.',
   'settings.platform.plan': 'Plan: {plan}',
+  'settings.platform.requestListing': 'Pazaryerinde listelenme talebi gönder',
+  'settings.platform.requestHelp':
+    'Menünüzde en az bir satışta ürün ve aktif bir şube olmalı. Talep platform ekibine düşer; karar size mesajla bildirilir.',
+  'settings.platform.requested': 'Listelenme talebiniz {date} tarihinde alındı; inceleniyor.',
+  'settings.platform.declined': 'Son talebiniz onaylanmadı. Not: {note}',
+  'settings.platform.requestSent': 'Talebiniz alındı.',
   'settings.invalidColor': 'Renk #RRGGBB biçiminde olmalı.',
 } as const satisfies Record<string, string>;

@@ -13,6 +13,8 @@ import {
  * the English `message` is for logs and API consumers, never shown to users.
  */
 export type ApiErrorCode =
+  | 'LISTING_NOT_READY'
+  | 'ALREADY_LISTED'
   | 'CAMPAIGN_NOT_FOUND'
   | 'CAMPAIGN_STATE_INVALID'
   | 'UNSUPPORTED_FILE'
