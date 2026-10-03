@@ -13,6 +13,7 @@ export const trNav = {
   'nav.dispatch': 'Sevk',
   'nav.payments': 'Ödeme ve yemek kartları',
   'nav.settings': 'Ayarlar',
+  'nav.staff': 'Personel',
   'nav.subscription': 'Plan ve krediler',
   'nav.switchRestaurant': 'İşletme değiştir',
   'nav.signOut': 'Çıkış yap',

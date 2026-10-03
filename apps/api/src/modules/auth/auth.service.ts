@@ -10,6 +10,7 @@ import type {
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { OtpService } from './otp.service';
+import { InviteAcceptanceService } from './invite-acceptance.service';
 import { unauthorized } from '../../common/api-error';
 
 export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
@@ -21,6 +22,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly otp: OtpService,
+    private readonly invites: InviteAcceptanceService,
   ) {}
 
   requestLoginCode(phone: string): Promise<{ expiresAt: Date }> {
@@ -35,7 +37,7 @@ export class AuthService {
     phone: string,
     code: string,
     fullName?: string,
-    funnel: { qrToken?: string; qrSessionId?: string } = {},
+    funnel: { qrToken?: string; qrSessionId?: string; inviteToken?: string } = {},
   ): Promise<TokenPairDTO> {
     const ok = await this.otp.verify(phone, OtpPurpose.LOGIN, code);
     if (!ok) throw unauthorized('Invalid or expired code');
@@ -45,6 +47,8 @@ export class AuthService {
       await this.prisma.user.update({ where: { id: user.id }, data: { fullName: fullName.trim() } });
     }
     if (funnel.qrToken) await this.recordRegistration(user.id, funnel.qrToken, funnel.qrSessionId ?? null);
+    // A staff invite is accepted in the same step; a mismatched phone fails the sign-in with the reason.
+    if (funnel.inviteToken) await this.invites.accept(user.id, funnel.inviteToken);
     return this.issueTokens(user.id, user.phone, user.isSuperAdmin);
   }
 

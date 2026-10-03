@@ -17,12 +17,15 @@ export function SignInForm({
   next,
   register,
   qrToken,
+  inviteToken = null,
 }: {
   locale: string;
   next: string;
   /** Guest registration from a table QR: asks for a name and records the funnel step. */
   register: boolean;
   qrToken: string | null;
+  /** Staff invite: accepted by the API in the same step as the sign-in. */
+  inviteToken?: string | null;
 }) {
   const router = useRouter();
   const t = useMemo(
@@ -84,6 +87,7 @@ export function SignInForm({
           code,
           fullName: register && fullName.trim() ? fullName.trim() : undefined,
           qrToken: register && qrToken ? qrToken : undefined,
+          inviteToken: inviteToken ?? undefined,
         }),
       });
       if (!res.ok) {

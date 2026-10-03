@@ -58,3 +58,6 @@ backups/
 # Playwright
 apps/web/playwright-report/
 apps/web/test-results/
+
+# Playwright storage state written by e2e/owner.setup.ts
+apps/web/e2e/.auth/

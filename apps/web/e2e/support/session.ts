@@ -1,6 +1,10 @@
+import path from 'node:path';
 import type { APIRequestContext, Page } from '@playwright/test';
 
 const OTP = process.env.OTP_TEST_CODE ?? '482915';
+
+/** Storage state written by owner.setup.ts; panel scenarios start signed in as the owner. */
+export const OWNER_STATE = path.resolve(__dirname, '../.auth/owner.json');
 
 /** Signs in through the real screens; the session then lives in httpOnly cookies the page's request context shares. */
 export async function signIn(page: Page, phone: string): Promise<void> {

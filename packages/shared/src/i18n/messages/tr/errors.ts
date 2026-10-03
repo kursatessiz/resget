@@ -33,4 +33,14 @@ export const trErrors = {
   'errors.MENU_CATEGORY_NOT_EMPTY': 'Kategori boş değil. Önce ürünleri taşıyın veya silin.',
   'errors.MENU_ITEM_IN_USE': 'Bu ürün geçmiş siparişlerde kullanıldığı için silinemez; tükendi olarak işaretleyin.',
   'errors.REORDER_MISMATCH': 'Sıralama listesi mevcut kayıtlarla eşleşmiyor. Sayfayı yenileyip tekrar deneyin.',
+  'errors.INVITE_NOT_FOUND': 'Davet bulunamadı.',
+  'errors.INVITE_EXPIRED': 'Davetin süresi dolmuş. Yöneticinizden yeni bir davet isteyin.',
+  'errors.INVITE_USED': 'Bu davet daha önce kullanılmış.',
+  'errors.INVITE_PHONE_MISMATCH':
+    'Bu davet başka bir telefon numarası için gönderilmiş. Davetin gönderildiği numarayla giriş yapın.',
+  'errors.ROLE_PROTECTED': 'Sahip rolü değiştirilemez ve davet için kullanılamaz.',
+  'errors.ROLE_IN_USE': 'Bu rol personel veya davetlerde kullanılıyor; önce onları başka bir role taşıyın.',
+  'errors.ROLE_NAME_TAKEN': 'Bu adda bir rol zaten var.',
+  'errors.STAFF_OWNER_PROTECTED': 'İşletme sahibinin üyeliği buradan değiştirilemez.',
+  'errors.STAFF_ALREADY_MEMBER': 'Bu telefon numarası zaten ekipte.',
 } as const satisfies Record<string, string>;

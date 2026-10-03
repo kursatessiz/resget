@@ -43,7 +43,11 @@ export default defineConfig({
   },
   // Turkish is the base language and the scenarios select elements by their
   // Turkish labels, so the browser asks for Turkish unless a test overrides it.
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], locale: 'tr-TR' } }],
+  projects: [
+    // Signs the owner in once; see e2e/owner.setup.ts.
+    { name: 'setup', testMatch: /owner\.setup\.ts/, use: { ...devices['Desktop Chrome'], locale: 'tr-TR' } },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'], locale: 'tr-TR' }, dependencies: ['setup'] },
+  ],
   // Both servers start fresh for every run so they always bind to the
   // DATABASE_URL this run was given, never to a stale process.
   webServer: [

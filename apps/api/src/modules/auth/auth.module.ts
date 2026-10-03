@@ -5,6 +5,7 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { OtpService } from './otp.service';
+import { InviteAcceptanceService } from './invite-acceptance.service';
 import { JwtStrategy } from './jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RestaurantTenantGuard } from './guards/restaurant-tenant.guard';
@@ -23,12 +24,13 @@ import { SuperAdminGuard } from './guards/super-admin.guard';
   providers: [
     AuthService,
     OtpService,
+    InviteAcceptanceService,
     JwtStrategy,
     JwtAuthGuard,
     RestaurantTenantGuard,
     PermissionGuard,
     SuperAdminGuard,
   ],
-  exports: [JwtAuthGuard, RestaurantTenantGuard, PermissionGuard, SuperAdminGuard],
+  exports: [JwtAuthGuard, RestaurantTenantGuard, PermissionGuard, SuperAdminGuard, InviteAcceptanceService],
 })
 export class AuthModule {}

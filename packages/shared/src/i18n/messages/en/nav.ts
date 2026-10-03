@@ -14,6 +14,7 @@ export const enNav: Record<keyof typeof trNav, string> = {
   'nav.dispatch': 'Dispatch',
   'nav.payments': 'Payments and meal cards',
   'nav.settings': 'Settings',
+  'nav.staff': 'Staff',
   'nav.subscription': 'Plan and credits',
   'nav.switchRestaurant': 'Switch restaurant',
   'nav.signOut': 'Sign out',

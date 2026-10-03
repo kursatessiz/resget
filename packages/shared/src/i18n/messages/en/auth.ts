@@ -22,5 +22,6 @@ export const enAuth: Record<keyof typeof trAuth, string> = {
   'auth.chooseRestaurant': 'Which restaurant do you want to continue with?',
   'auth.continue': 'Continue',
   'auth.sessionExpired': 'Your session has expired, please sign in again.',
+  'auth.invite.help': 'Sign in with the phone number the invite was sent to; you join the team automatically.',
   'auth.noMembership': 'No restaurant is linked to this number. Use your invite link.',
 };

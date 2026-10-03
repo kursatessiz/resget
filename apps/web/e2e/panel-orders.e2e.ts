@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { SEED } from './support/seed';
-import { bff, signIn } from './support/session';
+import { OWNER_STATE, bff } from './support/session';
 
 interface Me {
   memberships: { restaurantId: string; restaurantSlug: string }[];
@@ -13,10 +13,11 @@ interface Category {
 }
 
 test.describe('Orders screen and dispatch board', () => {
+  test.use({ storageState: OWNER_STATE });
+
   test('a phone order flows from new to ready on the orders screen and into a trip on the dispatch board', async ({
     page,
   }) => {
-    await signIn(page, SEED.ownerPhone);
     const me = await bff<Me>(page.request, 'auth/me');
     const restaurantId = me.memberships.find((m) => m.restaurantSlug === SEED.restaurantSlug)!.restaurantId;
     const restaurant = await bff<Restaurant>(page.request, `restaurants/${restaurantId}`);

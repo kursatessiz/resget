@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { ERROR_CODE_HEADER, PhoneSchema, QrScanSessionSchema, TableQrTokenSchema } from '@resget/shared';
+import {
+  ERROR_CODE_HEADER,
+  InviteTokenSchema,
+  PhoneSchema,
+  QrScanSessionSchema,
+  TableQrTokenSchema,
+} from '@resget/shared';
 import type { TokenPairDTO } from '@resget/shared';
 import { apiInternalBaseUrl, getServerEnv } from '@/lib/server-env';
 import {
@@ -17,6 +23,7 @@ const BodySchema = z
     code: z.string().regex(/^\d{6}$/),
     fullName: z.string().trim().min(2).max(120).optional(),
     qrToken: TableQrTokenSchema.optional(),
+    inviteToken: InviteTokenSchema.optional(),
   })
   .strict();
 
