@@ -18,6 +18,8 @@ test.describe('Platform console', () => {
 
     await page.goto('/admin/bolgeler');
     await expect(page.locator('[data-area="Istanbul/Kadikoy"]')).toContainText('Açık');
+    await expect(page.locator('[data-area="Istanbul/Kadikoy"] [data-readiness]')).toContainText(/hazır restoran, OARD/);
+    await expect(page.getByRole('region', { name: 'Aday ilçeler' })).toBeVisible();
 
     await page.goto('/admin/planlar');
     await expect(page.getByRole('region', { name: 'Pro' })).toBeVisible();

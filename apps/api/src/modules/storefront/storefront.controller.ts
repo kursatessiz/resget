@@ -1,6 +1,7 @@
 import { Controller, Get, Headers, HttpCode, Post, UseGuards } from '@nestjs/common';
 import type { z } from 'zod';
 import {
+  MarketplaceInterestSchema,
   MarketplaceQuerySchema,
   PublicOrderSchema,
   QrScanSessionSchema,
@@ -8,7 +9,13 @@ import {
   StartedOrderSchema,
   TableQrTokenSchema,
 } from '@resget/shared';
-import type { MarketplaceAreaDTO, MarketplaceDTO, PublicOrderResultDTO, StorefrontDTO } from '@resget/shared';
+import type {
+  MarketplaceAreaDTO,
+  MarketplaceDTO,
+  MarketplaceInterestResultDTO,
+  PublicOrderResultDTO,
+  StorefrontDTO,
+} from '@resget/shared';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/zod-body.pipe';
 import { OptionalUser } from '../auth/decorators/current-user.decorator';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
@@ -82,6 +89,16 @@ export class StorefrontController {
   @Get('marketplace/areas')
   areas(): Promise<MarketplaceAreaDTO[]> {
     return this.storefront.areas();
+  }
+
+  /** A visitor asks for a district that is not open yet (docs/PLATFORM_YONETIMI.md, launch tools). */
+  @Post('marketplace/interest')
+  @HttpCode(200)
+  @RateLimit({ bucket: 'funnel', limit: 10, windowSeconds: 600 })
+  interest(
+    @ZodBody(MarketplaceInterestSchema) body: z.infer<typeof MarketplaceInterestSchema>,
+  ): Promise<MarketplaceInterestResultDTO> {
+    return this.storefront.interest(body);
   }
 
   @Get('marketplace')

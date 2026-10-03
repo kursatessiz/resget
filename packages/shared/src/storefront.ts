@@ -137,6 +137,24 @@ export interface MarketplaceRestaurantDTO {
   pickup: boolean;
   /** Customer ratings so far; null until the first one. */
   rating: RatingSummaryDTO | null;
+  /** From the branch's opening hours in the restaurant's zone; null when no hours are set. */
+  isOpenNow: boolean | null;
+}
+
+/** A visitor asking for a district that is not open yet (docs/PLATFORM_YONETIMI.md, launch tools). */
+export const MarketplaceInterestSchema = z
+  .object({
+    countryCode: CountryCodeSchema,
+    city: z.string().trim().min(2).max(80),
+    district: z.string().trim().min(2).max(80),
+  })
+  .strict();
+export type MarketplaceInterestInput = z.infer<typeof MarketplaceInterestSchema>;
+
+export interface MarketplaceInterestResultDTO {
+  recorded: boolean;
+  /** True when the district is already open: the page can send the visitor there instead. */
+  launched: boolean;
 }
 
 export interface MarketplaceDTO {

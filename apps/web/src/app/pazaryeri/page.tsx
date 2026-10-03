@@ -1,4 +1,5 @@
 import type { MarketplaceAreaDTO, MarketplaceDTO } from '@resget/shared';
+import { MarketplaceInterestForm } from '@/components/MarketplaceInterestForm';
 import { ThemeRoot } from '@/components/ThemeRoot';
 import { Badge, Button, Card, LinkButton } from '@/components/ui';
 import { getT } from '@/lib/i18n';
@@ -68,6 +69,11 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
                     </span>
                   )}
 
+                  {r.isOpenNow !== null && (
+                    <Badge tone={r.isOpenNow ? 'success' : 'muted'}>
+                      {r.isOpenNow ? t('shop.marketplace.openNow') : t('shop.marketplace.closedNow')}
+                    </Badge>
+                  )}
                   {r.delivery && <Badge tone="success">{t('shop.marketplace.delivery')}</Badge>}
                   {r.pickup && <Badge>{t('shop.marketplace.pickup')}</Badge>}
                 </div>
@@ -76,6 +82,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
             ))}
           </section>
         )}
+        {selected && <MarketplaceInterestForm countryCode={selected.countryCode} locale={locale} />}
       </main>
     </ThemeRoot>
   );

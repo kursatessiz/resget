@@ -22,6 +22,7 @@ import type {
   RestaurantCreatedDTO,
   ServiceAreaDTO,
   SystemHealthDTO,
+  AreaCandidateDTO,
 } from '@resget/shared';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/zod-body.pipe';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -94,6 +95,11 @@ export class AdminController {
     return this.admin.listServiceAreas();
   }
 
+  @Get('service-areas/candidates')
+  areaCandidates(): Promise<AreaCandidateDTO[]> {
+    return this.admin.listAreaCandidates();
+  }
+
   @Post('service-areas')
   createServiceArea(
     @CurrentUser() user: AuthUser,
@@ -108,7 +114,7 @@ export class AdminController {
     @ZodParam('id', UuidSchema) id: string,
     @ZodBody(UpdateServiceAreaSchema) body: z.infer<typeof UpdateServiceAreaSchema>,
   ): Promise<ServiceAreaDTO> {
-    return this.admin.setServiceAreaLaunch(user.id, id, body.isLaunched);
+    return this.admin.updateServiceArea(user.id, id, body);
   }
 
   @Get('plans')

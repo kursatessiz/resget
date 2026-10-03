@@ -190,7 +190,24 @@ export const CreateServiceAreaSchema = z
   })
   .strict();
 export type CreateServiceAreaInput = z.infer<typeof CreateServiceAreaSchema>;
-export const UpdateServiceAreaSchema = z.object({ isLaunched: z.boolean() }).strict();
+export const UpdateServiceAreaSchema = z
+  .object({
+    isLaunched: z.boolean().optional(),
+    /** Restaurants with a sellable menu the district should have before it opens (docs/PLATFORM_YONETIMI.md). */
+    launchTarget: z.number().int().min(1).max(500).optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, { message: 'empty update' });
+export type UpdateServiceAreaInput = z.infer<typeof UpdateServiceAreaSchema>;
+
+/** A district with restaurants or visitor interest but no service area yet: the next launch candidates. */
+export interface AreaCandidateDTO {
+  countryCode: string;
+  city: string;
+  district: string;
+  restaurants: number;
+  interest: number;
+}
 
 export interface ServiceAreaDTO {
   id: string;
@@ -201,6 +218,14 @@ export interface ServiceAreaDTO {
   launchedAt: string | null;
   restaurants: number;
   listedRestaurants: number;
+  /** Active restaurants of the area with at least one item on sale and an active branch. */
+  readyRestaurants: number;
+  launchTarget: number;
+  /** Orders per restaurant per day over the last 30 days (docs/YOL_HARITASI.md). */
+  ordersPerRestaurantPerDay: number;
+  /** Marketplace visitors who asked for this district. */
+  interest: number;
+  readyToLaunch: boolean;
 }
 
 export const UpdatePlanSchema = z

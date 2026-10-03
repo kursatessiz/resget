@@ -18,7 +18,7 @@ Dağıtım: masaya QR etiketi (aktif yüzey), kapıya sticker (pasif), seçili p
 
 ## Faz 1: genişleme
 
-- Komşu ilçeler, lansman bayrağıyla (`ServiceArea.isLaunched`).
+- Komşu ilçeler, lansman bayrağıyla (`ServiceArea.isLaunched`); hangi ilçenin sırada olduğunu konsolun lansman araçları gösterir: hazır restoran / hedef, OARD, pazaryerinde ilçeyi isteyen ziyaretçi sayısı ve alanı olmayan aday ilçeler (`docs/PLATFORM_YONETIMI.md`). Pazaryeri sıralaması açık olana, puana ve son siparişlere göredir (`docs/VITRIN.md`).
 - Expo uygulaması: tek uygulama, rol üyelikten gelir (müşteri takip ve tekrar sipariş, kurye modu ile sefer ve arka plan konum, restoran tablet sevk panosu). QR taraması web'de kalır.
 - PRO katmanı açılır: CRM, kampanyalar, sadakat, analitik, kendi alan adı.
 - `PLATFORM_PSP` modu: platformun pazaryeri PSP ürünü, hakediş ödemeleri, PSP token kasası.
