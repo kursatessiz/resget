@@ -43,4 +43,6 @@ export const trErrors = {
   'errors.ROLE_NAME_TAKEN': 'Bu adda bir rol zaten var.',
   'errors.STAFF_OWNER_PROTECTED': 'İşletme sahibinin üyeliği buradan değiştirilemez.',
   'errors.STAFF_ALREADY_MEMBER': 'Bu telefon numarası zaten ekipte.',
+  'errors.PACKAGE_NOT_FOUND': 'Kredi paketi bulunamadı.',
+  'errors.PAYMENT_METHOD_NOT_FOUND': 'Kayıtlı kart bulunamadı.',
 } as const satisfies Record<string, string>;

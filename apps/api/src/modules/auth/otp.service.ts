@@ -1,10 +1,10 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
 import { OtpPurpose } from '@resget/database';
+import { BASE_LOCALE } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
-import { SMS_PROVIDER } from '../messaging/sms.provider';
-import type { SmsProvider } from '../messaging/sms.provider';
+import { MessagingService } from '../messaging/messaging.service';
 import { forbidden } from '../../common/api-error';
 
 export const OTP_TTL_MINUTES = 5;
@@ -17,7 +17,7 @@ export class OtpService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
-    @Inject(SMS_PROVIDER) private readonly sms: SmsProvider,
+    private readonly messaging: MessagingService,
   ) {}
 
   private hash(phone: string, code: string): string {
@@ -35,9 +35,17 @@ export class OtpService {
     const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60_000);
     await this.prisma.otpCode.create({ data: { phone, purpose, codeHash: this.hash(phone, code), expiresAt } });
 
-    // The message text itself is a template of the messaging engine; this is the bootstrap wording.
-    const result = await this.sms.send(phone, `Resget dogrulama kodunuz: ${code}`);
-    if (!result.accepted) throw forbidden('RATE_LIMITED', 'SMS could not be sent');
+    // Platform traffic: logged by the engine, never charged to a restaurant.
+    const result = await this.messaging.send({
+      restaurantId: null,
+      channel: 'SMS',
+      to: phone,
+      templateKey: 'otp.code',
+      params: { code },
+      locale: BASE_LOCALE,
+      billable: false,
+    });
+    if (result.status !== 'SENT') throw forbidden('RATE_LIMITED', 'SMS could not be sent');
     return { expiresAt };
   }
 

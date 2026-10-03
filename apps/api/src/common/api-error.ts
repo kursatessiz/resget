@@ -54,6 +54,8 @@ export type ApiErrorCode =
   | 'ROLE_NAME_TAKEN'
   | 'STAFF_OWNER_PROTECTED'
   | 'STAFF_ALREADY_MEMBER'
+  | 'PACKAGE_NOT_FOUND'
+  | 'PAYMENT_METHOD_NOT_FOUND'
   | 'RATE_LIMITED';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {

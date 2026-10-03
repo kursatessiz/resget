@@ -35,6 +35,7 @@ import type {
   SettlementLine,
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { OrderNotificationsService } from './order-notifications.service';
 import { RealtimeService, courierTopic, dispatchTopic, orderTopic } from '../realtime/realtime.service';
 import type { TopicEvent } from '../realtime/realtime.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
@@ -98,6 +99,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeService,
     private readonly config: ConfigService,
+    private readonly notifications: OrderNotificationsService,
   ) {}
 
   setTripEventsProvider(provider: (tripId: string) => Promise<TopicEvent[]>): void {
@@ -373,6 +375,8 @@ export class OrdersService {
     const events = await this.eventsForOrder(orderId);
     if (activeStop && this.tripEvents) events.push(...(await this.tripEvents(activeStop.tripId)));
     this.realtime.publishMany(events);
+    // After the commit and the live update: the customer's message rides on the restaurant's wallet (docs/MESAJLASMA.md).
+    await this.notifications.notify(orderId, input.to);
     return this.detail(restaurantId, orderId, canSeeContacts);
   }
 

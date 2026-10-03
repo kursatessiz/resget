@@ -22,7 +22,7 @@ Kurallar:
 - Cüzdan asla eksiye düşmez; yetersiz bakiye gönderimi reddeder (`INSUFFICIENT_CREDITS`), `debitCredits()`.
 - Yeni restoran küçük bir hoş geldin bakiyesi alır (`WELCOME_MESSAGE_CREDITS_DEFAULT`, kanal başına 25). Gerisi satın alınır.
 - OTP ve platform bildirimleri restoranı ücretlendirmez.
-- Her hareket `message_transactions` içinde bakiye sonrası değeriyle kayıtlıdır; `message_logs` her denemeyi tutar.
+- Her hareket `message_transactions` içinde bakiye sonrası değeriyle kayıtlıdır; `message_logs` her denemeyi tutar. Motorun işleyişi ve satın alma akışı: `docs/MESAJLASMA.md`.
 
 ## Komisyonun tahsili
 

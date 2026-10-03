@@ -20,7 +20,7 @@ export function tableQrPath(token: TableQrToken): string {
 }
 
 export function tableQrUrl(publicAppUrl: string, token: TableQrToken): string {
-  return `${publicAppUrl.replace(/\/+$/, '')}${tableQrPath(token)}`;
+  return `${stripTrailingSlashes(publicAppUrl)}${tableQrPath(token)}`;
 }
 
 export const QrScanSessionSchema = z.string().regex(/^[A-Za-z0-9_-]{16,64}$/);
@@ -102,7 +102,7 @@ function orderStageOf(events: readonly QrScanEventLike[], sessionId: string): nu
 
 // -- Panel management ------------------------------------------------------------------
 
-import { UuidSchema } from './validators';
+import { UuidSchema, stripTrailingSlashes } from './validators';
 
 export const TableLabelSchema = z.string().trim().min(1).max(20);
 export const CreateTableSchema = z.object({ branchId: UuidSchema, label: TableLabelSchema }).strict();

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'node:crypto';
 import { Prisma } from '@resget/database';
@@ -23,8 +23,8 @@ import type {
   UpdateRoleInput,
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
-import { SMS_PROVIDER, maskPhone } from '../messaging/sms.provider';
-import type { SmsProvider } from '../messaging/sms.provider';
+import { maskPhone } from '../messaging/sms.provider';
+import { MessagingService } from '../messaging/messaging.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { renderQrPng } from '../tables/qr-label';
 import { badRequest, conflict, notFound } from '../../common/api-error';
@@ -67,7 +67,7 @@ export class StaffService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
-    @Inject(SMS_PROVIDER) private readonly sms: SmsProvider,
+    private readonly messaging: MessagingService,
   ) {}
 
   async overview(restaurantId: string): Promise<StaffOverviewDTO> {
@@ -219,15 +219,22 @@ export class StaffService {
     let smsAccepted: boolean | null = null;
     if (input.channel === 'SMS') {
       const t = this.translator(restaurant.defaultLocale);
-      const text = t('staff.invite.sms', {
-        restaurant: restaurant.name,
-        role: role.templateKey ? t(`roles.default.${role.templateKey}`) : role.name,
-        hours: INVITE_TTL_HOURS,
-        url: this.url(invite.token),
+      // Platform traffic like the OTP: logged by the engine, the restaurant's wallet is not charged.
+      const result = await this.messaging.send({
+        restaurantId: tenant.restaurantId,
+        channel: 'SMS',
+        to: input.phone,
+        templateKey: 'staff.invite',
+        params: {
+          restaurant: restaurant.name,
+          role: role.templateKey ? t(`roles.default.${role.templateKey}`) : role.name,
+          hours: INVITE_TTL_HOURS,
+          url: this.url(invite.token),
+        },
+        locale: restaurant.defaultLocale,
+        billable: false,
       });
-      // Platform traffic like the OTP: the restaurant's message wallet is not charged.
-      const result = await this.sms.send(input.phone, text);
-      smsAccepted = result.accepted;
+      smsAccepted = result.status === 'SENT';
     }
     return this.toInvite(invite, role, smsAccepted);
   }

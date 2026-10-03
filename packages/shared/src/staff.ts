@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { InviteChannel, MembershipStatus } from './enums';
 import { PermissionKeySchema } from './permissions';
 import type { PermissionKey } from './permissions';
-import { PhoneSchema, UuidSchema } from './validators';
+import { PhoneSchema, UuidSchema, stripTrailingSlashes } from './validators';
 
 /**
  * Staff and roles (docs/PERSONEL.md). Users are global and identified by
@@ -22,7 +22,7 @@ export function invitePath(token: string): string {
 }
 
 export function inviteUrl(publicAppUrl: string, token: string): string {
-  return `${publicAppUrl.replace(/\/+$/, '')}${invitePath(token)}`;
+  return `${stripTrailingSlashes(publicAppUrl)}${invitePath(token)}`;
 }
 
 /** Channels a panel can send an invite through today; WhatsApp follows the messaging engine (A7). */

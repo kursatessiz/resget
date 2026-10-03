@@ -24,8 +24,6 @@ export const enStaff: Record<keyof typeof trStaff, string> = {
   'staff.invite.channel.SHOWN': 'I will show the link and QR code myself',
   'staff.invite.channel.SMS': 'Send by SMS',
   'staff.invite.send': 'Create invite',
-  'staff.invite.sms':
-    '{restaurant} invites you to join its team as {role}. Open the link within {hours} hours to join: {url}',
   'staff.invites.title': 'Pending invites',
   'staff.invites.empty': 'No pending invites.',
   'staff.invites.expiresAt': 'Valid until: {date}',
