@@ -5,7 +5,7 @@ Restoranın kendi yazılımı (kasa, ERP, web sitesi) panelin kullandığı rest
 ## Değişmeyen kurallar
 
 1. **Anahtar bir üyelik gibidir, daha fazlası değil.** Tek restorana bağlıdır (başka `restaurantId` ile çağrı 403), oluşturulurken seçilen yetki kümesini taşır ve oluşturan kişinin sahip olmadığı bir yetkiyi hiçbir zaman alamaz (`API_KEY_GRANTABLE_PERMISSIONS`: sipariş, menü, masa, müşteri, rapor, sevk, kurye, sadakat görüntüleme; personel, roller, faturalama, ayarlar ve anahtar yönetimi verilemez).
-2. **Sır bir kez görünür.** Token biçimi `rsk_<keyId>_<secret>`; platform yalnızca sırrın SHA-256 özetini saklar ve sabit zamanlı karşılaştırır. Liste ve denetim kayıtları yalnızca `keyId` ve adı gösterir.
+2. **Sır bir kez görünür.** Token biçimi `rsk_<keyId>_<secret>`; platform yalnızca sırrın sunucu tarafı bir pepper ile HMAC-SHA256 özetini saklar ve sabit zamanlı karşılaştırır (sır 256 bit rastgele olduğu için yavaş bir parola KDF'si gerekmez; kopyalanan tablo tek başına hiçbir anahtarı doğrulamaz). Liste ve denetim kayıtları yalnızca `keyId` ve adı gösterir.
 3. **Anahtar kişi gerektiren işi yapamaz.** `@SessionOnly()` uçları (anahtar oluşturma ve iptal) ve restoran kapsamı dışındaki oturum uçları (`me/*`, konsol) anahtarı reddeder. Anahtarla yapılan her işlem denetim kaydında onu oluşturan üyeye yazılır.
 4. **Plan düşerse anahtar durur, silinmez.** `api_access` taşımayan planda her anahtarlı çağrı `PLAN_FEATURE_REQUIRED` ile 403 döner; plan dönünce aynı anahtar çalışır.
 5. **Geçersiz anahtar oturuma düşmez.** `x-api-key` başlığı varsa yalnızca anahtar değerlendirilir; bozuk, bilinmeyen veya iptal edilmiş anahtar 401'dir, yanında bearer olsa bile.

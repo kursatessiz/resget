@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { ConfigService } from '@nestjs/config';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { Prisma } from '@resget/database';
 import { formatApiKeyToken, parseApiKeyToken } from '@resget/shared';
 import type { ApiKeyDTO, ApiKeyPermission, CreateApiKeyInput, CreatedApiKeyDTO, PermissionKey } from '@resget/shared';
@@ -35,14 +36,23 @@ const LAST_USED_WRITE_MS = 60_000;
 
 /**
  * Restaurant API keys (docs/API_ERISIMI.md). The secret exists in clear only
- * in the creation response; the row keeps a SHA-256 of it, compared in
- * constant time. A revoked key stays listed so the history is visible.
+ * in the creation response; the row keeps an HMAC-SHA256 of it under a
+ * server-side pepper, compared in constant time. The secret is 256 random
+ * bits, so a slow password KDF would add cost without adding safety; the
+ * pepper means a copied table alone verifies nothing. A revoked key stays
+ * listed so the history is visible.
  */
 @Injectable()
 export class ApiKeysService {
   private readonly lastUsedWritten = new Map<string, number>();
+  private readonly pepper: string;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    config: ConfigService,
+  ) {
+    this.pepper = `api-key:${config.getOrThrow<string>('JWT_SECRET')}`;
+  }
 
   async list(restaurantId: string): Promise<ApiKeyDTO[]> {
     const rows = await this.prisma.restaurantApiKey.findMany({
@@ -152,7 +162,7 @@ export class ApiKeysService {
   }
 
   private hash(secret: string): string {
-    return createHash('sha256').update(secret).digest('hex');
+    return createHmac('sha256', this.pepper).update(secret).digest('hex');
   }
 
   private toDto(row: KeyRow): ApiKeyDTO {
