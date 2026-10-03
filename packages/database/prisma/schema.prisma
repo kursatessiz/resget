@@ -151,6 +151,12 @@ enum LoyaltyTransactionType {
   ADJUSTMENT
 }
 
+enum WebhookDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 enum PayoutStatus {
   SCHEDULED
   SENT
@@ -406,6 +412,7 @@ model Restaurant {
   loyaltyProgram       LoyaltyProgram?
   campaignSegments     CampaignSegmentPreset[]
   apiKeys              RestaurantApiKey[]
+  webhooks             RestaurantWebhook[]
   orderRatings         OrderRating[]
   loyaltyTransactions  LoyaltyTransaction[]
 
@@ -772,6 +779,51 @@ model OrderRating {
 
   @@index([restaurantId, createdAt])
   @@map("order_ratings")
+}
+
+/// A URL the restaurant's own system receives order changes at (docs/API_ERISIMI.md); the signing secret is encrypted.
+model RestaurantWebhook {
+  id              String    @id @default(uuid())
+  restaurantId    String
+  url             String
+  events          String[]  @default([])
+  secretEncrypted String
+  isActive        Boolean   @default(true)
+  /// Consecutive failed deliveries; the hook pauses itself past the limit.
+  failureCount    Int       @default(0)
+  lastDeliveryAt  DateTime?
+  lastStatus      Int?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  restaurant Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([restaurantId, createdAt])
+  @@map("restaurant_webhooks")
+}
+
+/// One attempt chain of one event to one webhook; retried with backoff by the runner.
+model WebhookDelivery {
+  id             String                @id @default(uuid())
+  webhookId      String
+  restaurantId   String
+  event          String
+  payload        Json
+  status         WebhookDeliveryStatus @default(PENDING)
+  attempts       Int                   @default(0)
+  nextAttemptAt  DateTime              @default(now())
+  responseStatus Int?
+  lastError      String?
+  createdAt      DateTime              @default(now())
+  sentAt         DateTime?
+
+  webhook RestaurantWebhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([webhookId, createdAt])
+  @@map("webhook_deliveries")
 }
 
 model CampaignRecipient {

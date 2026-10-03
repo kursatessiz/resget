@@ -89,6 +89,10 @@ export const EnvSchema = z
     ORDER_WATCHDOG: z.enum(['on', 'off']).default('on'),
     /** The in-process campaign queue (docs/KAMPANYALAR.md). */
     CAMPAIGN_RUNNER: z.enum(['on', 'off']).default('on'),
+    /** Outbound webhook deliveries (docs/API_ERISIMI.md); off when another process drains the queue. */
+    WEBHOOK_RUNNER: z.enum(['on', 'off']).default('on'),
+    /** Requests one API key may make per minute (docs/API_ERISIMI.md). */
+    API_KEY_RATE_LIMIT: z.coerce.number().int().min(1).max(100000).default(600),
     /** Regional commercial-message consent registry (Turkey: IYS); MOCK approves every opted-in number. */
     CONSENT_REGISTRY_PROVIDER: z.enum(['MOCK']).default('MOCK'),
     /** Fiscal document integrator for commission invoices; MOCK until a contract exists. */

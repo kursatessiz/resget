@@ -24,6 +24,7 @@ export * from './account';
 export * from './payouts';
 export * from './loyalty';
 export * from './api-keys';
+export * from './webhooks';
 export * from './ratings';
 export * from './geocoding';
 export * from './opening-hours';

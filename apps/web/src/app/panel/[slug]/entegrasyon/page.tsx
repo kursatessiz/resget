@@ -1,4 +1,5 @@
 import { ApiKeysManager } from '@/components/panel/ApiKeysManager';
+import { WebhooksManager } from '@/components/panel/WebhooksManager';
 import { getLocale } from '@/lib/i18n';
 import { requireMembership } from '@/lib/panel';
 
@@ -10,11 +11,18 @@ export default async function IntegrationsPage({ params }: { params: Promise<{ s
   // The public API address is what a restaurant's own system calls; the BFF address is only for this browser.
   const apiBaseUrl = (process.env.PUBLIC_API_URL || 'http://localhost:4000').replace(/\/+$/, '');
   return (
-    <ApiKeysManager
-      restaurantId={membership.restaurantId}
-      locale={locale}
-      isPro={membership.effectivePlan === 'PRO'}
-      apiBaseUrl={apiBaseUrl}
-    />
+    <div className="flex flex-col gap-6">
+      <ApiKeysManager
+        restaurantId={membership.restaurantId}
+        locale={locale}
+        isPro={membership.effectivePlan === 'PRO'}
+        apiBaseUrl={apiBaseUrl}
+      />
+      <WebhooksManager
+        restaurantId={membership.restaurantId}
+        locale={locale}
+        isPro={membership.effectivePlan === 'PRO'}
+      />
+    </div>
   );
 }
