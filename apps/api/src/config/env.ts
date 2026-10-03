@@ -14,6 +14,10 @@ export const EnvSchema = z
     /** Base URL of the web app; table QR links and invite links are built on it. */
     PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
     PUBLIC_API_URL: z.string().url().default('http://localhost:4000'),
+    /** Address geocoding (docs/VITRIN.md): NONE leaves points empty, MOCK is for development and tests, NOMINATIM asks OpenStreetMap. */
+    GEOCODER_PROVIDER: z.enum(['NONE', 'MOCK', 'NOMINATIM']).optional(),
+    /** A self-hosted Nominatim; the public instance is the default and allows one request per second. */
+    NOMINATIM_BASE_URL: z.string().url().optional(),
     /** How a restaurant's custom domain is checked: real DNS, or MOCK (hosts under .verified.test pass); tests default to MOCK. */
     DOMAIN_VERIFIER: z.enum(['DNS', 'MOCK']).optional(),
     APP_RELEASE: z
@@ -140,6 +144,13 @@ export const EnvSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['PAYMENT_PROVIDER'],
+        message: 'MOCK is not allowed in production',
+      });
+    }
+    if (env.GEOCODER_PROVIDER === 'MOCK') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['GEOCODER_PROVIDER'],
         message: 'MOCK is not allowed in production',
       });
     }

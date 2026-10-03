@@ -24,11 +24,19 @@ Kimliksiz yazma uçları `PublicRateLimitGuard` ile istemci başına sınırlıd
 
 ## Henüz yok
 
-Adres geokodlama (koordinat olmadan kurye ağı teklifi alınamaz; kendi kurye sevkinde durak rotalanmaz), kayıtlı kartla tek dokunuş ödeme. Mobil uygulama Faz 1'dir.
+Kayıtlı kartla tek dokunuş ödeme. Mobil uygulama Faz 1'dir.
 
 Pazaryeri listesi yalnızca `isActive`, `isListed` ve askıda olmayan (`listingSuspendedAt` boş) restoranları gösterir; vadesi geçmiş komisyon faturası listelemeyi askıya alır, sayfanın kendisi açık kalır (`docs/FATURALAMA.md`).
 
 Listelenme kararı konsolundur: restoran menüsü hazır olunca Ayarlar sayfasından talep eder, konsol onaylar (`docs/PLATFORM_YONETIMI.md`).
+
+## Adres geokodlama
+
+Koordinatı olmayan teslimat adresi, kurye ağı teklifi ve sevk rotası için önce koordinata çevrilir (`packages/shared/src/geocoding.ts`, `apps/api/src/modules/geocoding`). Her yerde en iyi çaba ilkesiyle çalışır: sağlayıcı yanıt vermezse veya eşleşme yalnızca ilçe düzeyindeyse (`AREA`) nokta boş kalır ve sipariş eskisi gibi ilerler; müşterinin veya personelin verdiği koordinat hiçbir zaman değiştirilmez.
+
+- Nerede çalışır: vitrin siparişi (`StorefrontService.place`, ücret hesabından önce), personel siparişi (`OrdersService.create`), müşterinin kayıtlı adresi (`POST me/addresses`), restoran kaydında şube adresi (`RestaurantProvisioningService`). Vitrin ve personel siparişinde şube konumu yakınlık ipucu olarak verilir.
+- Sağlayıcı `GEOCODER_PROVIDER`: `NONE` (koordinat boş kalır; üretim varsayılanı), `MOCK` (geliştirme ve test; yakınlık ipucuna göre deterministik bir nokta, ipucu yoksa boş; üretimde reddedilir), `NOMINATIM` (OpenStreetMap; `NOMINATIM_BASE_URL` ile kendi kurulumunuz, varsayılan herkese açık örnek). Genel Nominatim politikası gereği istekler saniyede bir ile aralıklanır ve tanıtıcı `User-Agent` gönderilir; yanıtlar bir gün bellekte tutulur.
+- Yeni sağlayıcı (Google, HERE, Mapbox, Yandex) `GeocoderAdapter` arkasında bir sınıftır; sipariş akışında kod yolu değildir.
 
 ## Değerlendirme
 

@@ -25,6 +25,7 @@ import { CheckoutService } from '../payments/checkout.service';
 import { OrdersService } from '../orders/orders.service';
 import { CourierService } from '../courier/courier.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
+import { GeocodingService } from '../geocoding/geocoding.service';
 import type { AuthUser } from '../auth/tenant-context';
 import { conflict, notFound } from '../../common/api-error';
 
@@ -33,6 +34,7 @@ const restaurantSelect = {
   slug: true,
   name: true,
   currency: true,
+  countryCode: true,
   logoUrl: true,
   themePrimary: true,
   defaultLocale: true,
@@ -59,6 +61,7 @@ export class StorefrontService {
     private readonly checkout: CheckoutService,
     private readonly courier: CourierService,
     private readonly loyalty: LoyaltyService,
+    private readonly geocoding: GeocodingService,
     private readonly config: ConfigService,
   ) {}
 
@@ -218,6 +221,18 @@ export class StorefrontService {
       throw conflict('ORDER_TRANSITION_INVALID', 'No delivery here');
     if (input.fulfillment === 'DINE_IN' && !context.tableId) throw conflict('ORDER_TRANSITION_INVALID', 'No table');
 
+    // The quote and the routing need a point; an address typed without one is geocoded first (docs/VITRIN.md).
+    if (input.fulfillment === 'DELIVERY' && input.address && !input.address.point) {
+      const branch = restaurant.branches.find((b) => b.id === branchId) ?? restaurant.branches[0];
+      const near = branch && branch.lat !== null && branch.lng !== null ? { lat: branch.lat, lng: branch.lng } : null;
+      input = {
+        ...input,
+        address: {
+          ...input.address,
+          point: await this.geocoding.pointFor(input.address, restaurant.countryCode, near),
+        },
+      };
+    }
     const deliveryFeeMinor =
       input.fulfillment === 'DELIVERY' && input.address ? await this.deliveryFee(restaurant, branchId, input) : 0;
 
@@ -375,6 +390,7 @@ interface RestaurantRow {
   slug: string;
   name: string;
   currency: string;
+  countryCode: string;
   logoUrl: string | null;
   themePrimary: string;
   defaultLocale: string;

@@ -41,6 +41,7 @@ import type {
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
+import { GeocodingService } from '../geocoding/geocoding.service';
 import { OrderNotificationsService } from './order-notifications.service';
 import { RealtimeService, courierTopic, dispatchTopic, orderTopic } from '../realtime/realtime.service';
 import type { TopicEvent } from '../realtime/realtime.service';
@@ -114,6 +115,7 @@ export class OrdersService {
     private readonly notifications: OrderNotificationsService,
     private readonly ledger: LedgerService,
     private readonly loyalty: LoyaltyService,
+    private readonly geocoding: GeocodingService,
   ) {}
 
   setTripEventsProvider(provider: (tripId: string) => Promise<TopicEvent[]>): void {
@@ -149,9 +151,21 @@ export class OrdersService {
     if (!restaurant) throw notFound('NOT_FOUND', 'Restaurant not found');
     const branch = await this.prisma.branch.findFirst({
       where: { id: input.branchId, restaurantId, isActive: true },
-      select: { id: true },
+      select: { id: true, lat: true, lng: true },
     });
     if (!branch) throw notFound('NOT_FOUND', 'Branch not found');
+    // A delivery address without a point is geocoded best effort (docs/VITRIN.md); a given point is never replaced.
+    const address =
+      input.fulfillment === 'DELIVERY' && input.address && !input.address.point
+        ? {
+            ...input.address,
+            point: await this.geocoding.pointFor(
+              input.address,
+              restaurant.countryCode,
+              branch.lat !== null && branch.lng !== null ? { lat: branch.lat, lng: branch.lng } : null,
+            ),
+          }
+        : input.address;
     if (input.tableId) {
       const table = await this.prisma.diningTable.findFirst({
         where: { id: input.tableId, restaurantId, branchId: input.branchId, isActive: true },
@@ -221,9 +235,7 @@ export class OrdersService {
       withholdingBps: regional.withholdingBps,
     });
 
-    const contact =
-      input.customer ??
-      (input.address ? { phone: input.address.contactPhone, fullName: input.address.contactName } : null);
+    const contact = input.customer ?? (address ? { phone: address.contactPhone, fullName: address.contactName } : null);
 
     // One instant for the row and the acceptance window, so the deadline is exactly the setting away from placedAt.
     const placedAt = new Date();
@@ -300,7 +312,7 @@ export class OrdersService {
           platformReceivableMinor: settlement.platformReceivableMinor,
           paymentMethod: payment?.intent.method ?? null,
           paymentProvider: payment?.intent.method === 'MEAL_CARD' ? (payment.intent.providerCode ?? null) : null,
-          addressSnapshot: input.address ? (input.address as Prisma.InputJsonValue) : Prisma.JsonNull,
+          addressSnapshot: address ? (address as Prisma.InputJsonValue) : Prisma.JsonNull,
           customerNote: input.note ?? null,
           trackingToken: randomBytes(TRACKING_TOKEN_BYTES).toString('base64url'),
           items: {

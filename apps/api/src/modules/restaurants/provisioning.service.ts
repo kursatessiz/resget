@@ -3,6 +3,7 @@ import { Prisma } from '@resget/database';
 import { DEFAULT_ROLE_TEMPLATES, WELCOME_MESSAGE_CREDITS_DEFAULT, slugify, trialEndFrom } from '@resget/shared';
 import type { RestaurantCreatedDTO, RestaurantSignupInput } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { GeocodingService } from '../geocoding/geocoding.service';
 import { conflict } from '../../common/api-error';
 
 /**
@@ -14,10 +15,18 @@ import { conflict } from '../../common/api-error';
  */
 @Injectable()
 export class RestaurantProvisioningService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly geocoding: GeocodingService,
+  ) {}
 
   async create(ownerUserId: string, input: RestaurantSignupInput, actorUserId: string): Promise<RestaurantCreatedDTO> {
     const slug = await this.uniqueSlug(input.slug ?? slugify(input.name), Boolean(input.slug));
+    // The branch needs a point for courier quotes and routing; typed coordinates win over the geocoder.
+    const branchPoint =
+      input.branch.lat !== undefined && input.branch.lng !== undefined
+        ? { lat: input.branch.lat, lng: input.branch.lng }
+        : await this.geocoding.pointFor(input.branch, input.countryCode, null);
     const serviceArea = await this.prisma.serviceArea.findFirst({
       where: {
         countryCode: input.countryCode,
@@ -58,8 +67,8 @@ export class RestaurantProvisioningService {
           district: input.branch.district,
           postalCode: input.branch.postalCode ?? null,
           phone: input.branch.phone ?? null,
-          lat: input.branch.lat ?? null,
-          lng: input.branch.lng ?? null,
+          lat: branchPoint?.lat ?? null,
+          lng: branchPoint?.lng ?? null,
         },
       });
       let ownerRoleId: string | null = null;
