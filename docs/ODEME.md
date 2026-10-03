@@ -57,7 +57,7 @@ Yemek kartlarında üye işyeri her zaman restorandır; restoran kabul ettiği k
 
 - Her tamamlanan siparişin üzerindeki `platformCommissionMinor` ve `commissionVatMinor` değerleri (yerleştirme anı anlık görüntüsü) ay sonunda tek faturaya toplanır (`buildCommissionStatement`, UTC takvim ayı). Oran sonradan değişse geçmiş ay değişmez.
 - `CommissionInvoice`: dönem, sipariş sayısı, matrah, komisyon, KDV, toplam, durum (`DRAFT -> ISSUED -> PAID`, gecikirse `OVERDUE`, iptalde `VOID`).
-- Tahsilat: restoranın kayıtlı kartından otomatik çekim (aynı kart kasası) veya havale. Fatura kesildikten `COMMISSION_INVOICE_DUE_DAYS` (10) gün sonra ödenmemişse pazaryeri listelemesi askıya alınır; panel ve masa QR çalışmaya devam eder.
+- Tahsilat: restoranın tahsilat kartından otomatik çekim (aynı kart kasası) veya havale. Fatura kesildikten `COMMISSION_INVOICE_DUE_DAYS` (10) gün sonra ödenmemişse pazaryeri listelemesi askıya alınır; panel ve masa QR çalışmaya devam eder. Günlük iş, uçlar ve ekranlar: `docs/FATURALAMA.md`.
 - Kapıda ödeme, nakit ve yemek kartı siparişlerinde de komisyon tahakkuk eder; fatura aynıdır.
 - Restoran paneli: `GET /restaurants/:id/payments/commission?year&month` (izin `invoices.view`) ayın dökümünü verir; `GET .../payments/settings` bu ay biriken komisyonu gösterir.
 
@@ -72,6 +72,6 @@ Yemek kartlarında üye işyeri her zaman restorandır; restoran kabul ettiği k
 ## 6. Backlog
 
 - A4: `OWN_POS` için iyzico, PayTR, Param ve Sipay gateway adaptörleri (hosted sayfa + webhook); Masterpass ve bex kasa adaptörleri; yemek kartı kuruluşlarının gerçek adaptörleri. Ödeme adımının çekirdeği (niyet, hosted oturum, webhook, kapıda tahsilat) `docs/YEMEK_KARTI.md` ile kuruldu.
-- A5: aylık fatura kesimi ve otomatik tahsilat işi, gecikme ve askıya alma, e-Arşiv fatura entegrasyonu.
+- A5 tamamlandı (`docs/FATURALAMA.md`); kalan: gerçek e-Arşiv entegratörü adaptörü.
 - B4: `PLATFORM_PSP` pazaryeri ürünü, PSP token kasası, hakediş ödemeleri, tevkifat beyanı.
 - Hukuk: `OWN_POS` modunda tevkifat yükümlülüğünün olmadığının vergi danışmanıyla teyidi; Masterpass ve bex üye işyeri sözleşmeleri.

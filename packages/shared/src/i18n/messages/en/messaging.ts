@@ -11,6 +11,10 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
   'messaging.template.order.rejected': '{restaurant}: unfortunately your order {code} could not be accepted.{reason}',
   'messaging.template.order.cancelled': '{restaurant}: your order {code} was cancelled.{reason}',
   'messaging.template.reasonSuffix': ' Reason: {reason}',
+  'messaging.template.invoice.issued':
+    '{restaurant}: your commission invoice for {period} is {amount}, due {due}. It is collected automatically from your saved card; details are on the Finance page of the panel.',
+  'messaging.template.invoice.overdue':
+    '{restaurant}: your commission invoice for {period} ({amount}) is overdue. Your marketplace listing is paused until payment arrives; your table QR and ordering page keep working.',
   'messaging.title': 'Plan and message credits',
   'messaging.plan.current': 'Current plan: {plan}',
   'messaging.wallet.title': 'Message credits',

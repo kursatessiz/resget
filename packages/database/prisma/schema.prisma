@@ -279,35 +279,39 @@ model ServiceArea {
 }
 
 model Restaurant {
-  id            String  @id @default(uuid())
-  slug          String  @unique
-  name          String
-  legalName     String?
-  taxId         String?
-  countryCode   String
-  currency      String
-  timezone      String
-  defaultLocale String  @default("tr")
-  serviceAreaId String?
-  isActive      Boolean @default(true)
+  id                     String    @id @default(uuid())
+  slug                   String    @unique
+  name                   String
+  legalName              String?
+  taxId                  String?
+  countryCode            String
+  currency               String
+  timezone               String
+  defaultLocale          String    @default("tr")
+  serviceAreaId          String?
+  isActive               Boolean   @default(true)
   /// Listed in the consumer marketplace (requires a launched service area and an approved menu).
-  isListed      Boolean @default(false)
+  isListed               Boolean   @default(false)
+  /// Set while an overdue commission invoice keeps the restaurant out of the marketplace; cleared when it is settled.
+  listingSuspendedAt     DateTime?
+  /// The saved card commission invoices are collected from (docs/FATURALAMA.md).
+  billingPaymentMethodId String?
 
   /// Platform take rate on gross order value; 100 = 1 percent. Changed only by the super admin.
-  commissionBps     Int          @default(100)
+  commissionBps        Int          @default(100)
   /// Who collects card payments (docs/ODEME.md): the restaurant's own virtual POS (default) or the platform's PSP.
-  paymentMode       PaymentMode  @default(OWN_POS)
+  paymentMode          PaymentMode  @default(OWN_POS)
   /// PLATFORM_PSP only: the provider's contracted fee for this restaurant, passed through at cost (docs/MUTABAKAT.md).
-  pspPercentBps     Int          @default(0)
-  pspFixedMinor     Int          @default(0)
+  pspPercentBps        Int          @default(0)
+  pspFixedMinor        Int          @default(0)
   /// How this restaurant moves food by default; per order it can differ.
-  deliveryMode      DeliveryMode @default(RESTAURANT_COURIER)
+  deliveryMode         DeliveryMode @default(RESTAURANT_COURIER)
   /// Preferred third-party courier network when deliveryMode is THIRD_PARTY_API.
-  courierProviderId String?
+  courierProviderId    String?
   /// How the quoted courier fee becomes the customer's delivery fee (DeliveryFeePolicySchema in shared).
-  deliveryFeePolicy Json?
+  deliveryFeePolicy    Json?
   /// Own-courier dispatch tuning (DispatchSettingsSchema in shared): speed, detour, arrival radius, stops per trip.
-  dispatchSettings  Json?
+  dispatchSettings     Json?
   /// Customer notification preferences (NotificationSettingsSchema in shared): order updates on or off, channel, SMS fallback.
   notificationSettings Json?
 
@@ -318,33 +322,34 @@ model Restaurant {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  serviceArea         ServiceArea?               @relation(fields: [serviceAreaId], references: [id])
-  courierProvider     CourierProvider?           @relation(fields: [courierProviderId], references: [id])
-  branches            Branch[]
-  memberships         Membership[]
-  roleTemplates       RoleTemplate[]
-  inviteTokens        InviteToken[]
-  menuCategories      MenuCategory[]
-  menuItems           MenuItem[]
-  tables              DiningTable[]
-  qrScanEvents        QrScanEvent[]
-  customers           RestaurantCustomer[]
-  orders              Order[]
-  payments            Payment[]
-  ledgerEntries       LedgerEntry[]
-  payouts             Payout[]
-  paymentConnection   PaymentProviderConnection?
-  mealCardConnections MealCardConnection[]
-  commissionInvoices  CommissionInvoice[]
-  subscription        RestaurantSubscription?
-  messageWallets      MessageWallet[]
-  messageLogs         MessageLog[]
-  deliveryRequests    DeliveryRequest[]
-  deliveryTrips       DeliveryTrip[]
-  deliveryStops       DeliveryStop[]
-  courierLocations    CourierLocation[]
-  featureFlags        FeatureFlag[]
-  auditLogs           AuditLog[]
+  serviceArea          ServiceArea?               @relation(fields: [serviceAreaId], references: [id])
+  courierProvider      CourierProvider?           @relation(fields: [courierProviderId], references: [id])
+  billingPaymentMethod SavedPaymentMethod?        @relation("RestaurantBillingCard", fields: [billingPaymentMethodId], references: [id], onDelete: SetNull)
+  branches             Branch[]
+  memberships          Membership[]
+  roleTemplates        RoleTemplate[]
+  inviteTokens         InviteToken[]
+  menuCategories       MenuCategory[]
+  menuItems            MenuItem[]
+  tables               DiningTable[]
+  qrScanEvents         QrScanEvent[]
+  customers            RestaurantCustomer[]
+  orders               Order[]
+  payments             Payment[]
+  ledgerEntries        LedgerEntry[]
+  payouts              Payout[]
+  paymentConnection    PaymentProviderConnection?
+  mealCardConnections  MealCardConnection[]
+  commissionInvoices   CommissionInvoice[]
+  subscription         RestaurantSubscription?
+  messageWallets       MessageWallet[]
+  messageLogs          MessageLog[]
+  deliveryRequests     DeliveryRequest[]
+  deliveryTrips        DeliveryTrip[]
+  deliveryStops        DeliveryStop[]
+  courierLocations     CourierLocation[]
+  featureFlags         FeatureFlag[]
+  auditLogs            AuditLog[]
 
   @@index([serviceAreaId, isListed])
   @@map("restaurants")
@@ -827,8 +832,9 @@ model SavedPaymentMethod {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  payments Payment[]
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments           Payment[]
+  billingRestaurants Restaurant[] @relation("RestaurantBillingCard")
 
   @@unique([userId, provider, tokenHash])
   @@index([userId])
@@ -838,30 +844,40 @@ model SavedPaymentMethod {
 /// Monthly commission invoice of an OWN_POS restaurant: the commission and
 /// VAT snapshotted on each paid order of the month, collected afterwards.
 model CommissionInvoice {
-  id              String                  @id @default(uuid())
-  restaurantId    String
-  periodStart     DateTime
-  periodEnd       DateTime
-  currency        String
-  orderCount      Int
-  baseMinor       Int
-  commissionMinor Int
-  vatMinor        Int
-  totalMinor      Int
-  status          CommissionInvoiceStatus @default(DRAFT)
-  issuedAt        DateTime?
-  dueAt           DateTime?
-  paidAt          DateTime?
+  id                  String                  @id @default(uuid())
+  restaurantId        String
+  periodStart         DateTime
+  periodEnd           DateTime
+  currency            String
+  orderCount          Int
+  baseMinor           Int
+  commissionMinor     Int
+  vatMinor            Int
+  totalMinor          Int
+  status              CommissionInvoiceStatus @default(DRAFT)
+  issuedAt            DateTime?
+  dueAt               DateTime?
+  paidAt              DateTime?
   /// Reference of the collection (card charge or bank transfer).
-  paymentRef      String?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
+  paymentRef          String?
+  /// The saved card the collection used, when it was a card.
+  paymentMethodId     String?
+  /// Fiscal document (e-Arsiv or the regional equivalent) issued by the invoice provider adapter.
+  fiscalRef           String?
+  fiscalDocumentUrl   String?
+  /// Automatic collection bookkeeping (docs/FATURALAMA.md): attempts, the last one and why it failed.
+  collectionAttempts  Int                     @default(0)
+  lastCollectionAt    DateTime?
+  lastCollectionError String?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
 
   restaurant    Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   ledgerEntries LedgerEntry[]
 
   @@unique([restaurantId, periodStart])
   @@index([restaurantId, status])
+  @@index([status, dueAt])
   @@map("commission_invoices")
 }
 

@@ -105,6 +105,15 @@ export function AdminRestaurantDetail({ id, locale }: { id: string; locale: stri
           <Badge tone={data.isListed ? 'success' : 'muted'}>
             {data.isListed ? t('admin.restaurant.listed') : t('admin.restaurant.notListed')}
           </Badge>
+          {data.listingSuspendedAt && (
+            <Badge tone="error">
+              {t('admin.restaurant.suspended', {
+                date: new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(
+                  new Date(data.listingSuspendedAt),
+                ),
+              })}
+            </Badge>
+          )}
           <Badge tone={data.isActive ? 'success' : 'error'}>
             {data.isActive ? t('admin.restaurant.active') : t('admin.restaurant.inactive')}
           </Badge>
