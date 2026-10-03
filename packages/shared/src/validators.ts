@@ -43,3 +43,10 @@ export interface Page<T> {
   pageSize: number;
   total: number;
 }
+
+/** Removes trailing slashes without a regular expression: the input can be configuration, so no backtracking on it. */
+export function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === '/') end -= 1;
+  return value.slice(0, end);
+}
