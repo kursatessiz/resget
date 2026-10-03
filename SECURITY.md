@@ -13,7 +13,11 @@ Yalnızca `main` üzerindeki en son sürüm düzeltme alır.
 ## Mevcut önlemler
 
 - Dependabot ile 7 günlük bekleme süresiyle bağımlılık güncellemeleri; major sürümler elle
-- Her PR'da `pnpm audit` (high ve üzeri)
+- Her PR'da `pnpm audit` (high ve üzeri), dependency review ve lisans kontrolü
+- TypeScript ve GitHub Actions için CodeQL (security-extended)
+- Gizli bilgi taraması (TruffleHog) ve workflow denetimi (zizmor, actionlint)
+- OpenSSF Scorecard
+- Build kaynak doğrulaması (provenance attestation) ve SBOM'lu imajlar; tüm action'lar SHA, taban imajlar digest ile sabitli
 - Container imajları salt okunur dosya sisteminde, root olmayan kullanıcıyla, tüm capability'ler düşürülmüş çalışır
 - OTP kodları yalnızca karma (hash) olarak saklanır; telefon başına pencere içinde en çok 3 kod, kod başına en çok 5 deneme
 - Loglarda telefon numaraları maskelenir; OTP metni yalnızca yerel geliştirmede görünür

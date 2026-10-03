@@ -1,3 +1,6 @@
+[![CI](https://github.com/kursatessiz/resget/actions/workflows/ci.yml/badge.svg)](https://github.com/kursatessiz/resget/actions/workflows/ci.yml)
+[![Repository](https://img.shields.io/badge/GitHub-kursatessiz%2Fresget-blue?logo=github)](https://github.com/kursatessiz/resget)
+
 # Resget
 
 Restoranlar için düşük komisyonlu sipariş ve ödeme ağı. Üç katman tek üründe:
@@ -55,7 +58,7 @@ pnpm turbo run build typecheck test
 pnpm audit --audit-level high
 ```
 
-CI (`.github/workflows/ci.yml`) aynı adımları çalıştırır, migration'ları boş bir Postgres'e uygular, şema ile migration'lar arasında sapma olmadığını denetler ve Docker imajlarını derler.
+CI (`.github/workflows/ci.yml`) aynı adımları çalıştırır; ayrıca migration'ları boş bir Postgres'e uygular ve sapma denetler, API e2e (supertest) ve web e2e (Playwright) testlerini koşar, script ve workflow'ları lint eder, Docker imajlarını derler. Güvenlik taramaları (CodeQL, TruffleHog, zizmor, dependency review, Scorecard), Lighthouse bütçesi, release ve deploy hattı ile Claude ajan workflow'ları `docs/CICD_GUIDE.md` içinde anlatılır.
 
 ## Dokümanlar
 

@@ -1,0 +1,222 @@
+name: Release
+
+# One image per commit, promoted through the environments (docs/CICD_GUIDE.md):
+#   push to main -> CI -> build, sign and push sha-<commit> images -> deploy
+#     to the `preprod` environment (when preprod's DEPLOY_ENABLED is "true").
+#   workflow_dispatch -> deploy an existing sha-<commit> image to `preprod` or
+#     `production` (production never builds; gate it with required reviewers
+#     and a main-only deployment branch rule on the `production` environment).
+# Each GitHub Environment carries its own secrets (DEPLOY_HOST, DEPLOY_USER,
+# DEPLOY_SSH_KEY, DEPLOY_SSH_KNOWN_HOSTS) and variables (DEPLOY_ENABLED,
+# DEPLOY_ENVIRONMENT, PUBLIC_URL).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: preprod
+        type: choice
+        options: [preprod, production]
+      tag:
+        description: Existing image tag, sha-<40 hex commit>. Required for production; empty on preprod = build this commit.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # One release per environment at a time; a pending production run is never
+  # replaced by a later push to main (those only target preprod).
+  group: release-${{ inputs.environment || 'preprod' }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Plan release
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      environment: ${{ steps.plan.outputs.environment }}
+      tag: ${{ steps.plan.outputs.tag }}
+      build: ${{ steps.plan.outputs.build }}
+    steps:
+      - id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          if [ "$EVENT" = push ]; then
+            environment=preprod tag="sha-$SHA" build=true
+          else
+            environment="$INPUT_ENVIRONMENT"
+            case "$environment" in preprod|production) ;; *) echo "::error::unknown environment"; exit 1 ;; esac
+            if [ -z "$INPUT_TAG" ]; then
+              if [ "$environment" = production ]; then
+                echo "::error::production deploys an image that already ran on preprod: give its sha-<commit> tag"
+                exit 1
+              fi
+              tag="sha-$SHA" build=true
+            else
+              tag="$INPUT_TAG" build=false
+            fi
+            if [ "$environment" = production ] && [ "$REF" != refs/heads/main ]; then
+              echo "::error::production deploys run from main only (the deploy files are synced from this ref)"
+              exit 1
+            fi
+          fi
+          [[ "$tag" =~ ^sha-[0-9a-f]{40}$ ]] || { echo "::error::tag must be sha-<40 hex commit>"; exit 1; }
+          {
+            echo "environment=$environment"
+            echo "tag=$tag"
+            echo "build=$build"
+          } >> "$GITHUB_OUTPUT"
+          echo "Target: \`$environment\`, image tag \`$tag\`, build: $build" >> "$GITHUB_STEP_SUMMARY"
+
+  ci:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
+    # ./ is the documented syntax for a reusable workflow in the same repository.
+    uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository]
+
+  publish:
+    name: Build and publish images
+    needs: [plan, ci]
+    if: needs.plan.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write # push the images to ghcr.io
+      id-token: write # build provenance attestation
+      attestations: write # store the attestation
+    strategy:
+      matrix:
+        app: [api, web]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Image name
+        id: image
+        env:
+          REPO: ${{ github.repository }}
+          APP: ${{ matrix.app }}
+        run: echo "name=ghcr.io/${REPO,,}/${APP}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # No environment-specific build arguments: the same image runs on
+      # preprod and production (the web app reads its API address at runtime).
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/docker/${{ matrix.app }}.Dockerfile
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ needs.plan.outputs.tag }}
+            ${{ steps.image.outputs.name }}:main
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+  deploy:
+    name: Deploy to ${{ needs.plan.outputs.environment }}
+    needs: [plan, publish]
+    if: >-
+      always() && needs.plan.result == 'success' &&
+      (needs.publish.result == 'success' || (needs.publish.result == 'skipped' && needs.plan.outputs.build == 'false'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    # Secrets and variables below resolve from this environment. Required
+    # reviewers and a main-only branch rule belong on `production`.
+    environment:
+      name: ${{ needs.plan.outputs.environment }}
+      url: ${{ vars.PUBLIC_URL }}
+    steps:
+      - name: Check this environment is enabled
+        id: gate
+        env:
+          ENABLED: ${{ vars.DEPLOY_ENABLED }}
+          # Must equal the environment name. Guards against a repository-level
+          # variable/secret of the same name silently pointing this job at
+          # another server when the environment itself is not configured.
+          IDENTITY: ${{ vars.DEPLOY_ENVIRONMENT }}
+          TARGET: ${{ needs.plan.outputs.environment }}
+        run: |
+          if [ "$ENABLED" != true ]; then
+            echo "::notice::Deploy to $TARGET skipped: DEPLOY_ENABLED is not \"true\" in the $TARGET environment."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          elif [ "$IDENTITY" != "$TARGET" ]; then
+            echo "::error::DEPLOY_ENVIRONMENT must be \"$TARGET\" in the $TARGET environment (got \"$IDENTITY\")."
+            exit 1
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.gate.outputs.enabled == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Configure SSH
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Pinned host key from a secret; no trust-on-first-use keyscan.
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Sync deploy files
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          TARGET: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+        run: |
+          SSH="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=yes"
+          $SSH "$TARGET" 'mkdir -p /opt/resget/caddy /opt/resget/scripts'
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes deploy/docker-compose.prod.yml "$TARGET:/opt/resget/"
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes deploy/caddy/Caddyfile "$TARGET:/opt/resget/caddy/"
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes deploy/scripts/*.sh "$TARGET:/opt/resget/scripts/"
+
+      - name: Deploy, smoke test, roll back on failure
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          TARGET: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+          TAG: ${{ needs.plan.outputs.tag }}
+          ENVIRONMENT: ${{ needs.plan.outputs.environment }}
+        run: |
+          [[ "$TAG" =~ ^sha-[0-9a-f]{40}$ ]] || { echo "invalid tag"; exit 2; }
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$TARGET" "bash /opt/resget/scripts/deploy.sh '$TAG'"
+          echo "Deployed \`$TAG\` to \`$ENVIRONMENT\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

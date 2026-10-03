@@ -33,9 +33,10 @@ Restoranlar için yüzde 1 komisyonlu sipariş ağı, üstünde ücretsiz temel 
 - `apps/api`: env doğrulama, hata kodu filtresi, health, Prisma ve Redis, MOCK SMS sağlayıcısı, telefon OTP ile giriş ve JWT (access 15 dk, refresh 30 gün), `GET /auth/me`, guard'lar ve dekoratörler (testli), `GET /restaurants/:id`, menü (`GET /public/qr/:token` huni olayı kaydeder), hakediş önizleme (`POST /restaurants/:id/orders/settlement-preview`), kurye teklifi (`POST /restaurants/:id/courier/quote`, MOCK), masalar (liste, oluştur, QR yenile, huni raporu).
 - `apps/web`: Perfect UI ile açılış sayfası, `/m/<token>` herkese açık menü sayfası (sunucuda API'den çekilir, restoran renginde), BFF proxy iskeleti, `ThemeRoot`, `Button`, `Card`.
 - `deploy`: dev ve prod compose, Caddyfile, API ve web Dockerfile'ları.
-- CI: build, typecheck, test, audit, taze Postgres'te migration ve drift kontrolü, seed, actionlint, Docker imaj derlemesi.
+- Testler: shared ve API birim testleri; API e2e (`apps/api/test/e2e`: health, auth, kiracı izolasyonu, herkese açık menü, hakediş önizleme, masalar ve huni, kurye teklifi); web e2e (`apps/web/e2e`: açılış, masa QR menüsü, dil seçimi).
+- CI/CD ve güvenlik (kardeş platformla aynı yöntem, `docs/CICD_GUIDE.md`): `ci.yml` (build, typecheck, test, prettier, audit, migration ve drift, API e2e, web e2e, shellcheck, actionlint, imaj derleme), `release.yml` (imajlar GHCR'ye, preprod/production ortamları, SSH deploy, rollback), `codeql.yml`, `security.yml` (dependency review, TruffleHog, zizmor), `scorecard.yml`, `lighthouse.yml`, dört Claude ajan workflow'u (`CLAUDE_AGENTS_ENABLED` açılana kadar pasif), Dependabot; `deploy/scripts` (server-init, deploy, healthcheck, rollback, nightly, backup).
 
-Henüz yok: sipariş oluşturma ve durum akışı, ödeme sağlayıcı adaptörleri (pazaryeri / alt üye işyeri ürünü), hakediş (payout) zamanlayıcısı, restoran paneli ekranları, giriş ekranı ve oturum çerezleri, davet akışı, kampanya ve CRM, süper admin paneli, mobil uygulama, deploy script'leri (`deploy.sh`, `backup.sh`, `rollback.sh`), release workflow'u.
+Henüz yok: sipariş oluşturma ve durum akışı, ödeme sağlayıcı adaptörleri (pazaryeri / alt üye işyeri ürünü), hakediş (payout) zamanlayıcısı, restoran paneli ekranları, giriş ekranı ve oturum çerezleri, davet akışı, kampanya ve CRM, süper admin paneli ve platform verisi bootstrap komutu, mobil uygulama.
 
 ## 4. Backlog
 
@@ -51,7 +52,7 @@ Her öğe bir PR'dır. Sıra, Faz 0'ın tek ilçede 30 ila 50 restoranla çalı�
 - A7. Bildirimler: sipariş bildirimleri (push/web, SMS yedek), mesaj kredisi düşümü yalnızca SENT'te, kredi paketi satın alma.
 - A8. Süper admin: restoran listesi ve listeleme onayı, komisyon ve PSP oranı, hizmet alanı lansmanı, plan ve paket yönetimi, ilçe bazlı OARD panosu.
 - A9. Pazaryeri tüketici web'i: ilçe içi restoran listesi, restoran sayfası (`/<slug>`), adres ve teslimat seçimi, sipariş takibi.
-- A10. Deploy script'leri ve release workflow'u (imaj yayını, SSH deploy, yedek, smoke test, rollback), `shellcheck` CI işi.
+- A10. Platform verisi bootstrap komutu (`--defaults-only`: planlar, kredi paketleri, kurye ağları; ilk süper admin) ve `deploy.sh` içine bağlanması; sunucu ilk kurulumunun preprod'da denenmesi.
 
 ### B. Faz 1 (genişleme eşiği: restoran başına günlük sipariş 2'yi geçince)
 - B1. Expo tüketici uygulaması (tek uygulama, QR'dan derin bağlantı).
@@ -62,6 +63,10 @@ Her öğe bir PR'dır. Sıra, Faz 0'ın tek ilçede 30 ila 50 restoranla çalı�
 ### C. Faz 2 (kurye)
 - C1. Gerçek kurye ağı adaptörü (ülkeye göre), webhook imza doğrulaması, `DeliveryRequest` yaşam döngüsü, sipariş ekranında kurye çağırma.
 - C2. Mahalle kurye havuzu değerlendirmesi (hukuki görüş sonrası).
+
+## 4a. Çalışma yöntemi
+
+Kardeş platformda oturmuş hat aynen uygulanır: her backlog öğesi izole bir worktree'de çalışan ve maliyet kademesine göre seçilen (Haiku/Sonnet/Opus) bir ajana verilir; koordinatör dalı `main` üzerine birleştirir, tam yerel doğrulamayı (install, build/typecheck/test, taze DB migrate + drift + seed, API e2e, web e2e, audit, prettier, shellcheck/actionlint) geçirir, Türkçe PR açar, tüm CI kontrolleri yeşilken merge eder. Backlog öğesi başına bir PR. Sahibin yapması gereken GitHub ayarları: `docs/CICD_GUIDE.md` bölüm 6 ve 7 (ruleset, secret scanning, Environments, `CLAUDE_AGENTS_ENABLED`).
 
 ## 5. Açık sorular (sahibin kararı)
 
