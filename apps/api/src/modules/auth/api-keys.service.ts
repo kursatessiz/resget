@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { Prisma } from '@resget/database';
 import { formatApiKeyToken, parseApiKeyToken } from '@resget/shared';
 import type { ApiKeyDTO, ApiKeyPermission, CreateApiKeyInput, CreatedApiKeyDTO, PermissionKey } from '@resget/shared';
@@ -34,17 +34,23 @@ export interface ApiKeyPrincipal {
 /** Only how often lastUsedAt is written, so a busy integration does not turn every call into an update. */
 const LAST_USED_WRITE_MS = 60_000;
 
+/** scrypt cost for key secrets: a few milliseconds per check, salted per key and peppered server-side. */
+const SCRYPT = { N: 4096, r: 8, p: 1 } as const;
+/** A verified token is remembered briefly so a busy integration pays the scrypt cost once a minute, not per call. */
+const VERIFIED_TTL_MS = 60_000;
+const VERIFIED_MAX = 1000;
+
 /**
  * Restaurant API keys (docs/API_ERISIMI.md). The secret exists in clear only
- * in the creation response; the row keeps an HMAC-SHA256 of it under a
- * server-side pepper, compared in constant time. The secret is 256 random
- * bits, so a slow password KDF would add cost without adding safety; the
- * pepper means a copied table alone verifies nothing. A revoked key stays
- * listed so the history is visible.
+ * in the creation response; the row keeps a scrypt digest of it, salted with
+ * the key's own id and a server-side pepper, compared in constant time, so a
+ * copied table alone verifies nothing. A revoked key stays listed so the
+ * history is visible and stops working on the next request.
  */
 @Injectable()
 export class ApiKeysService {
   private readonly lastUsedWritten = new Map<string, number>();
+  private readonly verified = new Map<string, { principal: ApiKeyPrincipal; until: number }>();
   private readonly pepper: string;
 
   constructor(
@@ -75,7 +81,7 @@ export class ApiKeysService {
           restaurantId: tenant.restaurantId,
           keyId,
           name: input.name,
-          secretHash: this.hash(secret),
+          secretHash: this.hash(keyId, secret),
           permissions: [...new Set(input.permissions)],
           createdByUserId: user.id,
         },
@@ -103,6 +109,7 @@ export class ApiKeysService {
     });
     if (!row) throw notFound('API_KEY_NOT_FOUND', 'API key not found');
     if (row.revokedAt) return this.toDto(row);
+    for (const [token, entry] of this.verified) if (entry.principal.id === id) this.verified.delete(token);
     const updated = await this.prisma.$transaction(async (tx) => {
       const revoked = await tx.restaurantApiKey.update({
         where: { id },
@@ -128,16 +135,21 @@ export class ApiKeysService {
   async authenticate(token: string): Promise<ApiKeyPrincipal | null> {
     const parsed = parseApiKeyToken(token);
     if (!parsed) return null;
+    const remembered = this.verified.get(token);
+    if (remembered && remembered.until > Date.now()) {
+      this.touch(remembered.principal.id);
+      return remembered.principal;
+    }
     const row = await this.prisma.restaurantApiKey.findUnique({
       where: { keyId: parsed.keyId },
       select: { ...keySelect, secretHash: true },
     });
     if (!row || row.revokedAt || !row.createdBy) return null;
     const expected = Buffer.from(row.secretHash, 'hex');
-    const actual = Buffer.from(this.hash(parsed.secret), 'hex');
+    const actual = Buffer.from(this.hash(row.keyId, parsed.secret), 'hex');
     if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
     this.touch(row.id);
-    return {
+    const principal: ApiKeyPrincipal = {
       id: row.id,
       keyId: row.keyId,
       restaurantId: row.restaurantId,
@@ -149,6 +161,9 @@ export class ApiKeysService {
         isSuperAdmin: false,
       },
     };
+    if (this.verified.size >= VERIFIED_MAX) this.verified.clear();
+    this.verified.set(token, { principal, until: Date.now() + VERIFIED_TTL_MS });
+    return principal;
   }
 
   private touch(id: string): void {
@@ -161,8 +176,8 @@ export class ApiKeysService {
       .catch(() => undefined);
   }
 
-  private hash(secret: string): string {
-    return createHmac('sha256', this.pepper).update(secret).digest('hex');
+  private hash(keyId: string, secret: string): string {
+    return scryptSync(secret, `${keyId}:${this.pepper}`, 32, SCRYPT).toString('hex');
   }
 
   private toDto(row: KeyRow): ApiKeyDTO {
