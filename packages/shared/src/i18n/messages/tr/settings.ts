@@ -35,6 +35,7 @@ export const trSettings = {
   'settings.dispatch.maxStopsPerTrip': 'Sefer başına en çok durak',
   'settings.dispatch.locationBroadcastSeconds': 'Konum yayın aralığı (sn)',
   'settings.dispatch.defaultPrepMinutes': 'Varsayılan hazırlık süresi (dk)',
+  'settings.dispatch.acceptTimeoutMinutes': 'Kabul süresi (dk)',
   'settings.platform.title': 'Platform tarafından belirlenir',
   'settings.platform.commission': 'Sipariş komisyonu: %{percent}',
   'settings.platform.currency': 'Para birimi: {currency}',

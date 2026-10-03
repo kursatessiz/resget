@@ -95,6 +95,10 @@ export function OrderCard({
   const [prepMinutes, setPrepMinutes] = useState(20);
   const [reason, setReason] = useState('');
   const minutesAgo = Math.max(0, Math.round((Date.now() - new Date(order.placedAt).getTime()) / 60_000));
+  const acceptLeft =
+    order.status === 'PLACED' && order.acceptDeadlineAt
+      ? Math.ceil((new Date(order.acceptDeadlineAt).getTime() - Date.now()) / 60_000)
+      : null;
   const time = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' });
   const actions = canManage ? actionsFor(order, t) : [];
 
@@ -124,6 +128,12 @@ export function OrderCard({
             <Badge tone={STATUS_TONE[order.status] ?? 'muted'}>{t(`orders.status.${order.status}`)}</Badge>
             <Badge>{t(`orders.fulfillment.${order.fulfillment}`)}</Badge>
             {order.tableLabel && <Badge>{t('orders.table', { label: order.tableLabel })}</Badge>}
+            {acceptLeft !== null &&
+              (acceptLeft > 0 ? (
+                <Badge tone="warn">{t('orders.acceptWithin', { minutes: acceptLeft })}</Badge>
+              ) : (
+                <Badge tone="error">{t('orders.acceptOverdue')}</Badge>
+              ))}
             {order.activeTrip && (
               <Badge tone="theme">{t('orders.inTrip', { sequence: order.activeTrip.sequence })}</Badge>
             )}
