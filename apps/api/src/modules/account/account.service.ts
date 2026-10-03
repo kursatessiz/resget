@@ -13,6 +13,7 @@ import type {
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
+import { GeocodingService } from '../geocoding/geocoding.service';
 import { notFound } from '../../common/api-error';
 
 const addressSelect = Prisma.validator<Prisma.CustomerAddressSelect>()({
@@ -48,6 +49,7 @@ export class AccountService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly loyalty: LoyaltyService,
+    private readonly geocoding: GeocodingService,
   ) {}
 
   async account(userId: string): Promise<CustomerAccountDTO> {
@@ -90,6 +92,8 @@ export class AccountService {
   async addAddress(userId: string, input: SaveAddressInput): Promise<CustomerAddressDTO[]> {
     const count = await this.prisma.customerAddress.count({ where: { userId } });
     const makeDefault = input.isDefault === true || count === 0;
+    // No country or bias is known for a person's own address book; the provider searches the text as is.
+    const point = input.point ?? (await this.geocoding.pointFor(input, null, null));
     await this.prisma.$transaction(async (tx) => {
       if (makeDefault) await tx.customerAddress.updateMany({ where: { userId }, data: { isDefault: false } });
       await tx.customerAddress.create({
@@ -101,8 +105,8 @@ export class AccountService {
           district: input.district,
           postalCode: input.postalCode,
           note: input.note,
-          lat: input.point?.lat ?? null,
-          lng: input.point?.lng ?? null,
+          lat: point?.lat ?? null,
+          lng: point?.lng ?? null,
           isDefault: makeDefault,
         },
       });

@@ -28,6 +28,7 @@ import { LedgerModule } from './modules/ledger/ledger.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { DomainsModule } from './modules/domains/domains.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
+import { GeocodingModule } from './modules/geocoding/geocoding.module';
 import { PayoutsModule } from './modules/payouts/payouts.module';
 
 @Module({
@@ -37,6 +38,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
     RedisModule,
     LedgerModule,
     LoyaltyModule,
+    GeocodingModule,
     DomainsModule,
     ApiKeysModule,
     RealtimeModule,
