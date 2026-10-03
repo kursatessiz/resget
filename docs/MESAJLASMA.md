@@ -23,7 +23,7 @@ Tek bir motor her mesajı gönderir (`MessagingService`, `apps/api/src/modules/m
 
 `DELIVERED` mesajlanmaz: takip sayfası zaten gösterir ve müşterinin elindeki habere kredi harcanmaz. Alıcı numarası siparişin müşteri kaydından, yoksa adres anlık görüntüsündeki iletişim numarasından alınır; numara yoksa mesaj yoktur. Restoran `customerOrderUpdates` ayarıyla tümünü kapatabilir.
 
-Bu mesajlar işlemsel (hizmet) mesajlarıdır: müşterinin kendi siparişi hakkındadır, ticari ileti sayılmaz ve İYS / sessiz saat kontrolüne tabi değildir. Kampanya ve pazarlama mesajları (PRO) ticari iletidir; onlar için izin kaydı, İYS sorgusu ve sessiz saat kontrolü kampanya modülüyle gelir ve aynı motordan geçer.
+Bu mesajlar işlemsel (hizmet) mesajlarıdır: müşterinin kendi siparişi hakkındadır, ticari ileti sayılmaz ve İYS / sessiz saat kontrolüne tabi değildir. Kampanya ve pazarlama mesajları (PRO) ticari iletidir; izin kaydı, İYS sorgusu ve sessiz saat kontrolü kampanya modülündedir (`docs/KAMPANYALAR.md`) ve gönderim `campaign.body` şablonuyla aynı motordan, `billable: true` ve yedek kanalsız geçer.
 
 ## Krediler ve satın alma
 

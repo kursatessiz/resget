@@ -49,6 +49,7 @@ export const MESSAGE_TEMPLATE_KEYS = [
   'invoice.issued',
   'invoice.overdue',
   'order.acceptOverdue',
+  'campaign.body',
 ] as const;
 export type MessageTemplateKey = (typeof MESSAGE_TEMPLATE_KEYS)[number];
 

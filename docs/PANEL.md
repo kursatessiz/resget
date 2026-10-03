@@ -25,7 +25,7 @@ Masadan, restoranın kendi sipariş sayfasından veya pazaryerinden sipariş ver
 
 ## Kampanyalar (`/panel/<slug>/kampanyalar`, izin `campaigns.view`)
 
-Kampanya aracı Faz 1 işidir (HANDOVER B2: segment, SMS / WhatsApp gönderimi, sadakat). Ekran bugün plan kuralını söyler (Pro özelliği `campaigns`), pazarlama izni olan müşteri sayısına değil, hazır olan parçalara bağlanır: müşteri listesi ve mesaj kredileri. Gönderim altyapısı (`docs/MESAJLASMA.md`) ve izin modeli (`marketingOptIn`, bölgeye göre KVKK / İYS uyumu) hazırdır; araç geldiğinde yalnızca izinli müşterilere gider.
+Pro özelliği `campaigns`: izinli müşterilere segment bazlı SMS / WhatsApp gönderimi, önizleme, zamanlama, vazgeçme bağlantısı ve sessiz saat kuralı `docs/KAMPANYALAR.md` içinde anlatılır. Temel planda ekran plan kuralını söyler ve Pro'ya geçişe bağlanır.
 
 ## Değişmeyen kurallar
 

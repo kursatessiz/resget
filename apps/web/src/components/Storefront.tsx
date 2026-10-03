@@ -55,6 +55,7 @@ export function Storefront({
   const [district, setDistrict] = useState('');
   const [addressNote, setAddressNote] = useState('');
   const [note, setNote] = useState('');
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [startedSent, setStartedSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -181,6 +182,7 @@ export function Storefront({
         fulfillment,
         items,
         ...(contact ? { customer: contact } : {}),
+        ...(contact && marketingOptIn ? { marketingOptIn: true } : {}),
         ...(fulfillment === 'DELIVERY'
           ? {
               address: {
@@ -415,6 +417,10 @@ export function Storefront({
               autoComplete="tel"
               required={needsContact}
             />
+            <label className="flex items-start gap-2 md:col-span-2">
+              <input type="checkbox" checked={marketingOptIn} onChange={(e) => setMarketingOptIn(e.target.checked)} />
+              <span className="ui-caption">{t('shop.customer.marketingOptIn')}</span>
+            </label>
           </fieldset>
 
           {fulfillment === 'DELIVERY' && (

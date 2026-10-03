@@ -19,6 +19,7 @@ export * from './billing';
 export * from './customers';
 export * from './reports';
 export * from './courier-overview';
+export * from './campaigns';
 export * from './validators';
 export * from './types';
 export * from './phone';

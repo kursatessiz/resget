@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { Prisma } from '@resget/database';
 import {
   COURIER_LEG_STATUSES,
@@ -219,6 +219,10 @@ export class OrdersService {
             orderCount: { increment: 1 },
             lastOrderAt: new Date(),
             lifetimeGrossMinor: { increment: settlement.itemsGrossMinor },
+            // Consent is only ever granted here; withdrawing it is the customer's own opt-out link.
+            ...(input.marketingOptIn
+              ? { marketingOptIn: true, marketingOptInAt: new Date(), marketingOptOutAt: null }
+              : {}),
           },
           create: {
             restaurantId,
@@ -228,6 +232,8 @@ export class OrdersService {
             lastOrderAt: new Date(),
             orderCount: 1,
             lifetimeGrossMinor: settlement.itemsGrossMinor,
+            marketingToken: randomUUID(),
+            ...(input.marketingOptIn ? { marketingOptIn: true, marketingOptInAt: new Date() } : {}),
           },
         });
       }

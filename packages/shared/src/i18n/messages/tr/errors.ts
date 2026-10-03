@@ -47,6 +47,8 @@ export const trErrors = {
   'errors.PAYMENT_METHOD_NOT_FOUND': 'Kayıtlı kart bulunamadı.',
   'errors.UNSUPPORTED_FILE': 'Yalnızca PNG, JPG veya WebP görsel yükleyebilirsiniz.',
   'errors.FILE_TOO_LARGE': 'Dosya çok büyük; en çok 2 MB olabilir.',
+  'errors.CAMPAIGN_NOT_FOUND': 'Kampanya bulunamadı.',
+  'errors.CAMPAIGN_STATE_INVALID': 'Kampanya bu aşamada bu işlemi kabul etmiyor.',
   'errors.CUSTOMER_NOT_FOUND': 'Müşteri bulunamadı.',
   'errors.COURIER_PROVIDER_NOT_FOUND': 'Kurye ağı bulunamadı.',
   'errors.INVOICE_NOT_FOUND': 'Fatura bulunamadı.',
