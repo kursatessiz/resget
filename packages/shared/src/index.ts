@@ -27,6 +27,8 @@ export * from './loyalty';
 export * from './api-keys';
 export * from './ratings';
 export * from './geocoding';
+export * from './opening-hours';
+export * from './marketplace-ranking';
 export * from './validators';
 export * from './types';
 export * from './phone';

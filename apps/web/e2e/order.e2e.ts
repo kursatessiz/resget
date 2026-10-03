@@ -20,6 +20,15 @@ test.describe('Ordering from the table QR and the marketplace', () => {
     await expect(page.getByRole('heading', { level: 1 })).toContainText(SEED.restaurantName);
   });
 
+  test('a visitor whose district is not open leaves a signal on the marketplace page', async ({ page }) => {
+    await page.goto('/pazaryeri');
+    const card = page.getByRole('region', { name: 'İlçeniz listede yok mu?' });
+    await card.getByLabel('İl', { exact: true }).fill('Istanbul');
+    await card.getByLabel('İlçe', { exact: true }).fill(`PW Ilce ${Date.now().toString(36)}`);
+    await card.getByRole('button', { name: 'Haber ver' }).click();
+    await expect(card.getByRole('status')).toHaveText('Talebinizi not ettik. Teşekkürler.');
+  });
+
   test('the marketplace lists the demo restaurant and its page takes delivery orders', async ({ page }) => {
     await page.goto('/pazaryeri');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Yakınınızdaki restoranlar');

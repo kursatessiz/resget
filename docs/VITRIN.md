@@ -30,6 +30,12 @@ Pazaryeri listesi yalnızca `isActive`, `isListed` ve askıda olmayan (`listingS
 
 Listelenme kararı konsolundur: restoran menüsü hazır olunca Ayarlar sayfasından talep eder, konsol onaylar (`docs/PLATFORM_YONETIMI.md`).
 
+## Pazaryeri sıralaması
+
+İlçe listesi (`GET /public/marketplace`) belirli ve açıklanabilir bir sırayla gelir (`packages/shared/src/marketplace-ranking.ts`): önce şu an açık olanlar (şube çalışma saatleri `OpeningHoursSchema`, restoranın saat diliminde `isOpenAt`; saati olmayan restoran gizlenmez, açık sayılır), sonra puan: `(toplam + 4 x 5) / (sayı + 5)` ile öncele çekilmiş ortalama artı son 30 günün tamamlanan sipariş sayısının `0,25 x ln(1 + n)` katkısı, eşitlikte ad. Her kartta "Şu an açık / kapalı" rozeti ve puan görünür. Sıralamada satın alınan bir ağırlık yoktur; ileride öne çıkarma ürünü ayrı ve etiketli bir yuva olur, bu puanın içine girmez.
+
+İlçesi açık olmayan ziyaretçi sayfanın altındaki kutudan il ve ilçesini bırakır (`POST /public/marketplace/interest`, oran sınırlı, kimlik bilgisi alınmaz); ilçe başına bir sayaç tutulur (`marketplace_interest`) ve konsolun lansman araçlarında görünür (`docs/PLATFORM_YONETIMI.md`). İlçe zaten açıksa sayaç artmaz, sayfa ziyaretçiyi listeye yönlendirir.
+
 ## Adres geokodlama
 
 Koordinatı olmayan teslimat adresi, kurye ağı teklifi ve sevk rotası için önce koordinata çevrilir (`packages/shared/src/geocoding.ts`, `apps/api/src/modules/geocoding`). Her yerde en iyi çaba ilkesiyle çalışır: sağlayıcı yanıt vermezse veya eşleşme yalnızca ilçe düzeyindeyse (`AREA`) nokta boş kalır ve sipariş eskisi gibi ilerler; müşterinin veya personelin verdiği koordinat hiçbir zaman değiştirilmez.
