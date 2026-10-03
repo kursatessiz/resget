@@ -12,12 +12,15 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { CourierModule } from './modules/courier/courier.module';
 import { TablesModule } from './modules/tables/tables.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { RealtimeModule } from './modules/realtime/realtime.module';
+import { DispatchModule } from './modules/dispatch/dispatch.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.local', '.env'], validate: validateEnv }),
     PrismaModule,
     RedisModule,
+    RealtimeModule,
     HealthModule,
     MessagingModule,
     AuthModule,
@@ -27,6 +30,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
     CourierModule,
     TablesModule,
     PaymentsModule,
+    DispatchModule,
   ],
 })
 export class AppModule {}

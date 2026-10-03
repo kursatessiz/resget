@@ -51,16 +51,22 @@ async function handle(req: NextRequest, context: { params: Promise<{ path: strin
     cache: 'no-store',
   });
 
-  const res = new NextResponse(upstream.status === 204 ? null : await upstream.arrayBuffer(), {
-    status: upstream.status,
-  });
+  // The body is passed through as a stream, so server-sent events (order
+  // tracking, dispatch board) flow to the browser as the API emits them.
+  const res = new NextResponse(upstream.status === 204 ? null : upstream.body, { status: upstream.status });
   const contentType = upstream.headers.get('content-type');
   if (contentType) res.headers.set('content-type', contentType);
+  if (contentType?.startsWith('text/event-stream')) {
+    res.headers.set('cache-control', 'no-cache, no-transform');
+    res.headers.set('x-accel-buffering', 'no');
+  }
   res.headers.set(REQUEST_ID_HEADER, requestId);
   const errorCode = upstream.headers.get(ERROR_CODE_HEADER);
   if (errorCode) res.headers.set(ERROR_CODE_HEADER, errorCode);
   return res;
 }
+
+export const dynamic = 'force-dynamic';
 
 export const GET = handle;
 export const POST = handle;

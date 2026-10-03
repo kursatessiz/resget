@@ -22,6 +22,7 @@ Restoranlar için yüzde 1 komisyonlu sipariş ağı, üstünde ücretsiz temel 
 - Mesaj kredileri plandan ayrıdır; yalnızca sağlayıcı mesajı kabul edince düşer; hoş geldin kredisi küçüktür (`WELCOME_MESSAGE_CREDITS_DEFAULT`).
 - Kurye: platform filo kurmaz. `CourierProviderAdapter` arayüzü ve MOCK adaptör vardır; gerçek ağlar aynı arayüzle eklenir. Ücret `DeliveryFeePolicy` ile müşteriye yansır, komisyondan bağımsızdır.
 - Kurye ilan panosu (restoranların kurye araması) hukuki kontrol (İŞKUR özel istihdam bürosu izni) tamamlanmadan geliştirilmez; alternatif olarak mahalle kurye havuzu Faz 2'de değerlendirilir.
+- Sipariş ve sevk (3 Ekim 2026, `docs/SIPARIS_VE_SEVK.md`): tek sipariş durum makinesi (`ORDER_TRANSITIONS`, teslimat türüne ve aktöre göre); restoranın kendi kuryesi `courier.deliver` izinli bir üyeliktir ve aynı uygulamayı kullanır; sefer (`DeliveryTrip`) bir veya daha fazla siparişi gruplar, durak sırasını restoran elle belirler ya da rota motoru en kısa rotayı bulur (en yakın komşu + 2-opt, `RoutingProviderAdapter`, bugün HAVERSINE); kurye konumu yalnızca aktif seferde kabul edilir, varış geofence'i durağı kendiliğinden ARRIVING yapar; tüm değişiklikler SSE ile sevk panosuna, kuryeye ve müşterinin takip sayfasına (`/t/<token>`) yayınlanır; müşteri yalnızca kendi siparişini, kuryenin yalnızca adını ve sefer sürerken konumunu görür.
 - Coğrafi yoğunluk: `ServiceArea` (ilçe) ve `isLaunched` bayrağı. Lansmanı yapılmamış ilçedeki restoran panelini kullanır ama pazaryerinde listelenmez.
 - Kullanıcı kimliği global ve telefon bazlıdır; personel ve müşteri aynı `User` tablosundadır; restorana bağ `Membership`.
 - Yetkilendirme izin tabanlıdır; `@RestaurantScoped()` + `@RequirePermission()`; izin beyan etmeyen handler reddedilir; `PRO` özellikleri `@RequirePlanFeature()`.
@@ -32,21 +33,22 @@ Restoranlar için yüzde 1 komisyonlu sipariş ağı, üstünde ücretsiz temel 
 - `packages/shared`: enum'lar, izin kataloğu ve varsayılan roller, `Money` yardımcıları, `computeOrderSettlement()` (kimlik denklemi testli), plan kuralları (`effectivePlan`, `hasFeature`, kredi düşümü), kurye arayüzü ve teslimat ücreti politikası, masa QR token ve huni hesabı, Perfect UI token'ları, i18n çekirdeği ve 12 mesaj ad alanı (tr + en).
 - `packages/database`: 30 tablolu Prisma şeması, `20261002000000_init` migration'ı, geliştirme seed'i (demo restoran, menü, 4 masa, PRO deneme, hoş geldin kredileri, MOCK kurye ağı, Kadıköy hizmet alanı).
 - `apps/api`: env doğrulama, hata kodu filtresi, health, Prisma ve Redis, MOCK SMS sağlayıcısı, telefon OTP ile giriş ve JWT (access 15 dk, refresh 30 gün), `GET /auth/me`, guard'lar ve dekoratörler (testli), `GET /restaurants/:id`, menü (`GET /public/qr/:token` huni olayı kaydeder), moda duyarlı hakediş önizleme (`POST /restaurants/:id/orders/settlement-preview`), kurye teklifi (`POST /restaurants/:id/courier/quote`, MOCK), masalar (liste, oluştur, QR yenile, huni raporu), ödemeler (`/restaurants/:id/payments/*`: ayarlar, şifreli POS bağlantısı ve doğrulama, mod değişimi, aylık komisyon dökümü; `/me/payment-methods/*`: kasa ile kart bağlama, listeleme, silme; MOCK gateway ve MOCK kasa; `CredentialCipher`).
-- `apps/web`: Perfect UI ile açılış sayfası, `/m/<token>` herkese açık menü sayfası (sunucuda API'den çekilir, restoran renginde), BFF proxy iskeleti, `ThemeRoot`, `Button`, `Card`.
+- Sipariş ve sevk (`docs/SIPARIS_VE_SEVK.md`): `OrdersService` (personel siparişi oluşturma, hakediş ve ürün anlık görüntüleri, müşteri kaydı, takip anahtarı, durum geçişi ve geçmişi, liste / detay, iletişim maskeleme), `/restaurants/:id/orders/*`; `DispatchService` ve `/restaurants/:id/dispatch/*` (pano, sefer oluşturma, kurye atama, durak ekleme / çıkarma, elle sıralama, en kısa rota, teslim alma, yola çıkma, teslim, teslim edilemedi, iptal); `/restaurants/:id/courier/me/*` (kuryenin seferleri, adımlar, konum partileri); `LocationService` (son konum, seyreltilmiş iz, ETA yenileme, geofence, yayın sınırı); `RealtimeService` (SSE, Redis fan-out, tekrar tamponu, kalp atışı); `GET /public/orders/:token` ve `/events`. e2e: `dispatch.e2e-spec.ts` (12 senaryo, uçtan uca akış ve SSE).
+- `apps/web`: Perfect UI ile açılış sayfası, `/m/<token>` herkese açık menü sayfası (sunucuda API'den çekilir, restoran renginde), `/t/<token>` canlı sipariş takip sayfası (sunucu anlık görüntüsü + SSE ile `TrackingLive`), BFF proxy (gövdeyi akış olarak aktarır), `ThemeRoot`, `Button`, `Card`.
 - `deploy`: dev ve prod compose, Caddyfile, API ve web Dockerfile'ları.
 - Testler: shared ve API birim testleri; API e2e (`apps/api/test/e2e`: health, auth, kiracı izolasyonu, herkese açık menü, hakediş önizleme, masalar ve huni, kurye teklifi); web e2e (`apps/web/e2e`: açılış, masa QR menüsü, dil seçimi).
 - CI/CD ve güvenlik (kardeş platformla aynı yöntem, `docs/CICD_GUIDE.md`): `ci.yml` (build, typecheck, test, prettier, audit, migration ve drift, API e2e, web e2e, shellcheck, actionlint, imaj derleme), `release.yml` (imajlar GHCR'ye, preprod/production ortamları, SSH deploy, rollback), `codeql.yml`, `security.yml` (dependency review, TruffleHog, zizmor), `scorecard.yml`, `lighthouse.yml`, dört Claude ajan workflow'u (`CLAUDE_AGENTS_ENABLED` açılana kadar pasif), Dependabot; `deploy/scripts` (server-init, deploy, healthcheck, rollback, nightly, backup).
 
-Henüz yok: sipariş oluşturma ve durum akışı, ödeme sağlayıcı adaptörleri (pazaryeri / alt üye işyeri ürünü), hakediş (payout) zamanlayıcısı, restoran paneli ekranları, giriş ekranı ve oturum çerezleri, davet akışı, kampanya ve CRM, süper admin paneli ve platform verisi bootstrap komutu, mobil uygulama.
+Henüz yok: müşteri tarafı sipariş verme ve ödeme adımı (sepet, adres, hosted ödeme), ödeme sağlayıcı adaptörleri (pazaryeri / alt üye işyeri ürünü), hakediş (payout) zamanlayıcısı, restoran paneli ekranları (sipariş ve sevk panosu dahil), giriş ekranı ve oturum çerezleri, davet akışı, kampanya ve CRM, süper admin paneli ve platform verisi bootstrap komutu, mobil uygulama (kurye modu dahil), herkese açık uçlarda oran sınırı, gerçek yol motoru adaptörü.
 
 ## 4. Backlog
 
 Her öğe bir PR'dır. Sıra, Faz 0'ın tek ilçede 30 ila 50 restoranla çalışmasını hedefler.
 
 ### A. Faz 0 çekirdeği
-- A1. Sipariş oluşturma: masa QR ve restoran sayfasından sipariş, `OrderItem` anlık görüntüleri, `computeOrderSettlement()` snapshot'ı, durum geçiş makinesi ve `OrderStatusHistory`, `QrScanEvent` STARTED_ORDER / PLACED_ORDER kayıtları.
+- A1. Sipariş çekirdeği: tamamlandı (sipariş oluşturma, anlık görüntüler, durum makinesi ve geçmiş, takip anahtarı, kendi kurye sevki, canlı takip; `docs/SIPARIS_VE_SEVK.md`). Kalan: müşteri tarafı sepet ve ödeme adımı (A4 / A9 ile), herkese açık uçlarda Redis oran sınırı, kabul zaman aşımı.
 - A2. Giriş ve oturum: web giriş ekranı (telefon + OTP), BFF'de httpOnly çerezler ve refresh, restoran değiştirici; misafir kaydı (`REGISTERED` huni olayı).
-- A3. Restoran paneli: sipariş ekranı (canlı liste, kabul/ret/durum), menü yönetimi, masalar ve QR etiket indirme (PNG/PDF), ayarlar (logo, renk, teslimat modu, teslimat ücreti politikası).
+- A3. Restoran paneli: sipariş ekranı (canlı liste SSE ile, kabul / ret / durum, hazırlık süresi), sevk panosu (hazır siparişler, sefer oluşturma, sürükleyerek sıralama, en kısa rota, kurye atama, harita), menü yönetimi, masalar ve QR etiket indirme (PNG/PDF), ayarlar (logo, renk, teslimat modu, teslimat ücreti politikası, sevk ayarları).
 - A4. Ödeme (`OWN_POS`): iyzico, PayTR, Param ve Sipay gateway adaptörleri (hosted sayfa + imzalı webhook), Masterpass kasa adaptörü, sipariş akışına ödeme adımı (kayıtlı kart veya hosted sayfa), kapıda ödeme, `Payment` ve `LedgerEntry` yazımı, iade.
 - A5. Komisyon faturası: aylık `CommissionInvoice` kesimi, kayıtlı karttan otomatik tahsilat, gecikme ve pazaryeri askıya alma, restoran fatura ekranı, e-Arşiv entegrasyonu.
 - A6. Personel daveti: `InviteToken`, QR veya SMS ile davet, rol şablonu düzenleme.
@@ -56,7 +58,7 @@ Her öğe bir PR'dır. Sıra, Faz 0'ın tek ilçede 30 ila 50 restoranla çalı�
 - A10. Platform verisi bootstrap komutu (`--defaults-only`: planlar, kredi paketleri, kurye ağları; ilk süper admin) ve `deploy.sh` içine bağlanması; sunucu ilk kurulumunun preprod'da denenmesi.
 
 ### B. Faz 1 (genişleme eşiği: restoran başına günlük sipariş 2'yi geçince)
-- B1. Expo tüketici uygulaması (tek uygulama, QR'dan derin bağlantı).
+- B1. Expo uygulaması (tek uygulama, rol üyelikten gelir): müşteri (takip, tekrar sipariş, QR'dan derin bağlantı), kurye modu (sefer listesi ve adımları, arka plan konum partileri, harita), restoran tablet sevk panosu. API sözleşmesi hazır (`docs/SIPARIS_VE_SEVK.md` bölüm 7).
 - B2. PRO katmanı: CRM listesi, segmentler, SMS/WhatsApp kampanyaları, sadakat, gelişmiş analitik, kendi alan adı.
 - B3. Komşu ilçe lansmanı araçları ve pazaryeri sıralaması.
 - B4. `PLATFORM_PSP` modu: PSP pazaryeri ürünü, PSP token kasası, hakediş ödemeleri (yasal sürede), tevkifat beyanı; yemek kartı ve ek ödeme yöntemleri.
@@ -77,3 +79,5 @@ Kardeş platformda oturmuş hat aynen uygulanır: her backlog öğesi izole bir 
 - Masterpass ve bex (BKM) üye işyeri sözleşmeleri; hangisinin önce bağlanacağı pilot ilçedeki POS sağlayıcılarına göre. `OWN_POS` modunda tevkifat yükümlülüğü için vergi danışmanı teyidi.
 - Komisyon faturasında alt limit: küçük tutarlar bir sonraki aya devredilsin mi, eşik ne olsun?
 - Kapıda ödeme Faz 0'da açık mı? Açıksa PSP kesintisi olmaz ama tahsilat riski restorandadır; hakediş motoru bu durumda `psp.percentBps = 0` ile çalışır.
+- Harita ve yol motoru sağlayıcısı (kurye uygulaması ve sevk panosu haritası, gerçek yol ETA'sı): Google Maps, Mapbox veya OSRM; ücret ve lisans kararı sahibindir. Koda yalnızca `RoutingProviderAdapter` ile girer.
+- Teslimat ücreti KDV oranı: `deliveryFeeVatBpsFor('TR')` bugün yüzde 20 varsayar; vergi danışmanı teyidi gerekir.

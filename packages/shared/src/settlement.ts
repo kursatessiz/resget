@@ -41,6 +41,17 @@ export function settlementDefaultsFor(countryCode: string): { withholdingBps: nu
   return SETTLEMENT_DEFAULTS_BY_COUNTRY[countryCode.toUpperCase()] ?? SETTLEMENT_DEFAULTS_BY_COUNTRY.DEFAULT;
 }
 
+/**
+ * VAT rate applied to the delivery fee line of an order, by country. Kept
+ * apart from settlementDefaultsFor so that object stays a valid spread into
+ * SettlementInput. Turkey: delivery is a service taxed at the standard rate.
+ */
+export const DELIVERY_FEE_VAT_BPS_BY_COUNTRY: Readonly<Record<string, number>> = { TR: 2000, DEFAULT: 0 };
+
+export function deliveryFeeVatBpsFor(countryCode: string): number {
+  return DELIVERY_FEE_VAT_BPS_BY_COUNTRY[countryCode.toUpperCase()] ?? DELIVERY_FEE_VAT_BPS_BY_COUNTRY.DEFAULT;
+}
+
 export const FeeBearerSchema = z.enum(['RESTAURANT', 'PLATFORM']);
 export type FeeBearer = z.infer<typeof FeeBearerSchema>;
 

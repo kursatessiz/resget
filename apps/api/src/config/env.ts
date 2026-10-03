@@ -62,6 +62,13 @@ export const EnvSchema = z
     STRIPE_SECRET_KEY: z.string().min(1).optional(),
     STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
 
+    /**
+     * Road routing for own-courier trips (docs/SIPARIS_VE_SEVK.md). HAVERSINE is
+     * straight-line distance times the restaurant's detour factor; a road
+     * engine is added as an adapter and listed here.
+     */
+    ROUTING_PROVIDER: z.enum(['HAVERSINE']).default('HAVERSINE'),
+
     /** Third-party courier network adapter (docs/KURYE.md). */
     COURIER_PROVIDER: z
       .string()

@@ -45,13 +45,22 @@ export enum DeliveryMode {
   NONE = 'NONE',
 }
 
+/**
+ * Lifecycle of an order (docs/SIPARIS_VE_SEVK.md). Kitchen states are set by
+ * the restaurant; HANDED_TO_COURIER, OUT_FOR_DELIVERY and ARRIVING are the
+ * courier leg of a delivery order and normally come from the delivery trip.
+ * PICKED_UP is the customer collecting a pickup order; DELIVERED also covers
+ * a dine-in order that was served.
+ */
 export enum OrderStatus {
   PENDING_PAYMENT = 'PENDING_PAYMENT',
   PLACED = 'PLACED',
   ACCEPTED = 'ACCEPTED',
   PREPARING = 'PREPARING',
   READY = 'READY',
+  HANDED_TO_COURIER = 'HANDED_TO_COURIER',
   OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY',
+  ARRIVING = 'ARRIVING',
   DELIVERED = 'DELIVERED',
   PICKED_UP = 'PICKED_UP',
   CANCELLED_BY_CUSTOMER = 'CANCELLED_BY_CUSTOMER',
@@ -62,6 +71,31 @@ export enum OrderStatus {
 
 /** Statuses after which an order counts as completed revenue. */
 export const COMPLETED_ORDER_STATUSES: readonly OrderStatus[] = [OrderStatus.DELIVERED, OrderStatus.PICKED_UP];
+
+/** A trip is one courier leaving the restaurant with one or more orders (docs/SIPARIS_VE_SEVK.md). */
+export enum DeliveryTripStatus {
+  PLANNED = 'PLANNED',
+  ASSIGNED = 'ASSIGNED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
+/** One order inside a trip, in delivery sequence. */
+export enum DeliveryStopStatus {
+  PENDING = 'PENDING',
+  EN_ROUTE = 'EN_ROUTE',
+  ARRIVING = 'ARRIVING',
+  DELIVERED = 'DELIVERED',
+  FAILED = 'FAILED',
+  REMOVED = 'REMOVED',
+}
+
+/** Who decided the stop order of a trip: the restaurant by hand, or the route optimiser. */
+export enum StopSequenceMode {
+  MANUAL = 'MANUAL',
+  OPTIMIZED = 'OPTIMIZED',
+}
 
 /**
  * Who is the merchant of record for card payments of a restaurant

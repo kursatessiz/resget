@@ -7,6 +7,10 @@ Karar: platform asla kendi kurye filosunu kurmaz. Kendi filo kurmak maliyet yap�
 1. Kurye ücreti **ayrı fiyatlanan, ayrı satırda görünen** bir hizmettir. Müşteriye veya restorana açıkça yansır; komisyonun içine asla girmez (`settlement.ts`, `COURIER_COST` ve `DELIVERY_FEE` satırları).
 2. Her kurye ağı `CourierProviderAdapter` arkasındadır (`packages/shared/src/courier.ts`). Yeni ağ eklemek adaptör yazmak ve `courier_providers` tablosuna satır eklemektir; sipariş akışında kod yolu açılmaz.
 
+## Restoranın kendi kuryesi
+
+`RESTAURANT_COURIER` modunda kurye, `courier.deliver` iznine sahip bir personeldir ve aynı uygulamayı kullanır. Sefer oluşturma, çok duraklı sıra (elle veya en kısa rota), teslim alma, yola çıkma, varış geofence'i, teslim ve canlı konum akışı `docs/SIPARIS_VE_SEVK.md` içinde anlatılır. Bu belge yalnızca üçüncü taraf kurye ağlarını kapsar.
+
 ## Teslimat modları
 
 | `DeliveryMode` | Anlam |

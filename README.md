@@ -72,6 +72,7 @@ CI (`.github/workflows/ci.yml`) aynı adımları çalıştırır; ayrıca migrat
 | `docs/ODEME.md` | Ödeme modları (kendi POS / platform PSP), kart kasası, komisyon faturası |
 | `docs/FIYATLANDIRMA.md` | Plan katmanları, deneme süresi, mesaj kredileri |
 | `docs/KURYE.md` | Üçüncü taraf kurye entegrasyonu ve ücret politikası |
+| `docs/SIPARIS_VE_SEVK.md` | Sipariş durum makinesi, kendi kurye sevki, çok duraklı rota, canlı takip (SSE) |
 | `docs/MASA_QR.md` | Masa QR akışı ve dönüşüm hunisi |
 | `docs/I18N.md` | Çoklu dil kuralları |
 | `docs/TASARIM.md` | Perfect UI tasarım sistemi |

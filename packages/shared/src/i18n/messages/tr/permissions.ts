@@ -24,9 +24,13 @@ export const trPermissions = {
   'permissions.campaigns.manage': 'Kampanya hazırlama ve gönderme',
   'permissions.reports.view': 'Raporları görüntüleme',
   'permissions.courier.manage': 'Kurye çağırma ve iptal etme',
+  'permissions.dispatch.view': 'Sevk panosunu ve kurye konumlarını görüntüleme',
+  'permissions.dispatch.manage': 'Sefer oluşturma, kurye atama ve durak sırasını belirleme',
+  'permissions.courier.deliver': 'Kendine atanan seferleri taşıma ve konum paylaşma',
   'permissions.integrations.manage': 'API anahtarı ve entegrasyon yönetimi',
   'roles.default.owner': 'Sahip',
   'roles.default.manager': 'Müdür',
   'roles.default.counter': 'Kasa',
   'roles.default.kitchen': 'Mutfak',
+  'roles.default.courier': 'Kurye',
 } as const satisfies Record<string, string>;
