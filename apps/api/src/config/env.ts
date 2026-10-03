@@ -74,6 +74,9 @@ export const EnvSchema = z
       .string()
       .regex(/^[A-Z0-9_]{2,32}$/)
       .default('MOCK'),
+    /** Unauthenticated order placements and funnel steps allowed per client per 10 minutes (docs/VITRIN.md). */
+    PUBLIC_ORDER_RATE_LIMIT: z.coerce.number().int().min(1).max(1000).default(10),
+    PUBLIC_FUNNEL_RATE_LIMIT: z.coerce.number().int().min(1).max(10000).default(60),
     COURIER_API_KEY: z.string().min(1).optional(),
     COURIER_WEBHOOK_SECRET: z.string().min(16).optional(),
   })

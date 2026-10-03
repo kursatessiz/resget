@@ -3,7 +3,7 @@ import { PaymentMode } from './enums';
 import type { SubscriptionStatus } from './enums';
 import { LocaleCodeSchema } from './i18n/locales';
 import { BasisPointsSchema, CurrencyCodeSchema, MinorAmountSchema } from './money';
-import { PhoneSchema } from './validators';
+import { PhoneSchema, RESERVED_SLUGS } from './validators';
 import { CREDIT_CHANNELS, PlanCodeSchema } from './plans';
 import type { CreditChannel, PlanCode } from './plans';
 import { CountryCodeSchema, SlugSchema, UuidSchema } from './validators';
@@ -95,8 +95,8 @@ export function slugify(name: string): string {
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '');
   const parts = lowered.split(/[^a-z0-9]+/).filter((part) => part.length > 0);
-  const slug = parts.join('-').slice(0, 60);
-  return slug.replace(/-+$/, '') || 'isletme';
+  const slug = parts.join('-').slice(0, 60).replace(/-+$/, '') || 'isletme';
+  return (RESERVED_SLUGS as readonly string[]).includes(slug) ? `${slug}-isletme` : slug;
 }
 
 export interface RestaurantCreatedDTO {

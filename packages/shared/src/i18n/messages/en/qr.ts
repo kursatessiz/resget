@@ -3,7 +3,6 @@ import type { trQr } from '../tr/qr';
 export const enQr: Record<keyof typeof trQr, string> = {
   'qr.page.title': '{restaurant} menu',
   'qr.page.table': 'Table {label}',
-  'qr.page.orderToTable': 'Order to the table',
   'qr.page.orderDelivery': 'Order delivery next time',
   'qr.page.register': 'Sign up with your phone number and order in one tap',
   'qr.page.mealCards': 'Meal cards accepted: {cards}',
