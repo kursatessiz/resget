@@ -36,6 +36,32 @@ describe('Auth (e2e)', () => {
     expect(otp?.attempts).toBe(1);
   });
 
+  it('registers a guest from a table QR: the REGISTERED funnel step and the customer record', async () => {
+    const session = `e2e-register-${Date.now()}`;
+    await ctx.prisma.otpCode.deleteMany({ where: { phone: guestPhone } });
+    await ctx.http().post('/auth/otp/request').send({ phone: guestPhone }).expect(200);
+    const res = await ctx
+      .http()
+      .post('/auth/otp/verify')
+      .send({
+        phone: guestPhone,
+        code: OTP_TEST_CODE,
+        fullName: 'E2E Misafir',
+        qrToken: SEED.tableToken,
+        qrSessionId: session,
+      })
+      .expect(200);
+    expect(res.body.accessToken).toBeTruthy();
+    const user = await ctx.prisma.user.findUniqueOrThrow({ where: { phone: guestPhone } });
+    expect(user.fullName).toBe('E2E Misafir');
+    const event = await ctx.prisma.qrScanEvent.findFirst({ where: { sessionId: session } });
+    expect(event?.outcome).toBe('REGISTERED');
+    expect(event?.userId).toBe(user.id);
+    const customer = await ctx.prisma.restaurantCustomer.findFirst({ where: { userId: user.id } });
+    expect(customer?.firstChannel).toBe('TABLE_QR');
+    await ctx.prisma.qrScanEvent.deleteMany({ where: { sessionId: session } });
+  });
+
   it('signs the owner in and lists the membership with owner permissions and the PRO trial', async () => {
     const token = await ctx.login(SEED.ownerPhone);
     const me = await ctx.http().get('/auth/me').set(bearer(token)).expect(200);

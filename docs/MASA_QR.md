@@ -7,7 +7,7 @@ Kapıdaki sticker pasiftir. Masadaki QR, müşterinin zaten telefonuyla taradı�
 1. Restoran panelde masa oluşturur; her masanın benzersiz `qrToken`'ı vardır (16 rastgele bayt, base64url). Etiket PDF/PNG olarak indirilir (A3).
 2. Misafir tarar: `https://<web>/m/<token>`. Sayfa sunucuda `GET /public/qr/:token` ile menüyü çeker ve restoranın renginde render eder. Uygulama kurulumu, giriş veya telefon istenmez.
 3. Sayfa üç çıkış sunar: masaya sipariş, bir dahaki sefere eve sipariş (`/<slug>`), telefon numarasıyla tek dokunuş kayıt.
-4. Her adım anonim bir oturum kimliğiyle (`resget_qr_session` çerezi, `x-qr-session` başlığı) `qr_scan_events` tablosuna yazılır: `VIEWED_MENU`, `STARTED_ORDER`, `PLACED_ORDER`, `REGISTERED`. Telefon numarası veya kimlik tutulmaz.
+4. Her adım anonim bir oturum kimliğiyle (`resget_qr_session` çerezi, web middleware'i ilk ziyarette açar; API'ye `x-qr-session` başlığıyla gider) `qr_scan_events` tablosuna yazılır: `VIEWED_MENU`, `STARTED_ORDER`, `PLACED_ORDER`, `REGISTERED` (sayfadaki "telefon numaranla kaydol" bağlantısı `/giris?kayit=1&masa=<token>`; doğrulamada `qrToken` ve oturum kimliği API'ye iletilir). Telefon numarası veya kimlik tutulmaz.
 
 ## Ölçüm
 

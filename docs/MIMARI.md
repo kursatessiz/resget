@@ -18,6 +18,10 @@
    - `PermissionGuard`: handler'ın `@RequirePermission()` beyanı yoksa reddeder (deny by default); her izni etkin kümeye karşı denetler; `@RequirePlanFeature()` varsa plan katmanını denetler ve `PLAN_FEATURE_REQUIRED` döner.
 3. Hatalar `ErrorCodeFilter` ile tek biçimde döner: gövdede `code`, başlıkta `x-error-code`, `x-request-id` yankısı. İstemci `errors.<code>` anahtarını çevirir; İngilizce `message` yalnızca log ve API tüketicileri içindir.
 
+## Oturum (web)
+
+Giriş telefon + tek kullanımlık koddur (`/giris`). Kod isteği BFF üzerinden API'ye gider; doğrulama `POST /api/session/verify` route handler'ında yapılır ve erişim ile yenileme jetonları yalnızca httpOnly çerezlerde saklanır (`resget_access`, `resget_refresh`); tarayıcı JavaScript'i hiçbir jetonu görmez. `middleware.ts`, `/panel/*` isteklerinde erişim çerezinin süresine bakar, bitmek üzereyse yenileme çerezi ile `POST /auth/refresh` çağırıp çerezleri tazeler, jeton yoksa `/giris?next=` adresine yönlendirir; `/m/*` isteklerinde anonim masa QR oturum çerezini açar. Çıkış `POST /api/session/logout` (düz form, JavaScript gerektirmez). `/panel` birden fazla üyelikte işletme seçtirir, tek üyelikte doğrudan `/panel/<slug>` açar; kabuk (`PanelShell`) menüyü üyenin etkin izinlerinden (`PANEL_NAV`, `visibleNav`) çizer ve işletmenin renginde render edilir. Masa QR sayfasındaki "telefon numaranla kaydol" bağlantısı aynı giriş akışını ad alanıyla açar; API `qrToken` ve `qrSessionId` ile `REGISTERED` huni olayını ve restoran müşteri kaydını yazar.
+
 ## Herkese açık uçlar
 
 `/health`, `/auth/*`, `/public/qr/:token`, `/public/orders/:token` ve `/public/orders/:token/events`. Masa QR ucu, isteğe bağlı `x-qr-session` başlığıyla anonim huni olayı kaydeder; telefon numarası veya kimlik taşımaz. Sipariş takip uçları tahmin edilemez takip anahtarıyla yalnızca o siparişi ve yoldaki kuryenin adını ve konumunu verir.

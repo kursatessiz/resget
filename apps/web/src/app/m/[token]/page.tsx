@@ -5,6 +5,7 @@ import { ThemeRoot } from '@/components/ThemeRoot';
 import { LinkButton } from '@/components/ui';
 import { getT } from '@/lib/i18n';
 import { apiInternalBaseUrl } from '@/lib/server-env';
+import { QR_SESSION_COOKIE } from '@/lib/session';
 
 /** Mirrors PublicMenuDTO of the API. */
 interface PublicMenu {
@@ -32,8 +33,6 @@ interface PublicMenu {
     }[];
   }[];
 }
-
-const QR_SESSION_COOKIE = 'resget_qr_session';
 
 /**
  * The page behind a table QR sticker (docs/MASA_QR.md). Rendered on the
@@ -97,7 +96,9 @@ export default async function TableMenuPage({ params }: { params: Promise<{ toke
           <LinkButton href={`/${menu.restaurant.slug}`} variant="outline" tone="muted" block>
             {t('qr.page.orderDelivery')}
           </LinkButton>
-          <p className="ui-caption text-center">{t('qr.page.register')}</p>
+          <LinkButton href={`/giris?kayit=1&masa=${token}&next=/m/${token}`} variant="link" tone="muted" block>
+            {t('qr.page.register')}
+          </LinkButton>
         </section>
 
         <footer className="ui-rule pt-4">

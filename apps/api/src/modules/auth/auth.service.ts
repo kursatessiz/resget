@@ -31,13 +31,40 @@ export class AuthService {
    * A verified phone signs in; an unknown phone becomes a new user (a guest
    * registering from a table QR). Memberships decide what the user can open.
    */
-  async verifyLoginCode(phone: string, code: string, fullName?: string): Promise<TokenPairDTO> {
+  async verifyLoginCode(
+    phone: string,
+    code: string,
+    fullName?: string,
+    funnel: { qrToken?: string; qrSessionId?: string } = {},
+  ): Promise<TokenPairDTO> {
     const ok = await this.otp.verify(phone, OtpPurpose.LOGIN, code);
     if (!ok) throw unauthorized('Invalid or expired code');
-    const user =
-      (await this.prisma.user.findUnique({ where: { phone } })) ??
-      (await this.prisma.user.create({ data: { phone, fullName: fullName?.trim() || phone } }));
+    const existing = await this.prisma.user.findUnique({ where: { phone } });
+    const user = existing ?? (await this.prisma.user.create({ data: { phone, fullName: fullName?.trim() || phone } }));
+    if (existing && fullName && existing.fullName === existing.phone) {
+      await this.prisma.user.update({ where: { id: user.id }, data: { fullName: fullName.trim() } });
+    }
+    if (funnel.qrToken) await this.recordRegistration(user.id, funnel.qrToken, funnel.qrSessionId ?? null);
     return this.issueTokens(user.id, user.phone, user.isSuperAdmin);
+  }
+
+  /** A guest who registers from a table becomes a customer of that restaurant and a REGISTERED funnel step. */
+  private async recordRegistration(userId: string, qrToken: string, sessionId: string | null): Promise<void> {
+    const table = await this.prisma.diningTable.findUnique({
+      where: { qrToken },
+      select: { id: true, restaurantId: true },
+    });
+    if (!table) return;
+    await this.prisma.restaurantCustomer.upsert({
+      where: { restaurantId_userId: { restaurantId: table.restaurantId, userId } },
+      update: {},
+      create: { restaurantId: table.restaurantId, userId, firstChannel: 'TABLE_QR' },
+    });
+    if (sessionId) {
+      await this.prisma.qrScanEvent.create({
+        data: { restaurantId: table.restaurantId, tableId: table.id, sessionId, outcome: 'REGISTERED', userId },
+      });
+    }
   }
 
   async refresh(refreshToken: string): Promise<TokenPairDTO> {
@@ -71,6 +98,8 @@ export class AuthService {
             id: true,
             name: true,
             slug: true,
+            themePrimary: true,
+            logoUrl: true,
             subscription: {
               select: { plan: { select: { code: true } }, status: true, trialEndsAt: true, currentPeriodEnd: true },
             },
@@ -90,6 +119,8 @@ export class AuthService {
         status: m.status,
         isOwner: m.roleTemplate.isOwner,
         roleName: m.roleTemplate.name,
+        themePrimary: m.restaurant.themePrimary,
+        logoUrl: m.restaurant.logoUrl,
         permissions: [
           ...effectivePermissions(
             m.roleTemplate.isOwner,
