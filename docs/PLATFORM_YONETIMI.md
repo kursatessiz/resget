@@ -21,4 +21,4 @@
 
 - API: `SuperAdminGuard` yalnızca `isSuperAdmin` kullanıcıyı geçirir; `RestaurantTenantGuard` süper admine üyeliksiz tam yetki verir, böylece konsoldan açılan bir restoranın uçları da süper admine açıktır.
 - Web: `/admin/*` middleware kapsamındadır (oturum yenileme); `requireSuperAdmin()` süper admin olmayana 404 döner, konsolun varlığını ima etmez. Süper admin bir işletmenin üyesi de olabilir; `/panel` seçicide konsol bağlantısı görünür.
-- İlk süper admin seed ile (geliştirme) veya A10 bootstrap komutuyla (üretim) oluşturulur.
+- İlk süper admin geliştirmede seed ile, üretimde bootstrap komutuyla oluşturulur: `node dist/cli/bootstrap.js --super-admin-phone=<E.164> --super-admin-name=<ad>` (`apps/api/src/cli/bootstrap.ts`). Aynı komut `--defaults-only` ile her deploy'da `deploy.sh` içinden çalışır ve yalnızca eksik planları ekler; konsoldan değiştirilen hiçbir şeyi ezmez, hiçbir tabloyu boşaltmaz (`docs/CICD_GUIDE.md` 5b).
