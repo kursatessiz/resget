@@ -112,6 +112,7 @@ export class StorefrontService {
       where: {
         isActive: true,
         isListed: true,
+        listingSuspendedAt: null,
         OR: [
           { serviceAreaId: area.id },
           {

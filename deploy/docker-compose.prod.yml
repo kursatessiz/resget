@@ -43,6 +43,8 @@ services:
       # Every optional key of apps/api/src/config/env.ts is listed so a key can
       # never be silently missing; unset ones arrive empty and read as unset.
       SMS_PROVIDER: ${SMS_PROVIDER:-MOCK}
+      BILLING_SCHEDULER: ${BILLING_SCHEDULER:-on}
+      INVOICE_PROVIDER: ${INVOICE_PROVIDER:-MOCK}
       PUBLIC_ORDER_RATE_LIMIT: ${PUBLIC_ORDER_RATE_LIMIT:-10}
       PUBLIC_FUNNEL_RATE_LIMIT: ${PUBLIC_FUNNEL_RATE_LIMIT:-60}
       NETGSM_USER: ${NETGSM_USER:-}

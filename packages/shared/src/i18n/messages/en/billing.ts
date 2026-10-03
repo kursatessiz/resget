@@ -1,0 +1,42 @@
+import type { trBilling } from '../tr/billing';
+
+export const enBilling: Record<keyof typeof trBilling, string> = {
+  'billing.title': 'Finance and commission invoices',
+  'billing.intro':
+    'The platform commission (1 percent plus VAT) accrues on every completed order and is cut into one invoice at the end of the month. The invoice is collected automatically from the card you choose.',
+  'billing.accrued.title': 'Commission accrued this month',
+  'billing.accrued.line': '{orders} orders, {amount}',
+  'billing.accrued.help': 'A later rate change never touches orders already served.',
+  'billing.card.title': 'Automatic collection card',
+  'billing.card.help':
+    'Charged when an invoice is issued. To add a new card, use the card linking step on the Plan and credits page.',
+  'billing.card.none': 'No card selected',
+  'billing.card.current': 'Selected card: {card}',
+  'billing.card.save': 'Save card',
+  'billing.card.noCards': 'Your account has no saved card.',
+  'billing.invoices.title': 'Invoices',
+  'billing.invoices.empty': 'No invoices yet.',
+  'billing.invoices.period': 'Period',
+  'billing.invoices.orders': 'Orders',
+  'billing.invoices.total': 'Total',
+  'billing.invoices.status': 'Status',
+  'billing.invoices.due': 'Due',
+  'billing.invoices.fiscal': 'Invoice no',
+  'billing.invoices.pay': 'Pay now',
+  'billing.invoices.paidAt': 'Paid: {date}',
+  'billing.invoices.attempts': 'Collection attempts: {count}',
+  'billing.invoices.lastError': 'Last error: {code}',
+  'billing.invoices.breakdown': 'Base {base}, commission {commission}, VAT {vat}',
+  'billing.status.DRAFT': 'Draft',
+  'billing.status.ISSUED': 'Issued',
+  'billing.status.PAID': 'Paid',
+  'billing.status.OVERDUE': 'Overdue',
+  'billing.status.VOID': 'Void',
+  'billing.suspended':
+    'Your marketplace listing has been paused since {date}: an invoice is overdue. It reopens by itself once payment arrives; your table QR and your own ordering page keep working.',
+  'billing.open': 'Open invoices total: {amount}',
+  'billing.dueRule': 'Due: {days} days after issue.',
+  'billing.pay.done': 'Invoice paid.',
+  'billing.pay.failed': 'Collection failed: {code}',
+  'billing.pay.redirect': 'You are being sent to your bank for verification.',
+};

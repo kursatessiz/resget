@@ -78,6 +78,7 @@ CI (`.github/workflows/ci.yml`) aynı adımları çalıştırır; ayrıca migrat
 | `docs/PERSONEL.md` | Personel daveti, davet bağlantısı ve rol şablonları |
 | `docs/MESAJLASMA.md` | Mesajlaşma motoru, sipariş bildirimleri, kredi düşümü ve satın alma |
 | `docs/PLATFORM_YONETIMI.md` | Restoran kaydı, süper admin konsolu, hizmet alanı lansmanı |
+| `docs/FATURALAMA.md` | Komisyon faturası, tahsilat, gecikme ve askı |
 | `docs/VITRIN.md` | Masa QR sayfası, restoran sipariş sayfası, pazaryeri, oran sınırı |
 | `docs/I18N.md` | Çoklu dil kuralları |
 | `docs/TASARIM.md` | Perfect UI tasarım sistemi |

@@ -25,3 +25,5 @@ Kimliksiz yazma uçları `PublicRateLimitGuard` ile istemci başına sınırlıd
 ## Henüz yok
 
 Adres geokodlama (koordinat olmadan kurye ağı teklifi alınamaz; kendi kurye sevkinde durak rotalanmaz), müşteri hesabına kayıtlı adresler (`customer_addresses`), kayıtlı kartla tek dokunuş ödeme, sipariş sonrası değerlendirme. Mobil uygulama Faz 1'dir.
+
+Pazaryeri listesi yalnızca `isActive`, `isListed` ve askıda olmayan (`listingSuspendedAt` boş) restoranları gösterir; vadesi geçmiş komisyon faturası listelemeyi askıya alır, sayfanın kendisi açık kalır (`docs/FATURALAMA.md`).

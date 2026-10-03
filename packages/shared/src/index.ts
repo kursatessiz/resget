@@ -15,6 +15,7 @@ export * from './staff';
 export * from './messaging';
 export * from './admin';
 export * from './storefront';
+export * from './billing';
 export * from './validators';
 export * from './types';
 export * from './phone';

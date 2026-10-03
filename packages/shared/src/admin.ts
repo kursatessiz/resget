@@ -113,6 +113,7 @@ export const ADMIN_NAV = [
   { key: 'restaurants', path: '/restoranlar' },
   { key: 'areas', path: '/bolgeler' },
   { key: 'plans', path: '/planlar' },
+  { key: 'invoices', path: '/faturalar' },
 ] as const;
 
 export const AdminRestaurantUpdateSchema = z
@@ -151,6 +152,8 @@ export interface AdminRestaurantDTO {
   serviceArea: { id: string; city: string; district: string; isLaunched: boolean } | null;
   isActive: boolean;
   isListed: boolean;
+  /** Set while an overdue commission invoice keeps the restaurant out of the marketplace (docs/FATURALAMA.md). */
+  listingSuspendedAt: string | null;
   commissionBps: number;
   paymentMode: `${PaymentMode}`;
   pspPercentBps: number;

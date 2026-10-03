@@ -75,6 +75,10 @@ export const EnvSchema = z
       .regex(/^[A-Z0-9_]{2,32}$/)
       .default('MOCK'),
     /** Unauthenticated order placements and funnel steps allowed per client per 10 minutes (docs/VITRIN.md). */
+    /** The in-process daily billing job (docs/FATURALAMA.md); off when cron runs dist/cli/billing.js instead. */
+    BILLING_SCHEDULER: z.enum(['on', 'off']).default('on'),
+    /** Fiscal document integrator for commission invoices; MOCK until a contract exists. */
+    INVOICE_PROVIDER: z.enum(['MOCK']).default('MOCK'),
     PUBLIC_ORDER_RATE_LIMIT: z.coerce.number().int().min(1).max(1000).default(10),
     PUBLIC_FUNNEL_RATE_LIMIT: z.coerce.number().int().min(1).max(10000).default(60),
     COURIER_API_KEY: z.string().min(1).optional(),

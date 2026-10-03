@@ -68,7 +68,7 @@ Platform geliri 5 TL, tevkifat ve KDV devlete, PSP kesintisi ödeme kuruluşuna.
 
 ## Defter ve hakediş ödemesi
 
-- `LedgerEntry` yalnızca eklemelidir; düzeltme yeni satırdır (`ADJUSTMENT`, `REFUND`).
+- `LedgerEntry` yalnızca eklemelidir; düzeltme yeni satırdır (`ADJUSTMENT`, `REFUND`). Aylık komisyon faturası kesildiğinde `PLATFORM_COMMISSION` ve `COMMISSION_VAT` satırları `invoiceId` ile eksi işaretli yazılır; iptal ters `ADJUSTMENT` satırıdır (`docs/FATURALAMA.md`).
 - `Order` yerleştirme anındaki dökümün anlık görüntüsünü taşır; sonradan oran değişse geçmiş siparişler değişmez.
 - `Payout`, biriken `RESTAURANT_PAYABLE` satırlarını dönem bazında toplar ve yasal sürede (Türkiye: 5 iş günü) planlanır. PSP'nin kendi valörü bu süreyi aşamaz; aşıyorsa platform ara finansman yapar veya PSP ile ertesi gün ödeme sözleşmesi şarttır.
 - İade: `Payment.refundedMinor` artar, defterde `REFUND` satırı açılır; PSP iade komisyonunu geri veriyorsa `PSP_FEE` düzeltmesi yazılır (PSP sözleşmesine bağlı).
