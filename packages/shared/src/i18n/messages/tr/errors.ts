@@ -53,6 +53,8 @@ export const trErrors = {
   'errors.LISTING_NOT_READY': 'Listelenme için menüde satışta en az bir ürün ve aktif bir şube gerekir.',
   'errors.ALREADY_LISTED': 'İşletme zaten pazaryerinde listeleniyor.',
   'errors.CAMPAIGN_NOT_FOUND': 'Kampanya bulunamadı.',
+  'errors.SEGMENT_NOT_FOUND': 'Kayıtlı segment bulunamadı.',
+  'errors.SEGMENT_NAME_TAKEN': 'Bu adla kayıtlı bir segment zaten var.',
   'errors.LOYALTY_NOT_ACTIVE': 'Bu restoranda sadakat programı etkin değil.',
   'errors.LOYALTY_NOT_REDEEMABLE': 'Bu siparişte puan kullanılamıyor: puanınız veya sipariş tutarı yeterli değil.',
   'errors.LOYALTY_SIGN_IN_REQUIRED': 'Puan kullanmak için giriş yapın.',

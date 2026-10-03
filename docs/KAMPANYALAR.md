@@ -22,6 +22,8 @@ Mesaj metni restoranın yazdığıdır; şablon `messaging.template.campaign.bod
 
 `CampaignSegmentSchema`: en az sipariş sayısı, son N gün içinde sipariş, en az N gündür sipariş yok (hiç sipariş vermemiş müşteri de dahil), etiketlerden herhangi biri (müşteri listesindeki etiketler, `docs/PANEL.md`), ilk kanal. Boş segment izinli herkestir. Alıcı sayısı önizlemede ve başlangıçta hesaplanır; aradaki fark izin değişikliğidir.
 
+**Kayıtlı segmentler** (`campaign_segments`, `SaveSegmentSchema`): restoran bir filtre kümesine ad verir ve sonraki kampanyalarda seçerek kullanır; restoran başına ad tekildir (`SEGMENT_NAME_TAKEN`). Kayıt filtreyi saklar, müşteri listesini değil: her listelemede alıcı sayısı o anki izinli müşterilerden yeniden hesaplanır. Kampanya oluşturulurken segment her zaman kampanyaya kopyalanır; kayıtlı segmentin sonradan değişmesi veya silinmesi geçmiş ve zamanlanmış kampanyayı etkilemez.
+
 ## Uçlar (`restaurants/:id/campaigns`, hepsi `@RequirePlanFeature('campaigns')`)
 
 - `GET` (`campaigns.view`): liste; `GET audience`: toplam ve izinli müşteri sayısı.
@@ -29,15 +31,17 @@ Mesaj metni restoranın yazdığıdır; şablon `messaging.template.campaign.bod
 - `POST :id/preview` (`campaigns.view`): alıcı sayısı, gereken kredi ve cüzdan bakiyesi, müşterinin göreceği örnek metin, şu an pencere içinde mi ve değilse ne zaman.
 - `POST :id/send` (`campaigns.manage`): şimdi veya `scheduledAt`. `POST :id/cancel`.
 - `GET :id`: kampanya ve ilk 500 alıcının durumu.
+- `POST audience/count` (`campaigns.view`): verilen filtrenin şu an kaç izinli müşteriye denk geldiği.
+- `GET segments` (`campaigns.view`): kayıtlı segmentler ve güncel alıcı sayıları; `POST segments`, `PUT segments/:id`, `DELETE segments/:id` (`campaigns.manage`).
 - Herkese açık: `POST /public/marketing/opt-out/:token` (oran sınırlı, idempotent).
 
 ## Ekranlar
 
-- `/panel/<slug>/kampanyalar` (`campaigns.view`; Pro): yeni kampanya formu (ad, kanal, metin ve karakter sayacı, segment, isteğe bağlı zaman), önizleme kartı, liste ve sayaçlar, alıcı listesi, iptal. Temel planda plan kuralı ve Pro'ya geçiş bağlantısı.
+- `/panel/<slug>/kampanyalar` (`campaigns.view`; Pro): yeni kampanya formu (ad, kanal, metin ve karakter sayacı, segment, isteğe bağlı zaman), kayıtlı segment seçimi ve filtreleri adla kaydetme, "Alıcıyı say" ile anlık sayım, kayıtlı segment listesi ve silme, önizleme kartı, liste ve sayaçlar, alıcı listesi, iptal. Temel planda plan kuralı ve Pro'ya geçiş bağlantısı.
 - Vitrin: iletişim alanının altında izin kutusu (`shop.customer.marketingOptIn`), varsayılan işaretsiz.
 - `/iptal/<token>`: bağlantıyı açmak vazgeçmektir; sayfa hangi restorandan çıkıldığını söyler.
 
 ## Kalan
 
 - Gerçek İYS adaptörü ve İYS kayıt zorunluluğu belgesi; GDPR bölgeleri için eşdeğer sicil yok, yalnızca izin ve vazgeçme uygulanır.
-- Segment kaydetme (B2'nin kalan parçası), e-posta kanalı. Sadakat programı `docs/SADAKAT.md` ile geldi.
+- E-posta kanalı. Sadakat programı `docs/SADAKAT.md` ile geldi; segment kaydetme bu belgeyle geldi.
