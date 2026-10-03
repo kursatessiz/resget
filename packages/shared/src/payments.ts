@@ -36,12 +36,12 @@ export const DEFAULT_PAYMENT_MODE = PaymentMode.OWN_POS;
  * returned by the API; the fields here only drive validation and the form.
  */
 export const OWN_POS_PROVIDERS = {
-  IYZICO: { fields: ['apiKey', 'secretKey'], optionalFields: ['baseUrl'] },
-  PAYTR: { fields: ['merchantId', 'merchantKey', 'merchantSalt'], optionalFields: [] },
-  PARAM: { fields: ['clientCode', 'clientUsername', 'clientPassword', 'guid'], optionalFields: [] },
-  SIPAY: { fields: ['merchantKey', 'appKey', 'appSecret'], optionalFields: ['merchantId'] },
-  MOCK: { fields: ['merchantId'], optionalFields: [] },
-} as const satisfies Record<string, { fields: readonly string[]; optionalFields: readonly string[] }>;
+  IYZICO: { name: 'iyzico', fields: ['apiKey', 'secretKey'], optionalFields: ['baseUrl'] },
+  PAYTR: { name: 'PayTR', fields: ['merchantId', 'merchantKey', 'merchantSalt'], optionalFields: [] },
+  PARAM: { name: 'Param', fields: ['clientCode', 'clientUsername', 'clientPassword', 'guid'], optionalFields: [] },
+  SIPAY: { name: 'Sipay', fields: ['merchantKey', 'appKey', 'appSecret'], optionalFields: ['merchantId'] },
+  MOCK: { name: 'Test POS', fields: ['merchantId'], optionalFields: [] },
+} as const satisfies Record<string, { name: string; fields: readonly string[]; optionalFields: readonly string[] }>;
 
 export type OwnPosProviderCode = keyof typeof OWN_POS_PROVIDERS;
 export const OWN_POS_PROVIDER_CODES = Object.keys(OWN_POS_PROVIDERS) as OwnPosProviderCode[];

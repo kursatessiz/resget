@@ -11,4 +11,8 @@ export const trPanel = {
   'panel.overview.openDispatch': 'Sevk panosunu aç',
   'panel.comingSoon': 'Bu ekran hazırlanıyor.',
   'panel.restaurants': 'İşletmeleriniz',
+  'panel.overview.openMenu': 'Menüyü yönet',
+  'panel.overview.openTables': 'Masalar ve QR',
+  'panel.overview.openPayments': 'Ödeme ayarları',
+  'panel.overview.openSettings': 'Ayarlar',
 } as const satisfies Record<string, string>;

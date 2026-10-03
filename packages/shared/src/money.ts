@@ -61,3 +61,28 @@ export function minorDigitsOf(currency: CurrencyCode): number {
     return 2;
   }
 }
+
+/**
+ * Parses an amount a person typed in major units ("42", "42.5", "42,50")
+ * into minor units for the currency. Extra fraction digits are cut, never
+ * rounded; null when the text is not a plain number.
+ */
+export function parseMajorAmount(text: string, currency: CurrencyCode): number | null {
+  const normalized = text.trim().replace(/\s/g, '').replace(',', '.');
+  if (!/^-?\d+(\.\d+)?$/.test(normalized)) return null;
+  const digits = minorDigitsOf(currency);
+  const negative = normalized.startsWith('-');
+  const [whole, fraction = ''] = (negative ? normalized.slice(1) : normalized).split('.');
+  const minor = Number(whole) * 10 ** digits + Number((fraction + '0'.repeat(digits)).slice(0, digits));
+  return negative ? -minor : minor;
+}
+
+/** Minor units as the text of an input field in major units ("42.50"), independent of the viewer's locale. */
+export function majorAmountText(amountMinor: number, currency: CurrencyCode): string {
+  const digits = minorDigitsOf(currency);
+  const sign = amountMinor < 0 ? '-' : '';
+  const abs = Math.abs(amountMinor);
+  const whole = Math.floor(abs / 10 ** digits);
+  if (digits === 0) return `${sign}${whole}`;
+  return `${sign}${whole}.${String(abs % 10 ** digits).padStart(digits, '0')}`;
+}
