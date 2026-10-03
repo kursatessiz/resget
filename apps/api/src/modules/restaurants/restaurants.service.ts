@@ -30,6 +30,8 @@ const settingsSelect = Prisma.validator<Prisma.RestaurantSelect>()({
   dispatchSettings: true,
   logoUrl: true,
   themePrimary: true,
+  customDomain: true,
+  customDomainVerifiedAt: true,
   branches: {
     where: { isActive: true },
     select: { id: true, name: true, city: true, district: true },
@@ -97,6 +99,7 @@ export class RestaurantsService {
       ...row,
       listingRequestedAt: row.listingRequestedAt?.toISOString() ?? null,
       listingReviewedAt: row.listingReviewedAt?.toISOString() ?? null,
+      customDomainVerifiedAt: row.customDomainVerifiedAt?.toISOString() ?? null,
       deliveryFeePolicy: policy.success ? policy.data : null,
       dispatchSettings: dispatchSettingsFrom(row.dispatchSettings),
       effectivePlan: tenant.effectivePlan,

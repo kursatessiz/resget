@@ -325,6 +325,9 @@ model Restaurant {
   listingReviewNote      String?
   /// The saved card commission invoices are collected from (docs/FATURALAMA.md).
   billingPaymentMethodId String?
+  /// Own host of the ordering page (docs/VITRIN.md); served only once DNS is verified and the plan allows it.
+  customDomain           String?   @unique
+  customDomainVerifiedAt DateTime?
 
   /// Platform take rate on gross order value; 100 = 1 percent. Changed only by the super admin.
   commissionBps        Int          @default(100)

@@ -10,8 +10,32 @@ import {
   sessionCookieOptions,
 } from '@/lib/session';
 
+/** Hosts that are the platform itself; everything else that reaches us is a restaurant's custom domain. */
+function isPlatformHost(host: string): boolean {
+  const platform = (process.env.WEB_DOMAIN ?? '').toLowerCase();
+  return host === platform || host === 'localhost' || host === '127.0.0.1' || host.endsWith('.localhost');
+}
+
+/** Which restaurant a custom host serves, remembered briefly so the home page does not ask the API on every hit. */
+const hostCache = new Map<string, { slug: string | null; until: number }>();
+const HOST_CACHE_MS = 60_000;
+async function slugForHost(host: string): Promise<string | null> {
+  const cached = hostCache.get(host);
+  if (cached && cached.until > Date.now()) return cached.slug;
+  const base = (process.env.API_INTERNAL_URL || 'http://localhost:4000').replace(/\/$/, '');
+  const res = await fetch(`${base}/public/domains/resolve?host=${encodeURIComponent(host)}`, {
+    cache: 'no-store',
+  }).catch(() => null);
+  const slug = res?.ok ? ((await res.json()) as { slug: string }).slug : null;
+  hostCache.set(host, { slug, until: Date.now() + HOST_CACHE_MS });
+  return slug;
+}
+
 /**
- * Two jobs before a page renders:
+ * Three jobs before a page renders:
+ * - /: on a restaurant's own domain (docs/VITRIN.md), show that restaurant's
+ *   ordering page instead of the platform landing page.
+ * Two jobs after that:
  * - /panel: keep the access cookie fresh with the refresh cookie, or send
  *   the visitor to sign in. Server components then always see a valid token.
  * - /m: give an anonymous table QR visitor a session id so the funnel
@@ -20,6 +44,16 @@ import {
 export async function middleware(req: NextRequest): Promise<NextResponse> {
   const { pathname, search } = req.nextUrl;
   const secure = process.env.NODE_ENV === 'production';
+
+  if (pathname === '/') {
+    const host = (req.headers.get('host') ?? '').split(':')[0].toLowerCase();
+    if (!host || isPlatformHost(host)) return NextResponse.next();
+    const slug = await slugForHost(host);
+    if (!slug) return NextResponse.next();
+    const url = req.nextUrl.clone();
+    url.pathname = `/${slug}`;
+    return NextResponse.rewrite(url);
+  }
 
   if (pathname.startsWith('/m/')) {
     if (req.cookies.get(QR_SESSION_COOKIE)) return NextResponse.next();
@@ -78,4 +112,4 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   return res;
 }
 
-export const config = { matcher: ['/panel/:path*', '/admin/:path*', '/kayit', '/hesabim', '/m/:path*'] };
+export const config = { matcher: ['/', '/panel/:path*', '/admin/:path*', '/kayit', '/hesabim', '/m/:path*'] };

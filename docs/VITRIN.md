@@ -30,6 +30,16 @@ Pazaryeri listesi yalnızca `isActive`, `isListed` ve askıda olmayan (`listingS
 
 Listelenme kararı konsolundur: restoran menüsü hazır olunca Ayarlar sayfasından talep eder, konsol onaylar (`docs/PLATFORM_YONETIMI.md`).
 
+## Kendi alan adı (Pro)
+
+Restoran, sipariş sayfasını kendi alan adında (örneğin `siparis.restoranim.com`) açabilir; Pro özelliği `custom_domain`. Kod: `apps/api/src/modules/domains` (servis, DNS doğrulayıcı adaptörü `DNS` / `MOCK`, uçlar), `apps/web/src/middleware.ts` (ana sayfa yeniden yazımı), `deploy/caddy/Caddyfile` (isteğe bağlı sertifika), ayarlar kartı `SettingsForm.tsx`.
+
+- Sahip Ayarlar sayfasından alan adını kaydeder (`PUT /restaurants/:id/domain`, `HostnameSchema`; platformun kendi adresi ve alt alanları `DOMAIN_INVALID`, başka restorana kayıtlı ad `DOMAIN_TAKEN`), sağlayıcısında CNAME kaydını platformun web adresine (`PUBLIC_APP_URL` host'u, ekranda gösterilir) yönlendirir ve "Doğrula" der (`POST /restaurants/:id/domain/verify`). Doğrulayıcı CNAME hedefini ya da A kayıtlarının platformunkiyle aynı olmasını arar; başarılıysa `customDomainVerifiedAt` yazılır, son kontrolde görülen kayıtlar ekranda listelenir. Alan adı değişince doğrulama sıfırlanır.
+- Sunum koşulu: doğrulanmış, restoran aktif ve plan `custom_domain` taşıyor. Plan düşerse kayıt ve doğrulama korunur, host hizmet vermez.
+- `GET /public/domains/resolve?host=` doğrulanmış host'un slug'ını verir (yoksa 404). Web middleware'i platform host'u (`WEB_DOMAIN`, yerelde `localhost`) dışındaki bir host'ta `/` isteğini `/<slug>` sayfasına yeniden yazar; diğer yollar (`/t/<token>`, `/hesabim`, `/giris`) aynı host'ta olduğu gibi çalışır. Çözüm 60 saniye bellekte tutulur.
+- Sertifika: Caddy `on_demand_tls` ile ilk ziyarette sertifika alır; önce `GET /public/domains/check?domain=` sorulur ve yalnızca 200 dönen host için istenir, böylece bize ait olmayan bir ad için hiçbir zaman sertifika istenmez. Sunucu tarafında ek bir işlem gerekmez; DNS A kaydı yerine CNAME önerilir.
+- Testte `DOMAIN_VERIFIER=MOCK`: `.verified.test` ile biten her host platforma işaret ediyor sayılır.
+
 ## Müşteri hesabı (`/hesabim`)
 
 Telefon numarası hesaptır; masa QR'ından veya restoran sayfasından giriş aynı OTP akışıdır (`/giris?kayit=1&next=...`). Giriş yapmış ziyaretçi için vitrin ad ve telefonu önceden doldurur, eve teslimde kayıtlı adresleri seçtirir (varsayılan adres hazır gelir, koordinatı varsa siparişe geçer) ve yeni adresi isteğe bağlı olarak hesaba kaydeder. `/hesabim`: ad, kayıtlı adresler (ekle, varsayılan yap, sil; liste hiçbir zaman varsayılansız kalmaz), sadakat puanları (restoran başına bakiye ve bugünkü değeri, `docs/SADAKAT.md`), son 50 sipariş ve takip bağlantıları, çıkış. Sadakat programı olan restoranda sepet özeti bakiyeyi, "puan kullan" kutusunu ve bu siparişle kazanılacak puanı gösterir; puan harcayan sipariş `useLoyaltyPoints` ile gider ve sipariş uçları giriş yapmış ziyaretçiyi isteğe bağlı kimlik doğrulamayla tanır.

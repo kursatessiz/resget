@@ -107,6 +107,8 @@ services:
       PUBLIC_API_URL: https://${API_DOMAIN}
       # The BFF proxies to the API over the internal docker network; never baked into client bundles.
       API_INTERNAL_URL: http://api:4000
+      # The platform host; any other host reaching the web app is a restaurant's custom domain (docs/VITRIN.md).
+      WEB_DOMAIN: ${WEB_DOMAIN}
       APP_RELEASE: ${RELEASE_TAG:-dev}
     networks: [web_net, internal_net]
     read_only: true

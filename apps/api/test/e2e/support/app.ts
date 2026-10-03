@@ -38,6 +38,8 @@ export async function createTestApp(): Promise<TestContext> {
   process.env.PUBLIC_ORDER_RATE_LIMIT ??= '6';
   // Uploaded logos land in a scratch directory, never in the repository tree.
   process.env.UPLOADS_DIR ??= path.join(os.tmpdir(), 'resget-e2e-uploads');
+  // Custom domains are verified against a stand-in resolver: hosts under .verified.test pass.
+  process.env.DOMAIN_VERIFIER ??= 'MOCK';
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = moduleRef.createNestApplication({ rawBody: true });
   app.useGlobalFilters(new ErrorCodeFilter());
