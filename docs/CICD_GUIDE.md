@@ -143,7 +143,7 @@ Preprod, production'ın birebir kopyasıdır: aynı compose, aynı Caddyfile, ay
 ## 6. Güvenlik workflow'ları
 
 - **`codeql.yml`**: `javascript-typescript` ve `actions` için `security-extended`; PR, `main` ve haftalık.
-- **`security.yml`**: PR'larda dependency review (high'da kırar, copyleft lisansları reddeder), TruffleHog gizli bilgi taraması (`.github/trufflehog-exclude.txt` yalnızca `.env.example`'ı dışlar), zizmor workflow denetimi.
+- **`security.yml`**: PR'larda dependency review (high'da kırar, copyleft lisansları reddeder; tek istisna yalnızca CI aracı olarak çalışan ve ürüne girmeyen AGPL lisanslı TruffleHog action'ıdır, `allow-dependencies-licenses` ile izinlidir), TruffleHog gizli bilgi taraması (`.github/trufflehog-exclude.txt` yalnızca `.env.example`'ı dışlar), zizmor workflow denetimi.
 - **`scorecard.yml`**: OpenSSF Scorecard, `main` ve haftalık.
 
 Tüm action'lar commit SHA'sına sabitlidir; Docker taban imajları digest ile sabitlidir; Dependabot üçünü de haftalık günceller (`.github/dependabot.yml`, 7 gün bekleme, major'lar elle).
