@@ -5,6 +5,8 @@ import {
   DeliveryFeePolicySchema,
   customerDeliveryFee,
   dispatchSettingsFrom,
+  isOpenAt,
+  rankRestaurants,
   ratingSummary,
   trackingUrl,
 } from '@resget/shared';
@@ -12,6 +14,8 @@ import type {
   CreateOrderInput,
   MarketplaceAreaDTO,
   MarketplaceDTO,
+  MarketplaceInterestInput,
+  MarketplaceInterestResultDTO,
   MarketplaceQuery,
   PublicOrderInput,
   PublicOrderResultDTO,
@@ -109,6 +113,28 @@ export class StorefrontService {
   }
 
   /** Listed restaurants of a launched district: those attached to the area or with a branch in it. */
+  /** A visitor asks for a district that is not open yet; one counter per district, read by the console. */
+  async interest(input: MarketplaceInterestInput): Promise<MarketplaceInterestResultDTO> {
+    const launched = await this.prisma.serviceArea.findFirst({
+      where: {
+        countryCode: input.countryCode,
+        city: { equals: input.city, mode: 'insensitive' },
+        district: { equals: input.district, mode: 'insensitive' },
+        isLaunched: true,
+      },
+      select: { id: true },
+    });
+    if (launched) return { recorded: false, launched: true };
+    const city = input.city.trim();
+    const district = input.district.trim();
+    await this.prisma.marketplaceInterest.upsert({
+      where: { countryCode_city_district: { countryCode: input.countryCode, city, district } },
+      update: { count: { increment: 1 } },
+      create: { countryCode: input.countryCode, city, district, count: 1 },
+    });
+    return { recorded: true, launched: false };
+  }
+
   async marketplace(query: MarketplaceQuery): Promise<MarketplaceDTO> {
     const area = await this.prisma.serviceArea.findFirst({
       where: {
@@ -138,22 +164,43 @@ export class StorefrontService {
           },
         ],
       },
-      orderBy: { name: 'asc' },
       select: {
+        id: true,
         slug: true,
         name: true,
         logoUrl: true,
         themePrimary: true,
         deliveryMode: true,
-        branches: { where: { isActive: true }, take: 1, select: { city: true, district: true } },
+        timezone: true,
+        branches: { where: { isActive: true }, take: 1, select: { city: true, district: true, openingHours: true } },
         ratingCount: true,
         ratingSum: true,
       },
     });
+    // Ranking (docs/VITRIN.md): open now first, then a damped rating and recent completed orders, then the name.
+    const now = new Date();
+    const recent = await this.prisma.order.groupBy({
+      by: ['restaurantId'],
+      where: {
+        restaurantId: { in: rows.map((r) => r.id) },
+        status: { in: ['DELIVERED', 'PICKED_UP'] },
+        completedAt: { gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) },
+      },
+      _count: { _all: true },
+    });
+    const recentBy = new Map(recent.map((r) => [r.restaurantId, r._count._all]));
+    const ranked = rankRestaurants(
+      rows.map((r) => ({
+        ...r,
+        isOpenNow: isOpenAt(r.branches[0]?.openingHours ?? null, now, r.timezone),
+        recentOrders: recentBy.get(r.id) ?? 0,
+      })),
+    );
     return {
       area: { countryCode: area.countryCode, city: area.city, district: area.district },
-      restaurants: rows.map((r) => ({
+      restaurants: ranked.map((r) => ({
         rating: ratingSummary(r.ratingSum, r.ratingCount),
+        isOpenNow: r.isOpenNow,
         slug: r.slug,
         name: r.name,
         logoUrl: r.logoUrl,

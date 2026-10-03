@@ -288,15 +288,31 @@ model OtpCode {
 // Tenant
 // ---------------------------------------------------------------------------
 
-model ServiceArea {
-  id          String    @id @default(uuid())
+/// Marketplace visitors asking for a district that is not open yet; one counter per district (docs/PLATFORM_YONETIMI.md).
+model MarketplaceInterest {
+  id          String   @id @default(uuid())
   countryCode String
   city        String
   district    String
+  count       Int      @default(0)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@unique([countryCode, city, district])
+  @@map("marketplace_interest")
+}
+
+model ServiceArea {
+  id           String    @id @default(uuid())
+  countryCode  String
+  city         String
+  district     String
   /// Phase 0 launches one district at a time; restaurants outside a launched area are onboarded but not listed in the marketplace.
-  isLaunched  Boolean   @default(false)
-  launchedAt  DateTime?
-  createdAt   DateTime  @default(now())
+  isLaunched   Boolean   @default(false)
+  launchedAt   DateTime?
+  /// Restaurants with a sellable menu the district should reach before it opens (docs/PLATFORM_YONETIMI.md).
+  launchTarget Int       @default(30)
+  createdAt    DateTime  @default(now())
 
   restaurants Restaurant[]
 
