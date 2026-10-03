@@ -52,5 +52,6 @@ export const trShop = {
   'shop.marketplace.open': 'Menüyü aç',
   'shop.marketplace.delivery': 'Eve teslim',
   'shop.marketplace.pickup': 'Gel al',
+  'shop.marketplace.rating': '{average} / 5 ({count} değerlendirme)',
   'shop.marketplace.cta': 'Restoranları keşfet',
 } as const satisfies Record<string, string>;

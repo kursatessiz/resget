@@ -7,7 +7,7 @@ import { apiInternalBaseUrl } from '@/lib/server-env';
 /** District marketplace (docs/VITRIN.md): listed restaurants of a launched district, no sign-in. */
 export default async function MarketplacePage({ searchParams }: { searchParams: Promise<{ bolge?: string }> }) {
   const params = await searchParams;
-  const { t } = await getT();
+  const { t, locale } = await getT();
   const areasRes = await fetch(`${apiInternalBaseUrl()}/public/marketplace/areas`, { cache: 'no-store' });
   if (!areasRes.ok) throw new Error(`Marketplace areas failed with ${areasRes.status}`);
   const areas = (await areasRes.json()) as MarketplaceAreaDTO[];
@@ -59,6 +59,15 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
                   {r.city} / {r.district}
                 </p>
                 <div className="flex flex-wrap gap-1">
+                  {r.rating && (
+                    <span className="ui-caption">
+                      {t('shop.marketplace.rating', {
+                        average: new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(r.rating.average),
+                        count: r.rating.count,
+                      })}
+                    </span>
+                  )}
+
                   {r.delivery && <Badge tone="success">{t('shop.marketplace.delivery')}</Badge>}
                   {r.pickup && <Badge>{t('shop.marketplace.pickup')}</Badge>}
                 </div>

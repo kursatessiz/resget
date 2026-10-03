@@ -19,6 +19,7 @@ import {
   settlementDefaultsFor,
   trackingUrl,
   acceptDeadlineFor,
+  canRateOrder,
 } from '@resget/shared';
 import type {
   AddressSnapshot,
@@ -35,6 +36,7 @@ import type {
   OrdersQuery,
   SettlementLine,
   DispatchSettings,
+  RateOrderInput,
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
@@ -54,6 +56,7 @@ const orderArgs = Prisma.validator<Prisma.OrderDefaultArgs>()({
     items: { orderBy: { position: 'asc' } },
     statusHistory: { orderBy: { createdAt: 'asc' } },
     payments: { orderBy: { createdAt: 'desc' }, take: 1 },
+    rating: true,
     deliveryStops: {
       where: { status: { in: [...ACTIVE_STOP_STATUSES] }, trip: { status: { in: [...ACTIVE_TRIP_STATUSES] } } },
       include: { trip: { select: { id: true, status: true, courierMembershipId: true } } },
@@ -506,6 +509,25 @@ export class OrdersService {
     return this.trackingOf(row);
   }
 
+  /** The customer's rating from the tracking page (docs/VITRIN.md): once, on a completed order, within the window. */
+  async rateByToken(token: string, input: RateOrderInput): Promise<OrderTrackingDTO> {
+    const row = await this.prisma.order.findUnique({ where: { trackingToken: token }, ...orderArgs });
+    if (!row) throw notFound('ORDER_NOT_FOUND', 'Order not found');
+    if (row.rating) throw conflict('RATING_EXISTS', 'Order already rated');
+    if (!canRateOrder(row.status, row.completedAt, false))
+      throw conflict('RATING_NOT_ALLOWED', 'Order cannot be rated');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.orderRating.create({
+        data: { orderId: row.id, restaurantId: row.restaurantId, score: input.score, comment: input.comment ?? null },
+      });
+      await tx.restaurant.update({
+        where: { id: row.restaurantId },
+        data: { ratingCount: { increment: 1 }, ratingSum: { increment: input.score } },
+      });
+    });
+    return this.trackingByToken(token);
+  }
+
   async trackingOf(row: OrderRow): Promise<OrderTrackingDTO> {
     const [restaurant, branch] = await Promise.all([
       this.prisma.restaurant.findUnique({
@@ -573,6 +595,10 @@ export class OrdersService {
       })),
       courier,
       destination,
+      rating: row.rating
+        ? { score: row.rating.score, comment: row.rating.comment, createdAt: row.rating.createdAt.toISOString() }
+        : null,
+      canRate: canRateOrder(row.status, row.completedAt, row.rating !== null),
     };
   }
 

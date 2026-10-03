@@ -48,8 +48,17 @@ export interface ReportSummaryDTO {
   byChannel: (ReportBucketDTO & { key: OrderChannelValue })[];
   topItems: ReportTopItemDTO[];
   daily: ReportDayDTO[];
+  /** Ratings given in the range and the latest comments (docs/VITRIN.md). */
+  ratings: { average: number | null; count: number; recent: ReportRatingDTO[] };
   /** True when the caller's plan allows longer ranges and the export. */
   analytics: boolean;
+}
+
+export interface ReportRatingDTO {
+  shortCode: string;
+  score: number;
+  comment: string | null;
+  createdAt: string;
 }
 
 /** Days a plan may look back; BASIC is capped, PRO sees the full year. */

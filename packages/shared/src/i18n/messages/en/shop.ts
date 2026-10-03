@@ -52,6 +52,7 @@ export const enShop: Record<keyof typeof trShop, string> = {
   'shop.marketplace.noAreas': 'No district has launched yet.',
   'shop.marketplace.open': 'Open the menu',
   'shop.marketplace.delivery': 'Delivery',
+  'shop.marketplace.rating': '{average} / 5 ({count} ratings)',
   'shop.marketplace.pickup': 'Pickup',
   'shop.marketplace.cta': 'Discover restaurants',
 };

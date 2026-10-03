@@ -1,9 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { BASE_LOCALE, BUNDLED_MESSAGES, createTranslator } from '@resget/shared';
+import {
+  BASE_LOCALE,
+  BUNDLED_MESSAGES,
+  RATING_COMMENT_MAX,
+  RATING_MAX,
+  RATING_MIN,
+  createTranslator,
+} from '@resget/shared';
 import type { OrderTrackingDTO } from '@resget/shared';
-import { Card, LinkButton } from '@/components/ui';
+import { Button, Card, LinkButton, TextAreaField } from '@/components/ui';
+import { ApiError, bffJson } from '@/lib/client-api';
 import { cx } from '@/components/ui/types';
 
 type Step = 'placed' | 'accepted' | 'preparing' | 'ready' | 'onTheWay' | 'delivered' | 'pickedUp' | 'served';
@@ -52,6 +60,11 @@ export function TrackingLive({ token, initial, locale }: { token: string; initia
   const [tracking, setTracking] = useState(initial);
   const [connection, setConnection] = useState<'idle' | 'live' | 'reconnecting'>('idle');
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [score, setScore] = useState<number | null>(null);
+  const [comment, setComment] = useState('');
+  const [ratingBusy, setRatingBusy] = useState(false);
+  const [ratingError, setRatingError] = useState<string | null>(null);
+  const [thanked, setThanked] = useState(false);
   const t = useMemo(
     () =>
       createTranslator({
@@ -86,6 +99,25 @@ export function TrackingLive({ token, initial, locale }: { token: string; initia
     // The stream is opened once per token; status changes arrive through it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  const submitRating = async () => {
+    if (score === null) return;
+    setRatingBusy(true);
+    setRatingError(null);
+    try {
+      const next = await bffJson<OrderTrackingDTO>(`public/orders/${encodeURIComponent(token)}/rating`, {
+        method: 'POST',
+        body: JSON.stringify({ score, ...(comment.trim() ? { comment: comment.trim() } : {}) }),
+      });
+      setTracking(next);
+      setThanked(true);
+    } catch (err) {
+      setRatingError(err instanceof ApiError ? t(`errors.${err.code}`) : t('common.error.network'));
+    } finally {
+      setRatingBusy(false);
+    }
+  };
+  const scores = Array.from({ length: RATING_MAX - RATING_MIN + 1 }, (_, i) => RATING_MIN + i);
 
   const steps = STEPS[tracking.fulfillment];
   const reached = stepIndex(tracking.status, tracking.fulfillment);
@@ -161,6 +193,61 @@ export function TrackingLive({ token, initial, locale }: { token: string; initia
               </LinkButton>
             )}
           </div>
+        </Card>
+      )}
+
+      {(tracking.canRate || tracking.rating) && (
+        <Card title={t('tracking.rating.title')} aria-label={t('tracking.rating.title')}>
+          {tracking.rating ? (
+            <p role="status">
+              {thanked ? `${t('tracking.rating.thanks')} ` : ''}
+              {t('tracking.rating.given', { score: tracking.rating.score })}
+            </p>
+          ) : (
+            <form
+              className="flex flex-col gap-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submitRating();
+              }}
+            >
+              <p className="ui-caption">{t('tracking.rating.intro')}</p>
+              <fieldset className="flex flex-wrap gap-3">
+                <legend className="ui-heading">{t('tracking.rating.score')}</legend>
+                {scores.map((value) => (
+                  <label key={value} className="flex items-center gap-1">
+                    <input
+                      type="radio"
+                      className="pui-radio"
+                      name="rating"
+                      value={value}
+                      checked={score === value}
+                      onChange={() => setScore(value)}
+                      aria-label={t('tracking.rating.star', { count: value })}
+                    />
+                    <span>{value}</span>
+                  </label>
+                ))}
+              </fieldset>
+              <TextAreaField
+                label={t('tracking.rating.comment')}
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                maxLength={RATING_COMMENT_MAX}
+                rows={3}
+              />
+              {ratingError && (
+                <p role="alert" className="pui-alert pui-error">
+                  {ratingError}
+                </p>
+              )}
+              <div>
+                <Button type="submit" disabled={ratingBusy || score === null}>
+                  {t('tracking.rating.submit')}
+                </Button>
+              </div>
+            </form>
+          )}
         </Card>
       )}
 
