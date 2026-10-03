@@ -171,6 +171,22 @@ enum MessageStatus {
   FAILED
 }
 
+/// Marketing campaign lifecycle (docs/KAMPANYALAR.md).
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  CANCELLED
+}
+
+enum CampaignRecipientStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
 enum MessageTransactionType {
   PURCHASE
   GRANT
@@ -237,6 +253,7 @@ model User {
   tripsCreated        DeliveryTrip[]
   paymentsCollected   Payment[]            @relation("PaymentCollectedBy")
   auditLogs           AuditLog[]
+  campaignsCreated    Campaign[]           @relation("CampaignCreatedBy")
 
   @@map("users")
 }
@@ -350,6 +367,7 @@ model Restaurant {
   courierLocations     CourierLocation[]
   featureFlags         FeatureFlag[]
   auditLogs            AuditLog[]
+  campaigns            Campaign[]
 
   @@index([serviceAreaId, isListed])
   @@map("restaurants")
@@ -609,15 +627,72 @@ model RestaurantCustomer {
   tags               String[]     @default([])
   note               String?
   marketingOptIn     Boolean      @default(false)
+  /// When the customer gave or withdrew marketing consent (docs/KAMPANYALAR.md); the flag is the current state.
+  marketingOptInAt   DateTime?
+  marketingOptOutAt  DateTime?
+  /// Unguessable handle of the one-click opt-out link in every campaign message.
+  marketingToken     String?      @unique
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant         Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignRecipients CampaignRecipient[]
 
   @@unique([restaurantId, userId])
   @@index([restaurantId, lastOrderAt])
+  @@index([restaurantId, marketingOptIn])
   @@map("restaurant_customers")
+}
+
+/// A marketing send to a segment of the restaurant's own opted-in customers (PRO, docs/KAMPANYALAR.md).
+model Campaign {
+  id              String         @id @default(uuid())
+  restaurantId    String
+  name            String
+  channel         MessageChannel
+  body            String
+  status          CampaignStatus @default(DRAFT)
+  /// CampaignSegmentSchema in shared: who receives it.
+  segment         Json?
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  audienceCount   Int            @default(0)
+  sentCount       Int            @default(0)
+  failedCount     Int            @default(0)
+  skippedCount    Int            @default(0)
+  /// Why the runner paused (INSUFFICIENT_CREDITS) or the last provider error.
+  lastError       String?
+  createdByUserId String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  restaurant Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdBy  User?               @relation("CampaignCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  recipients CampaignRecipient[]
+
+  @@index([restaurantId, createdAt])
+  @@index([status, scheduledAt])
+  @@map("campaigns")
+}
+
+model CampaignRecipient {
+  id           String                  @id @default(uuid())
+  campaignId   String
+  customerId   String
+  status       CampaignRecipientStatus @default(PENDING)
+  messageLogId String?
+  errorCode    String?
+  sentAt       DateTime?
+  createdAt    DateTime                @default(now())
+
+  campaign Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  customer RestaurantCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, customerId])
+  @@index([campaignId, status])
+  @@map("campaign_recipients")
 }
 
 // ---------------------------------------------------------------------------

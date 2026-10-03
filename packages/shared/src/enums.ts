@@ -116,6 +116,22 @@ export enum PaymentConnectionStatus {
   DISABLED = 'DISABLED',
 }
 
+/** Marketing campaign lifecycle (docs/KAMPANYALAR.md). */
+export enum CampaignStatus {
+  DRAFT = 'DRAFT',
+  SCHEDULED = 'SCHEDULED',
+  SENDING = 'SENDING',
+  SENT = 'SENT',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum CampaignRecipientStatus {
+  PENDING = 'PENDING',
+  SENT = 'SENT',
+  FAILED = 'FAILED',
+  SKIPPED = 'SKIPPED',
+}
+
 /** Monthly commission invoice of an OWN_POS restaurant. */
 export enum CommissionInvoiceStatus {
   DRAFT = 'DRAFT',

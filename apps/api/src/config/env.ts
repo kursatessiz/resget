@@ -81,6 +81,10 @@ export const EnvSchema = z
     BILLING_SCHEDULER: z.enum(['on', 'off']).default('on'),
     /** The acceptance watchdog that alarms PLACED orders past their deadline (docs/SIPARIS_VE_SEVK.md). */
     ORDER_WATCHDOG: z.enum(['on', 'off']).default('on'),
+    /** The in-process campaign queue (docs/KAMPANYALAR.md). */
+    CAMPAIGN_RUNNER: z.enum(['on', 'off']).default('on'),
+    /** Regional commercial-message consent registry (Turkey: IYS); MOCK approves every opted-in number. */
+    CONSENT_REGISTRY_PROVIDER: z.enum(['MOCK']).default('MOCK'),
     /** Fiscal document integrator for commission invoices; MOCK until a contract exists. */
     INVOICE_PROVIDER: z.enum(['MOCK']).default('MOCK'),
     PUBLIC_ORDER_RATE_LIMIT: z.coerce.number().int().min(1).max(1000).default(10),

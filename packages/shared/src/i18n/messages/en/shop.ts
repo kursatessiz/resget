@@ -22,6 +22,7 @@ export const enShop: Record<keyof typeof trShop, string> = {
   'shop.customer.title': 'Contact',
   'shop.customer.name': 'Your name',
   'shop.customer.phone': 'Your phone number',
+  'shop.customer.marketingOptIn': 'I would like to hear about campaigns and discounts by SMS or WhatsApp.',
   'shop.customer.phoneHelp': 'Order updates are sent to this number.',
   'shop.address.title': 'Delivery address',
   'shop.address.line': 'Address',

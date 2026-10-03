@@ -209,6 +209,7 @@ export class StorefrontService {
       payment: input.payment,
       note: input.note,
       qrSessionId: context.sessionId ?? undefined,
+      marketingOptIn: input.marketingOptIn,
     };
     const order = await this.orders.create(restaurant.id, create, null, false);
     const token = order.trackingUrl.split('/t/')[1] ?? '';

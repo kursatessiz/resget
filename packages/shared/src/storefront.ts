@@ -73,6 +73,8 @@ export const PublicOrderSchema = z
     note: z.string().trim().max(500).optional(),
     /** Where a hosted payment page returns to; required when the chosen method is paid online. */
     returnUrl: z.string().url().optional(),
+    /** Marketing consent box (docs/KAMPANYALAR.md); only true is recorded. */
+    marketingOptIn: z.boolean().optional(),
   })
   .strict()
   .superRefine((order, ctx) => {

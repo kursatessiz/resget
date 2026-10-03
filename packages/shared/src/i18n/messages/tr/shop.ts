@@ -22,6 +22,7 @@ export const trShop = {
   'shop.customer.name': 'Adınız',
   'shop.customer.phone': 'Telefon numaranız',
   'shop.customer.phoneHelp': 'Sipariş durumu bu numaraya mesajla bildirilir.',
+  'shop.customer.marketingOptIn': 'Kampanya ve indirimlerden SMS veya WhatsApp ile haberdar olmak istiyorum.',
   'shop.address.title': 'Teslimat adresi',
   'shop.address.line': 'Adres',
   'shop.address.city': 'İl',

@@ -22,6 +22,7 @@ import { BillingModule } from './modules/billing/billing.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
+import { CampaignsModule } from './modules/campaigns/campaigns.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { UploadsModule } from './modules/uploads/uploads.module';
     CustomersModule,
     ReportsModule,
     UploadsModule,
+    CampaignsModule,
   ],
 })
 export class AppModule {}

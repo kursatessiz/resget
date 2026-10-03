@@ -438,6 +438,8 @@ export const CreateOrderSchema = z
     note: z.string().trim().max(500).optional(),
     /** Anonymous QR session of the guest, to record the PLACED_ORDER funnel step. */
     qrSessionId: z.string().trim().min(8).max(64).optional(),
+    /** The customer ticked the marketing consent box; true records consent, false or absent changes nothing. */
+    marketingOptIn: z.boolean().optional(),
   })
   .strict()
   .superRefine((order, ctx) => {
