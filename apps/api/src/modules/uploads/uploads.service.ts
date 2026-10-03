@@ -88,17 +88,27 @@ export class UploadsService {
     await this.removeOwnFile(restaurantId, restaurant.logoUrl);
   }
 
-  /** Serves one stored logo; the path parts are validated before they touch the file system. */
+  /**
+   * Serves the restaurant's current logo. The request only names the file;
+   * the path on disk is rebuilt from the restaurant row, so nothing from the
+   * URL reaches the file system and a stale or guessed name is a 404.
+   */
   async openLogo(restaurantId: string, file: string): Promise<StreamableFile> {
     if (!UUID.test(restaurantId) || !LOGO_FILE.test(file)) throw notFound('NOT_FOUND', 'File not found');
-    const full = path.join(this.root, 'logos', restaurantId, file);
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { id: true, logoUrl: true },
+    });
+    const current = restaurant ? this.ownFileOf(restaurant.id, restaurant.logoUrl) : null;
+    if (!restaurant || !current || current !== file) throw notFound('NOT_FOUND', 'File not found');
+    const full = path.join(this.root, 'logos', restaurant.id, current);
     let size: number;
     try {
       size = (await stat(full)).size;
     } catch {
       throw notFound('NOT_FOUND', 'File not found');
     }
-    const ext = file.slice(file.lastIndexOf('.') + 1);
+    const ext = current.slice(current.lastIndexOf('.') + 1);
     return new StreamableFile(createReadStream(full), { type: CONTENT_TYPES[ext], length: size });
   }
 
