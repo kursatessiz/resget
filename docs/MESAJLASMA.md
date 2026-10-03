@@ -38,3 +38,7 @@ Bu mesajlar işlemsel (hizmet) mesajlarıdır: müşterinin kendi siparişi hakk
 - `PATCH /restaurants/:id/messaging/settings` (`messaging.manage`): `customerOrderUpdates`, `channel`, `fallbackToSms`.
 - `POST /restaurants/:id/messaging/purchase` (`subscription.manage`).
 - Panel: `/panel/<slug>/plan` (`subscription.manage`; ayarlar ve mesaj geçmişi `messaging.manage` olana görünür).
+
+## Sağlayıcı bakiyesi
+
+SMS ve WhatsApp adaptörleri isteğe bağlı `balance()` ile kalan krediyi bildirir (`MOCK` sabit bir değer döner; gerçek adaptör sağlayıcının hesap ucunu sorar). `ProviderBalanceMonitor` saatte bir okur ve `PROVIDER_BALANCE_WARN` (500) altındaki kanal için hata günlüğü ile günde bir `provider.balance_low` denetim satırı yazar; konsolun Sistem sayfası bakiyeyi ve "Bakiye düşük" rozetini gösterir (`docs/PLATFORM_YONETIMI.md`). Bakiye bilinmiyorsa sayfa bunu söyler, uydurmaz.

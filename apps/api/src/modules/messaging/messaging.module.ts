@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { MockSmsProvider, SMS_PROVIDER } from './sms.provider';
 import { MockWhatsAppProvider, WHATSAPP_PROVIDER } from './whatsapp.provider';
 import { MessagingService } from './messaging.service';
+import { ProviderBalanceMonitor } from './provider-balance.monitor';
 
 /**
  * Messaging engine (docs/MESAJLASMA.md): one SMS and one WhatsApp provider
@@ -17,7 +18,8 @@ import { MessagingService } from './messaging.service';
     { provide: SMS_PROVIDER, useExisting: MockSmsProvider },
     { provide: WHATSAPP_PROVIDER, useExisting: MockWhatsAppProvider },
     MessagingService,
+    ProviderBalanceMonitor,
   ],
-  exports: [SMS_PROVIDER, WHATSAPP_PROVIDER, MessagingService],
+  exports: [SMS_PROVIDER, WHATSAPP_PROVIDER, MessagingService, ProviderBalanceMonitor],
 })
 export class MessagingModule {}

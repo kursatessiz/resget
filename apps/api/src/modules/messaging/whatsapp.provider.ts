@@ -7,6 +7,7 @@ import type { SmsSendResult } from './sms.provider';
 export interface WhatsAppProvider {
   readonly code: string;
   send(toE164: string, text: string): Promise<SmsSendResult>;
+  balance?(): Promise<number | null>;
 }
 
 /** Development provider: accepts outside production and refuses in it, like the SMS mock. */
