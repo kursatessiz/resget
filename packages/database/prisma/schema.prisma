@@ -329,6 +329,9 @@ model Restaurant {
   /// Own host of the ordering page (docs/VITRIN.md); served only once DNS is verified and the plan allows it.
   customDomain           String?   @unique
   customDomainVerifiedAt DateTime?
+  /// Running total of customer ratings (docs/VITRIN.md), so the marketplace lists the average without a scan.
+  ratingCount            Int       @default(0)
+  ratingSum              Int       @default(0)
 
   /// Platform take rate on gross order value; 100 = 1 percent. Changed only by the super admin.
   commissionBps        Int          @default(100)
@@ -387,6 +390,7 @@ model Restaurant {
   loyaltyProgram       LoyaltyProgram?
   campaignSegments     CampaignSegmentPreset[]
   apiKeys              RestaurantApiKey[]
+  orderRatings         OrderRating[]
   loyaltyTransactions  LoyaltyTransaction[]
 
   @@index([serviceAreaId, isListed])
@@ -738,6 +742,22 @@ model RestaurantApiKey {
   @@map("restaurant_api_keys")
 }
 
+/// The customer's rating of a completed order (docs/VITRIN.md); one per order, given from the tracking page.
+model OrderRating {
+  id           String   @id @default(uuid())
+  orderId      String   @unique
+  restaurantId String
+  score        Int
+  comment      String?
+  createdAt    DateTime @default(now())
+
+  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, createdAt])
+  @@map("order_ratings")
+}
+
 model CampaignRecipient {
   id           String                  @id @default(uuid())
   campaignId   String
@@ -872,6 +892,7 @@ model Order {
   payments            Payment[]
   ledgerEntries       LedgerEntry[]
   loyaltyTransactions LoyaltyTransaction[]
+  rating              OrderRating?
   deliveryRequest     DeliveryRequest?
   deliveryStops       DeliveryStop[]
 

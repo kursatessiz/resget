@@ -24,11 +24,15 @@ Kimliksiz yazma uçları `PublicRateLimitGuard` ile istemci başına sınırlıd
 
 ## Henüz yok
 
-Adres geokodlama (koordinat olmadan kurye ağı teklifi alınamaz; kendi kurye sevkinde durak rotalanmaz), müşteri hesabına kayıtlı adresler (`customer_addresses`), kayıtlı kartla tek dokunuş ödeme, sipariş sonrası değerlendirme. Mobil uygulama Faz 1'dir.
+Adres geokodlama (koordinat olmadan kurye ağı teklifi alınamaz; kendi kurye sevkinde durak rotalanmaz), kayıtlı kartla tek dokunuş ödeme. Mobil uygulama Faz 1'dir.
 
 Pazaryeri listesi yalnızca `isActive`, `isListed` ve askıda olmayan (`listingSuspendedAt` boş) restoranları gösterir; vadesi geçmiş komisyon faturası listelemeyi askıya alır, sayfanın kendisi açık kalır (`docs/FATURALAMA.md`).
 
 Listelenme kararı konsolundur: restoran menüsü hazır olunca Ayarlar sayfasından talep eder, konsol onaylar (`docs/PLATFORM_YONETIMI.md`).
+
+## Değerlendirme
+
+Müşteri, tamamlanan siparişini (`DELIVERED` veya `PICKED_UP`) takip sayfasından bir kez puanlar: 1-5 puan ve isteğe bağlı yorum (`RateOrderSchema`, `packages/shared/src/ratings.ts`). Pencere tamamlanmadan sonra `RATING_WINDOW_DAYS` (7) gündür; takip anlık görüntüsü `canRate` ve varsa `rating` taşır. Uç: `POST /public/orders/:token/rating` (oran sınırlı; tamamlanmamış veya süresi geçmiş sipariş `RATING_NOT_ALLOWED`, ikinci deneme `RATING_EXISTS`). Kayıt `order_ratings` satırıdır ve restoranın `ratingSum` / `ratingCount` toplamını günceller; personel düzenleyemez veya silemez. Restoran puanları raporlar sayfasında (dönemin ortalaması, sayısı ve son 10 yorum) görür; pazaryeri listesinde restoranın ortalaması ve değerlendirme sayısı yazar. Değerlendirme yalnızca işletmeye gider, herkese açık yorum sayfası yoktur.
 
 ## Kendi alan adı (Pro)
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { OrderRatingDTO } from './ratings';
 import {
   DeliveryStopStatus,
   DeliveryTripStatus,
@@ -679,6 +680,9 @@ export interface OrderTrackingDTO {
     stopsAhead: number;
   } | null;
   destination: GeoPoint | null;
+  /** The customer's rating once given (docs/VITRIN.md); canRate says whether the page should still ask. */
+  rating: OrderRatingDTO | null;
+  canRate: boolean;
 }
 
 // -- Realtime events -----------------------------------------------------------------

@@ -18,6 +18,8 @@ Masadan, restoranın kendi sipariş sayfasından veya pazaryerinden sipariş ver
 - Temel plan en çok 30 gün görür (`BASIC_REPORT_MAX_DAYS`); daha uzun dönem Pro özelliği `analytics` ister (`PLAN_FEATURE_REQUIRED`).
 - `GET /restaurants/:id/reports/orders.csv?days` (`reports.view` + `analytics`): tamamlanan siparişler CSV olarak (tutarlar minör birim ve para birimi sütunu; formül karakteriyle başlayan hücreler etkisizleştirilir).
 
+Raporlar ayrıca dönemin müşteri değerlendirmelerini gösterir: ortalama puan, sayı ve son yorumlar (`docs/VITRIN.md`, "Değerlendirme").
+
 ## Kurye (`/panel/<slug>/kurye`, izin `courier.manage`)
 
 - `GET /restaurants/:id/courier/overview`: teslimat şekli ve ücret politikası (düzenleme Ayarlar sayfasında), bugünkü sefer / teslim / başarısız sayıları, kendi kuryeleri (`courier.deliver` izinli aktif üyelikler ve sahip; seferde mi), ülkede tanımlı kurye ağları ve seçili ağ, son 20 kurye talebi (`DeliveryRequest`: durum, teklif ve kesin ücret, sağlayıcı referansı).

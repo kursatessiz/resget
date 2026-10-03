@@ -1,7 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { QrScanOutcome } from '@resget/database';
-import { DeliveryFeePolicySchema, customerDeliveryFee, dispatchSettingsFrom, trackingUrl } from '@resget/shared';
+import {
+  DeliveryFeePolicySchema,
+  customerDeliveryFee,
+  dispatchSettingsFrom,
+  ratingSummary,
+  trackingUrl,
+} from '@resget/shared';
 import type {
   CreateOrderInput,
   MarketplaceAreaDTO,
@@ -137,11 +143,14 @@ export class StorefrontService {
         themePrimary: true,
         deliveryMode: true,
         branches: { where: { isActive: true }, take: 1, select: { city: true, district: true } },
+        ratingCount: true,
+        ratingSum: true,
       },
     });
     return {
       area: { countryCode: area.countryCode, city: area.city, district: area.district },
       restaurants: rows.map((r) => ({
+        rating: ratingSummary(r.ratingSum, r.ratingCount),
         slug: r.slug,
         name: r.name,
         logoUrl: r.logoUrl,

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { StorefrontLoyaltyDTO } from './loyalty';
+import type { RatingSummaryDTO } from './ratings';
 import type { DeliveryFeePolicy } from './courier';
 import { AddressSnapshotSchema, FulfillmentTypeValueSchema, OrderLineInputSchema } from './delivery';
 import type { FulfillmentTypeValue, OrderStatusValue } from './delivery';
@@ -134,6 +135,8 @@ export interface MarketplaceRestaurantDTO {
   district: string | null;
   delivery: boolean;
   pickup: boolean;
+  /** Customer ratings so far; null until the first one. */
+  rating: RatingSummaryDTO | null;
 }
 
 export interface MarketplaceDTO {

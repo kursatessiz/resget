@@ -131,6 +131,38 @@ export function ReportsPanel({
                 ))}
               </ul>
             </Card>
+            <Card title={t('reports.ratings')} aria-label={t('reports.ratings')}>
+              {data.ratings.count === 0 && <p className="ui-text-muted">{t('reports.ratings.empty')}</p>}
+              {data.ratings.count > 0 && (
+                <div className="flex flex-col gap-2">
+                  <p className="ui-heading">
+                    {t('reports.ratings.summary', {
+                      average: new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(
+                        data.ratings.average ?? 0,
+                      ),
+                      count: data.ratings.count,
+                    })}
+                  </p>
+                  <ul className="ui-divide">
+                    {data.ratings.recent.map((r) => (
+                      <li key={`${r.shortCode}-${r.createdAt}`} className="flex flex-col gap-1 py-2">
+                        <span className="ui-caption">
+                          {t('reports.ratings.line', {
+                            score: r.score,
+                            code: r.shortCode,
+                            date: new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(
+                              new Date(r.createdAt),
+                            ),
+                          })}
+                        </span>
+                        {r.comment && <span>{r.comment}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </Card>
+
             <Card title={t('reports.topItems')}>
               <ol className="flex flex-col gap-1">
                 {data.topItems.map((item) => (

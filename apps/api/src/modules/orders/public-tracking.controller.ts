@@ -1,9 +1,11 @@
-import { Controller, Get, Headers, Sse } from '@nestjs/common';
+import { Controller, Get, Headers, HttpCode, Post, Sse, UseGuards } from '@nestjs/common';
 import type { MessageEvent } from '@nestjs/common';
 import type { Observable } from 'rxjs';
-import { TrackingTokenSchema } from '@resget/shared';
+import { RateOrderSchema, TrackingTokenSchema } from '@resget/shared';
 import type { OrderTrackingDTO } from '@resget/shared';
-import { ZodParam } from '../../common/zod-body.pipe';
+import type { z } from 'zod';
+import { ZodBody, ZodParam } from '../../common/zod-body.pipe';
+import { PublicRateLimitGuard, RateLimit } from '../storefront/public-rate-limit.guard';
 import { RealtimeService, orderTopic } from '../realtime/realtime.service';
 import { OrdersService } from './orders.service';
 
@@ -22,6 +24,18 @@ export class PublicTrackingController {
   @Get(':token')
   snapshot(@ZodParam('token', TrackingTokenSchema) token: string): Promise<OrderTrackingDTO> {
     return this.orders.trackingByToken(token);
+  }
+
+  /** The customer rates a completed order once (docs/VITRIN.md); rate limited like the other anonymous writes. */
+  @Post(':token/rating')
+  @HttpCode(201)
+  @UseGuards(PublicRateLimitGuard)
+  @RateLimit({ bucket: 'funnel', limit: 20, windowSeconds: 600 })
+  rate(
+    @ZodParam('token', TrackingTokenSchema) token: string,
+    @ZodBody(RateOrderSchema) body: z.infer<typeof RateOrderSchema>,
+  ): Promise<OrderTrackingDTO> {
+    return this.orders.rateByToken(token, body);
   }
 
   /** SSE: the current state first, then every change (status, courier position, ETA). */

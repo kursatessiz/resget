@@ -39,7 +39,7 @@ export class ReportsService {
     });
     if (!restaurant) throw notFound('RESTAURANT_NOT_FOUND', 'Restaurant not found');
     const { from, to } = this.range(days);
-    const [completed, cancelledOrders, topItems] = await Promise.all([
+    const [completed, cancelledOrders, topItems, ratingAgg, recentRatings] = await Promise.all([
       this.prisma.order.findMany({
         where: { restaurantId, status: { in: [...COMPLETED] }, completedAt: { gte: from, lt: to } },
         select: completedSelect,
@@ -54,6 +54,17 @@ export class ReportsService {
         _sum: { quantity: true, lineTotalMinor: true },
         orderBy: { _sum: { quantity: 'desc' } },
         take: 10,
+      }),
+      this.prisma.orderRating.aggregate({
+        where: { restaurantId, createdAt: { gte: from, lt: to } },
+        _avg: { score: true },
+        _count: { _all: true },
+      }),
+      this.prisma.orderRating.findMany({
+        where: { restaurantId, createdAt: { gte: from, lt: to } },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        select: { orderId: true, score: true, comment: true, createdAt: true },
       }),
     ]);
     const grossMinor = completed.reduce((n, o) => n + o.chargedToCustomerMinor, 0);
@@ -76,6 +87,16 @@ export class ReportsService {
         grossMinor: row._sum.lineTotalMinor ?? 0,
       })),
       daily: this.daily(completed, from, days),
+      ratings: {
+        average: ratingAgg._avg.score === null ? null : Math.round(ratingAgg._avg.score * 10) / 10,
+        count: ratingAgg._count._all,
+        recent: recentRatings.map((r) => ({
+          shortCode: orderShortCode(r.orderId),
+          score: r.score,
+          comment: r.comment,
+          createdAt: r.createdAt.toISOString(),
+        })),
+      },
       analytics,
     };
   }

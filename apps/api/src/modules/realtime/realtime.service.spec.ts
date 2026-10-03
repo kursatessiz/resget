@@ -21,6 +21,8 @@ function tracking(status: string): RealtimeEvent {
     history: [],
     courier: null,
     destination: null,
+    rating: null,
+    canRate: false,
   };
   return { type: 'tracking.updated', tracking: dto };
 }
