@@ -19,6 +19,8 @@ import type {
   ServiceAreaDTO,
   UpdatePlanInput,
   UpsertCreditPackageInput,
+  AreaCandidateDTO,
+  UpdateServiceAreaInput,
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { MessagingService } from '../messaging/messaging.service';
@@ -254,22 +256,89 @@ export class AdminService {
       orderBy: [{ countryCode: 'asc' }, { city: 'asc' }, { district: 'asc' }],
       include: { _count: { select: { restaurants: true } } },
     });
-    const listed = await this.prisma.restaurant.groupBy({
-      by: ['serviceAreaId'],
-      where: { isListed: true, serviceAreaId: { not: null } },
-      _count: { _all: true },
-    });
+    const [listed, ready, density, interest] = await Promise.all([
+      this.prisma.restaurant.groupBy({
+        by: ['serviceAreaId'],
+        where: { isListed: true, serviceAreaId: { not: null } },
+        _count: { _all: true },
+      }),
+      this.prisma.restaurant.groupBy({
+        by: ['serviceAreaId'],
+        where: {
+          isActive: true,
+          serviceAreaId: { not: null },
+          menuItems: { some: { isAvailable: true } },
+          branches: { some: { isActive: true } },
+        },
+        _count: { _all: true },
+      }),
+      this.density(30),
+      this.prisma.marketplaceInterest.findMany({
+        select: { countryCode: true, city: true, district: true, count: true },
+      }),
+    ]);
     const listedBy = new Map(listed.map((l) => [l.serviceAreaId, l._count._all]));
-    return rows.map((r) => ({
-      id: r.id,
-      countryCode: r.countryCode,
-      city: r.city,
-      district: r.district,
-      isLaunched: r.isLaunched,
-      launchedAt: r.launchedAt ? r.launchedAt.toISOString() : null,
-      restaurants: r._count.restaurants,
-      listedRestaurants: listedBy.get(r.id) ?? 0,
-    }));
+    const readyBy = new Map(ready.map((l) => [l.serviceAreaId, l._count._all]));
+    const oardBy = new Map(density.map((d) => [key(d.countryCode, d.city, d.district), d.ordersPerRestaurantPerDay]));
+    const interestBy = new Map(interest.map((i) => [key(i.countryCode, i.city, i.district), i.count]));
+    return rows.map((r) => {
+      const k = key(r.countryCode, r.city, r.district);
+      const readyRestaurants = readyBy.get(r.id) ?? 0;
+      return {
+        id: r.id,
+        countryCode: r.countryCode,
+        city: r.city,
+        district: r.district,
+        isLaunched: r.isLaunched,
+        launchedAt: r.launchedAt ? r.launchedAt.toISOString() : null,
+        restaurants: r._count.restaurants,
+        listedRestaurants: listedBy.get(r.id) ?? 0,
+        readyRestaurants,
+        launchTarget: r.launchTarget,
+        ordersPerRestaurantPerDay: oardBy.get(k) ?? 0,
+        interest: interestBy.get(k) ?? 0,
+        readyToLaunch: readyRestaurants >= r.launchTarget,
+      };
+    });
+  }
+
+  /** Districts with restaurants or visitor interest but no service area: where the next launch is picked from. */
+  async listAreaCandidates(): Promise<AreaCandidateDTO[]> {
+    const [areas, density, interest] = await Promise.all([
+      this.prisma.serviceArea.findMany({ select: { countryCode: true, city: true, district: true } }),
+      this.density(30),
+      this.prisma.marketplaceInterest.findMany({
+        select: { countryCode: true, city: true, district: true, count: true },
+      }),
+    ]);
+    const known = new Set(areas.map((a) => key(a.countryCode, a.city, a.district)));
+    const candidates = new Map<string, AreaCandidateDTO>();
+    for (const d of density) {
+      const k = key(d.countryCode, d.city, d.district);
+      if (known.has(k)) continue;
+      candidates.set(k, {
+        countryCode: d.countryCode,
+        city: d.city,
+        district: d.district,
+        restaurants: d.restaurants,
+        interest: 0,
+      });
+    }
+    for (const i of interest) {
+      const k = key(i.countryCode, i.city, i.district);
+      if (known.has(k)) continue;
+      const existing = candidates.get(k);
+      if (existing) existing.interest += i.count;
+      else
+        candidates.set(k, {
+          countryCode: i.countryCode,
+          city: i.city,
+          district: i.district,
+          restaurants: 0,
+          interest: i.count,
+        });
+    }
+    return [...candidates.values()].sort((a, b) => b.restaurants + b.interest - (a.restaurants + a.interest));
   }
 
   async createServiceArea(actorUserId: string, input: CreateServiceAreaInput): Promise<ServiceAreaDTO> {
@@ -299,18 +368,21 @@ export class AdminService {
     }
   }
 
-  async setServiceAreaLaunch(actorUserId: string, id: string, isLaunched: boolean): Promise<ServiceAreaDTO> {
-    const area = await this.prisma.serviceArea.findUnique({ where: { id }, select: { id: true, launchedAt: true } });
-    if (!area) throw notFound('NOT_FOUND', 'Service area not found');
-    await this.prisma.$transaction([
-      this.prisma.serviceArea.update({
-        where: { id },
-        data: { isLaunched, launchedAt: isLaunched ? (area.launchedAt ?? new Date()) : area.launchedAt },
-      }),
-      this.audit(actorUserId, null, isLaunched ? 'service_area.launched' : 'service_area.closed', 'service_area', id, {
-        isLaunched,
-      }),
-    ]);
+  async updateServiceArea(actorUserId: string, id: string, input: UpdateServiceAreaInput): Promise<ServiceAreaDTO> {
+    const current = await this.prisma.serviceArea.findUnique({
+      where: { id },
+      select: { isLaunched: true, launchedAt: true },
+    });
+    if (!current) throw notFound('NOT_FOUND', 'Service area not found');
+    const data: Prisma.ServiceAreaUpdateInput = {};
+    if (input.isLaunched !== undefined) {
+      data.isLaunched = input.isLaunched;
+      // The first launch date stays: a district that closes and reopens keeps its history.
+      if (input.isLaunched && !current.launchedAt) data.launchedAt = new Date();
+    }
+    if (input.launchTarget !== undefined) data.launchTarget = input.launchTarget;
+    await this.prisma.serviceArea.update({ where: { id }, data });
+    await this.audit(actorUserId, null, 'service_area.updated', 'service_area', id, input);
     return (await this.listServiceAreas()).find((a) => a.id === id)!;
   }
 
