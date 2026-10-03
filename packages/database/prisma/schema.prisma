@@ -143,6 +143,14 @@ enum LedgerEntryType {
   RESTAURANT_PAYABLE
 }
 
+enum LoyaltyTransactionType {
+  EARN
+  WELCOME
+  REDEEM
+  REVERSAL
+  ADJUSTMENT
+}
+
 enum PayoutStatus {
   SCHEDULED
   SENT
@@ -372,6 +380,8 @@ model Restaurant {
   featureFlags         FeatureFlag[]
   auditLogs            AuditLog[]
   campaigns            Campaign[]
+  loyaltyProgram       LoyaltyProgram?
+  loyaltyTransactions  LoyaltyTransaction[]
 
   @@index([serviceAreaId, isListed])
   @@map("restaurants")
@@ -636,12 +646,17 @@ model RestaurantCustomer {
   marketingOptOutAt  DateTime?
   /// Unguessable handle of the one-click opt-out link in every campaign message.
   marketingToken     String?      @unique
+  /// Loyalty balance (docs/SADAKAT.md); every change is a loyalty_transactions row.
+  loyaltyPoints      Int          @default(0)
+  /// First time the customer earned points here; the welcome bonus is paid once, at that moment.
+  loyaltyJoinedAt    DateTime?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
-  restaurant         Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  campaignRecipients CampaignRecipient[]
+  restaurant          Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignRecipients  CampaignRecipient[]
+  loyaltyTransactions LoyaltyTransaction[]
 
   @@unique([restaurantId, userId])
   @@index([restaurantId, lastOrderAt])
@@ -703,6 +718,50 @@ model CampaignRecipient {
 // Orders and money (docs/MUTABAKAT.md)
 // ---------------------------------------------------------------------------
 
+/// Loyalty rules of one restaurant (docs/SADAKAT.md); a PRO feature, the row stays when the plan lapses.
+model LoyaltyProgram {
+  id               String   @id @default(uuid())
+  restaurantId     String   @unique
+  enabled          Boolean  @default(false)
+  earnPoints       Int      @default(1)
+  earnStepMinor    Int
+  redeemPoints     Int      @default(100)
+  redeemValueMinor Int
+  minOrderMinor    Int      @default(0)
+  maxDiscountBps   Int      @default(5000)
+  welcomePoints    Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("loyalty_programs")
+}
+
+/// Append-only point movements; the customer's loyaltyPoints is the running balance.
+model LoyaltyTransaction {
+  id              String                 @id @default(uuid())
+  restaurantId    String
+  customerId      String
+  orderId         String?
+  type            LoyaltyTransactionType
+  /// Signed: positive earns, negative spends.
+  points          Int
+  balanceAfter    Int
+  memo            String?
+  createdByUserId String?
+  createdAt       DateTime               @default(now())
+
+  restaurant Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  customer   RestaurantCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order      Order?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([customerId, createdAt])
+  @@index([restaurantId, createdAt])
+  @@index([orderId, type])
+  @@map("loyalty_transactions")
+}
+
 model Order {
   id             String          @id @default(uuid())
   restaurantId   String
@@ -762,16 +821,17 @@ model Order {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  restaurant      Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  branch          Branch               @relation(fields: [branchId], references: [id])
-  customer        User?                @relation(fields: [customerUserId], references: [id], onDelete: SetNull)
-  table           DiningTable?         @relation(fields: [tableId], references: [id], onDelete: SetNull)
-  items           OrderItem[]
-  statusHistory   OrderStatusHistory[]
-  payments        Payment[]
-  ledgerEntries   LedgerEntry[]
-  deliveryRequest DeliveryRequest?
-  deliveryStops   DeliveryStop[]
+  restaurant          Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  branch              Branch               @relation(fields: [branchId], references: [id])
+  customer            User?                @relation(fields: [customerUserId], references: [id], onDelete: SetNull)
+  table               DiningTable?         @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  items               OrderItem[]
+  statusHistory       OrderStatusHistory[]
+  payments            Payment[]
+  ledgerEntries       LedgerEntry[]
+  loyaltyTransactions LoyaltyTransaction[]
+  deliveryRequest     DeliveryRequest?
+  deliveryStops       DeliveryStop[]
 
   @@index([restaurantId, placedAt])
   @@index([restaurantId, status])

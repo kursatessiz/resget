@@ -23,6 +23,8 @@ export const enPermissions: Record<keyof typeof trPermissions, string> = {
   'permissions.messaging.manage': 'Manage notification templates',
   'permissions.campaigns.view': 'View campaigns',
   'permissions.campaigns.manage': 'Create and send campaigns',
+  'permissions.loyalty.view': 'View the loyalty program',
+  'permissions.loyalty.manage': 'Manage loyalty rules and points',
   'permissions.reports.view': 'View reports',
   'permissions.dispatch.view': 'View the dispatch board and courier positions',
   'permissions.dispatch.manage': 'Create trips, assign couriers and set the stop order',

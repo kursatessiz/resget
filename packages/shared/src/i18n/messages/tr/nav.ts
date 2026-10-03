@@ -8,6 +8,7 @@ export const trNav = {
   'nav.finance': 'Finans',
   'nav.payouts': 'Hakedişler',
   'nav.campaigns': 'Kampanyalar',
+  'nav.loyalty': 'Sadakat',
   'nav.reports': 'Raporlar',
   'nav.courier': 'Kurye',
   'nav.dispatch': 'Sevk',

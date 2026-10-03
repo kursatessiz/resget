@@ -22,6 +22,8 @@ export const trPermissions = {
   'permissions.messaging.manage': 'Bildirim şablonlarını yönetme',
   'permissions.campaigns.view': 'Kampanyaları görüntüleme',
   'permissions.campaigns.manage': 'Kampanya hazırlama ve gönderme',
+  'permissions.loyalty.view': 'Sadakat programını görüntüleme',
+  'permissions.loyalty.manage': 'Sadakat kurallarını ve puanları yönetme',
   'permissions.reports.view': 'Raporları görüntüleme',
   'permissions.courier.manage': 'Kurye çağırma ve iptal etme',
   'permissions.dispatch.view': 'Sevk panosunu ve kurye konumlarını görüntüleme',

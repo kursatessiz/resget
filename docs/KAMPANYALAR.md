@@ -40,4 +40,4 @@ Mesaj metni restoranın yazdığıdır; şablon `messaging.template.campaign.bod
 ## Kalan
 
 - Gerçek İYS adaptörü ve İYS kayıt zorunluluğu belgesi; GDPR bölgeleri için eşdeğer sicil yok, yalnızca izin ve vazgeçme uygulanır.
-- Sadakat programı ve segment kaydetme (B2'nin kalan parçaları), e-posta kanalı.
+- Segment kaydetme (B2'nin kalan parçası), e-posta kanalı. Sadakat programı `docs/SADAKAT.md` ile geldi.

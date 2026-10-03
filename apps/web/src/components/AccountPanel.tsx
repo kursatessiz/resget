@@ -195,6 +195,31 @@ export function AccountPanel({ locale }: { locale: string }) {
             </div>
           </Card>
 
+          <Card title={t('loyalty.account.title')}>
+            {data.loyalty.length === 0 && <p className="ui-text-muted">{t('loyalty.account.empty')}</p>}
+            {data.loyalty.length > 0 && (
+              <ul className="flex flex-col gap-2">
+                {data.loyalty.map((b) => (
+                  <li key={b.restaurant.slug} className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="flex flex-col">
+                      <span>{t('loyalty.account.line', { restaurant: b.restaurant.name, points: b.points })}</span>
+                      {b.valueMinor > 0 && (
+                        <span className="ui-caption">
+                          {t('loyalty.account.value', {
+                            amount: formatMoney({ amountMinor: b.valueMinor, currency: b.currency }, locale),
+                          })}
+                        </span>
+                      )}
+                    </span>
+                    <LinkButton href={`/${b.restaurant.slug}`} variant="outline" tone="muted">
+                      {t('loyalty.account.order')}
+                    </LinkButton>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
           <Card title={t('account.orders.title')}>
             {data.orders.length === 0 && <p className="ui-text-muted">{t('account.orders.empty')}</p>}
             {data.orders.length > 0 && (

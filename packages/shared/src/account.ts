@@ -3,6 +3,7 @@ import { GeoPointSchema } from './courier';
 import type { GeoPoint } from './courier';
 import type { FulfillmentTypeValue, OrderStatusValue } from './delivery';
 import { LocaleCodeSchema } from './i18n/locales';
+import type { LoyaltyBalanceDTO } from './loyalty';
 
 /**
  * The customer's own account (docs/VITRIN.md, "Musteri hesabi"): saved
@@ -69,6 +70,8 @@ export interface CustomerAccountDTO {
   user: { fullName: string; phone: string; locale: string | null };
   addresses: CustomerAddressDTO[];
   orders: CustomerOrderDTO[];
+  /** Loyalty balances at the restaurants that run a program (docs/SADAKAT.md). */
+  loyalty: LoyaltyBalanceDTO[];
 }
 
 /** What the storefront knows about a signed-in visitor: enough to prefill, never more. */
@@ -76,4 +79,6 @@ export interface StorefrontViewerDTO {
   fullName: string;
   phone: string;
   addresses: CustomerAddressDTO[];
+  /** Balance at the restaurant the storefront asked about; null when none was asked or there is no program. */
+  loyaltyPoints: number | null;
 }

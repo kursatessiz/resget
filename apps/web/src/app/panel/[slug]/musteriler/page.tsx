@@ -12,6 +12,7 @@ export default async function CustomersPage({ params }: { params: Promise<{ slug
       locale={locale}
       canManage={can('customers.manage')}
       canSeeOrders={can('orders.view')}
+      canManageLoyalty={can('loyalty.manage')}
       isPro={membership.effectivePlan === 'PRO'}
     />
   );

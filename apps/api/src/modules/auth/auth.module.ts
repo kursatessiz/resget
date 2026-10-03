@@ -8,6 +8,7 @@ import { OtpService } from './otp.service';
 import { InviteAcceptanceService } from './invite-acceptance.service';
 import { JwtStrategy } from './jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
 import { RestaurantTenantGuard } from './guards/restaurant-tenant.guard';
 import { PermissionGuard } from './guards/permission.guard';
 import { SuperAdminGuard } from './guards/super-admin.guard';
@@ -27,10 +28,18 @@ import { SuperAdminGuard } from './guards/super-admin.guard';
     InviteAcceptanceService,
     JwtStrategy,
     JwtAuthGuard,
+    OptionalJwtAuthGuard,
     RestaurantTenantGuard,
     PermissionGuard,
     SuperAdminGuard,
   ],
-  exports: [JwtAuthGuard, RestaurantTenantGuard, PermissionGuard, SuperAdminGuard, InviteAcceptanceService],
+  exports: [
+    JwtAuthGuard,
+    OptionalJwtAuthGuard,
+    RestaurantTenantGuard,
+    PermissionGuard,
+    SuperAdminGuard,
+    InviteAcceptanceService,
+  ],
 })
 export class AuthModule {}

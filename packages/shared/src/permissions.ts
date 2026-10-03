@@ -37,6 +37,8 @@ export const PERMISSION_KEYS = [
 
   'campaigns.view',
   'campaigns.manage',
+  'loyalty.view',
+  'loyalty.manage',
   'reports.view',
   'courier.manage',
   'dispatch.view',
@@ -82,6 +84,8 @@ export const DEFAULT_ROLE_TEMPLATES = [
       'messaging.manage',
       'campaigns.view',
       'campaigns.manage',
+      'loyalty.view',
+      'loyalty.manage',
       'reports.view',
       'courier.manage',
       'dispatch.view',

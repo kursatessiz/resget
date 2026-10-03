@@ -31,7 +31,7 @@ export default async function TableMenuPage({ params }: { params: Promise<{ toke
   const storefront = (await res.json()) as StorefrontDTO;
   const { t, locale } = await getT();
   const me = await getMe().catch(() => null);
-  const viewerRes = me ? await apiFetch('/me/viewer') : null;
+  const viewerRes = me ? await apiFetch(`/me/viewer?restaurantId=${storefront.restaurant.id}`) : null;
   const viewer = viewerRes?.ok ? ((await viewerRes.json()) as StorefrontViewerDTO) : null;
   const mealCards = [
     ...new Set([...storefront.payment.mealCardsOnline, ...storefront.payment.mealCardsOnDelivery].map((c) => c.name)),

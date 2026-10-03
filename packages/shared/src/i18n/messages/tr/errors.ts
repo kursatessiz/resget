@@ -53,6 +53,12 @@ export const trErrors = {
   'errors.LISTING_NOT_READY': 'Listelenme için menüde satışta en az bir ürün ve aktif bir şube gerekir.',
   'errors.ALREADY_LISTED': 'İşletme zaten pazaryerinde listeleniyor.',
   'errors.CAMPAIGN_NOT_FOUND': 'Kampanya bulunamadı.',
+  'errors.LOYALTY_NOT_ACTIVE': 'Bu restoranda sadakat programı etkin değil.',
+  'errors.LOYALTY_NOT_REDEEMABLE': 'Bu siparişte puan kullanılamıyor: puanınız veya sipariş tutarı yeterli değil.',
+  'errors.LOYALTY_SIGN_IN_REQUIRED': 'Puan kullanmak için giriş yapın.',
+  'errors.LOYALTY_PHONE_MISMATCH':
+    'Puanlar yalnızca giriş yaptığınız telefon numarasıyla verilen siparişte kullanılabilir.',
+  'errors.LOYALTY_INSUFFICIENT_POINTS': 'Müşterinin bakiyesi bu kadar puan düşmeye yetmiyor.',
   'errors.CAMPAIGN_STATE_INVALID': 'Kampanya bu aşamada bu işlemi kabul etmiyor.',
   'errors.CUSTOMER_NOT_FOUND': 'Müşteri bulunamadı.',
   'errors.COURIER_PROVIDER_NOT_FOUND': 'Kurye ağı bulunamadı.',

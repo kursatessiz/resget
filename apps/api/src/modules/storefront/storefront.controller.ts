@@ -10,6 +10,9 @@ import {
 } from '@resget/shared';
 import type { MarketplaceAreaDTO, MarketplaceDTO, PublicOrderResultDTO, StorefrontDTO } from '@resget/shared';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/zod-body.pipe';
+import { OptionalUser } from '../auth/decorators/current-user.decorator';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import type { AuthUser } from '../auth/tenant-context';
 import { PublicRateLimitGuard, RateLimit } from './public-rate-limit.guard';
 import { StorefrontService } from './storefront.service';
 
@@ -44,15 +47,18 @@ export class StorefrontController {
     await this.storefront.started(token, sessionOf(session));
   }
 
+  /** A signed-in visitor may spend loyalty points, so the guard is optional: anonymous orders stay anonymous. */
   @Post('qr/:token/orders')
   @HttpCode(201)
+  @UseGuards(OptionalJwtAuthGuard)
   @RateLimit({ bucket: 'order', limit: 10, windowSeconds: 600 })
   orderByToken(
     @ZodParam('token', TableQrTokenSchema) token: string,
     @ZodBody(PublicOrderSchema) body: z.infer<typeof PublicOrderSchema>,
+    @OptionalUser() viewer: AuthUser | null,
     @Headers('x-qr-session') session?: string,
   ): Promise<PublicOrderResultDTO> {
-    return this.storefront.placeByTableToken(token, body, sessionOf(session));
+    return this.storefront.placeByTableToken(token, body, sessionOf(session), viewer);
   }
 
   /** The restaurant's own ordering page at /<slug>. */
@@ -63,12 +69,14 @@ export class StorefrontController {
 
   @Post('restaurants/:slug/orders')
   @HttpCode(201)
+  @UseGuards(OptionalJwtAuthGuard)
   @RateLimit({ bucket: 'order', limit: 10, windowSeconds: 600 })
   orderBySlug(
     @ZodParam('slug', SlugSchema) slug: string,
     @ZodBody(PublicOrderSchema) body: z.infer<typeof PublicOrderSchema>,
+    @OptionalUser() viewer: AuthUser | null,
   ): Promise<PublicOrderResultDTO> {
-    return this.storefront.placeBySlug(slug, body);
+    return this.storefront.placeBySlug(slug, body, viewer);
   }
 
   @Get('marketplace/areas')

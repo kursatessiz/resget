@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { formatMoney } from '@resget/shared';
-import type { CustomerDTO, CustomerPageDTO, OrderSummaryDTO } from '@resget/shared';
+import type { CustomerDTO, CustomerLoyaltyDTO, CustomerPageDTO, OrderSummaryDTO } from '@resget/shared';
 import { Badge, Button, Card, SelectField, TextField } from '@/components/ui';
 import { ApiError, bffJson } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
@@ -15,12 +15,15 @@ export function CustomersList({
   locale,
   canManage,
   canSeeOrders,
+  canManageLoyalty = false,
   isPro,
 }: {
   restaurantId: string;
   locale: string;
   canManage: boolean;
   canSeeOrders: boolean;
+  /** `loyalty.manage`: shows the point adjustment on the card (docs/SADAKAT.md). */
+  canManageLoyalty?: boolean;
   isPro: boolean;
 }) {
   const t = useT(locale);
@@ -31,6 +34,8 @@ export function CustomersList({
   const [open, setOpen] = useState<string | null>(null);
   const [orders, setOrders] = useState<Record<string, OrderSummaryDTO[]>>({});
   const [drafts, setDrafts] = useState<Record<string, { tags: string; note: string }>>({});
+  const [adjust, setAdjust] = useState<Record<string, { points: string; memo: string }>>({});
+  const [loyalty, setLoyalty] = useState<Record<string, CustomerLoyaltyDTO>>({});
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -72,6 +77,27 @@ export function CustomersList({
       } catch (err) {
         fail(err);
       }
+    }
+  };
+
+  const adjustPoints = async (customer: CustomerDTO) => {
+    const draft = adjust[customer.id];
+    if (!draft) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await bffJson<CustomerLoyaltyDTO>(
+        `restaurants/${restaurantId}/loyalty/customers/${customer.id}/adjust`,
+        { method: 'POST', body: JSON.stringify({ points: Number(draft.points), memo: draft.memo.trim() }) },
+      );
+      setLoyalty((l) => ({ ...l, [customer.id]: result }));
+      setAdjust((d) => ({ ...d, [customer.id]: { points: '', memo: '' } }));
+      setNotice(t('loyalty.customer.adjusted'));
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -171,7 +197,8 @@ export function CustomersList({
                   {t('customers.orders', { count: customer.orderCount })}.{' '}
                   {t('customers.spend', { amount: money(customer.lifetimeGrossMinor, customer.currency) })}.{' '}
                   {customer.lastOrderAt && `${t('customers.lastOrder', { date: day(customer.lastOrderAt) })}. `}
-                  {t('customers.firstChannel', { channel: t(`orders.channel.${customer.firstChannel}`) })}
+                  {t('customers.firstChannel', { channel: t(`orders.channel.${customer.firstChannel}`) })}.{' '}
+                  {t('loyalty.customer.points', { points: loyalty[customer.id]?.points ?? customer.loyaltyPoints })}
                 </p>
                 {open === customer.id && (
                   <div className="flex flex-col gap-3">
@@ -204,6 +231,54 @@ export function CustomersList({
                             {t('customers.save')}
                           </Button>
                           {!isPro && <span className="ui-caption">{t('customers.proOnly')}</span>}
+                        </div>
+                      </div>
+                    )}
+                    {canManageLoyalty && (
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <TextField
+                          label={t('loyalty.customer.adjustPoints')}
+                          type="number"
+                          inputMode="numeric"
+                          value={adjust[customer.id]?.points ?? ''}
+                          disabled={!isPro}
+                          onChange={(e) =>
+                            setAdjust((d) => ({
+                              ...d,
+                              [customer.id]: {
+                                ...(d[customer.id] ?? { points: '', memo: '' }),
+                                points: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <TextField
+                          label={t('loyalty.customer.adjustMemo')}
+                          value={adjust[customer.id]?.memo ?? ''}
+                          maxLength={200}
+                          disabled={!isPro}
+                          onChange={(e) =>
+                            setAdjust((d) => ({
+                              ...d,
+                              [customer.id]: { ...(d[customer.id] ?? { points: '', memo: '' }), memo: e.target.value },
+                            }))
+                          }
+                        />
+                        <div className="flex items-end">
+                          <Button
+                            variant="outline"
+                            tone="muted"
+                            onClick={() => adjustPoints(customer)}
+                            disabled={
+                              busy ||
+                              !isPro ||
+                              !Number.isInteger(Number(adjust[customer.id]?.points)) ||
+                              Number(adjust[customer.id]?.points) === 0 ||
+                              !(adjust[customer.id]?.memo ?? '').trim()
+                            }
+                          >
+                            {t('loyalty.customer.adjust')}
+                          </Button>
                         </div>
                       </div>
                     )}

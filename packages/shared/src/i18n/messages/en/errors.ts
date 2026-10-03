@@ -53,6 +53,12 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.LISTING_NOT_READY': 'Listing needs at least one menu item on sale and an active branch.',
   'errors.ALREADY_LISTED': 'The restaurant is already listed in the marketplace.',
   'errors.CAMPAIGN_NOT_FOUND': 'Campaign not found.',
+  'errors.LOYALTY_NOT_ACTIVE': 'This restaurant has no active loyalty program.',
+  'errors.LOYALTY_NOT_REDEEMABLE': 'Points cannot be used on this order: the balance or the order total is too low.',
+  'errors.LOYALTY_SIGN_IN_REQUIRED': 'Sign in to use points.',
+  'errors.LOYALTY_PHONE_MISMATCH':
+    'Points can only be used on an order placed with the phone number you signed in with.',
+  'errors.LOYALTY_INSUFFICIENT_POINTS': 'The customer balance does not cover that deduction.',
   'errors.CAMPAIGN_STATE_INVALID': 'The campaign does not accept that action in its current state.',
   'errors.CUSTOMER_NOT_FOUND': 'Customer not found.',
   'errors.COURIER_PROVIDER_NOT_FOUND': 'Courier network not found.',

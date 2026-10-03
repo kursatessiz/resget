@@ -12,6 +12,7 @@ import type {
   UpdateProfileInput,
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 import { notFound } from '../../common/api-error';
 
 const addressSelect = Prisma.validator<Prisma.CustomerAddressSelect>()({
@@ -46,27 +47,30 @@ export class AccountService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly loyalty: LoyaltyService,
   ) {}
 
   async account(userId: string): Promise<CustomerAccountDTO> {
-    const [user, addresses, orders] = await Promise.all([
+    const [user, addresses, orders, loyalty] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({
         where: { id: userId },
         select: { fullName: true, phone: true, locale: true },
       }),
       this.addresses(userId),
       this.orders(userId),
+      this.loyalty.balancesOf(userId),
     ]);
-    return { user, addresses, orders };
+    return { user, addresses, orders, loyalty };
   }
 
   /** What the storefront prefills for a signed-in visitor. */
-  async viewer(userId: string): Promise<StorefrontViewerDTO> {
-    const [user, addresses] = await Promise.all([
+  async viewer(userId: string, restaurantId: string | null = null): Promise<StorefrontViewerDTO> {
+    const [user, addresses, loyaltyPoints] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { fullName: true, phone: true } }),
       this.addresses(userId),
+      restaurantId ? this.loyalty.balanceOf(restaurantId, userId) : Promise.resolve(null),
     ]);
-    return { fullName: user.fullName, phone: user.phone, addresses };
+    return { fullName: user.fullName, phone: user.phone, addresses, loyaltyPoints };
   }
 
   async updateProfile(userId: string, input: UpdateProfileInput): Promise<CustomerAccountDTO> {

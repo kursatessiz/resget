@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { customerDeliveryFee, formatMoney } from '@resget/shared';
+import { customerDeliveryFee, pointsEarnedFor, redeemableFor, formatMoney } from '@resget/shared';
 import type {
   CustomerAddressDTO,
   StorefrontViewerDTO,
@@ -65,6 +65,7 @@ export function Storefront({
   const [saveLabel, setSaveLabel] = useState('');
   const [note, setNote] = useState('');
   const [marketingOptIn, setMarketingOptIn] = useState(false);
+  const [usePoints, setUsePoints] = useState(false);
   const [startedSent, setStartedSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,6 +112,13 @@ export function Storefront({
     fulfillment === 'DELIVERY' && !ordering.quotedDelivery && ordering.deliveryFeePolicy
       ? customerDeliveryFee(0, subtotal, ordering.deliveryFeePolicy)
       : 0;
+  // Loyalty (docs/SADAKAT.md): the preview mirrors the API's arithmetic; the API decides the final figures.
+  const loyalty = storefront.loyalty;
+  const points = viewer?.loyaltyPoints ?? null;
+  const redemption =
+    loyalty && points !== null ? redeemableFor(loyalty, points, subtotal) : { points: 0, discountMinor: 0 };
+  const pointsDiscount = usePoints && redemption.points > 0 ? redemption.discountMinor : 0;
+  const pointsToEarn = loyalty ? pointsEarnedFor(loyalty, subtotal - pointsDiscount) : 0;
 
   const noteStarted = () => {
     if (startedSent || source.kind !== 'qr') return;
@@ -192,6 +200,7 @@ export function Storefront({
         items,
         ...(contact ? { customer: contact } : {}),
         ...(contact && marketingOptIn ? { marketingOptIn: true } : {}),
+        ...(pointsDiscount > 0 ? { useLoyaltyPoints: true } : {}),
         ...(fulfillment === 'DELIVERY'
           ? {
               address: {
@@ -376,11 +385,48 @@ export function Storefront({
                 </dd>
               </div>
             )}
+            {pointsDiscount > 0 && (
+              <div className="flex justify-between">
+                <dt className="ui-text-muted">{t('loyalty.shop.discount')}</dt>
+                <dd>-{money(pointsDiscount)}</dd>
+              </div>
+            )}
             <div className="flex justify-between">
               <dt className="ui-heading">{t('shop.cart.total')}</dt>
-              <dd className="ui-price">{money(subtotal + previewFee)}</dd>
+              <dd className="ui-price">{money(subtotal + previewFee - pointsDiscount)}</dd>
             </div>
           </dl>
+        )}
+        {cart.length > 0 && loyalty && (
+          <div className="flex flex-col gap-2" data-loyalty>
+            {points === null && <p className="ui-caption">{t('loyalty.shop.signInHint')}</p>}
+            {points !== null && <p className="ui-caption">{t('loyalty.shop.balance', { points })}</p>}
+            {points !== null && redemption.points > 0 && (
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="pui-checkbox"
+                  checked={usePoints}
+                  onChange={(e) => setUsePoints(e.target.checked)}
+                />
+                <span>
+                  {t('loyalty.shop.use', { points: redemption.points, amount: money(redemption.discountMinor) })}
+                </span>
+              </label>
+            )}
+            {points !== null && points > 0 && redemption.points === 0 && (
+              <p className="ui-caption">
+                {t('loyalty.shop.notEnough', { points: loyalty.redeemPoints, minOrder: money(loyalty.minOrderMinor) })}
+              </p>
+            )}
+            <p className="ui-caption">
+              {t('loyalty.shop.earnHint', {
+                points: pointsToEarn,
+                step: money(loyalty.earnStepMinor),
+                earn: loyalty.earnPoints,
+              })}
+            </p>
+          </div>
         )}
       </Card>
 

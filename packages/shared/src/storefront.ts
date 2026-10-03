@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { StorefrontLoyaltyDTO } from './loyalty';
 import type { DeliveryFeePolicy } from './courier';
 import { AddressSnapshotSchema, FulfillmentTypeValueSchema, OrderLineInputSchema } from './delivery';
 import type { FulfillmentTypeValue, OrderStatusValue } from './delivery';
@@ -58,6 +59,8 @@ export interface StorefrontDTO {
   payment: AcceptedPaymentMethodsDTO;
   ordering: StorefrontOrderingDTO;
   categories: StorefrontCategoryDTO[];
+  /** Loyalty rules when the restaurant runs an active program (docs/SADAKAT.md). */
+  loyalty: StorefrontLoyaltyDTO | null;
 }
 
 export const PublicOrderSchema = z
@@ -75,6 +78,8 @@ export const PublicOrderSchema = z
     returnUrl: z.string().url().optional(),
     /** Marketing consent box (docs/KAMPANYALAR.md); only true is recorded. */
     marketingOptIn: z.boolean().optional(),
+    /** Spend the signed-in customer's loyalty points on this order (docs/SADAKAT.md); the API decides how many. */
+    useLoyaltyPoints: z.boolean().optional(),
   })
   .strict()
   .superRefine((order, ctx) => {
@@ -95,6 +100,9 @@ export interface PublicOrderResultDTO {
   fulfillment: FulfillmentTypeValue;
   chargedToCustomerMinor: number;
   deliveryFeeMinor: number;
+  discountMinor: number;
+  /** Points this order spent; 0 when none were used. */
+  loyaltyPointsRedeemed: number;
   currency: string;
   /** Hosted payment page when the order waits for an online payment; the browser goes there next. */
   checkoutUrl: string | null;

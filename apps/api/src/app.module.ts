@@ -25,6 +25,7 @@ import { UploadsModule } from './modules/uploads/uploads.module';
 import { CampaignsModule } from './modules/campaigns/campaigns.module';
 import { AccountModule } from './modules/account/account.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
+import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { PayoutsModule } from './modules/payouts/payouts.module';
 
 @Module({
@@ -33,6 +34,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
     PrismaModule,
     RedisModule,
     LedgerModule,
+    LoyaltyModule,
     RealtimeModule,
     HealthModule,
     MessagingModule,
