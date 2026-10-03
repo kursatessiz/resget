@@ -27,6 +27,16 @@ export async function bffJson<T>(path: string, init: RequestInit = {}): Promise<
   return (await res.json()) as T;
 }
 
+/** Multipart call through the BFF (file uploads); the browser sets the boundary, so no content type is forced. */
+export async function bffUpload<T>(path: string, form: FormData, method: 'POST' | 'PUT' = 'POST'): Promise<T> {
+  const res = await fetch(`/api/bff/${path.replace(/^\//, '')}`, { method, body: form, cache: 'no-store' });
+  if (!res.ok) {
+    const code = res.headers.get(ERROR_CODE_HEADER) ?? (res.status === 401 ? 'UNAUTHORIZED' : 'ERROR');
+    throw new ApiError(res.status, code);
+  }
+  return (await res.json()) as T;
+}
+
 export type RealtimeStatus = 'connecting' | 'live' | 'reconnecting';
 
 /**

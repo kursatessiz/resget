@@ -26,9 +26,14 @@ export function PanelShell({
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 md:flex-row">
       <aside className="flex flex-col gap-4 md:w-60 md:flex-none" aria-label={t('panel.title')}>
-        <div className="flex flex-col gap-1">
-          <span className="ui-heading">{membership.restaurantName}</span>
-          <span className="ui-caption">{t(`panel.plan.${membership.effectivePlan}`)}</span>
+        <div className="flex items-center gap-3">
+          {membership.logoUrl && (
+            <img src={membership.logoUrl} alt="" width={40} height={40} className="h-10 w-10 object-contain" />
+          )}
+          <div className="flex flex-col gap-1">
+            <span className="ui-heading">{membership.restaurantName}</span>
+            <span className="ui-caption">{t(`panel.plan.${membership.effectivePlan}`)}</span>
+          </div>
         </div>
         <nav>
           <ul className="pui-list pui-hoverable">

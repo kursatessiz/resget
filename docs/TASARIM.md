@@ -5,7 +5,7 @@
 ## Kararlar
 
 1. Varsayılan aile `perfect`. İsteğe bağlı aileler (`noir`, `nefes`, `saha`, `atolye`) kod olarak mevcuttur ama yalnızca süper admin bir restoran için izin verirse çizilir; `resolveTheme()` izinsiz saklı aileyi `perfect` olarak çizer.
-2. Restoran markası: logo ve birincil renk (`Restaurant.themePrimary`). Birincil renk WCAG 4,5:1 eşiğinin altında kalırsa `deriveBrandPalette()` otomatik düzeltir; ekranda uyarı gösterilmez.
+2. Restoran markası: logo ve birincil renk (`Restaurant.themePrimary`). Logo dosya olarak yüklenir (`POST /restaurants/:id/logo`, çok parçalı `file` alanı; PNG, JPEG veya WebP, en çok 2 MB; tür dosya baytlarından okunur, istemcinin beyanına bakılmaz). Dosya `UPLOADS_DIR` altında rastgele adla durur (üretimde `uploads_data` birimi, yedeğe girer), API `GET /uploads/logos/:restaurantId/:file` ile değişmez önbellek başlığıyla sunar, restoran satırı mutlak URL taşır; harici bir görsel bağlantısı da verilebilir. Logo panel kenar çubuğunda, masa QR ve restoran sipariş sayfasının başlığında görünür. Birincil renk WCAG 4,5:1 eşiğinin altında kalırsa `deriveBrandPalette()` otomatik düzeltir; ekranda uyarı gösterilmez.
 3. Kullanıcı yalnızca açık / koyu / cihazla aynı modunu seçer (`data-pui-mode`).
 4. Gradyan yok. Birincil butonlar ve başlık bandı düz `pui-solid pui-theme`. İç içe kart yok, mor arka plan yok, varsayılan shadcn paleti yok.
 5. Yazı tipi Inter, `@fontsource/inter` ile gömülür; çalışma zamanında harici font isteği yoktur. İkonlar Lucide 16 px.

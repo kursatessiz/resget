@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { BUNDLED_LANGUAGES, DEFAULT_DISPATCH_SETTINGS, majorAmountText, parseMajorAmount } from '@resget/shared';
 import type { DeliveryFeePolicy, DispatchSettings, RestaurantSettingsDTO } from '@resget/shared';
 import { Button, Card, SelectField, TextField } from '@/components/ui';
-import { ApiError, bffJson } from '@/lib/client-api';
+import { ApiError, bffJson, bffUpload } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
 
 type Section = 'business' | 'brand' | 'delivery' | 'dispatch';
@@ -56,6 +56,8 @@ export function SettingsForm({
   const [taxId, setTaxId] = useState('');
   const [defaultLocale, setDefaultLocale] = useState('tr');
   const [logoUrl, setLogoUrl] = useState('');
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoNotice, setLogoNotice] = useState<string | null>(null);
   const [themePrimary, setThemePrimary] = useState('#0092CD');
   const [deliveryMode, setDeliveryMode] = useState<DeliveryModeValue>('RESTAURANT_COURIER');
   const [feeMode, setFeeMode] = useState<FeeMode>('NONE');
@@ -142,6 +144,43 @@ export function SettingsForm({
       return;
     }
     void save('brand', { logoUrl: logoUrl.trim() || null, themePrimary });
+  };
+
+  const applyLogo = (dto: RestaurantSettingsDTO) => {
+    setData(dto);
+    setLogoUrl(dto.logoUrl ?? '');
+    setLogoFile(null);
+    router.refresh();
+  };
+
+  const uploadLogo = async () => {
+    if (!logoFile) return;
+    setBusy(true);
+    setError(null);
+    setLogoNotice(null);
+    try {
+      const form = new FormData();
+      form.append('file', logoFile);
+      applyLogo(await bffUpload<RestaurantSettingsDTO>(`${path}/logo`, form));
+      setLogoNotice(t('settings.brand.uploaded'));
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeLogo = async () => {
+    setBusy(true);
+    setError(null);
+    setLogoNotice(null);
+    try {
+      applyLogo(await bffJson<RestaurantSettingsDTO>(`${path}/logo`, { method: 'DELETE' }));
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const saveDelivery = () => {
@@ -235,6 +274,42 @@ export function SettingsForm({
 
       <Card title={t('settings.brand.title')} aria-label={t('settings.brand.title')}>
         <div className="grid gap-3 md:grid-cols-2">
+          <div className="flex flex-col gap-2 md:col-span-2">
+            {data.logoUrl && (
+              <img
+                src={data.logoUrl}
+                alt={t('settings.brand.currentLogo')}
+                width={64}
+                height={64}
+                className="h-16 w-16 object-contain"
+              />
+            )}
+            <label className="pui-field-group" htmlFor="s-logo-file">
+              <span>{t('settings.brand.logoFile')}</span>
+              <input
+                id="s-logo-file"
+                type="file"
+                className="pui-input"
+                accept="image/png,image/jpeg,image/webp"
+                disabled={!canManage}
+                onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+              />
+              <small className="ui-text-muted">{t('settings.brand.logoRules')}</small>
+            </label>
+            {canManage && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={() => void uploadLogo()} disabled={busy || !logoFile}>
+                  {t('settings.brand.upload')}
+                </Button>
+                {data.logoUrl && (
+                  <Button variant="outline" tone="muted" onClick={() => void removeLogo()} disabled={busy}>
+                    {t('settings.brand.removeLogo')}
+                  </Button>
+                )}
+                {logoNotice && <span className="ui-caption">{logoNotice}</span>}
+              </div>
+            )}
+          </div>
           <TextField
             id="s-logo"
             label={t('settings.brand.logoUrl')}

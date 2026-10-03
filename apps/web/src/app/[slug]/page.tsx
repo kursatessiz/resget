@@ -20,7 +20,16 @@ export default async function RestaurantPage({ params }: { params: Promise<{ slu
       tenantTheme={{ themePrimary: storefront.restaurant.themePrimary, logoUrl: storefront.restaurant.logoUrl }}
     >
       <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-8">
-        <header className="flex flex-col gap-1">
+        <header className="flex flex-col gap-2">
+          {storefront.restaurant.logoUrl && (
+            <img
+              src={storefront.restaurant.logoUrl}
+              alt=""
+              width={64}
+              height={64}
+              className="h-16 w-16 object-contain"
+            />
+          )}
           <h1 className="ui-title">{t('shop.restaurant.title', { restaurant: storefront.restaurant.name })}</h1>
           <p className="ui-text-muted">{t('shop.restaurant.intro')}</p>
         </header>
