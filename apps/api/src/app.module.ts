@@ -23,6 +23,7 @@ import { CustomersModule } from './modules/customers/customers.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { CampaignsModule } from './modules/campaigns/campaigns.module';
+import { AccountModule } from './modules/account/account.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { CampaignsModule } from './modules/campaigns/campaigns.module';
     ReportsModule,
     UploadsModule,
     CampaignsModule,
+    AccountModule,
   ],
 })
 export class AppModule {}

@@ -78,4 +78,4 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   return res;
 }
 
-export const config = { matcher: ['/panel/:path*', '/admin/:path*', '/kayit', '/m/:path*'] };
+export const config = { matcher: ['/panel/:path*', '/admin/:path*', '/kayit', '/hesabim', '/m/:path*'] };
