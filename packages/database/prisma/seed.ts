@@ -240,6 +240,13 @@ async function main(): Promise<void> {
   await prisma.restaurantCustomer.create({
     data: { restaurantId: restaurant.id, userId: guest.id, firstChannel: 'TABLE_QR' },
   });
+  // Meal cards the demo restaurant takes at the door (docs/YEMEK_KARTI.md); online ones need issuer credentials.
+  await prisma.mealCardConnection.createMany({
+    data: [
+      { restaurantId: restaurant.id, providerCode: 'MULTINET', acceptsOnDelivery: true },
+      { restaurantId: restaurant.id, providerCode: 'EDENRED', acceptsOnDelivery: true },
+    ],
+  });
 
   // One placed delivery order with a fixed tracking token (web e2e opens /t/<token>).
   const regional = settlementDefaultsFor(restaurant.countryCode);

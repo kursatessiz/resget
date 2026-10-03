@@ -24,5 +24,9 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.COURIER_NOT_ASSIGNED': 'This trip is not assigned to you.',
   'errors.COURIER_INVALID': 'The selected person is not a courier of this restaurant.',
   'errors.MENU_ITEM_UNAVAILABLE': 'An item in the basket is not for sale right now.',
+  'errors.PAYMENT_METHOD_NOT_ACCEPTED': 'The restaurant does not accept this payment method.',
+  'errors.PAYMENT_STATE_INVALID': 'A payment cannot be made for this order at this stage.',
+  'errors.MEAL_CARD_PROVIDER_UNAVAILABLE': 'Online payment for this meal card is not integrated yet.',
+  'errors.WEBHOOK_INVALID': 'The payment notification could not be verified.',
   'errors.RATE_LIMITED': 'Too many requests. Please wait a moment.',
 };

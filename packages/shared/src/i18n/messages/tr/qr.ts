@@ -6,6 +6,7 @@ export const trQr = {
   'qr.page.orderDelivery': 'Bir dahaki sefere eve sipariş ver',
   'qr.page.register': 'Telefon numaranla kaydol, siparişlerin tek dokunuşla gelsin',
   'qr.page.poweredBy': 'Resget altyapısıyla',
+  'qr.page.mealCards': 'Kabul edilen yemek kartları: {cards}',
   'qr.page.notFound': 'Bu QR kod geçerli değil. Lütfen personele danışın.',
   'qr.tables.title': 'Masalar ve QR kodları',
   'qr.tables.add': 'Masa ekle',

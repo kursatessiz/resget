@@ -73,6 +73,10 @@ Platform geliri 5 TL, tevkifat ve KDV devlete, PSP kesintisi ödeme kuruluşuna.
 - `Payout`, biriken `RESTAURANT_PAYABLE` satırlarını dönem bazında toplar ve yasal sürede (Türkiye: 5 iş günü) planlanır. PSP'nin kendi valörü bu süreyi aşamaz; aşıyorsa platform ara finansman yapar veya PSP ile ertesi gün ödeme sözleşmesi şarttır.
 - İade: `Payment.refundedMinor` artar, defterde `REFUND` satırı açılır; PSP iade komisyonunu geri veriyorsa `PSP_FEE` düzeltmesi yazılır (PSP sözleşmesine bağlı).
 
+## Yönteme göre hakediş modu
+
+Hangi siparişin hangi modla hesaplanacağı ödeme yöntemine bağlıdır (`effectivePaymentModeFor`, `docs/YEMEK_KARTI.md`): yalnızca çevrim içi kart ödemesi restoranın `paymentMode`'unu izler. Nakit, kapıda kart ve yemek kartlarını restoran kendisi tahsil ettiği için bu siparişler `PLATFORM_PSP` restoranında bile `OWN_POS` gibi hesaplanır: PSP kesintisi ve tevkifat sıfır, komisyon + KDV ay sonu faturasına girer. Mod sipariş kaydında saklanır.
+
 ## Bölgesel varsayılanlar
 
 `SETTLEMENT_DEFAULTS_BY_COUNTRY`: TR için tevkifat 100 bps ve komisyon KDV'si 2000 bps; diğer ülkeler için her ikisi 0 (ülke eklenirken satır açılır). Hiçbir yerde `'TRY'` veya `'TR'` sabit yazılmaz; para birimi ve ülke restorandan gelir.

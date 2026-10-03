@@ -36,6 +36,10 @@ export type ApiErrorCode =
   | 'COURIER_NOT_ASSIGNED'
   | 'COURIER_INVALID'
   | 'MENU_ITEM_UNAVAILABLE'
+  | 'PAYMENT_METHOD_NOT_ACCEPTED'
+  | 'PAYMENT_STATE_INVALID'
+  | 'MEAL_CARD_PROVIDER_UNAVAILABLE'
+  | 'WEBHOOK_INVALID'
   | 'RATE_LIMITED';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {

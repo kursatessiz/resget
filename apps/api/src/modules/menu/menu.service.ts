@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { QrScanOutcome } from '@resget/database';
+import type { AcceptedPaymentMethodsDTO } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { MealCardsService } from '../payments/meal-cards.service';
 import { notFound } from '../../common/api-error';
 
 export interface PublicMenuDTO {
@@ -14,6 +16,8 @@ export interface PublicMenuDTO {
     defaultLocale: string;
   };
   table: { id: string; label: string } | null;
+  /** What the guest can pay with here (docs/YEMEK_KARTI.md). */
+  payment: AcceptedPaymentMethodsDTO;
   categories: {
     id: string;
     name: string;
@@ -31,7 +35,10 @@ export interface PublicMenuDTO {
 
 @Injectable()
 export class MenuService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mealCards: MealCardsService,
+  ) {}
 
   async menuOf(restaurantId: string): Promise<PublicMenuDTO['categories']> {
     const categories = await this.prisma.menuCategory.findMany({
@@ -91,6 +98,10 @@ export class MenuService {
         data: { restaurantId: restaurant.id, tableId: table.id, sessionId, outcome: QrScanOutcome.VIEWED_MENU },
       });
     }
-    return { restaurant, table: { id: table.id, label: table.label }, categories: await this.menuOf(restaurant.id) };
+    const [categories, payment] = await Promise.all([
+      this.menuOf(restaurant.id),
+      this.mealCards.acceptedMethods(restaurant.id),
+    ]);
+    return { restaurant, table: { id: table.id, label: table.label }, payment, categories };
   }
 }

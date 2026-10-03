@@ -49,12 +49,16 @@ Arayüz `CardVaultAdapter`: `beginLink` (kasa kendi arayüzünde bağlama başla
 
 Müşteri uçları: `GET /me/payment-methods`, `POST /me/payment-methods/link`, `POST /me/payment-methods/link/complete`, `DELETE /me/payment-methods/:id`. Token asla yanıtta yoktur.
 
+## 3a. Yemek kartları
+
+Yemek kartlarında üye işyeri her zaman restorandır; restoran kabul ettiği kartları seçer, çevrim içi ödeme için kuruluşun API bilgilerini bağlar (POS bağlantısıyla aynı şifreleme ve doğrulama), kapıda kabul için yalnızca işaretler. Yemek kartı, nakit ve kapıda kart ödemeleri restoranın `paymentMode`'undan bağımsız olarak `OWN_POS` gibi hesaplanır (komisyon faturalanır, PSP ve tevkifat sıfır). Ödeme adımı (hosted oturum, imzalı webhook, kapıda tahsilat) ve uçlar: `docs/YEMEK_KARTI.md`.
+
 ## 4. Komisyon faturası (`OWN_POS`)
 
 - Her tamamlanan siparişin üzerindeki `platformCommissionMinor` ve `commissionVatMinor` değerleri (yerleştirme anı anlık görüntüsü) ay sonunda tek faturaya toplanır (`buildCommissionStatement`, UTC takvim ayı). Oran sonradan değişse geçmiş ay değişmez.
 - `CommissionInvoice`: dönem, sipariş sayısı, matrah, komisyon, KDV, toplam, durum (`DRAFT -> ISSUED -> PAID`, gecikirse `OVERDUE`, iptalde `VOID`).
 - Tahsilat: restoranın kayıtlı kartından otomatik çekim (aynı kart kasası) veya havale. Fatura kesildikten `COMMISSION_INVOICE_DUE_DAYS` (10) gün sonra ödenmemişse pazaryeri listelemesi askıya alınır; panel ve masa QR çalışmaya devam eder.
-- Kapıda ödeme ve nakit siparişlerde de komisyon tahakkuk eder; fatura aynıdır.
+- Kapıda ödeme, nakit ve yemek kartı siparişlerinde de komisyon tahakkuk eder; fatura aynıdır.
 - Restoran paneli: `GET /restaurants/:id/payments/commission?year&month` (izin `invoices.view`) ayın dökümünü verir; `GET .../payments/settings` bu ay biriken komisyonu gösterir.
 
 ## 5. Güvenlik özeti
@@ -67,7 +71,7 @@ Müşteri uçları: `GET /me/payment-methods`, `POST /me/payment-methods/link`, 
 
 ## 6. Backlog
 
-- A4: `OWN_POS` için iyzico, PayTR, Param ve Sipay gateway adaptörleri (hosted sayfa + webhook); Masterpass ve bex kasa adaptörleri; sipariş akışına ödeme adımı.
+- A4: `OWN_POS` için iyzico, PayTR, Param ve Sipay gateway adaptörleri (hosted sayfa + webhook); Masterpass ve bex kasa adaptörleri; yemek kartı kuruluşlarının gerçek adaptörleri. Ödeme adımının çekirdeği (niyet, hosted oturum, webhook, kapıda tahsilat) `docs/YEMEK_KARTI.md` ile kuruldu.
 - A5: aylık fatura kesimi ve otomatik tahsilat işi, gecikme ve askıya alma, e-Arşiv fatura entegrasyonu.
 - B4: `PLATFORM_PSP` pazaryeri ürünü, PSP token kasası, hakediş ödemeleri, tevkifat beyanı.
 - Hukuk: `OWN_POS` modunda tevkifat yükümlülüğünün olmadığının vergi danışmanıyla teyidi; Masterpass ve bex üye işyeri sözleşmeleri.

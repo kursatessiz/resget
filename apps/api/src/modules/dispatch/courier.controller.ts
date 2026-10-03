@@ -2,14 +2,15 @@ import { Controller, Get, Headers, HttpCode, Post, Sse } from '@nestjs/common';
 import type { MessageEvent } from '@nestjs/common';
 import type { Observable } from 'rxjs';
 import { z } from 'zod';
-import { LocationPingSchema, StopFailureSchema, UuidSchema } from '@resget/shared';
-import type { DeliveryTripDTO } from '@resget/shared';
+import { CollectPaymentSchema, LocationPingSchema, StopFailureSchema, UuidSchema } from '@resget/shared';
+import type { DeliveryTripDTO, OrderDetailDTO } from '@resget/shared';
 import { ZodBody, ZodParam } from '../../common/zod-body.pipe';
 import { RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { RealtimeService, courierTopic } from '../realtime/realtime.service';
 import { forbidden } from '../../common/api-error';
+import { CheckoutService } from '../payments/checkout.service';
 import { DispatchService } from './dispatch.service';
 import { LocationService } from './location.service';
 import type { LocationIngestResult } from './location.service';
@@ -28,6 +29,7 @@ export class CourierController {
     private readonly dispatch: DispatchService,
     private readonly location: LocationService,
     private readonly realtime: RealtimeService,
+    private readonly checkout: CheckoutService,
   ) {}
 
   private membershipOf(tenant: TenantContext): string {
@@ -125,6 +127,24 @@ export class CourierController {
   ): Promise<DeliveryTripDTO> {
     await this.guard(tenant, tripId);
     return this.dispatch.fail(tenant.restaurantId, tripId, stopId, body.reason, courier(user));
+  }
+
+  /** Cash, card or meal card taken at the door for a stop of the courier's own trip. */
+  @Post('trips/:tripId/stops/:stopId/collect')
+  @HttpCode(200)
+  @RequirePermission('courier.deliver')
+  async collect(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodParam('tripId', UuidSchema) tripId: string,
+    @ZodParam('stopId', UuidSchema) stopId: string,
+    @ZodBody(CollectPaymentSchema) body: z.infer<typeof CollectPaymentSchema>,
+  ): Promise<OrderDetailDTO> {
+    const trip = await this.dispatch.loadTrip(this.dispatch['prisma'], tenant.restaurantId, tripId);
+    this.dispatch.assertMayDrive(trip, tenant);
+    const stop = trip.stops.find((s) => s.id === stopId);
+    if (!stop) throw forbidden('COURIER_NOT_ASSIGNED', 'Stop is not on this trip');
+    return this.checkout.collect(tenant.restaurantId, stop.orderId, body, user.id, false);
   }
 
   /** Position batches from the app; ignored (tracked: false) when no trip is active. */

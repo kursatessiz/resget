@@ -46,4 +46,28 @@ export const trPayments = {
   'payments.cards.provider.GOOGLE_PAY': 'Google Pay',
   'payments.cards.provider.APPLE_PAY': 'Apple Pay',
   'payments.cards.provider.MOCK': 'Test',
+  'payments.method.ONLINE_CARD': 'Kredi veya banka kartı (çevrim içi)',
+  'payments.method.CASH_ON_DELIVERY': 'Kapıda nakit',
+  'payments.method.CARD_ON_DELIVERY': 'Kapıda kart',
+  'payments.method.MEAL_CARD': 'Yemek kartı',
+  'payments.mealCards.title': 'Yemek kartları',
+  'payments.mealCards.intro':
+    'Üye işyeri olduğunuz yemek kartlarını seçin. Kapıda kabul için bilgi gerekmez; çevrim içi ödeme için kart kuruluşunun size verdiği API bilgileri gerekir.',
+  'payments.mealCards.acceptsOnDelivery': 'Kapıda kabul ediyoruz',
+  'payments.mealCards.acceptsOnline': 'Çevrim içi ödeme açık',
+  'payments.mealCards.onlineUnavailable':
+    'Bu kart için çevrim içi ödeme entegrasyonu henüz hazır değil; kapıda kabul edebilirsiniz.',
+  'payments.mealCards.credentials': 'Kart kuruluşu API bilgileri',
+  'payments.mealCards.remove': 'Kartı listeden kaldır',
+  'payments.mealCards.none': 'Henüz yemek kartı seçmediniz.',
+  'payments.mealCards.accepted': 'Kabul edilen yemek kartları: {cards}',
+  'payments.mealCards.settlementNote':
+    'Yemek kartı tahsilatı doğrudan kart kuruluşundaki hesabınıza gelir; platform yalnızca sipariş komisyonunu ay sonunda fatura eder.',
+  'payments.checkout.pay': 'Ödemeye geç',
+  'payments.checkout.pending': 'Ödemeniz bekleniyor. Ödeme tamamlanınca siparişiniz işletmeye iletilir.',
+  'payments.checkout.failed': 'Ödeme tamamlanamadı. Lütfen tekrar deneyin veya başka bir yöntem seçin.',
+  'payments.collect.title': 'Kapıda tahsilat',
+  'payments.collect.due': 'Tahsil edilecek: {amount}',
+  'payments.collect.collected': 'Tahsil edildi: {method}',
+  'payments.collect.record': 'Tahsilatı kaydet',
 } as const satisfies Record<string, string>;
