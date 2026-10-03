@@ -35,6 +35,7 @@ async function bootstrap(): Promise<void> {
       .setDescription('Restaurant ordering network REST API')
       .setVersion(config.get<string>('APP_RELEASE', 'dev'))
       .addBearerAuth()
+      .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, 'api-key')
       .build();
     SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, swaggerConfig));
   }

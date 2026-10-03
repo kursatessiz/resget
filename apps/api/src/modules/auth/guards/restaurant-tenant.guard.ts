@@ -1,9 +1,11 @@
 import { BadRequestException, CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-import { ALL_PERMISSIONS, UuidSchema, effectivePermissions, effectivePlan } from '@resget/shared';
+import { Reflector } from '@nestjs/core';
+import { ALL_PERMISSIONS, PLAN_FEATURE_SETS, UuidSchema, effectivePermissions, effectivePlan } from '@resget/shared';
 import type { PlanCode, SubscriptionStatus as SharedSubscriptionStatus } from '@resget/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { forbidden } from '../../../common/api-error';
 import type { AuthenticatedRequest, TenantContext } from '../tenant-context';
+import { SESSION_ONLY_KEY } from '../decorators/require-permission.decorator';
 
 /**
  * Resolves the restaurant a request acts on and the caller's rights in it.
@@ -14,12 +16,22 @@ import type { AuthenticatedRequest, TenantContext } from '../tenant-context';
  */
 @Injectable()
 export class RestaurantTenantGuard implements CanActivate {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reflector: Reflector,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = request.user;
     if (!user) throw forbidden('FORBIDDEN', 'Missing user');
+    if (request.apiKey) {
+      const sessionOnly = this.reflector.getAllAndOverride<boolean | undefined>(SESSION_ONLY_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+      if (sessionOnly) throw forbidden('FORBIDDEN', 'This endpoint needs a signed-in person, not an API key');
+    }
 
     const restaurantId = this.resolveRestaurantId(request);
     const restaurant = await this.prisma.restaurant.findUnique({
@@ -45,6 +57,24 @@ export class RestaurantTenantGuard implements CanActivate {
           }
         : null,
     );
+
+    // An API key is its own membership: bound to one restaurant, holding the permissions it was minted with,
+    // and worth nothing once the plan no longer carries API access (docs/API_ERISIMI.md).
+    if (request.apiKey) {
+      if (request.apiKey.restaurantId !== restaurantId)
+        throw forbidden('FORBIDDEN', 'Key belongs to another restaurant');
+      if (!PLAN_FEATURE_SETS[plan].includes('api_access'))
+        throw forbidden('PLAN_FEATURE_REQUIRED', 'API access needs the PRO plan');
+      request.tenant = {
+        restaurantId,
+        membershipId: null,
+        isOwner: false,
+        isSuperAdmin: false,
+        permissions: new Set(request.apiKey.permissions),
+        effectivePlan: plan,
+      };
+      return true;
+    }
 
     if (user.isSuperAdmin) {
       request.tenant = {

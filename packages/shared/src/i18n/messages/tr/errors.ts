@@ -55,6 +55,7 @@ export const trErrors = {
   'errors.CAMPAIGN_NOT_FOUND': 'Kampanya bulunamadı.',
   'errors.DOMAIN_INVALID': 'Bu alan adı kullanılamaz; platformun kendi adresi veya geçersiz bir ad.',
   'errors.DOMAIN_TAKEN': 'Bu alan adı başka bir restorana kayıtlı.',
+  'errors.API_KEY_NOT_FOUND': 'API anahtarı bulunamadı.',
   'errors.DOMAIN_NOT_SET': 'Önce bir alan adı kaydedin.',
   'errors.SEGMENT_NOT_FOUND': 'Kayıtlı segment bulunamadı.',
   'errors.SEGMENT_NAME_TAKEN': 'Bu adla kayıtlı bir segment zaten var.',

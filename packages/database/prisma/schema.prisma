@@ -262,6 +262,7 @@ model User {
   paymentsCollected   Payment[]            @relation("PaymentCollectedBy")
   auditLogs           AuditLog[]
   campaignsCreated    Campaign[]           @relation("CampaignCreatedBy")
+  apiKeysCreated      RestaurantApiKey[]   @relation("ApiKeyCreatedBy")
 
   @@map("users")
 }
@@ -385,6 +386,7 @@ model Restaurant {
   campaigns            Campaign[]
   loyaltyProgram       LoyaltyProgram?
   campaignSegments     CampaignSegmentPreset[]
+  apiKeys              RestaurantApiKey[]
   loyaltyTransactions  LoyaltyTransaction[]
 
   @@index([serviceAreaId, isListed])
@@ -713,6 +715,27 @@ model CampaignSegmentPreset {
 
   @@unique([restaurantId, name])
   @@map("campaign_segments")
+}
+
+/// A restaurant's API key (docs/API_ERISIMI.md): the secret is stored only as a hash; the key holds a permission subset.
+model RestaurantApiKey {
+  id              String    @id @default(uuid())
+  restaurantId    String
+  /// Public lookup part of the token (rsk_<keyId>_<secret>).
+  keyId           String    @unique
+  name            String
+  secretHash      String
+  permissions     String[]  @default([])
+  lastUsedAt      DateTime?
+  revokedAt       DateTime?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdBy  User?      @relation("ApiKeyCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([restaurantId, createdAt])
+  @@map("restaurant_api_keys")
 }
 
 model CampaignRecipient {

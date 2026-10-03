@@ -22,5 +22,9 @@ test.describe('Customers, reports, courier and campaigns screens', () => {
 
     await page.goto(`/panel/${SEED.restaurantSlug}/kampanyalar`);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Kampanyalar');
+
+    await page.goto(`/panel/${SEED.restaurantSlug}/entegrasyon`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('API erişimi');
+    await expect(page.getByRole('region', { name: 'Nasıl kullanılır' })).toContainText('x-api-key');
   });
 });

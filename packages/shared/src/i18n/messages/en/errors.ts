@@ -55,6 +55,7 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.CAMPAIGN_NOT_FOUND': 'Campaign not found.',
   'errors.DOMAIN_INVALID': 'That domain cannot be used; it is the platform host or not a valid name.',
   'errors.DOMAIN_TAKEN': 'That domain is registered to another restaurant.',
+  'errors.API_KEY_NOT_FOUND': 'API key not found.',
   'errors.DOMAIN_NOT_SET': 'Save a domain first.',
   'errors.SEGMENT_NOT_FOUND': 'Saved segment not found.',
   'errors.SEGMENT_NAME_TAKEN': 'A segment with that name already exists.',
