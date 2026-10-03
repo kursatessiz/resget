@@ -57,6 +57,8 @@ export const trErrors = {
   'errors.DOMAIN_TAKEN': 'Bu alan adı başka bir restorana kayıtlı.',
   'errors.RATING_NOT_ALLOWED': 'Bu sipariş şu an değerlendirilemiyor; tamamlanmış ve 7 günden yeni olmalı.',
   'errors.RATING_EXISTS': 'Bu siparişi zaten değerlendirdiniz.',
+  'errors.WEBHOOK_NOT_FOUND': 'Webhook bulunamadı.',
+  'errors.WEBHOOK_URL_INVALID': 'Üretimde yalnızca https adresler kabul edilir.',
   'errors.API_KEY_NOT_FOUND': 'API anahtarı bulunamadı.',
   'errors.DOMAIN_NOT_SET': 'Önce bir alan adı kaydedin.',
   'errors.SEGMENT_NOT_FOUND': 'Kayıtlı segment bulunamadı.',

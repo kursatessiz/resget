@@ -29,6 +29,7 @@ import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { DomainsModule } from './modules/domains/domains.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
 import { GeocodingModule } from './modules/geocoding/geocoding.module';
+import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { PayoutsModule } from './modules/payouts/payouts.module';
 
 @Module({
@@ -39,6 +40,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
     LedgerModule,
     LoyaltyModule,
     GeocodingModule,
+    WebhooksModule,
     DomainsModule,
     ApiKeysModule,
     RealtimeModule,
