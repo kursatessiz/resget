@@ -33,7 +33,7 @@ export async function createTestApp(): Promise<TestContext> {
   process.env.NODE_ENV = 'test';
   process.env.OTP_TEST_CODE = OTP_TEST_CODE;
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-  const app = moduleRef.createNestApplication();
+  const app = moduleRef.createNestApplication({ rawBody: true });
   app.useGlobalFilters(new ErrorCodeFilter());
   await app.init();
   const prisma = new PrismaClient();

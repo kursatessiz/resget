@@ -47,4 +47,28 @@ export const enPayments: Record<keyof typeof trPayments, string> = {
   'payments.cards.provider.GOOGLE_PAY': 'Google Pay',
   'payments.cards.provider.APPLE_PAY': 'Apple Pay',
   'payments.cards.provider.MOCK': 'Test',
+  'payments.method.ONLINE_CARD': 'Credit or debit card (online)',
+  'payments.method.CASH_ON_DELIVERY': 'Cash on delivery',
+  'payments.method.CARD_ON_DELIVERY': 'Card on delivery',
+  'payments.method.MEAL_CARD': 'Meal card',
+  'payments.mealCards.title': 'Meal cards',
+  'payments.mealCards.intro':
+    'Pick the meal cards you are a member merchant of. Accepting at the door needs nothing else; online payment needs the API credentials the issuer gave you.',
+  'payments.mealCards.acceptsOnDelivery': 'Accepted at the door',
+  'payments.mealCards.acceptsOnline': 'Online payment on',
+  'payments.mealCards.onlineUnavailable':
+    'Online payment for this card is not integrated yet; you can accept it at the door.',
+  'payments.mealCards.credentials': 'Issuer API credentials',
+  'payments.mealCards.remove': 'Remove card from the list',
+  'payments.mealCards.none': 'No meal card selected yet.',
+  'payments.mealCards.accepted': 'Meal cards accepted: {cards}',
+  'payments.mealCards.settlementNote':
+    'Meal card payments go straight to your account at the issuer; the platform only invoices the order commission at the end of the month.',
+  'payments.checkout.pay': 'Proceed to payment',
+  'payments.checkout.pending': 'Waiting for your payment. The order reaches the restaurant once the payment completes.',
+  'payments.checkout.failed': 'The payment could not be completed. Please try again or pick another method.',
+  'payments.collect.title': 'Collection at the door',
+  'payments.collect.due': 'To collect: {amount}',
+  'payments.collect.collected': 'Collected: {method}',
+  'payments.collect.record': 'Record collection',
 };

@@ -24,4 +24,8 @@ export const trErrors = {
   'errors.COURIER_NOT_ASSIGNED': 'Bu sefer size atanmamış.',
   'errors.COURIER_INVALID': 'Seçilen kişi bu işletmede kurye değil.',
   'errors.MENU_ITEM_UNAVAILABLE': 'Sepetteki bir ürün şu anda satışta değil.',
+  'errors.PAYMENT_METHOD_NOT_ACCEPTED': 'İşletme bu ödeme yöntemini kabul etmiyor.',
+  'errors.PAYMENT_STATE_INVALID': 'Bu sipariş için ödeme işlemi bu aşamada yapılamaz.',
+  'errors.MEAL_CARD_PROVIDER_UNAVAILABLE': 'Bu yemek kartı için çevrim içi ödeme entegrasyonu henüz hazır değil.',
+  'errors.WEBHOOK_INVALID': 'Ödeme bildirimi doğrulanamadı.',
 } as const satisfies Record<string, string>;

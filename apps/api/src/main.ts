@@ -11,7 +11,8 @@ import { ErrorCodeFilter } from './common/error-code.filter';
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // rawBody keeps the exact bytes of webhook requests for signature checks.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
   // Caddy is the only proxy in front of the API; trust exactly one hop.
   app.set('trust proxy', 1);
   app.useGlobalFilters(new ErrorCodeFilter());

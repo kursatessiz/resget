@@ -12,6 +12,8 @@ test.describe('Table QR menu page', () => {
     await expect(page.getByText(/420,00/)).toBeVisible();
     await expect(page.getByRole('link', { name: 'Masaya sipariş ver' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Bir dahaki sefere eve sipariş ver' })).toBeVisible();
+    // The seeded restaurant takes two meal cards at the door.
+    await expect(page.getByText('Kabul edilen yemek kartları: Edenred, Multinet')).toBeVisible();
   });
 
   test('an unknown token shows the not-found message with a 404', async ({ page }) => {

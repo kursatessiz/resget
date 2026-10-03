@@ -7,6 +7,7 @@ import {
   TRACKING_TOKEN_BYTES,
   canTransitionOrder,
   computeModeSettlement,
+  effectivePaymentModeFor,
   courierDisplayName,
   deliveryFeeVatBpsFor,
   dispatchSettingsFrom,
@@ -24,6 +25,8 @@ import type {
   GeoPoint,
   OrderActor,
   OrderDetailDTO,
+  OrderPaymentDTO,
+  OrderPaymentIntent,
   OrderStatusValue,
   OrderSummaryDTO,
   OrderTrackingDTO,
@@ -45,6 +48,7 @@ const orderArgs = Prisma.validator<Prisma.OrderDefaultArgs>()({
     customer: { select: { id: true, fullName: true, phone: true } },
     items: { orderBy: { position: 'asc' } },
     statusHistory: { orderBy: { createdAt: 'asc' } },
+    payments: { orderBy: { createdAt: 'desc' }, take: 1 },
     deliveryStops: {
       where: { status: { in: [...ACTIVE_STOP_STATUSES] }, trip: { status: { in: [...ACTIVE_TRIP_STATUSES] } } },
       include: { trip: { select: { id: true, status: true, courierMembershipId: true } } },
@@ -55,6 +59,20 @@ const orderArgs = Prisma.validator<Prisma.OrderDefaultArgs>()({
 export type OrderRow = Prisma.OrderGetPayload<typeof orderArgs>;
 
 type Db = Prisma.TransactionClient | PrismaService;
+
+/** What the checkout service decided about an order's payment intent before the order is written. */
+export interface ResolvedPaymentIntent {
+  intent: OrderPaymentIntent;
+  /** Provider the payment row names: the issuer code, the POS provider code or PLATFORM. */
+  providerCode: string;
+  /** True when the customer pays before the kitchen starts; the order waits in PENDING_PAYMENT. */
+  paidBefore: boolean;
+}
+
+export type PaymentIntentResolver = (
+  restaurantId: string,
+  intent: OrderPaymentIntent,
+) => Promise<ResolvedPaymentIntent>;
 
 export interface TransitionOptions {
   reason?: string;
@@ -73,6 +91,8 @@ export interface TransitionOptions {
 export class OrdersService {
   /** Registered by the dispatch service so a cancelled order can refresh its trip without a circular import. */
   private tripEvents: ((tripId: string) => Promise<TopicEvent[]>) | null = null;
+  /** Registered by the checkout service: validates a payment intent against what the restaurant accepts. */
+  private resolvePayment: PaymentIntentResolver | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -82,6 +102,10 @@ export class OrdersService {
 
   setTripEventsProvider(provider: (tripId: string) => Promise<TopicEvent[]>): void {
     this.tripEvents = provider;
+  }
+
+  setPaymentIntentResolver(resolver: PaymentIntentResolver): void {
+    this.resolvePayment = resolver;
   }
 
   // -- Creation ------------------------------------------------------------------
@@ -143,13 +167,22 @@ export class OrdersService {
       };
     });
 
+    const payment = input.payment
+      ? this.resolvePayment
+        ? await this.resolvePayment(restaurantId, input.payment)
+        : null
+      : null;
+    if (input.payment && !payment) throw conflict('PAYMENT_METHOD_NOT_ACCEPTED', 'Payment intents are not enabled');
+    const paymentMode = effectivePaymentModeFor(payment?.intent.method ?? null, restaurant.paymentMode);
+    const initialStatus = payment?.paidBefore ? 'PENDING_PAYMENT' : 'PLACED';
+
     const regional = settlementDefaultsFor(restaurant.countryCode);
     const isDelivery = input.fulfillment === 'DELIVERY';
     const deliveryFee: SettlementLine | null =
       isDelivery && input.deliveryFeeMinor > 0
         ? { amountMinor: input.deliveryFeeMinor, vatRateBps: deliveryFeeVatBpsFor(restaurant.countryCode) }
         : null;
-    const settlement = computeModeSettlement(restaurant.paymentMode, {
+    const settlement = computeModeSettlement(paymentMode, {
       currency: restaurant.currency,
       items: lines.map((l) => ({ amountMinor: l.lineTotalMinor, vatRateBps: l.vatRateBps })),
       deliveryFee,
@@ -204,7 +237,7 @@ export class OrdersService {
               ? 'RESTAURANT_COURIER'
               : restaurant.deliveryMode
             : 'NONE',
-          status: 'PLACED',
+          status: initialStatus,
           currency: restaurant.currency,
           itemsGrossMinor: settlement.itemsGrossMinor,
           itemsVatMinor: settlement.itemsVatMinor,
@@ -221,15 +254,30 @@ export class OrdersService {
           courierCostMinor: settlement.courierCostMinor,
           courierBearer: settlement.courierBearer,
           restaurantPayableMinor: settlement.restaurantPayableMinor,
-          paymentMode: restaurant.paymentMode,
+          paymentMode,
           platformReceivableMinor: settlement.platformReceivableMinor,
+          paymentMethod: payment?.intent.method ?? null,
+          paymentProvider: payment?.intent.method === 'MEAL_CARD' ? (payment.intent.providerCode ?? null) : null,
           addressSnapshot: input.address ? (input.address as Prisma.InputJsonValue) : Prisma.JsonNull,
           customerNote: input.note ?? null,
           trackingToken: randomBytes(TRACKING_TOKEN_BYTES).toString('base64url'),
           items: {
             create: lines.map((l) => ({ ...l, modifiersSnapshot: l.modifiersSnapshot as Prisma.InputJsonValue })),
           },
-          statusHistory: { create: { fromStatus: null, toStatus: 'PLACED', actorUserId } },
+          statusHistory: { create: { fromStatus: null, toStatus: initialStatus, actorUserId } },
+          payments: payment
+            ? {
+                create: {
+                  restaurantId,
+                  provider: payment.providerCode,
+                  method: payment.intent.method,
+                  status: 'PENDING',
+                  amountMinor: settlement.chargedToCustomerMinor,
+                  currency: restaurant.currency,
+                  paymentMode,
+                },
+              }
+            : undefined,
         },
         select: { id: true },
       });
@@ -522,6 +570,19 @@ export class OrdersService {
       activeTrip: stop
         ? { tripId: stop.tripId, stopId: stop.id, sequence: stop.sequence, tripStatus: stop.trip.status }
         : null,
+      payment: this.paymentOf(row),
+    };
+  }
+
+  paymentOf(row: OrderRow): OrderPaymentDTO {
+    const latest = row.payments[0] ?? null;
+    const captured = latest?.status === 'CAPTURED' ? latest.amountMinor - latest.refundedMinor : 0;
+    return {
+      method: latest?.method ?? row.paymentMethod ?? null,
+      providerCode: latest?.method === 'MEAL_CARD' ? latest.provider : row.paymentProvider,
+      status: latest?.status ?? null,
+      dueMinor: Math.max(0, row.chargedToCustomerMinor - captured),
+      capturedAt: latest?.capturedAt?.toISOString() ?? null,
     };
   }
 

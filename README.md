@@ -70,6 +70,7 @@ CI (`.github/workflows/ci.yml`) aynı adımları çalıştırır; ayrıca migrat
 | `docs/VERI_MODELI.md` | Tablolar ve ilişkiler |
 | `docs/MUTABAKAT.md` | Para akışı, hakediş motoru, defter ve tevkifat |
 | `docs/ODEME.md` | Ödeme modları (kendi POS / platform PSP), kart kasası, komisyon faturası |
+| `docs/YEMEK_KARTI.md` | Yemek kartları: kapıda ve çevrim içi kabul, ödeme adımı, webhook, kapıda tahsilat |
 | `docs/FIYATLANDIRMA.md` | Plan katmanları, deneme süresi, mesaj kredileri |
 | `docs/KURYE.md` | Üçüncü taraf kurye entegrasyonu ve ücret politikası |
 | `docs/SIPARIS_VE_SEVK.md` | Sipariş durum makinesi, kendi kurye sevki, çok duraklı rota, canlı takip (SSE) |

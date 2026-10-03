@@ -235,6 +235,7 @@ model User {
   invitesCreated      InviteToken[]        @relation("InviteCreatedBy")
   statusChanges       OrderStatusHistory[]
   tripsCreated        DeliveryTrip[]
+  paymentsCollected   Payment[]            @relation("PaymentCollectedBy")
   auditLogs           AuditLog[]
 
   @@map("users")
@@ -315,32 +316,33 @@ model Restaurant {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  serviceArea        ServiceArea?               @relation(fields: [serviceAreaId], references: [id])
-  courierProvider    CourierProvider?           @relation(fields: [courierProviderId], references: [id])
-  branches           Branch[]
-  memberships        Membership[]
-  roleTemplates      RoleTemplate[]
-  inviteTokens       InviteToken[]
-  menuCategories     MenuCategory[]
-  menuItems          MenuItem[]
-  tables             DiningTable[]
-  qrScanEvents       QrScanEvent[]
-  customers          RestaurantCustomer[]
-  orders             Order[]
-  payments           Payment[]
-  ledgerEntries      LedgerEntry[]
-  payouts            Payout[]
-  paymentConnection  PaymentProviderConnection?
-  commissionInvoices CommissionInvoice[]
-  subscription       RestaurantSubscription?
-  messageWallets     MessageWallet[]
-  messageLogs        MessageLog[]
-  deliveryRequests   DeliveryRequest[]
-  deliveryTrips      DeliveryTrip[]
-  deliveryStops      DeliveryStop[]
-  courierLocations   CourierLocation[]
-  featureFlags       FeatureFlag[]
-  auditLogs          AuditLog[]
+  serviceArea         ServiceArea?               @relation(fields: [serviceAreaId], references: [id])
+  courierProvider     CourierProvider?           @relation(fields: [courierProviderId], references: [id])
+  branches            Branch[]
+  memberships         Membership[]
+  roleTemplates       RoleTemplate[]
+  inviteTokens        InviteToken[]
+  menuCategories      MenuCategory[]
+  menuItems           MenuItem[]
+  tables              DiningTable[]
+  qrScanEvents        QrScanEvent[]
+  customers           RestaurantCustomer[]
+  orders              Order[]
+  payments            Payment[]
+  ledgerEntries       LedgerEntry[]
+  payouts             Payout[]
+  paymentConnection   PaymentProviderConnection?
+  mealCardConnections MealCardConnection[]
+  commissionInvoices  CommissionInvoice[]
+  subscription        RestaurantSubscription?
+  messageWallets      MessageWallet[]
+  messageLogs         MessageLog[]
+  deliveryRequests    DeliveryRequest[]
+  deliveryTrips       DeliveryTrip[]
+  deliveryStops       DeliveryStop[]
+  courierLocations    CourierLocation[]
+  featureFlags        FeatureFlag[]
+  auditLogs           AuditLog[]
 
   @@index([serviceAreaId, isListed])
   @@map("restaurants")
@@ -630,23 +632,27 @@ model Order {
   // Amounts in minor units, snapshot of computeOrderSettlement() at placement.
   itemsGrossMinor         Int
   itemsVatMinor           Int
-  deliveryFeeMinor        Int         @default(0)
-  discountMinor           Int         @default(0)
+  deliveryFeeMinor        Int            @default(0)
+  discountMinor           Int            @default(0)
   discountFundedBy        String?
   chargedToCustomerMinor  Int
   commissionBps           Int
   platformCommissionMinor Int
-  commissionVatMinor      Int         @default(0)
-  pspFeeMinor             Int         @default(0)
-  pspFeeBearer            String      @default("RESTAURANT")
-  withholdingMinor        Int         @default(0)
-  courierCostMinor        Int         @default(0)
+  commissionVatMinor      Int            @default(0)
+  pspFeeMinor             Int            @default(0)
+  pspFeeBearer            String         @default("RESTAURANT")
+  withholdingMinor        Int            @default(0)
+  courierCostMinor        Int            @default(0)
   courierBearer           String?
   restaurantPayableMinor  Int
   /// Payment mode at placement; decides whether the commission is invoiced (OWN_POS) or deducted (PLATFORM_PSP).
-  paymentMode             PaymentMode @default(OWN_POS)
+  paymentMode             PaymentMode    @default(OWN_POS)
   /// OWN_POS: commission + VAT the restaurant owes for this order. PLATFORM_PSP: 0.
-  platformReceivableMinor Int         @default(0)
+  platformReceivableMinor Int            @default(0)
+  /// Payment intent at placement (docs/YEMEK_KARTI.md); the payments rows carry what actually happened.
+  paymentMethod           PaymentMethod?
+  /// Meal card issuer code when paymentMethod is MEAL_CARD.
+  paymentProvider         String?
 
   /// Delivery address at the time of the order (never a live reference).
   addressSnapshot     Json?
@@ -738,12 +744,15 @@ model Payment {
   paymentMode          PaymentMode   @default(OWN_POS)
   /// The stored card used, when the customer paid with a saved card.
   savedPaymentMethodId String?
+  /// Staff member or courier who recorded a collection at the door or the counter.
+  collectedByUserId    String?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
   restaurant         Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   order              Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
   savedPaymentMethod SavedPaymentMethod? @relation(fields: [savedPaymentMethodId], references: [id], onDelete: SetNull)
+  collectedBy        User?               @relation("PaymentCollectedBy", fields: [collectedByUserId], references: [id], onDelete: SetNull)
 
   @@index([restaurantId, createdAt])
   @@index([orderId])
@@ -775,6 +784,30 @@ model PaymentProviderConnection {
 }
 
 /// A customer's card as held by a vault provider; only the provider's token is stored, encrypted.
+/// How a restaurant accepts one meal card issuer (docs/YEMEK_KARTI.md): at
+/// the door, online with the issuer's API credentials (encrypted, verified),
+/// or both. The restaurant is the issuer's member merchant, never the platform.
+model MealCardConnection {
+  id                   String                  @id @default(uuid())
+  restaurantId         String
+  providerCode         String
+  acceptsOnline        Boolean                 @default(false)
+  acceptsOnDelivery    Boolean                 @default(true)
+  encryptedCredentials String?
+  keyVersion           String?
+  status               PaymentConnectionStatus @default(DISABLED)
+  label                String?
+  lastVerifiedAt       DateTime?
+  failureReason        String?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, providerCode])
+  @@map("meal_card_connections")
+}
+
 model SavedPaymentMethod {
   id             String   @id @default(uuid())
   userId         String

@@ -18,6 +18,7 @@ interface PublicMenu {
     defaultLocale: string;
   };
   table: { id: string; label: string } | null;
+  payment: { mealCardsOnline: { name: string }[]; mealCardsOnDelivery: { name: string }[] };
   categories: {
     id: string;
     name: string;
@@ -53,6 +54,9 @@ export default async function TableMenuPage({ params }: { params: Promise<{ toke
   if (!res.ok) throw new Error(`Menu request failed with ${res.status}`);
   const menu = (await res.json()) as PublicMenu;
   const { t, locale } = await getT();
+  const mealCards = [
+    ...new Set([...menu.payment.mealCardsOnline, ...menu.payment.mealCardsOnDelivery].map((c) => c.name)),
+  ];
 
   return (
     <ThemeRoot tenantTheme={{ themePrimary: menu.restaurant.themePrimary, logoUrl: menu.restaurant.logoUrl }}>
@@ -60,6 +64,9 @@ export default async function TableMenuPage({ params }: { params: Promise<{ toke
         <header className="flex flex-col gap-1">
           <h1 className="ui-title">{t('qr.page.title', { restaurant: menu.restaurant.name })}</h1>
           {menu.table && <p className="ui-text-muted">{t('qr.page.table', { label: menu.table.label })}</p>}
+          {mealCards.length > 0 && (
+            <p className="ui-caption">{t('qr.page.mealCards', { cards: mealCards.join(', ') })}</p>
+          )}
         </header>
 
         {menu.categories.map((category) => (

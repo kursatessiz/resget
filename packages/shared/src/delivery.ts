@@ -10,6 +10,8 @@ import {
 import { GeoPointSchema } from './courier';
 import type { GeoPoint } from './courier';
 import { MinorAmountSchema } from './money';
+import { OrderPaymentIntentSchema } from './meal-cards';
+import type { OrderPaymentDTO } from './meal-cards';
 import { PhoneSchema, UuidSchema } from './validators';
 
 /**
@@ -424,6 +426,8 @@ export const CreateOrderSchema = z
     items: z.array(OrderLineInputSchema).min(1).max(100),
     address: AddressSnapshotSchema.optional(),
     deliveryFeeMinor: MinorAmountSchema.default(0),
+    /** How the order will be paid; omitted for a staff order whose payment is settled outside the platform. */
+    payment: OrderPaymentIntentSchema.optional(),
     note: z.string().trim().max(500).optional(),
     /** Anonymous QR session of the guest, to record the PLACED_ORDER funnel step. */
     qrSessionId: z.string().trim().min(8).max(64).optional(),
@@ -558,6 +562,8 @@ export interface OrderSummaryDTO {
   completedAt: string | null;
   /** The trip this order currently rides in, when any. */
   activeTrip: { tripId: string; stopId: string; sequence: number; tripStatus: DeliveryTripStatusValue } | null;
+  /** Chosen method, issuer and what is still due at the door (docs/YEMEK_KARTI.md). */
+  payment: OrderPaymentDTO;
 }
 
 export interface OrderDetailDTO extends OrderSummaryDTO {

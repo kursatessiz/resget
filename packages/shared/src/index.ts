@@ -4,6 +4,7 @@ export * from './money';
 export * from './settlement';
 export * from './plans';
 export * from './payments';
+export * from './meal-cards';
 export * from './courier';
 export * from './delivery';
 export * from './table-qr';
