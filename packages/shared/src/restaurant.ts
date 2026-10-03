@@ -17,6 +17,37 @@ import type { PlanCode } from './plans';
 
 export const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'hex color expected');
 
+/**
+ * A host name the restaurant owns for its ordering page (docs/VITRIN.md, "Kendi alan adı"):
+ * lower case, at least two labels, no scheme, no path. The platform's own host is refused by the API.
+ */
+export const HostnameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(4)
+  .max(253)
+  .regex(/^(?=.{4,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/, 'host name expected');
+
+export const SetCustomDomainSchema = z.object({ domain: HostnameSchema.nullable() }).strict();
+export type SetCustomDomainInput = z.infer<typeof SetCustomDomainSchema>;
+
+/** GET /restaurants/:id/domain: what is set, whether DNS points here yet, and what to tell the registrar. */
+export interface CustomDomainDTO {
+  domain: string | null;
+  verifiedAt: string | null;
+  /** The CNAME target: the platform's web host. */
+  target: string;
+  /** Verified and the plan carries `custom_domain`; only then does the host serve the page. */
+  active: boolean;
+  /** Records the last verification saw, so the owner can compare with the registrar. */
+  lastCheck: { ok: boolean; seen: string[] } | null;
+}
+
+export interface PublicDomainResolveDTO {
+  slug: string;
+}
+
 export const UpdateRestaurantSettingsSchema = z
   .object({
     name: z.string().trim().min(2).max(80).optional(),
@@ -66,6 +97,9 @@ export interface RestaurantSettingsDTO {
   dispatchSettings: DispatchSettings;
   logoUrl: string | null;
   themePrimary: string;
+  /** Own host of the ordering page (docs/VITRIN.md); verifiedAt is set once DNS points here. */
+  customDomain: string | null;
+  customDomainVerifiedAt: string | null;
   branches: RestaurantBranchDTO[];
   effectivePlan: PlanCode;
   permissions: PermissionKey[];

@@ -70,6 +70,18 @@ test.describe('Menu editor, tables and settings', () => {
     await dispatch.getByRole('button', { name: 'Kaydet' }).click();
     await expect(dispatch.getByText('Kaydedildi.')).toBeVisible();
 
+    // Custom domain (docs/VITRIN.md): save, verify through the MOCK resolver, remove.
+    const domainCard = page.getByRole('region', { name: 'Kendi alan adınız' });
+    await domainCard.getByLabel('Alan adı').fill(`pw-${stamp}.verified.test`);
+    await domainCard.getByRole('button', { name: 'Kaydet' }).click();
+    await expect(domainCard.getByRole('status')).toHaveText('Alan adı kaydedildi.');
+    await expect(domainCard).toContainText('CNAME');
+    await domainCard.getByRole('button', { name: 'Doğrula' }).click();
+    await expect(domainCard.getByRole('status')).toContainText('Alan adı doğrulandı');
+    await expect(domainCard.getByText('Doğrulandı', { exact: true })).toBeVisible();
+    await domainCard.getByRole('button', { name: 'Kaldır' }).click();
+    await expect(domainCard.getByRole('status')).toHaveText('Alan adı kaldırıldı.');
+
     // Payments: mode, POS connection and meal cards render from the API.
     await page.goto(`/panel/${SEED.restaurantSlug}/odeme`);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ödeme ayarları');

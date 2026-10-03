@@ -14,6 +14,8 @@ export const EnvSchema = z
     /** Base URL of the web app; table QR links and invite links are built on it. */
     PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
     PUBLIC_API_URL: z.string().url().default('http://localhost:4000'),
+    /** How a restaurant's custom domain is checked: real DNS, or MOCK (hosts under .verified.test pass); tests default to MOCK. */
+    DOMAIN_VERIFIER: z.enum(['DNS', 'MOCK']).optional(),
     APP_RELEASE: z
       .string()
       .regex(/^[A-Za-z0-9._-]{1,64}$/)
@@ -138,6 +140,13 @@ export const EnvSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['PAYMENT_PROVIDER'],
+        message: 'MOCK is not allowed in production',
+      });
+    }
+    if (env.DOMAIN_VERIFIER === 'MOCK') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['DOMAIN_VERIFIER'],
         message: 'MOCK is not allowed in production',
       });
     }

@@ -137,7 +137,7 @@ Preprod, production'ın birebir kopyasıdır: aynı compose, aynı Caddyfile, ay
    ```
    Script `deploy` kullanıcısını, 4 GB swap'ı, UFW (22/80/443), fail2ban'ı, Docker'ı (log döndürmeli), `/opt/resget` dizinlerini ve yedek cron'unu kurar. SSH parola girişini yalnızca anahtarla yönetici erişimi doğrulanınca kapatır; idempotenttir.
 2. **GitHub.** `preprod` ortamını yukarıdaki tabloya göre oluşturun; `DEPLOY_SSH_KNOWN_HOSTS` için `ssh-keyscan` çıktısını sunucu parmak iziyle karşılaştırın.
-3. **DNS.** `WEB_DOMAIN` ve `API_DOMAIN` için A kayıtları. Caddy sertifikaları kendisi alır.
+3. **DNS.** `WEB_DOMAIN` ve `API_DOMAIN` için A kayıtları. Caddy sertifikaları kendisi alır. Restoranların kendi alan adları (`docs/VITRIN.md`, "Kendi alan adı") için ek kurulum yoktur: Caddy `on_demand_tls` ile sertifikayı ilk ziyarette, API'nin `/public/domains/check` onayından sonra alır; 80 ve 443 portlarının açık olması yeterlidir.
 4. **`/opt/resget/.env`.** `.env.example`'dan kopyalayıp doldurun (`chmod 600`); `SITE_ENV=preprod`; tüm sırları yeniden üretin, production değerlerini kopyalamayın; ödeme, SMS ve kurye için sağlayıcı sandbox anahtarları.
 5. **GHCR erişimi** (bölüm 5).
 6. **İlk deploy.** `DEPLOY_ENABLED=true` yapıp `main`'e push veya Actions > Release > Run workflow. `deploy.sh` migration'ları çalıştırır, ardından `node dist/cli/bootstrap.js --defaults-only` ile platform varsayılanlarını kurar (`BOOTSTRAP_CURRENCY` para biriminde `BASIC` ve `PRO` planları yoksa oluşturur, varsa dokunmaz; `BOOTSTRAP_PRO_PRICE_MINOR` boşsa PRO ücreti 0 ile açılır ve konsoldan belirlenir) ve smoke test yapar.

@@ -26,6 +26,7 @@ import { CampaignsModule } from './modules/campaigns/campaigns.module';
 import { AccountModule } from './modules/account/account.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
+import { DomainsModule } from './modules/domains/domains.module';
 import { PayoutsModule } from './modules/payouts/payouts.module';
 
 @Module({
@@ -35,6 +36,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
     RedisModule,
     LedgerModule,
     LoyaltyModule,
+    DomainsModule,
     RealtimeModule,
     HealthModule,
     MessagingModule,

@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BUNDLED_LANGUAGES, DEFAULT_DISPATCH_SETTINGS, majorAmountText, parseMajorAmount } from '@resget/shared';
-import type { DeliveryFeePolicy, DispatchSettings, RestaurantSettingsDTO } from '@resget/shared';
-import { Button, Card, SelectField, TextField } from '@/components/ui';
+import type { CustomDomainDTO, DeliveryFeePolicy, DispatchSettings, RestaurantSettingsDTO } from '@resget/shared';
+import { Badge, Button, Card, SelectField, TextField } from '@/components/ui';
 import { ApiError, bffJson, bffUpload } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
 
-type Section = 'business' | 'brand' | 'delivery' | 'dispatch' | 'platform';
+type Section = 'business' | 'brand' | 'delivery' | 'dispatch' | 'platform' | 'domain';
 type FeeMode = 'NONE' | DeliveryFeePolicy['mode'];
 type DeliveryModeValue = RestaurantSettingsDTO['deliveryMode'];
 
@@ -65,6 +65,9 @@ export function SettingsForm({
   const [fee, setFee] = useState('');
   const [threshold, setThreshold] = useState('');
   const [dispatch, setDispatch] = useState(() => toDraft(DEFAULT_DISPATCH_SETTINGS));
+  const [domainStatus, setDomainStatus] = useState<CustomDomainDTO | null>(null);
+  const [domainDraft, setDomainDraft] = useState('');
+  const [domainNotice, setDomainNotice] = useState<string | null>(null);
 
   const fail = useCallback(
     (err: unknown) => setError(err instanceof ApiError ? t(`errors.${err.code}`) : t('common.error.network')),
@@ -73,6 +76,13 @@ export function SettingsForm({
 
   useEffect(() => {
     let cancelled = false;
+    bffJson<CustomDomainDTO>(`${path}/domain`)
+      .then((status) => {
+        if (cancelled) return;
+        setDomainStatus(status);
+        setDomainDraft(status.domain ?? '');
+      })
+      .catch(fail);
     bffJson<RestaurantSettingsDTO>(path)
       .then((dto) => {
         if (cancelled) return;
@@ -169,6 +179,44 @@ export function SettingsForm({
       setBusy(false);
     }
   };
+
+  const domainAction = async (run: () => Promise<CustomDomainDTO>, notice: (status: CustomDomainDTO) => string) => {
+    setBusy(true);
+    setError(null);
+    setDomainNotice(null);
+    try {
+      const status = await run();
+      setDomainStatus(status);
+      setDomainDraft(status.domain ?? '');
+      setDomainNotice(notice(status));
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const saveDomain = () =>
+    domainAction(
+      () =>
+        bffJson<CustomDomainDTO>(`${path}/domain`, {
+          method: 'PUT',
+          body: JSON.stringify({ domain: domainDraft.trim() }),
+        }),
+      () => t('settings.domain.saved'),
+    );
+  const removeDomain = () =>
+    domainAction(
+      () => bffJson<CustomDomainDTO>(`${path}/domain`, { method: 'PUT', body: JSON.stringify({ domain: null }) }),
+      () => t('settings.domain.removed'),
+    );
+  const verifyDomain = () =>
+    domainAction(
+      () => bffJson<CustomDomainDTO>(`${path}/domain/verify`, { method: 'POST', body: '{}' }),
+      (status) =>
+        status.verifiedAt
+          ? t('settings.domain.verifiedNow', { domain: status.domain ?? '' })
+          : t('settings.domain.notYet'),
+    );
 
   const requestListing = async () => {
     setBusy(true);
@@ -436,6 +484,87 @@ export function SettingsForm({
           ))}
         </div>
         {footer('dispatch', saveDispatch)}
+      </Card>
+
+      <Card
+        title={t('settings.domain.title')}
+        aria-label={t('settings.domain.title')}
+        aside={
+          domainStatus?.domain ? (
+            <Badge tone={domainStatus.verifiedAt ? 'success' : 'warn'}>
+              {domainStatus.verifiedAt ? t('settings.domain.verified') : t('settings.domain.pending')}
+            </Badge>
+          ) : undefined
+        }
+      >
+        <p className="ui-text-muted">{t('settings.domain.intro')}</p>
+        {data.effectivePlan !== 'PRO' && <p className="ui-caption">{t('settings.domain.proRequired')}</p>}
+        {domainStatus && (
+          <div className="flex flex-col gap-3">
+            <p>
+              {domainStatus.domain
+                ? t('settings.domain.current', { domain: domainStatus.domain })
+                : t('settings.domain.none')}
+            </p>
+            {domainStatus.domain && !domainStatus.verifiedAt && (
+              <p className="ui-caption">
+                {t('settings.domain.instruction', { domain: domainStatus.domain, target: domainStatus.target })}
+              </p>
+            )}
+            {domainStatus.domain && domainStatus.verifiedAt && !domainStatus.active && (
+              <p className="ui-caption">{t('settings.domain.planLapsed')}</p>
+            )}
+            {domainStatus.lastCheck && !domainStatus.lastCheck.ok && (
+              <p className="ui-caption">
+                {domainStatus.lastCheck.seen.length > 0
+                  ? t('settings.domain.seen', { records: domainStatus.lastCheck.seen.join(', ') })
+                  : t('settings.domain.seenNone')}
+              </p>
+            )}
+            {canManage && (
+              <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                <TextField
+                  label={t('settings.domain.domain')}
+                  value={domainDraft}
+                  onChange={(e) => setDomainDraft(e.target.value)}
+                  placeholder="siparis.restoranim.com"
+                  autoComplete="off"
+                  disabled={data.effectivePlan !== 'PRO'}
+                />
+                <Button
+                  onClick={() => void saveDomain()}
+                  disabled={busy || data.effectivePlan !== 'PRO' || domainDraft.trim().length < 4}
+                >
+                  {t('settings.domain.save')}
+                </Button>
+                {domainStatus.domain && !domainStatus.verifiedAt && (
+                  <Button
+                    variant="outline"
+                    onClick={() => void verifyDomain()}
+                    disabled={busy || data.effectivePlan !== 'PRO'}
+                  >
+                    {t('settings.domain.verify')}
+                  </Button>
+                )}
+                {domainStatus.domain && (
+                  <Button
+                    variant="outline"
+                    tone="muted"
+                    onClick={() => void removeDomain()}
+                    disabled={busy || data.effectivePlan !== 'PRO'}
+                  >
+                    {t('settings.domain.remove')}
+                  </Button>
+                )}
+              </div>
+            )}
+            {domainNotice && (
+              <p role="status" className="ui-caption">
+                {domainNotice}
+              </p>
+            )}
+          </div>
+        )}
       </Card>
 
       <Card title={t('settings.platform.title')} aria-label={t('settings.platform.title')}>

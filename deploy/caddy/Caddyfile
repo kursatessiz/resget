@@ -1,5 +1,10 @@
 {
   email {$ACME_EMAIL}
+  # Restaurants' own domains (docs/VITRIN.md, "Kendi alan adı"): a certificate is issued on first visit,
+  # but only for a host the API confirms is a verified, serving custom domain (404 otherwise).
+  on_demand_tls {
+    ask http://api:4000/public/domains/check
+  }
 }
 
 # Environment-specific headers, selected by SITE_ENV (default "production").
@@ -13,6 +18,28 @@
 
 # Restaurant panel, public menu pages (/m/<token>) and the ordering site
 {$WEB_DOMAIN} {
+  encode zstd gzip
+  import env_{$SITE_ENV:production}
+  header {
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Permissions-Policy "camera=(self), geolocation=(self), microphone=()"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    -Server
+  }
+  reverse_proxy web:3000 {
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+  }
+}
+
+# Restaurants' custom domains: any other host, certificate on demand after the API's check above.
+https:// {
+  tls {
+    on_demand
+  }
   encode zstd gzip
   import env_{$SITE_ENV:production}
   header {
