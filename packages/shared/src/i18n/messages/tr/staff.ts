@@ -22,8 +22,6 @@ export const trStaff = {
   'staff.invite.channel.SHOWN': 'Bağlantıyı ve QR kodunu ben göstereceğim',
   'staff.invite.channel.SMS': 'SMS ile gönder',
   'staff.invite.send': 'Davet oluştur',
-  'staff.invite.sms':
-    '{restaurant} sizi ekibine {role} olarak davet ediyor. Katılmak için {hours} saat içinde bağlantıyı açın: {url}',
   'staff.invites.title': 'Bekleyen davetler',
   'staff.invites.empty': 'Bekleyen davet yok.',
   'staff.invites.expiresAt': 'Son geçerlilik: {date}',

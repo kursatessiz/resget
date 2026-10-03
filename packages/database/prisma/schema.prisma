@@ -308,6 +308,8 @@ model Restaurant {
   deliveryFeePolicy Json?
   /// Own-courier dispatch tuning (DispatchSettingsSchema in shared): speed, detour, arrival radius, stops per trip.
   dispatchSettings  Json?
+  /// Customer notification preferences (NotificationSettingsSchema in shared): order updates on or off, channel, SMS fallback.
+  notificationSettings Json?
 
   logoUrl      String?
   themePrimary String  @default("#0092CD")

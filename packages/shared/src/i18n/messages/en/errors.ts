@@ -44,4 +44,6 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.ROLE_NAME_TAKEN': 'A role with this name already exists.',
   'errors.STAFF_OWNER_PROTECTED': 'The owner membership cannot be changed here.',
   'errors.STAFF_ALREADY_MEMBER': 'This phone number is already on the team.',
+  'errors.PACKAGE_NOT_FOUND': 'Credit package not found.',
+  'errors.PAYMENT_METHOD_NOT_FOUND': 'Saved card not found.',
 };

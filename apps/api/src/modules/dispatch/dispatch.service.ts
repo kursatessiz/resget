@@ -16,6 +16,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeService, courierTopic, dispatchTopic } from '../realtime/realtime.service';
 import type { TopicEvent } from '../realtime/realtime.service';
 import { ACTIVE_STOP_STATUSES, ACTIVE_TRIP_STATUSES, OrdersService } from '../orders/orders.service';
+import { OrderNotificationsService } from '../orders/order-notifications.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { RoutingRegistry } from './routing.registry';
 import { conflict, forbidden, notFound } from '../../common/api-error';
@@ -54,6 +55,7 @@ export class DispatchService {
     private readonly realtime: RealtimeService,
     private readonly orders: OrdersService,
     private readonly routing: RoutingRegistry,
+    private readonly notifications: OrderNotificationsService,
   ) {
     this.orders.setTripEventsProvider((tripId) => this.eventsForTrip(tripId));
   }
@@ -346,6 +348,8 @@ export class DispatchService {
     });
     await this.refreshEstimates(restaurantId, tripId);
     await this.publishTrip(tripId);
+    // Departure is the moment the customer wants to know about; each order gets its live tracking link.
+    for (const stop of trip.stops) await this.notifications.notify(stop.orderId, 'OUT_FOR_DELIVERY');
     return this.getTrip(restaurantId, tripId);
   }
 
