@@ -2,7 +2,6 @@
 export const trQr = {
   'qr.page.title': '{restaurant} menüsü',
   'qr.page.table': 'Masa {label}',
-  'qr.page.orderToTable': 'Masaya sipariş ver',
   'qr.page.orderDelivery': 'Bir dahaki sefere eve sipariş ver',
   'qr.page.register': 'Telefon numaranla kaydol, siparişlerin tek dokunuşla gelsin',
   'qr.page.poweredBy': 'Resget altyapısıyla',

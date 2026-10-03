@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ERROR_CODE_HEADER, REQUEST_ID_HEADER } from '@resget/shared';
 import { apiInternalBaseUrl } from '@/lib/server-env';
-import { ACCESS_TOKEN_COOKIE } from '@/lib/session';
+import { ACCESS_TOKEN_COOKIE, QR_SESSION_COOKIE } from '@/lib/session';
 
 /**
  * Backend-for-frontend proxy: every `/api/bff/<path>` call from the browser
@@ -41,6 +41,9 @@ async function handle(req: NextRequest, context: { params: Promise<{ path: strin
   headers.set(REQUEST_ID_HEADER, requestId);
   const token = req.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
   if (token && !headers.has('authorization')) headers.set('authorization', `Bearer ${token}`);
+  // The anonymous table QR session (docs/MASA_QR.md) is an httpOnly cookie; the API reads it as a header.
+  const qrSession = req.cookies.get(QR_SESSION_COOKIE)?.value;
+  if (qrSession && !headers.has('x-qr-session')) headers.set('x-qr-session', qrSession);
 
   const body = req.method === 'GET' || req.method === 'HEAD' ? undefined : await req.arrayBuffer();
   const upstream = await fetch(`${apiInternalBaseUrl()}/${apiPath}${req.nextUrl.search}`, {

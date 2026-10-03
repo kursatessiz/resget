@@ -32,6 +32,8 @@ export interface TestContext {
 export async function createTestApp(): Promise<TestContext> {
   process.env.NODE_ENV = 'test';
   process.env.OTP_TEST_CODE = OTP_TEST_CODE;
+  // A small window keeps the rate limit scenario short; other suites place orders as staff, not through the public surface.
+  process.env.PUBLIC_ORDER_RATE_LIMIT ??= '6';
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = moduleRef.createNestApplication({ rawBody: true });
   app.useGlobalFilters(new ErrorCodeFilter());

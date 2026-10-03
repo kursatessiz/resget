@@ -10,7 +10,8 @@ test.describe('Table QR menu page', () => {
     await expect(page.getByText(SEED.firstMenuItem)).toBeVisible();
     // Turkish currency formatting of the seeded 420,00 TL item.
     await expect(page.getByText(/420,00/)).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Masaya sipariş ver' })).toBeVisible();
+    // Ordering happens on the page itself (docs/VITRIN.md): every item carries an add button; order.e2e.ts covers the basket.
+    await expect(page.getByRole('button', { name: `Ekle: ${SEED.firstMenuItem}` })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Bir dahaki sefere eve sipariş ver' })).toBeVisible();
     // The seeded restaurant takes two meal cards at the door.
     await expect(page.getByText('Kabul edilen yemek kartları: Edenred, Multinet')).toBeVisible();

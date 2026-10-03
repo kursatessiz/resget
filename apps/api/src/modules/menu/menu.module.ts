@@ -1,13 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
-import { PaymentsModule } from '../payments/payments.module';
 import { MenuController } from './menu.controller';
-import { PublicMenuController } from './public-menu.controller';
 import { MenuService } from './menu.service';
 
 @Module({
-  imports: [AuthModule, PaymentsModule],
-  controllers: [MenuController, PublicMenuController],
+  imports: [AuthModule],
+  controllers: [MenuController],
   providers: [MenuService],
+  exports: [MenuService],
 })
 export class MenuModule {}

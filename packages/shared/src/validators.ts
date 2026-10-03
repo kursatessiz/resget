@@ -3,13 +3,31 @@ import { normalizePhone } from './phone';
 
 export const UuidSchema = z.string().uuid();
 
+/** Paths of the web app itself; a restaurant can never take one as its slug. */
+export const RESERVED_SLUGS = [
+  'giris',
+  'kayit',
+  'panel',
+  'admin',
+  'api',
+  'm',
+  't',
+  'j',
+  'pazaryeri',
+  'public',
+  'static',
+  'assets',
+  'health',
+] as const;
+
 /** URL slug of a restaurant: the public ordering page lives at /<slug>. */
 export const SlugSchema = z
   .string()
   .trim()
   .min(3)
   .max(60)
-  .regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/, 'lowercase letters, digits and single dashes');
+  .regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/, 'lowercase letters, digits and single dashes')
+  .refine((slug) => !(RESERVED_SLUGS as readonly string[]).includes(slug), { message: 'reserved' });
 
 /** ISO 3166-1 alpha-2. */
 export const CountryCodeSchema = z.string().regex(/^[A-Z]{2}$/);

@@ -14,7 +14,10 @@ export default async function LandingPage() {
           <p className="ui-lead ui-text-muted">{t('landing.subheadline')}</p>
           <div className="flex flex-wrap gap-3">
             <LinkButton href="/kayit">{t('landing.cta.restaurant')}</LinkButton>
-            <LinkButton href="/giris" variant="outline" tone="muted">
+            <LinkButton href="/pazaryeri" variant="outline" tone="muted">
+              {t('shop.marketplace.cta')}
+            </LinkButton>
+            <LinkButton href="/giris" variant="link" tone="muted">
               {t('landing.cta.signIn')}
             </LinkButton>
           </div>
