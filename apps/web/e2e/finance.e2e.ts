@@ -14,5 +14,8 @@ test.describe('Finance: commission invoices', () => {
     await expect(page.getByText(/sipariş, /)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Otomatik tahsilat kartı' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Faturalar', exact: true })).toBeVisible();
+    // The ledger card: the demo restaurant collects on its own POS, so it only explains why there is no payout.
+    await expect(page.getByRole('heading', { name: 'Defter ve hakedişler' })).toBeVisible();
+    await expect(page.getByText(/platform size hakediş ödemez/)).toBeVisible();
   });
 });

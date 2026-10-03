@@ -94,6 +94,8 @@ export interface BillingRunReportDTO {
   collectionFailed: number;
   overdue: number;
   suspended: number;
+  /** Weekly payouts rolled in this run (PLATFORM_PSP, docs/MUTABAKAT.md). */
+  payoutsCreated: number;
 }
 
 export const AdminInvoiceQuerySchema = PaginationSchema.extend({

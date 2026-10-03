@@ -21,6 +21,7 @@ export * from './reports';
 export * from './courier-overview';
 export * from './campaigns';
 export * from './account';
+export * from './payouts';
 export * from './validators';
 export * from './types';
 export * from './phone';

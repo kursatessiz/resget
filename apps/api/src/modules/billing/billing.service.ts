@@ -28,6 +28,7 @@ import type {
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from '../payments/payments.service';
+import { PayoutsService } from '../payouts/payouts.service';
 import { PaymentsRegistry } from '../payments/payments.registry';
 import { MessagingService } from '../messaging/messaging.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
@@ -91,6 +92,7 @@ export class BillingService {
     private readonly messaging: MessagingService,
     private readonly config: ConfigService,
     @Inject(INVOICE_PROVIDER) private readonly fiscal: InvoiceProviderAdapter,
+    private readonly payouts: PayoutsService,
   ) {}
 
   // -- The daily job -----------------------------------------------------------------------
@@ -102,6 +104,8 @@ export class BillingService {
     const fiscalized = await this.fiscalizePending();
     const collect = await this.collectDue(asOf);
     const aged = await this.markOverdue(asOf);
+    // PLATFORM_PSP money: the closed week's payable lines roll into one payout per restaurant.
+    const payoutRun = await this.payouts.rollDue(asOf);
     const report: BillingRunReportDTO = {
       asOf: asOf.toISOString(),
       periodStart: period.periodStart.toISOString(),
@@ -110,6 +114,7 @@ export class BillingService {
       fiscalized,
       ...collect,
       ...aged,
+      payoutsCreated: payoutRun.created,
     };
     // The console's system page shows when the job last ran from this line.
     await this.prisma.auditLog.create({

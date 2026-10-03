@@ -24,12 +24,15 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { CampaignsModule } from './modules/campaigns/campaigns.module';
 import { AccountModule } from './modules/account/account.module';
+import { LedgerModule } from './modules/ledger/ledger.module';
+import { PayoutsModule } from './modules/payouts/payouts.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.local', '.env'], validate: validateEnv }),
     PrismaModule,
     RedisModule,
+    LedgerModule,
     RealtimeModule,
     HealthModule,
     MessagingModule,
@@ -51,6 +54,7 @@ import { AccountModule } from './modules/account/account.module';
     UploadsModule,
     CampaignsModule,
     AccountModule,
+    PayoutsModule,
   ],
 })
 export class AppModule {}
