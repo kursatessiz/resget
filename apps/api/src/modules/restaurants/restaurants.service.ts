@@ -4,7 +4,7 @@ import { DeliveryFeePolicySchema, dispatchSettingsFrom } from '@resget/shared';
 import type { RestaurantSettingsDTO, UpdateRestaurantSettingsInput } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
-import { notFound } from '../../common/api-error';
+import { conflict, notFound } from '../../common/api-error';
 
 const settingsSelect = Prisma.validator<Prisma.RestaurantSelect>()({
   id: true,
@@ -17,6 +17,9 @@ const settingsSelect = Prisma.validator<Prisma.RestaurantSelect>()({
   timezone: true,
   defaultLocale: true,
   isListed: true,
+  listingRequestedAt: true,
+  listingReviewedAt: true,
+  listingReviewNote: true,
   commissionBps: true,
   paymentMode: true,
   pspPercentBps: true,
@@ -63,6 +66,28 @@ export class RestaurantsService {
     return this.toDto(restaurant, tenant);
   }
 
+  /**
+   * The restaurant asks the console to list it (docs/PLATFORM_YONETIMI.md).
+   * A request needs something to review: one item on sale and an active
+   * branch. The decision comes back as a message and on this screen.
+   */
+  async requestListing(tenant: TenantContext): Promise<RestaurantSettingsDTO> {
+    const [restaurant, items, branches] = await Promise.all([
+      this.prisma.restaurant.findUnique({ where: { id: tenant.restaurantId }, select: { isListed: true } }),
+      this.prisma.menuItem.count({ where: { restaurantId: tenant.restaurantId, isAvailable: true } }),
+      this.prisma.branch.count({ where: { restaurantId: tenant.restaurantId, isActive: true } }),
+    ]);
+    if (!restaurant) throw notFound('NOT_FOUND', 'Restaurant not found');
+    if (restaurant.isListed) throw conflict('ALREADY_LISTED', 'Restaurant is already listed');
+    if (items === 0 || branches === 0) throw conflict('LISTING_NOT_READY', 'Menu or branch missing');
+    const updated = await this.prisma.restaurant.update({
+      where: { id: tenant.restaurantId },
+      data: { listingRequestedAt: new Date(), listingReviewedAt: null, listingReviewNote: null },
+      select: settingsSelect,
+    });
+    return this.toDto(updated, tenant);
+  }
+
   private toDto(
     row: Prisma.RestaurantGetPayload<{ select: typeof settingsSelect }>,
     tenant: TenantContext,
@@ -70,6 +95,8 @@ export class RestaurantsService {
     const policy = DeliveryFeePolicySchema.safeParse(row.deliveryFeePolicy);
     return {
       ...row,
+      listingRequestedAt: row.listingRequestedAt?.toISOString() ?? null,
+      listingReviewedAt: row.listingReviewedAt?.toISOString() ?? null,
       deliveryFeePolicy: policy.success ? policy.data : null,
       dispatchSettings: dispatchSettingsFrom(row.dispatchSettings),
       effectivePlan: tenant.effectivePlan,

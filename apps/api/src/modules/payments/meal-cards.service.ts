@@ -106,6 +106,8 @@ export class MealCardsService {
         paymentConnection: { select: { status: true } },
         mealCardConnections: {
           select: { providerCode: true, acceptsOnline: true, acceptsOnDelivery: true, status: true },
+          // A stable order for the checkout and for anyone comparing two reads; row order is not a contract.
+          orderBy: { providerCode: 'asc' },
         },
       },
     });

@@ -27,6 +27,7 @@ export function AdminRestaurantDetail({ id, locale }: { id: string; locale: stri
   const [paymentMode, setPaymentMode] = useState<PaymentModeValue>('OWN_POS');
   const [areaId, setAreaId] = useState('');
   const [grant, setGrant] = useState({ channel: 'SMS' as CreditChannel, credits: '100', note: '' });
+  const [reviewNote, setReviewNote] = useState('');
 
   const fail = useCallback(
     (err: unknown) => setError(err instanceof ApiError ? t(`errors.${err.code}`) : t('common.error.network')),
@@ -141,15 +142,48 @@ export function AdminRestaurantDetail({ id, locale }: { id: string; locale: stri
       {notice && <p className="ui-caption">{notice}</p>}
 
       <Card aria-label={t('admin.restaurant.listed')}>
+        <p className="ui-caption">
+          {t('admin.restaurant.menuSummary', { categories: data.menu.categories, items: data.menu.availableItems })}
+          {data.listingRequestedAt && !data.listingReviewedAt && !data.isListed
+            ? `. ${t('admin.restaurant.listingRequested', { date: dateFormat.format(new Date(data.listingRequestedAt)) })}`
+            : ''}
+          {data.listingReviewNote ? `. ${t('admin.restaurant.lastNote', { note: data.listingReviewNote })}` : ''}
+        </p>
+        {!data.isListed && (
+          <TextField
+            label={t('admin.restaurant.reviewNote')}
+            value={reviewNote}
+            onChange={(e) => setReviewNote(e.target.value)}
+            maxLength={500}
+          />
+        )}
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant={data.isListed ? 'outline' : 'solid'}
-            tone={data.isListed ? 'warn' : 'theme'}
-            disabled={busy}
-            onClick={() => patch({ isListed: !data.isListed })}
-          >
-            {data.isListed ? t('admin.restaurant.toggleUnlisted') : t('admin.restaurant.toggleListed')}
-          </Button>
+          {data.isListed ? (
+            <Button variant="outline" tone="warn" disabled={busy} onClick={() => patch({ isListed: false })}>
+              {t('admin.restaurant.toggleUnlisted')}
+            </Button>
+          ) : (
+            <>
+              <Button
+                disabled={busy}
+                onClick={() =>
+                  patch({ isListed: true, ...(reviewNote.trim() ? { listingReviewNote: reviewNote.trim() } : {}) })
+                }
+              >
+                {t('admin.restaurant.approve')}
+              </Button>
+              {data.listingRequestedAt && !data.listingReviewedAt && (
+                <Button
+                  variant="outline"
+                  tone="error"
+                  disabled={busy}
+                  onClick={() => patch({ isListed: false, listingReviewNote: reviewNote.trim() || null })}
+                >
+                  {t('admin.restaurant.decline')}
+                </Button>
+              )}
+            </>
+          )}
           <Button
             variant="outline"
             tone={data.isActive ? 'error' : 'success'}

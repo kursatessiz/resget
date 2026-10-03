@@ -311,6 +311,10 @@ model Restaurant {
   isListed               Boolean   @default(false)
   /// Set while an overdue commission invoice keeps the restaurant out of the marketplace; cleared when it is settled.
   listingSuspendedAt     DateTime?
+  /// Marketplace listing review (docs/PLATFORM_YONETIMI.md): when the restaurant asked, when the console decided, and why.
+  listingRequestedAt     DateTime?
+  listingReviewedAt      DateTime?
+  listingReviewNote      String?
   /// The saved card commission invoices are collected from (docs/FATURALAMA.md).
   billingPaymentMethodId String?
 

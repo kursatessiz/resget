@@ -17,11 +17,12 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
   return (
     <>
       <h1 className="ui-title">{t('admin.nav.overview')}</h1>
-      <dl className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-4 md:grid-cols-5">
         {(
           [
             ['restaurants', overview.restaurants],
             ['listed', overview.listedRestaurants],
+            ['pending', overview.pendingListingRequests],
             ['activeTrials', overview.activeTrials],
             ['orders7d', overview.ordersLast7Days],
           ] as const

@@ -14,6 +14,7 @@ export function AdminRestaurants({ locale }: { locale: string }) {
   const [data, setData] = useState<AdminRestaurantPageDTO | null>(null);
   const [query, setQuery] = useState('');
   const [listedOnly, setListedOnly] = useState(false);
+  const [pendingOnly, setPendingOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -36,8 +37,9 @@ export function AdminRestaurants({ locale }: { locale: string }) {
     const params = new URLSearchParams();
     if (query.trim()) params.set('query', query.trim());
     if (listedOnly) params.set('listed', 'true');
+    if (pendingOnly) params.set('pending', 'true');
     setData(await bffJson<AdminRestaurantPageDTO>(`admin/restaurants?${params.toString()}`));
-  }, [query, listedOnly]);
+  }, [query, listedOnly, pendingOnly]);
 
   useEffect(() => {
     const handle = setTimeout(() => {
@@ -184,6 +186,15 @@ export function AdminRestaurants({ locale }: { locale: string }) {
             />
             <span>{t('admin.restaurants.listedOnly')}</span>
           </label>
+          <label className="flex items-center gap-2 pb-2">
+            <input
+              type="checkbox"
+              className="pui-checkbox"
+              checked={pendingOnly}
+              onChange={(e) => setPendingOnly(e.target.checked)}
+            />
+            <span>{t('admin.restaurants.pendingOnly')}</span>
+          </label>
           {data && <span className="ui-caption pb-2">{t('admin.restaurants.count', { count: data.total })}</span>}
         </div>
         {!data ? (
@@ -210,6 +221,15 @@ export function AdminRestaurants({ locale }: { locale: string }) {
                     {r.isListed ? t('admin.restaurant.listed') : t('admin.restaurant.notListed')}
                   </Badge>
                   {!r.isActive && <Badge tone="error">{t('admin.restaurant.inactive')}</Badge>}
+                  {!r.isListed && r.listingRequestedAt && !r.listingReviewedAt && (
+                    <Badge tone="warn">
+                      {t('admin.restaurant.listingRequested', {
+                        date: new Intl.DateTimeFormat(locale, { dateStyle: 'short' }).format(
+                          new Date(r.listingRequestedAt),
+                        ),
+                      })}
+                    </Badge>
+                  )}
                   {r.plan && <Badge>{t(`plans.${r.plan.code}.name`)}</Badge>}
                   <span className="ui-caption">
                     {t('admin.restaurant.orders7d', { count: count.format(r.ordersLast7Days) })}

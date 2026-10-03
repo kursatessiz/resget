@@ -50,6 +50,8 @@ export const MESSAGE_TEMPLATE_KEYS = [
   'invoice.overdue',
   'order.acceptOverdue',
   'campaign.body',
+  'listing.approved',
+  'listing.declined',
 ] as const;
 export type MessageTemplateKey = (typeof MESSAGE_TEMPLATE_KEYS)[number];
 

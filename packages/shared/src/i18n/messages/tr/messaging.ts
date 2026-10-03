@@ -10,6 +10,10 @@ export const trMessaging = {
   'messaging.template.order.rejected': '{restaurant}: {code} numarali siparisiniz maalesef kabul edilemedi.{reason}',
   'messaging.template.order.cancelled': '{restaurant}: {code} numarali siparisiniz iptal edildi.{reason}',
   'messaging.template.reasonSuffix': ' Neden: {reason}',
+  'messaging.template.listing.approved':
+    '{restaurant}: pazaryeri listelemeniz onaylandi. Artik bolgenizdeki musteriler sizi gorebilir.{note}',
+  'messaging.template.listing.declined':
+    '{restaurant}: pazaryeri listeleme talebiniz su an onaylanamadi.{note} Duzenleyip panelden yeniden talep edebilirsiniz.',
   'messaging.template.campaign.body': '{restaurant}: {body} Cikmak icin: {url}',
   'messaging.template.order.acceptOverdue':
     '{restaurant}: {code} numarali siparis {minutes} dakikadir kabul bekliyor. Siparis ekranini acin.',

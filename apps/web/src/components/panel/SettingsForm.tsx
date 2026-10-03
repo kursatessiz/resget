@@ -8,7 +8,7 @@ import { Button, Card, SelectField, TextField } from '@/components/ui';
 import { ApiError, bffJson, bffUpload } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
 
-type Section = 'business' | 'brand' | 'delivery' | 'dispatch';
+type Section = 'business' | 'brand' | 'delivery' | 'dispatch' | 'platform';
 type FeeMode = 'NONE' | DeliveryFeePolicy['mode'];
 type DeliveryModeValue = RestaurantSettingsDTO['deliveryMode'];
 
@@ -163,6 +163,20 @@ export function SettingsForm({
       form.append('file', logoFile);
       applyLogo(await bffUpload<RestaurantSettingsDTO>(`${path}/logo`, form));
       setLogoNotice(t('settings.brand.uploaded'));
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const requestListing = async () => {
+    setBusy(true);
+    setError(null);
+    setLogoNotice(null);
+    try {
+      setData(await bffJson<RestaurantSettingsDTO>(`${path}/listing-request`, { method: 'POST', body: '{}' }));
+      setSaved('platform');
     } catch (err) {
       fail(err);
     } finally {
@@ -431,7 +445,30 @@ export function SettingsForm({
           <li className="py-2">{t('settings.platform.country', { country: data.countryCode })}</li>
           <li className="py-2">{t('settings.platform.plan', { plan: t(`panel.plan.${data.effectivePlan}`) })}</li>
           <li className="py-2">{data.isListed ? t('settings.platform.listed') : t('settings.platform.notListed')}</li>
+          {!data.isListed && data.listingRequestedAt && !data.listingReviewedAt && (
+            <li className="py-2">
+              {t('settings.platform.requested', {
+                date: new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(
+                  new Date(data.listingRequestedAt),
+                ),
+              })}
+            </li>
+          )}
+          {!data.isListed && data.listingReviewedAt && data.listingReviewNote && (
+            <li className="py-2">{t('settings.platform.declined', { note: data.listingReviewNote })}</li>
+          )}
         </ul>
+        {canManage && !data.isListed && !(data.listingRequestedAt && !data.listingReviewedAt) && (
+          <div className="flex flex-col gap-2">
+            <p className="ui-caption">{t('settings.platform.requestHelp')}</p>
+            <div className="flex items-center gap-3">
+              <Button variant="outline" onClick={() => void requestListing()} disabled={busy}>
+                {t('settings.platform.requestListing')}
+              </Button>
+              {saved === 'platform' && <span className="ui-caption">{t('settings.platform.requestSent')}</span>}
+            </div>
+          </div>
+        )}
       </Card>
     </>
   );

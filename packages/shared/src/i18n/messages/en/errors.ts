@@ -47,6 +47,8 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.PACKAGE_NOT_FOUND': 'Credit package not found.',
   'errors.UNSUPPORTED_FILE': 'Only PNG, JPG or WebP images can be uploaded.',
   'errors.FILE_TOO_LARGE': 'The file is too large; the limit is 2 MB.',
+  'errors.LISTING_NOT_READY': 'Listing needs at least one menu item on sale and an active branch.',
+  'errors.ALREADY_LISTED': 'The restaurant is already listed in the marketplace.',
   'errors.CAMPAIGN_NOT_FOUND': 'Campaign not found.',
   'errors.CAMPAIGN_STATE_INVALID': 'The campaign does not accept that action in its current state.',
   'errors.CUSTOMER_NOT_FOUND': 'Customer not found.',
