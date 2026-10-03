@@ -114,6 +114,7 @@ export const ADMIN_NAV = [
   { key: 'areas', path: '/bolgeler' },
   { key: 'plans', path: '/planlar' },
   { key: 'invoices', path: '/faturalar' },
+  { key: 'system', path: '/sistem' },
 ] as const;
 
 export const AdminRestaurantUpdateSchema = z
@@ -265,6 +266,56 @@ export interface AdminOverviewDTO {
   activeTrials: number;
   ordersLast7Days: number;
   density: DistrictDensityDTO[];
+}
+
+/** Below this many credits a messaging provider balance counts as low (console badge, daily audit line). */
+export const PROVIDER_BALANCE_WARN = 500;
+
+export type ComponentStatus = 'ok' | 'error' | 'not_configured';
+
+export interface ProviderBalanceDTO {
+  code: string;
+  /** Credits or currency units as the provider reports them; null when the provider cannot say. */
+  balance: number | null;
+  low: boolean;
+  checkedAt: string | null;
+}
+
+/** GET /admin/system: what the platform owner looks at before anything else when something feels off. */
+export interface SystemHealthDTO {
+  checkedAt: string;
+  release: string;
+  uptimeSeconds: number;
+  database: { status: ComponentStatus; latencyMs: number };
+  redis: { status: ComponentStatus };
+  jobs: {
+    billingScheduler: 'on' | 'off';
+    billingLastRunAt: string | null;
+    orderWatchdog: 'on' | 'off';
+  };
+  providers: {
+    sms: ProviderBalanceDTO;
+    whatsapp: ProviderBalanceDTO;
+    payment: string;
+    cardVault: string;
+    courier: string;
+    invoice: string;
+    routing: string;
+  };
+  activity: {
+    ordersLastHour: number;
+    ordersLast24h: number;
+    /** PLACED orders past their acceptance deadline right now. */
+    acceptanceOverdue: number;
+    messagesSentLast24h: number;
+    messagesFailedLast24h: number;
+    openInvoices: number;
+    overdueInvoices: number;
+    suspendedListings: number;
+    activeRestaurants: number;
+  };
+  /** Message credits held by all restaurants, per channel. */
+  wallets: { channel: string; totalBalance: number }[];
 }
 
 export const DensityQuerySchema = z.object({ days: z.coerce.number().int().min(1).max(90).default(7) }).strict();

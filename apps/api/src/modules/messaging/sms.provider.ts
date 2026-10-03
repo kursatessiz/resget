@@ -9,6 +9,8 @@ export interface SmsSendResult {
 export interface SmsProvider {
   readonly code: string;
   send(toE164: string, text: string): Promise<SmsSendResult>;
+  /** Remaining credits at the provider, when it can tell; the console shows it and the monitor warns when low. */
+  balance?(): Promise<number | null>;
 }
 
 /** Masks a phone for logs: +9053*****33. */
@@ -39,6 +41,11 @@ export class MockSmsProvider implements SmsProvider {
     const body = env === 'development' ? text : '[hidden]';
     this.logger.log(`MOCK SMS to ${maskPhone(toE164)}: ${body}`);
     return { accepted: true, providerRef: `mock-${Date.now()}` };
+  }
+
+  /** A steady development balance; a real adapter asks the provider's account endpoint. */
+  async balance(): Promise<number | null> {
+    return 10_000;
   }
 }
 

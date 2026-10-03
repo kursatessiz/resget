@@ -21,18 +21,29 @@ import type {
   PlanDTO,
   RestaurantCreatedDTO,
   ServiceAreaDTO,
+  SystemHealthDTO,
 } from '@resget/shared';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/zod-body.pipe';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { SuperAdminOnly } from '../auth/decorators/super-admin-only.decorator';
 import type { AuthUser } from '../auth/tenant-context';
 import { AdminService } from './admin.service';
+import { SystemHealthService } from './system-health.service';
 
 /** Platform owner only: restaurants, service areas, plans, packages, credits and the density board. */
 @Controller('admin')
 @SuperAdminOnly()
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly health: SystemHealthService,
+  ) {}
+
+  /** Live system page: components, jobs, providers and balances, the last 24 hours. */
+  @Get('system')
+  system(): Promise<SystemHealthDTO> {
+    return this.health.snapshot();
+  }
 
   @Get('overview')
   overview(@ZodQuery(DensityQuerySchema) query: z.infer<typeof DensityQuerySchema>): Promise<AdminOverviewDTO> {

@@ -102,7 +102,7 @@ export class BillingService {
     const fiscalized = await this.fiscalizePending();
     const collect = await this.collectDue(asOf);
     const aged = await this.markOverdue(asOf);
-    return {
+    const report: BillingRunReportDTO = {
       asOf: asOf.toISOString(),
       periodStart: period.periodStart.toISOString(),
       periodEnd: period.periodEnd.toISOString(),
@@ -111,6 +111,11 @@ export class BillingService {
       ...collect,
       ...aged,
     };
+    // The console's system page shows when the job last ran from this line.
+    await this.prisma.auditLog.create({
+      data: { action: 'billing.run', entity: 'billing', entityId: report.periodStart, meta: { ...report } },
+    });
+    return report;
   }
 
   /** One invoice per active restaurant that owes commission for the month; nothing for a month without commission. */
