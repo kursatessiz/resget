@@ -21,4 +21,5 @@ export const trAuth = {
   'auth.chooseRestaurant': 'Hangi işletmeyle devam etmek istiyorsunuz?',
   'auth.continue': 'Devam et',
   'auth.sessionExpired': 'Oturumunuz sona erdi, lütfen tekrar giriş yapın.',
+  'auth.invite.help': 'Davetin gönderildiği telefon numarasıyla giriş yapın; ekibe otomatik katılırsınız.',
 } as const satisfies Record<string, string>;

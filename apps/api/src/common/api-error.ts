@@ -45,6 +45,15 @@ export type ApiErrorCode =
   | 'MENU_CATEGORY_NOT_EMPTY'
   | 'MENU_ITEM_IN_USE'
   | 'REORDER_MISMATCH'
+  | 'INVITE_NOT_FOUND'
+  | 'INVITE_EXPIRED'
+  | 'INVITE_USED'
+  | 'INVITE_PHONE_MISMATCH'
+  | 'ROLE_PROTECTED'
+  | 'ROLE_IN_USE'
+  | 'ROLE_NAME_TAKEN'
+  | 'STAFF_OWNER_PROTECTED'
+  | 'STAFF_ALREADY_MEMBER'
   | 'RATE_LIMITED';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {

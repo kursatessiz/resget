@@ -1,6 +1,6 @@
 import { Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
-import { PhoneSchema, QrScanSessionSchema, TableQrTokenSchema } from '@resget/shared';
+import { InviteTokenSchema, PhoneSchema, QrScanSessionSchema, TableQrTokenSchema } from '@resget/shared';
 import type { MeDTO, TokenPairDTO } from '@resget/shared';
 import { ZodBody } from '../../common/zod-body.pipe';
 import { AuthService } from './auth.service';
@@ -17,6 +17,8 @@ const VerifyCodeSchema = z
     /** Guest registering from a table QR: records the REGISTERED funnel step for that session. */
     qrToken: TableQrTokenSchema.optional(),
     qrSessionId: QrScanSessionSchema.optional(),
+    /** Staff invite (docs/PERSONEL.md): the membership is created when the invited phone signs in. */
+    inviteToken: InviteTokenSchema.optional(),
   })
   .strict();
 const RefreshSchema = z.object({ refreshToken: z.string().min(20) }).strict();
@@ -40,6 +42,7 @@ export class AuthController {
     return this.auth.verifyLoginCode(body.phone, body.code, body.fullName, {
       qrToken: body.qrToken,
       qrSessionId: body.qrSessionId,
+      inviteToken: body.inviteToken,
     });
   }
 

@@ -34,4 +34,14 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.MENU_CATEGORY_NOT_EMPTY': 'The category is not empty. Move or delete its items first.',
   'errors.MENU_ITEM_IN_USE': 'This item was used in past orders and cannot be deleted; mark it sold out instead.',
   'errors.REORDER_MISMATCH': 'The order list does not match the current records. Refresh the page and try again.',
+  'errors.INVITE_NOT_FOUND': 'Invite not found.',
+  'errors.INVITE_EXPIRED': 'This invite has expired. Ask your manager for a new one.',
+  'errors.INVITE_USED': 'This invite was already used.',
+  'errors.INVITE_PHONE_MISMATCH':
+    'This invite was sent to a different phone number. Sign in with the number it was sent to.',
+  'errors.ROLE_PROTECTED': 'The owner role cannot be changed or used for invites.',
+  'errors.ROLE_IN_USE': 'This role is used by staff or pending invites; move them to another role first.',
+  'errors.ROLE_NAME_TAKEN': 'A role with this name already exists.',
+  'errors.STAFF_OWNER_PROTECTED': 'The owner membership cannot be changed here.',
+  'errors.STAFF_ALREADY_MEMBER': 'This phone number is already on the team.',
 };

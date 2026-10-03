@@ -8,4 +8,6 @@ export const SEED = {
   ownerPhone: '05320000002',
   guestPhone: '05320000003',
   courierPhone: '05320000004',
+  /** Not seeded: created by the staff invite scenario. */
+  staffPhone: '05320000005',
 } as const;

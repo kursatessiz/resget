@@ -1,14 +1,15 @@
 import { test, expect } from '@playwright/test';
 import { SEED } from './support/seed';
-import { signIn } from './support/session';
+import { OWNER_STATE } from './support/session';
 
 interface GuestMenu {
   categories: { name: string; items: { name: string; isAvailable: boolean }[] }[];
 }
 
 test.describe('Menu editor, tables and settings', () => {
+  test.use({ storageState: OWNER_STATE });
+
   test('the owner adds a menu item, prints table labels and saves settings', async ({ page }) => {
-    await signIn(page, SEED.ownerPhone);
     const stamp = Date.now().toString(36);
     const categoryName = `PW Tatlilar ${stamp}`;
     const itemName = `PW Baklava ${stamp}`;
