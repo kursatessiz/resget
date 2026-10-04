@@ -1,8 +1,6 @@
 import { z } from 'zod';
 import { OrderChannel } from './enums';
 import type { CampaignRecipientStatus, CampaignStatus } from './enums';
-import { NOTIFICATION_CHANNELS } from './messaging';
-import type { NotificationChannel } from './messaging';
 import { PaginationSchema, UuidSchema } from './validators';
 
 /**
@@ -16,6 +14,22 @@ import { PaginationSchema, UuidSchema } from './validators';
  */
 
 export const CAMPAIGN_BODY_MAX = 300;
+/** Campaigns v2 (docs/KAMPANYALAR.md, module campaigns_v2): email, A/B variants, send time, attribution. */
+export const CAMPAIGN_CHANNELS = ['SMS', 'WHATSAPP', 'EMAIL'] as const;
+export type CampaignChannel = (typeof CAMPAIGN_CHANNELS)[number];
+export const CAMPAIGN_EMAIL_BODY_MAX = 5000;
+export const CAMPAIGN_SUBJECT_MAX = 120;
+/** FIXED: everyone at the chosen moment. BEST_HOUR: each recipient at the local hour they order most often. */
+export const CAMPAIGN_SEND_TIME_MODES = ['FIXED', 'BEST_HOUR'] as const;
+export type CampaignSendTimeMode = (typeof CAMPAIGN_SEND_TIME_MODES)[number];
+export const CAMPAIGN_VARIANTS = ['A', 'B'] as const;
+export type CampaignVariant = (typeof CAMPAIGN_VARIANTS)[number];
+/** Share of the audience that receives variant B, in percent. */
+export const CAMPAIGN_VARIANT_SHARE = { min: 10, max: 90, default: 50 } as const;
+/** Days after a message within which the recipient's first order is credited to the campaign. */
+export const CAMPAIGN_ATTRIBUTION_DAYS = { min: 1, max: 14, default: 3 } as const;
+/** How far back the ordering hours are read for BEST_HOUR. */
+export const CAMPAIGN_BEST_HOUR_LOOKBACK_DAYS = 180;
 export const CAMPAIGN_BATCH_SIZE = 50;
 /** Local hours between which commercial messages may be sent (start inclusive, end exclusive). */
 export const CAMPAIGN_SEND_WINDOW = { startHour: 9, endHour: 21 } as const;
@@ -35,31 +49,150 @@ export const CampaignSegmentSchema = z
   .strict();
 export type CampaignSegment = z.infer<typeof CampaignSegmentSchema>;
 
+const CampaignBodySchema = z.string().trim().min(5).max(CAMPAIGN_EMAIL_BODY_MAX);
+const CampaignSubjectSchema = z.string().trim().min(2).max(CAMPAIGN_SUBJECT_MAX);
+
+/** The B side of an A/B test: its own text (and subject for email) and the share of the audience that gets it. */
+export const CampaignVariantInputSchema = z
+  .object({
+    body: CampaignBodySchema,
+    /** Email only; omitted means variant A's subject. */
+    subject: CampaignSubjectSchema.optional(),
+    sharePct: z
+      .number()
+      .int()
+      .min(CAMPAIGN_VARIANT_SHARE.min)
+      .max(CAMPAIGN_VARIANT_SHARE.max)
+      .default(CAMPAIGN_VARIANT_SHARE.default),
+  })
+  .strict();
+export type CampaignVariantInput = z.infer<typeof CampaignVariantInputSchema>;
+
+export interface CampaignContent {
+  channel: CampaignChannel;
+  body: string;
+  subject?: string | null;
+  variant?: { body: string; subject?: string | null } | null;
+}
+
+/**
+ * Channel rules for the text: SMS and WhatsApp stay short and have no
+ * subject; email needs a subject. Returns the first broken rule or null.
+ */
+export function campaignContentIssue(
+  content: CampaignContent,
+): 'BODY_TOO_LONG' | 'SUBJECT_REQUIRED' | 'SUBJECT_NOT_ALLOWED' | null {
+  if (content.channel === 'EMAIL') {
+    return content.subject ? null : 'SUBJECT_REQUIRED';
+  }
+  if (content.subject || content.variant?.subject) return 'SUBJECT_NOT_ALLOWED';
+  if (content.body.length > CAMPAIGN_BODY_MAX) return 'BODY_TOO_LONG';
+  if (content.variant && content.variant.body.length > CAMPAIGN_BODY_MAX) return 'BODY_TOO_LONG';
+  return null;
+}
+
+/** True when the input uses anything that belongs to the campaigns_v2 module. */
+export function usesCampaignsV2(input: {
+  channel?: CampaignChannel;
+  subject?: string | null;
+  variant?: unknown;
+  sendTimeMode?: CampaignSendTimeMode;
+  attributionDays?: number;
+}): boolean {
+  return (
+    input.channel === 'EMAIL' ||
+    Boolean(input.subject) ||
+    Boolean(input.variant) ||
+    input.sendTimeMode === 'BEST_HOUR' ||
+    input.attributionDays !== undefined
+  );
+}
+
 export const CreateCampaignSchema = z
   .object({
     name: z.string().trim().min(2).max(80),
-    channel: z.enum(NOTIFICATION_CHANNELS),
-    body: z.string().trim().min(5).max(CAMPAIGN_BODY_MAX),
+    channel: z.enum(CAMPAIGN_CHANNELS),
+    body: CampaignBodySchema,
+    /** Email only (campaigns v2). */
+    subject: CampaignSubjectSchema.optional(),
+    /** A/B test (campaigns v2). */
+    variant: CampaignVariantInputSchema.optional(),
+    sendTimeMode: z.enum(CAMPAIGN_SEND_TIME_MODES).default('FIXED'),
+    attributionDays: z.number().int().min(CAMPAIGN_ATTRIBUTION_DAYS.min).max(CAMPAIGN_ATTRIBUTION_DAYS.max).optional(),
     segment: CampaignSegmentSchema.default({}),
     /** A saved segment (segments v2, docs/SEGMENTLER.md); when set it decides the audience instead of `segment`. */
     segmentId: UuidSchema.optional(),
     /** When to send; omitted means it stays a draft until sent. */
     scheduledAt: z.string().datetime().optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    const issue = campaignContentIssue(value);
+    if (issue) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['body'], message: issue });
+  });
 export type CreateCampaignInput = z.infer<typeof CreateCampaignSchema>;
 
 export const UpdateCampaignSchema = z
   .object({
     name: z.string().trim().min(2).max(80).optional(),
-    channel: z.enum(NOTIFICATION_CHANNELS).optional(),
-    body: z.string().trim().min(5).max(CAMPAIGN_BODY_MAX).optional(),
+    channel: z.enum(CAMPAIGN_CHANNELS).optional(),
+    body: CampaignBodySchema.optional(),
+    subject: CampaignSubjectSchema.nullable().optional(),
+    variant: CampaignVariantInputSchema.nullable().optional(),
+    sendTimeMode: z.enum(CAMPAIGN_SEND_TIME_MODES).optional(),
+    attributionDays: z.number().int().min(CAMPAIGN_ATTRIBUTION_DAYS.min).max(CAMPAIGN_ATTRIBUTION_DAYS.max).optional(),
     segment: CampaignSegmentSchema.optional(),
     segmentId: UuidSchema.nullable().optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, { message: 'empty update' });
 export type UpdateCampaignInput = z.infer<typeof UpdateCampaignSchema>;
+
+/** 32-bit FNV-1a; stable across processes so a recipient's variant never changes on a retry. */
+function fnv1a(text: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash >>> 0;
+}
+
+/** Which side of an A/B test a recipient gets: deterministic per campaign and customer. */
+export function abVariantFor(campaignId: string, customerId: string, sharePct: number | null): CampaignVariant {
+  if (!sharePct) return 'A';
+  return fnv1a(`${campaignId}:${customerId}`) % 100 < sharePct ? 'B' : 'A';
+}
+
+/**
+ * When a BEST_HOUR recipient is due: the next top of their preferred local
+ * hour, moved inside the send window; now when that hour is the current one.
+ */
+export function bestHourDueAt(
+  now: Date,
+  timezone: string,
+  preferredHour: number,
+  window: { startHour: number; endHour: number } = CAMPAIGN_SEND_WINDOW,
+): Date {
+  const hour = Math.min(Math.max(preferredHour, window.startHour), window.endHour - 1);
+  if (localHour(now, timezone) === hour) return now;
+  const topOfHour = new Date(now);
+  topOfHour.setUTCMinutes(0, 0, 0);
+  for (let i = 1; i <= 26; i += 1) {
+    const candidate = new Date(topOfHour.getTime() + i * 3_600_000);
+    if (localHour(candidate, timezone) === hour) return candidate;
+  }
+  return now;
+}
+
+/** The hour a customer orders most often (ties go to the earlier hour); null without history. */
+export function preferredHourOf(counts: readonly { hour: number; count: number }[]): number | null {
+  let best: { hour: number; count: number } | null = null;
+  for (const entry of counts) {
+    if (!best || entry.count > best.count || (entry.count === best.count && entry.hour < best.hour)) best = entry;
+  }
+  return best?.hour ?? null;
+}
 
 export const SendCampaignSchema = z
   .object({
@@ -96,11 +229,23 @@ export interface AudienceCountDTO {
   audienceCount: number;
 }
 
+export interface CampaignVariantDTO {
+  body: string;
+  subject: string | null;
+  sharePct: number;
+}
+
 export interface CampaignDTO {
   id: string;
   name: string;
-  channel: NotificationChannel;
+  channel: CampaignChannel;
   body: string;
+  /** Email subject; null on SMS and WhatsApp. */
+  subject: string | null;
+  /** The B side of an A/B test, when there is one. */
+  variant: CampaignVariantDTO | null;
+  sendTimeMode: CampaignSendTimeMode;
+  attributionDays: number;
   status: `${CampaignStatus}`;
   segment: CampaignSegment;
   /** The saved segment it targets, when one was chosen. */
@@ -121,6 +266,10 @@ export interface CampaignRecipientDTO {
   customerId: string;
   fullName: string;
   status: `${CampaignRecipientStatus}`;
+  variant: CampaignVariant;
+  /** BEST_HOUR: when this recipient is due. */
+  dueAt: string | null;
+  convertedAt: string | null;
   errorCode: string | null;
   sentAt: string | null;
 }
@@ -144,9 +293,34 @@ export interface CampaignPreviewDTO {
   enoughCredits: boolean;
   /** The message as the customer will read it, opt-out line included. */
   renderedExample: string;
+  /** Variant B as the customer will read it, when there is one. */
+  renderedVariantExample: string | null;
   withinSendWindowNow: boolean;
   nextSendWindowStart: string;
   timezone: string;
+}
+
+export interface CampaignVariantResultDTO {
+  variant: CampaignVariant;
+  recipients: number;
+  sent: number;
+  failed: number;
+  skipped: number;
+  /** Recipients whose first order within the window was credited to the campaign (cancelled orders excluded). */
+  conversions: number;
+  /** Items gross of those orders, in the restaurant currency's minor unit. */
+  revenueMinor: number;
+  /** conversions / sent, in basis points. */
+  conversionRateBps: number;
+}
+
+export interface CampaignResultsDTO {
+  campaignId: string;
+  currency: string;
+  attributionDays: number;
+  variants: CampaignVariantResultDTO[];
+  /** The variant with the higher conversion rate once both have been sent; null on a tie or without a test. */
+  leader: CampaignVariant | null;
 }
 
 export interface CampaignAudienceDTO {

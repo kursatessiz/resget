@@ -207,7 +207,7 @@ export interface EmailSettingsDTO {
 
 export type EmailKind = 'TRANSACTIONAL' | 'COMMERCIAL';
 
-export const EMAIL_TEMPLATE_KEYS = ['test'] as const;
+export const EMAIL_TEMPLATE_KEYS = ['test', 'campaign'] as const;
 export type EmailTemplateKey = (typeof EMAIL_TEMPLATE_KEYS)[number];
 
 /** Turns plain text into safe HTML paragraphs: translations are never HTML (rule 15). */

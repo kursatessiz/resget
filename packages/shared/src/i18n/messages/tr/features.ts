@@ -62,6 +62,9 @@ export const trFeatures = {
   'features.segments_v2.name': 'Segmentler v2',
   'features.segments_v2.description':
     'VE / VEYA kural diliyle kayıtlı segmentler, dinamik ve statik segment, kanal başına ulaşılabilirlik önizlemesi, kampanyada hedef segment.',
+  'features.campaigns_v2.name': 'Kampanyalar v2',
+  'features.campaigns_v2.description':
+    'E-posta kampanyası, A/B testi, alıcı başına en iyi gönderim saati, dönüşüm ve atfedilen ciro.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',

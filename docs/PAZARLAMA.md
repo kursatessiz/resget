@@ -43,7 +43,7 @@ Her işlem denetim kaydına yazılır (`platform.setup`, `platform.user.*`).
 4. Rıza v2: kanal başına rıza ve hukuki dayanak, AB için çift onay, TR tacir istisnası, sıklık sınırı, gönderim öncesi kontrol. İYS bugün yalnızca SMS, arama ve e-posta kanallarını tutar; WhatsApp izni platformda kanıtıyla saklanır ve İYS'ye gönderilmez (`CONSENT_REGISTRY_COVERAGE`, `docs/KAMPANYALAR.md`). Tamamlandı: `docs/RIZA.md`, anahtar `consent_v2`.
 5. E-posta kanalı ve gönderici alan adları (SPF, DKIM, DMARC), geri dönen ve şikayet bastırma (tamamlandı, `docs/EPOSTA.md`, anahtar `email_channel`).
 6. Segmentler v2: kural dili (VE / VEYA), dinamik ve statik segment, önizleme (tamamlandı, `docs/SEGMENTLER.md`, anahtar `segments_v2`).
-7. Kampanyalar v2: e-posta, A/B, gönderim saati, dönüşüm ve atfedilen gelir.
+7. Kampanyalar v2: e-posta, A/B, gönderim saati, dönüşüm ve atfedilen gelir (tamamlandı, `docs/KAMPANYALAR.md`, anahtar `campaigns_v2`; açılma ve tıklama ölçümü sonraki adım).
 8. Akışlar (otomasyon): sipariş sonrası teşekkür, geri kazanım, doğum günü, değerlendirme isteği, deneme bitişi (B2B).
 9. Huniler ve platform KPI panosu: masa QR, pazaryeri ve B2B hunisi, ilçe kırılımı.
 10. Reklam entegrasyonları ve dönüşüm API'leri (Meta CAPI, Google Ads, TikTok), harcama eşitleme.

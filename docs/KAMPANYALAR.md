@@ -38,13 +38,27 @@ Mesaj metni restoranın yazdığıdır; şablon `messaging.template.campaign.bod
 - `GET segments` (`campaigns.view`): kayıtlı segmentler ve güncel alıcı sayıları; `POST segments`, `PUT segments/:id`, `DELETE segments/:id` (`campaigns.manage`).
 - Herkese açık: `POST /public/marketing/opt-out/:token` (oran sınırlı, idempotent).
 
+## Kampanyalar v2 (`campaigns_v2`, varsayılan kapalı)
+
+Modül açıkken kampanya aracına dört yetenek eklenir. Modül kapalıyken bu alanlardan herhangi biri gönderilirse istek `FEATURE_DISABLED` ile reddedilir; eski kampanyalar olduğu gibi çalışır.
+
+- **E-posta kanalı**: `channel: 'EMAIL'` ayrıca `email_channel` modülünü ister. E-posta kampanyası konu (`subject`, en çok 120 karakter) ve en çok 5000 karakterlik metin alır, düz metinden HTML'e çevrilir ve `EmailService` üzerinden gider (`docs/EPOSTA.md`). Kitle, e-posta izni ve adresi olan müşterilerdir (kişi kartındaki adres, yoksa hesabın adresi). Her gönderimden önce bastırma listesi, EMAIL izni, doğrulanmış alan adı ve ülke sicili (TR'de İYS e-posta kaydı, adresle) denetlenir. Alt bilgide işletme adresi ve çıkış bağlantısı yer alır; `List-Unsubscribe` başlığı `/api/iptal/<token>` adresine gider: posta istemcisinin tek tıkla POST isteği (RFC 8058) sayfa açmadan çıkarır, tarayıcıda açılan adres `/iptal/<token>` sayfasına yönlenir. E-posta kredi harcamaz (önizlemede gereken kredi 0).
+- **A/B testi**: `variant: { body, subject?, sharePct }`. Kitlenin `sharePct` yüzdesi (10 ile 90 arası, varsayılan 50) B metnini alır. Bölüşüm kampanya ve müşteri kimliğinden hesaplanan sabit bir özetle yapılır (`abVariantFor()`); yeniden denemede kimsenin metni değişmez. Önizleme iki metni de gösterir.
+- **Gönderim saati**: `sendTimeMode: 'BEST_HOUR'` her alıcıyı son 180 günde en sık sipariş verdiği yerel saatte gönderir (`bestHourDueAt()`); saat gönderim penceresinin (09:00 ile 21:00) içine çekilir, eşitlikte erken saat seçilir, sipariş geçmişi olmayan alıcıya hemen gönderilir. Alıcı satırındaki `dueAt` gelmeden gönderilmez; kampanya son alıcı gönderilince `SENT` olur. `FIXED` herkese seçilen anda gönderir.
+- **Dönüşüm ve atfedilen ciro**: müşteri sipariş verdiğinde, son `attributionDays` gün içinde (1 ile 14 arası, varsayılan 3) aldığı en son kampanya mesajına sipariş yazılır (son mesaj kazanır). Bir mesaja yalnızca ilk siparişi yazılır, bir sipariş yalnızca bir mesaja yazılır (`campaign_recipients.convertedOrderId` tekil). Ciro, siparişin yerleştirme anındaki ürün brüt tutarıdır (para birimi restoranındır). Ödenmemiş, iptal edilen, reddedilen ve iade edilen siparişler sonuçlarda sayılmaz. Kayıt `CampaignAttributionService` ile sipariş akışında yapılır; hata siparişi asla durdurmaz.
+
+`GET :id/results` (`campaigns.view`, modül açık): metin başına alıcı, gönderilen, başarısız, atlanan, dönüşüm, atfedilen ciro (minör birim) ve dönüşüm oranı (baz puan); iki metin de gönderildiyse oranı yüksek olan `leader`. Kazanan otomatik seçilmez; karar işletmenindir.
+
+Metin kuralları her iki yolda da aynıdır (`campaignContentIssue()`): SMS ve WhatsApp en çok 300 karakter ve konusuz, e-posta konulu. Oluştururken şema `VALIDATION` ile, düzenlerken servis birleştirilmiş kayıt üzerinden `CAMPAIGN_CONTENT_INVALID` ile reddeder.
+
 ## Ekranlar
 
 - `/panel/<slug>/kampanyalar` (`campaigns.view`; Pro): yeni kampanya formu (ad, kanal, metin ve karakter sayacı, segment, isteğe bağlı zaman), kayıtlı segment seçimi ve filtreleri adla kaydetme, "Alıcıyı say" ile anlık sayım, kayıtlı segment listesi ve silme, önizleme kartı, liste ve sayaçlar, alıcı listesi, iptal. Temel planda plan kuralı ve Pro'ya geçiş bağlantısı.
 - Vitrin: iletişim alanının altında izin kutusu (`shop.customer.marketingOptIn`), varsayılan işaretsiz.
 - `/iptal/<token>`: bağlantıyı açmak vazgeçmektir; sayfa hangi restorandan çıkıldığını söyler.
+- Kampanyalar v2 açıkken form: e-posta kanalı (e-posta modülü de açıksa) ve konu alanı, "A/B testi" kutusu ile B metni, B konusu ve kitle payı, gönderim saati seçimi, dönüşüm penceresi; önizlemede B metni örneği; gönderilmekte olan veya gönderilmiş kampanyada "Sonuçlar" (metin başına gönderim, dönüşüm, oran, atfedilen ciro ve önde olan metin); alıcı listesinde metin, bekleme zamanı ve sipariş verdi işareti.
 
 ## Kalan
 
 - Gerçek İYS adaptörü ve İYS kayıt zorunluluğu belgesi; GDPR bölgeleri için eşdeğer sicil yok, yalnızca izin ve vazgeçme uygulanır.
-- E-posta kanalı. Sadakat programı `docs/SADAKAT.md` ile geldi; segment kaydetme bu belgeyle geldi.
+- Kampanya e-postalarında açılma ve tıklama ölçümü; A/B testinde örneklem sonrası kazananın kalan kitleye otomatik gönderimi. Sadakat programı `docs/SADAKAT.md` ile geldi; segment kaydetme bu belgeyle geldi.

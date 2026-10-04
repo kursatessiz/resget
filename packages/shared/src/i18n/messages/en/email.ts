@@ -44,6 +44,8 @@ export const enEmail: Record<keyof typeof trEmail, string> = {
   'email.template.test.subject': '{restaurant}: test email',
   'email.template.test.body':
     'Hello,\n\nThis is a test email sent for {restaurant}. If you received it, sending works.',
+  'email.template.campaign.subject': '{subject}',
+  'email.template.campaign.body': '{body}',
   'email.footer.transactional': 'This email was sent on behalf of {restaurant}.',
   'email.footer.commercial':
     '{restaurant}, {address}\nIf you no longer want emails like this, you can unsubscribe here: {url}',

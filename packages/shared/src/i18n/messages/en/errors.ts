@@ -93,6 +93,10 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.SEGMENT_NOT_STATIC': 'Only a static segment has a snapshot to refresh.',
   'errors.SEGMENT_IN_USE':
     'A campaign that has not been sent yet targets this segment; change or cancel that campaign first.',
+  'errors.CAMPAIGN_CONTENT_INVALID':
+    'The campaign text does not fit the channel: SMS and WhatsApp take at most 300 characters and no subject, email needs a subject.',
+  'errors.EMAIL_DOMAIN_NOT_VERIFIED':
+    'Verify a sending domain on the integrations page before sending an email campaign.',
   'errors.LOYALTY_NOT_ACTIVE': 'This restaurant has no active loyalty program.',
   'errors.LOYALTY_NOT_REDEEMABLE': 'Points cannot be used on this order: the balance or the order total is too low.',
   'errors.LOYALTY_SIGN_IN_REQUIRED': 'Sign in to use points.',

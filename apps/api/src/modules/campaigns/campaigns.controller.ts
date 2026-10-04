@@ -13,6 +13,7 @@ import type {
   AudienceCountDTO,
   CampaignAudienceDTO,
   CampaignDTO,
+  CampaignResultsDTO,
   CampaignDetailDTO,
   CampaignPageDTO,
   CampaignPreviewDTO,
@@ -111,6 +112,15 @@ export class CampaignsController {
   @RequirePermission('campaigns.view')
   detail(@Tenant() tenant: TenantContext, @ZodParam('campaignId', UuidSchema) id: string): Promise<CampaignDetailDTO> {
     return this.campaigns.detail(tenant.restaurantId, id);
+  }
+
+  @Get(':campaignId/results')
+  @RequirePermission('campaigns.view')
+  results(
+    @Tenant() tenant: TenantContext,
+    @ZodParam('campaignId', UuidSchema) id: string,
+  ): Promise<CampaignResultsDTO> {
+    return this.campaigns.results(tenant.restaurantId, id);
   }
 
   @Patch(':campaignId')

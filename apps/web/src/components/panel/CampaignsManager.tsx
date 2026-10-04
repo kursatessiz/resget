@@ -1,16 +1,26 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { CAMPAIGN_BODY_MAX } from '@resget/shared';
+import {
+  CAMPAIGN_ATTRIBUTION_DAYS,
+  CAMPAIGN_BODY_MAX,
+  CAMPAIGN_EMAIL_BODY_MAX,
+  CAMPAIGN_SEND_TIME_MODES,
+  CAMPAIGN_SUBJECT_MAX,
+  CAMPAIGN_VARIANT_SHARE,
+  formatMoney,
+} from '@resget/shared';
 import type {
   AudienceCountDTO,
   CampaignAudienceDTO,
+  CampaignChannel,
   CampaignDTO,
+  CampaignResultsDTO,
+  CampaignSendTimeMode,
   CampaignDetailDTO,
   CampaignPageDTO,
   CampaignPreviewDTO,
   CampaignSegment,
-  NotificationChannel,
   SavedSegmentDTO,
   SegmentListDTO,
 } from '@resget/shared';
@@ -26,7 +36,6 @@ const STATUS_TONE: Record<CampaignDTO['status'], UiTone> = {
   SENT: 'success',
   CANCELLED: 'muted',
 };
-const CHANNELS: NotificationChannel[] = ['SMS', 'WHATSAPP'];
 
 /** PRO campaigns: draft, segment, preview with credits and send window, send or schedule, follow the counts. */
 export function CampaignsManager({
@@ -34,20 +43,35 @@ export function CampaignsManager({
   locale,
   canManage,
   segmentsV2 = false,
+  campaignsV2 = false,
+  emailChannel = false,
 }: {
   restaurantId: string;
   locale: string;
   canManage: boolean;
   /** The segments_v2 module is on: a saved rule-based segment can be the audience (docs/SEGMENTLER.md). */
   segmentsV2?: boolean;
+  /** The campaigns_v2 module is on: A/B test, best send hour, conversions (docs/KAMPANYALAR.md). */
+  campaignsV2?: boolean;
+  /** The email_channel module is on; with campaigns v2 a campaign can go by email. */
+  emailChannel?: boolean;
 }) {
   const t = useT(locale);
   const base = `restaurants/${restaurantId}/campaigns`;
   const [page, setPage] = useState<CampaignPageDTO | null>(null);
   const [audience, setAudience] = useState<CampaignAudienceDTO | null>(null);
   const [name, setName] = useState('');
-  const [channel, setChannel] = useState<NotificationChannel>('SMS');
+  const channels: CampaignChannel[] = ['SMS', 'WHATSAPP', ...(campaignsV2 && emailChannel ? (['EMAIL'] as const) : [])];
+  const [channel, setChannel] = useState<CampaignChannel>('SMS');
   const [body, setBody] = useState('');
+  const [subject, setSubject] = useState('');
+  const [abTest, setAbTest] = useState(false);
+  const [variantBody, setVariantBody] = useState('');
+  const [variantSubject, setVariantSubject] = useState('');
+  const [variantShare, setVariantShare] = useState(String(CAMPAIGN_VARIANT_SHARE.default));
+  const [sendTimeMode, setSendTimeMode] = useState<CampaignSendTimeMode>('FIXED');
+  const [attributionDays, setAttributionDays] = useState(String(CAMPAIGN_ATTRIBUTION_DAYS.default));
+  const [results, setResults] = useState<CampaignResultsDTO | null>(null);
   const [minOrders, setMinOrders] = useState('');
   const [lastWithin, setLastWithin] = useState('');
   const [inactiveFor, setInactiveFor] = useState('');
@@ -159,6 +183,17 @@ export function CampaignsManager({
           name: name.trim(),
           channel,
           body: body.trim(),
+          ...(channel === 'EMAIL' ? { subject: subject.trim() } : {}),
+          ...(campaignsV2 && abTest
+            ? {
+                variant: {
+                  body: variantBody.trim(),
+                  ...(channel === 'EMAIL' && variantSubject.trim() ? { subject: variantSubject.trim() } : {}),
+                  sharePct: Number(variantShare),
+                },
+              }
+            : {}),
+          ...(campaignsV2 ? { sendTimeMode, attributionDays: Number(attributionDays) } : {}),
           segment: ruleSegment ? {} : segment(),
           ...(ruleSegment ? { segmentId: ruleSegment } : {}),
           ...(scheduledAt ? { scheduledAt: new Date(scheduledAt).toISOString() } : {}),
@@ -167,6 +202,10 @@ export function CampaignsManager({
       setNotice(scheduledAt ? t('campaigns.queued') : t('campaigns.created'));
       setName('');
       setBody('');
+      setSubject('');
+      setAbTest(false);
+      setVariantBody('');
+      setVariantSubject('');
       setScheduledAt('');
       setRuleSegment('');
       const data = await bffJson<CampaignPreviewDTO>(`${base}/${created.id}/preview`, { method: 'POST', body: '{}' });
@@ -191,6 +230,13 @@ export function CampaignsManager({
       await bffJson<CampaignDTO>(`${base}/${id}/cancel`, { method: 'POST', body: '{}' });
       setNotice(t('campaigns.cancelled'));
     });
+  const showResults = (id: string) =>
+    act(async () => {
+      setResults(await bffJson<CampaignResultsDTO>(`${base}/${id}/results`));
+    });
+  const bodyMax = channel === 'EMAIL' ? CAMPAIGN_EMAIL_BODY_MAX : CAMPAIGN_BODY_MAX;
+  const percent = (bps: number) =>
+    new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 1 }).format(bps / 10_000);
   const open = (id: string) =>
     act(async () => {
       setDetail(await bffJson<CampaignDetailDTO>(`${base}/${id}`));
@@ -224,9 +270,9 @@ export function CampaignsManager({
             <SelectField
               label={t('campaigns.channel')}
               value={channel}
-              onChange={(e) => setChannel(e.target.value as NotificationChannel)}
+              onChange={(e) => setChannel(e.target.value as CampaignChannel)}
             >
-              {CHANNELS.map((c) => (
+              {channels.map((c) => (
                 <option key={c} value={c}>
                   {t(`campaigns.channel.${c}`)}
                 </option>
@@ -235,13 +281,87 @@ export function CampaignsManager({
             <TextAreaField
               className="md:col-span-2"
               label={t('campaigns.body')}
-              help={t('campaigns.bodyHelp', { count: body.length, max: CAMPAIGN_BODY_MAX })}
+              help={t('campaigns.bodyHelp', { count: body.length, max: bodyMax })}
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              maxLength={CAMPAIGN_BODY_MAX}
-              rows={4}
+              maxLength={bodyMax}
+              rows={channel === 'EMAIL' ? 8 : 4}
             />
+            {channel === 'EMAIL' && (
+              <>
+                <TextField
+                  className="md:col-span-2"
+                  label={t('campaigns.v2.subject')}
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  maxLength={CAMPAIGN_SUBJECT_MAX}
+                />
+                <p className="ui-caption md:col-span-2">{t('campaigns.v2.emailHelp')}</p>
+              </>
+            )}
           </div>
+          {campaignsV2 && (
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="flex items-center gap-2 md:col-span-2">
+                <input
+                  type="checkbox"
+                  className="pui-checkbox"
+                  checked={abTest}
+                  onChange={(e) => setAbTest(e.target.checked)}
+                />
+                <span>{t('campaigns.v2.abTest')}</span>
+              </label>
+              {abTest && (
+                <>
+                  <TextAreaField
+                    className="md:col-span-2"
+                    label={t('campaigns.v2.variantBody')}
+                    value={variantBody}
+                    onChange={(e) => setVariantBody(e.target.value)}
+                    maxLength={bodyMax}
+                    rows={channel === 'EMAIL' ? 8 : 4}
+                  />
+                  {channel === 'EMAIL' && (
+                    <TextField
+                      label={t('campaigns.v2.variantSubject')}
+                      value={variantSubject}
+                      onChange={(e) => setVariantSubject(e.target.value)}
+                      maxLength={CAMPAIGN_SUBJECT_MAX}
+                    />
+                  )}
+                  <TextField
+                    label={t('campaigns.v2.variantShare')}
+                    type="number"
+                    min={CAMPAIGN_VARIANT_SHARE.min}
+                    max={CAMPAIGN_VARIANT_SHARE.max}
+                    value={variantShare}
+                    onChange={(e) => setVariantShare(e.target.value)}
+                  />
+                </>
+              )}
+              <SelectField
+                label={t('campaigns.v2.sendTime')}
+                help={t('campaigns.v2.sendTime.help')}
+                value={sendTimeMode}
+                onChange={(e) => setSendTimeMode(e.target.value as CampaignSendTimeMode)}
+              >
+                {CAMPAIGN_SEND_TIME_MODES.map((mode) => (
+                  <option key={mode} value={mode}>
+                    {t(`campaigns.v2.sendTime.${mode}`)}
+                  </option>
+                ))}
+              </SelectField>
+              <TextField
+                label={t('campaigns.v2.attributionDays')}
+                help={t('campaigns.v2.attributionHelp')}
+                type="number"
+                min={CAMPAIGN_ATTRIBUTION_DAYS.min}
+                max={CAMPAIGN_ATTRIBUTION_DAYS.max}
+                value={attributionDays}
+                onChange={(e) => setAttributionDays(e.target.value)}
+              />
+            </div>
+          )}
           {segmentsV2 && (
             <div className="flex flex-col gap-1">
               <SelectField
@@ -370,6 +490,12 @@ export function CampaignsManager({
           </p>
           <p className="ui-caption">{t('campaigns.preview.example')}</p>
           <blockquote className="pui-card pui-card-content">{preview.data.renderedExample}</blockquote>
+          {preview.data.renderedVariantExample && (
+            <>
+              <p className="ui-caption">{t('campaigns.v2.variantPreview')}</p>
+              <blockquote className="pui-card pui-card-content">{preview.data.renderedVariantExample}</blockquote>
+            </>
+          )}
           {canManage && (
             <div>
               <Button onClick={() => sendNow(preview.id)} disabled={busy || preview.data.audienceCount === 0}>
@@ -416,6 +542,11 @@ export function CampaignsManager({
                   <Button variant="outline" tone="muted" onClick={() => open(c.id)} disabled={busy}>
                     {t('campaigns.recipients')}
                   </Button>
+                  {campaignsV2 && (c.status === 'SENDING' || c.status === 'SENT') && (
+                    <Button variant="outline" tone="muted" onClick={() => showResults(c.id)} disabled={busy}>
+                      {t('campaigns.v2.results')}
+                    </Button>
+                  )}
                   {(c.status === 'DRAFT' || c.status === 'SCHEDULED') && (
                     <Button variant="outline" tone="muted" onClick={() => showPreview(c.id)} disabled={busy}>
                       {t('campaigns.preview')}
@@ -432,6 +563,42 @@ export function CampaignsManager({
                     </Button>
                   )}
                 </div>
+                {results?.campaignId === c.id && (
+                  <section className="flex flex-col gap-2" aria-label={t('campaigns.v2.results.title')}>
+                    <p className="ui-caption">{t('campaigns.v2.results.window', { days: results.attributionDays })}</p>
+                    <ul className="grid gap-3 md:grid-cols-2">
+                      {results.variants.map((v) => (
+                        <li key={v.variant} className="flex flex-col gap-1" data-variant={v.variant}>
+                          <span className="ui-heading">
+                            {t('campaigns.v2.results.variant', { variant: v.variant })}
+                          </span>
+                          <span className="ui-caption">{t('campaigns.v2.results.sent', { count: v.sent })}</span>
+                          <span className="ui-caption">
+                            {t('campaigns.v2.results.skipped', { count: v.skipped, failed: v.failed })}
+                          </span>
+                          <span>
+                            {t('campaigns.v2.results.conversions', {
+                              count: v.conversions,
+                              rate: percent(v.conversionRateBps),
+                            })}
+                          </span>
+                          <span>
+                            {t('campaigns.v2.results.revenue', {
+                              amount: formatMoney({ amountMinor: v.revenueMinor, currency: results.currency }, locale),
+                            })}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {results.variants.length > 1 && (
+                      <p role="status">
+                        {results.leader
+                          ? t('campaigns.v2.results.leader', { variant: results.leader })
+                          : t('campaigns.v2.results.noLeader')}
+                      </p>
+                    )}
+                  </section>
+                )}
                 {detail?.id === c.id && (
                   <ul className="flex flex-col gap-1">
                     {detail.recipients.map((r) => (
@@ -440,6 +607,14 @@ export function CampaignsManager({
                         <span className="ui-caption">
                           {t(`campaigns.recipient.status.${r.status}`)}
                           {r.errorCode ? ` (${r.errorCode})` : ''}
+                          {campaignsV2 &&
+                            c.variant &&
+                            `. ${t('campaigns.v2.recipient.variant', { variant: r.variant })}`}
+                          {campaignsV2 &&
+                            r.dueAt &&
+                            r.status === 'PENDING' &&
+                            `. ${t('campaigns.v2.recipient.due', { date: when(r.dueAt) })}`}
+                          {r.convertedAt && `. ${t('campaigns.v2.recipient.converted')}`}
                         </span>
                       </li>
                     ))}

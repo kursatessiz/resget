@@ -100,7 +100,7 @@ Entegrasyon sayfasında "E-posta gönderici" kartı yer alır:
 
 ## Sonraki adımlar
 
-- E-posta kampanyaları, açılma ve tıklama ölçümü (yol haritası 7. madde).
+- Açılma ve tıklama ölçümü. E-posta kampanyaları kampanyalar v2 ile geldi (`docs/KAMPANYALAR.md`, `email.template.campaign`, tek tık çıkış adresi `/api/iptal/<token>`).
 - E-posta ile çift onay.
 - Özel MAIL FROM alt alan adı.
 - Konsolda genel geri dönme listesi.
