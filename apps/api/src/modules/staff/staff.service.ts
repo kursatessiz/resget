@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'node:crypto';
 import { Prisma } from '@resget/database';
 import {
+  PERMISSION_KEYS,
   BASE_LOCALE,
   BUNDLED_MESSAGES,
   INVITE_TOKEN_BYTES,
@@ -401,7 +402,11 @@ export class StaffService {
       name: row.name,
       templateKey: row.templateKey,
       isOwner: row.isOwner,
-      permissions: row.permissions.map((p) => p.permissionKey).filter(isPermissionKey),
+      // Rows come back in no fixed order; the catalogue order keeps the answer stable.
+      permissions: row.permissions
+        .map((p) => p.permissionKey)
+        .filter(isPermissionKey)
+        .sort((a, b) => PERMISSION_KEYS.indexOf(a) - PERMISSION_KEYS.indexOf(b)),
       memberCount: row._count.memberships,
     };
   }

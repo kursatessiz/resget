@@ -47,7 +47,8 @@ describe('Staff and roles (e2e)', () => {
       .send({ name: 'E2E Garson', permissions: ['orders.view', 'menu.view'] })
       .expect(201);
     roleId = created.body.id as string;
-    expect(created.body.permissions).toEqual(['orders.view', 'menu.view']);
+    // Permissions come back in catalogue order, whatever order they were sent in.
+    expect(created.body.permissions).toEqual(['menu.view', 'orders.view']);
     await ctx
       .http()
       .post(`/restaurants/${restaurantId}/staff/roles`)
