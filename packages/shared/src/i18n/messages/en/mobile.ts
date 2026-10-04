@@ -75,4 +75,6 @@ export const enMobile: Record<keyof typeof trMobile, string> = {
   'mobile.account.title': 'Account',
   'mobile.account.signedInAs': '{name} ({phone})',
   'mobile.account.version': 'Version {version}',
+  'mobile.account.deleteIntro':
+    'You can delete your account for good here. To download your data, use the My account page on the website.',
 };

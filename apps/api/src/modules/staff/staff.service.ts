@@ -73,7 +73,8 @@ export class StaffService {
   async overview(restaurantId: string): Promise<StaffOverviewDTO> {
     const [members, invites, roles] = await Promise.all([
       this.prisma.membership.findMany({
-        where: { restaurantId },
+        // A person who deleted their account no longer appears among the staff.
+        where: { restaurantId, user: { deletedAt: null } },
         orderBy: [{ roleTemplate: { isOwner: 'desc' } }, { createdAt: 'asc' }],
         select: memberSelect,
       }),

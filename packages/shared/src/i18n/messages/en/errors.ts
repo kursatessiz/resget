@@ -28,6 +28,13 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.PAYMENT_STATE_INVALID': 'A payment cannot be made for this order at this stage.',
   'errors.REFUND_NOT_ALLOWED':
     'This order cannot be refunded: there is no payment to refund, the order is still open or it was already refunded.',
+  'errors.ACCOUNT_DELETE_OWNER':
+    'An account that owns a business cannot be deleted. Hand the business over first, or write to the platform team to close it.',
+  'errors.ACCOUNT_DELETE_SUPER_ADMIN': 'A platform administrator account cannot be deleted here.',
+  'errors.ACCOUNT_DELETE_ACTIVE_ORDERS':
+    'You have an order in progress. You can delete your account once it is completed.',
+  'errors.ACCOUNT_DELETE_ACTIVE_TRIP':
+    'You have an active delivery trip. You can delete your account once it is finished.',
   'errors.REFUND_IN_PROGRESS': 'A refund for this order is being processed.',
   'errors.REFUND_DECLINED': 'The payment provider declined the refund. Check its dashboard and try again.',
   'errors.REFUND_PROVIDER_ERROR':

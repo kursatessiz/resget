@@ -6,7 +6,7 @@
 
 | Tablo | Not |
 |---|---|
-| `users` | Global, telefon benzersiz (E.164). Personel ve müşteri aynı tabloda. `isSuperAdmin` platform sahibi. |
+| `users` | Global, telefon benzersiz (E.164). Personel ve müşteri aynı tabloda. `isSuperAdmin` platform sahibi. `deletedAt`: kişi hesabını sildiğinde dolar; satır anonim mezar taşı olarak kalır, telefon `deleted:<id>` olur (`docs/KISISEL_VERI.md`). |
 | `otp_codes` | Karma kod, deneme sayacı, süre. |
 | `memberships` | (`userId`, `restaurantId`) benzersiz; durum INVITED/ACTIVE/PASSIVE; rol şablonu. |
 | `role_templates`, `role_template_permissions` | Restoran başına roller; `templateKey` varsayılan şablonu işaret eder; sahip şablonu değiştirilemez. |

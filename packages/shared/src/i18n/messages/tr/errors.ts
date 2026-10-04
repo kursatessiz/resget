@@ -28,6 +28,13 @@ export const trErrors = {
   'errors.PAYMENT_STATE_INVALID': 'Bu sipariş için ödeme işlemi bu aşamada yapılamaz.',
   'errors.REFUND_NOT_ALLOWED':
     'Bu sipariş için iade yapılamaz: iade edilecek ödeme yok, sipariş henüz kapanmadı veya zaten iade edildi.',
+  'errors.ACCOUNT_DELETE_OWNER':
+    'İşletme sahibi olduğunuz bir hesap silinemez. Önce işletmeyi devredin veya kapatmak için platform ekibine yazın.',
+  'errors.ACCOUNT_DELETE_SUPER_ADMIN': 'Platform yöneticisi hesabı buradan silinemez.',
+  'errors.ACCOUNT_DELETE_ACTIVE_ORDERS':
+    'Devam eden bir siparişiniz var. Sipariş tamamlandıktan sonra hesabınızı silebilirsiniz.',
+  'errors.ACCOUNT_DELETE_ACTIVE_TRIP':
+    'Üzerinizde aktif bir teslimat seferi var. Sefer bittikten sonra hesabınızı silebilirsiniz.',
   'errors.REFUND_IN_PROGRESS': 'Bu siparişin iadesi şu anda işleniyor.',
   'errors.REFUND_DECLINED': 'Ödeme sağlayıcısı iadeyi reddetti. Sağlayıcının panelinden kontrol edip yeniden deneyin.',
   'errors.REFUND_PROVIDER_ERROR':

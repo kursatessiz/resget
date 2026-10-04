@@ -1,6 +1,18 @@
 /** The customer's own account page (/hesabim) and the storefront's signed-in hints. */
 export const trAccount = {
   'account.title': 'Hesabım',
+  'account.privacy.title': 'Kişisel verileriniz',
+  'account.privacy.intro':
+    'Platformun sizinle ilgili tuttuğu bilgileri bir dosya olarak indirebilir veya hesabınızı kalıcı olarak silebilirsiniz.',
+  'account.privacy.download': 'Verilerimi indir',
+  'account.privacy.delete': 'Hesabımı sil',
+  'account.privacy.deleteTitle': 'Hesabınız kalıcı olarak silinecek',
+  'account.privacy.deleteErased':
+    'Adınız, telefon numaranız, kayıtlı adresleriniz ve kartlarınız, bildirim izinleriniz, sadakat puanlarınız ve restoranlardaki notlarınız silinir; oturumunuz kapanır.',
+  'account.privacy.deleteKept':
+    'Yasal saklama süresi boyunca siparişlerinizin tutar ve ödeme kayıtları sizinle ilişkilendirilemeyecek şekilde, adınız ve adresiniz olmadan saklanır.',
+  'account.privacy.deleteConfirm': 'Hesabımın geri alınamaz şekilde silineceğini anlıyorum.',
+  'account.privacy.deleteNow': 'Hesabımı kalıcı olarak sil',
   'account.intro':
     'Kayıtlı adresleriniz bir sonraki siparişi tek dokunuşa indirir; siparişlerinizi buradan takip edersiniz.',
   'account.profile.title': 'Bilgileriniz',

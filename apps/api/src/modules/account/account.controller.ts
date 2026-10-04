@@ -1,18 +1,50 @@
-import { Controller, Delete, Get, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import type { z } from 'zod';
-import { SaveAddressSchema, UpdateAddressSchema, UpdateProfileSchema, UuidSchema } from '@resget/shared';
-import type { CustomerAccountDTO, CustomerAddressDTO, CustomerOrderDTO, StorefrontViewerDTO } from '@resget/shared';
+import {
+  DeleteAccountSchema,
+  SaveAddressSchema,
+  UpdateAddressSchema,
+  UpdateProfileSchema,
+  UuidSchema,
+} from '@resget/shared';
+import type {
+  CustomerAccountDTO,
+  CustomerAddressDTO,
+  CustomerOrderDTO,
+  PersonalDataExportDTO,
+  StorefrontViewerDTO,
+} from '@resget/shared';
 import { ZodBody, ZodParam } from '../../common/zod-body.pipe';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/tenant-context';
 import { AccountService } from './account.service';
+import { PrivacyService } from './privacy.service';
 
 /** The signed-in person's own account: no restaurant scope, only their user id. */
 @Controller('me')
 @UseGuards(JwtAuthGuard)
 export class AccountController {
-  constructor(private readonly account: AccountService) {}
+  constructor(
+    private readonly account: AccountService,
+    private readonly privacy: PrivacyService,
+  ) {}
+
+  /** Everything the platform holds about the signed-in person (docs/KISISEL_VERI.md). */
+  @Get('data-export')
+  dataExport(@CurrentUser() user: AuthUser): Promise<PersonalDataExportDTO> {
+    return this.privacy.exportData(user.id);
+  }
+
+  /** Deletes the signed-in person's account; final (docs/KISISEL_VERI.md). */
+  @Post('account/delete')
+  @HttpCode(204)
+  async deleteAccount(
+    @CurrentUser() user: AuthUser,
+    @ZodBody(DeleteAccountSchema) _body: z.infer<typeof DeleteAccountSchema>,
+  ): Promise<void> {
+    await this.privacy.deleteAccount(user.id);
+  }
 
   @Get('account')
   getAccount(@CurrentUser() user: AuthUser): Promise<CustomerAccountDTO> {

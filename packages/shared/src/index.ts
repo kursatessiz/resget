@@ -26,6 +26,7 @@ export * from './reports';
 export * from './courier-overview';
 export * from './campaigns';
 export * from './account';
+export * from './privacy';
 export * from './payouts';
 export * from './loyalty';
 export * from './api-keys';

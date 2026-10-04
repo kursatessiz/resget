@@ -252,6 +252,8 @@ model User {
   email        String?
   locale       String?
   isSuperAdmin Boolean  @default(false)
+  /// Set when the person deleted their account (docs/KISISEL_VERI.md); the row stays, anonymised, for kept records.
+  deletedAt    DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

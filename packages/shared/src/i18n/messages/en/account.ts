@@ -2,6 +2,18 @@ import type { trAccount } from '../tr/account';
 
 export const enAccount: Record<keyof typeof trAccount, string> = {
   'account.title': 'My account',
+  'account.privacy.title': 'Your personal data',
+  'account.privacy.intro':
+    'You can download what the platform holds about you as a file, or delete your account for good.',
+  'account.privacy.download': 'Download my data',
+  'account.privacy.delete': 'Delete my account',
+  'account.privacy.deleteTitle': 'Your account will be deleted for good',
+  'account.privacy.deleteErased':
+    'Your name, phone number, saved addresses and cards, notification permissions, loyalty points and notes at restaurants are erased, and you are signed out.',
+  'account.privacy.deleteKept':
+    'For the legally required period, the amounts and payment records of your orders are kept without your name or address, so they can no longer be linked to you.',
+  'account.privacy.deleteConfirm': 'I understand that my account will be deleted and this cannot be undone.',
+  'account.privacy.deleteNow': 'Delete my account for good',
   'account.intro': 'Saved addresses make the next order a single tap; your orders and their tracking live here.',
   'account.profile.title': 'Your details',
   'account.profile.name': 'Your name',

@@ -30,7 +30,9 @@ export class CustomersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(restaurantId: string, query: CustomersQuery, canSeeContacts: boolean): Promise<CustomerPageDTO> {
+    // A customer who deleted their account leaves the list; the row stays for the restaurant's figures.
     const where: Prisma.RestaurantCustomerWhereInput = {
+      AND: [{ user: { deletedAt: null } }],
       restaurantId,
       ...(query.query
         ? {
@@ -76,7 +78,10 @@ export class CustomersService {
   async get(restaurantId: string, customerId: string, canSeeContacts: boolean): Promise<CustomerDTO> {
     const [restaurant, row] = await Promise.all([
       this.prisma.restaurant.findUniqueOrThrow({ where: { id: restaurantId }, select: { currency: true } }),
-      this.prisma.restaurantCustomer.findFirst({ where: { id: customerId, restaurantId }, select: customerSelect }),
+      this.prisma.restaurantCustomer.findFirst({
+        where: { id: customerId, restaurantId, user: { deletedAt: null } },
+        select: customerSelect,
+      }),
     ]);
     if (!row) throw notFound('CUSTOMER_NOT_FOUND', 'Customer not found');
     return this.toDto(row, restaurant.currency, canSeeContacts);
