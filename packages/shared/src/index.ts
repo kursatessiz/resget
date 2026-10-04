@@ -17,6 +17,7 @@ export * from './menu-import';
 export * from './restaurant';
 export * from './staff';
 export * from './messaging';
+export * from './whatsapp-templates';
 export * from './admin';
 export * from './storefront';
 export * from './billing';

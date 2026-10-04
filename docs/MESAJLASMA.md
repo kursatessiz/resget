@@ -8,7 +8,7 @@ Tek bir motor her mesajı gönderir (`MessagingService`, `apps/api/src/modules/m
 - **Platform trafiği**: doğrulama kodu (`otp.code`) ve personel daveti (`staff.invite`) `billable: false` ile gider; cüzdan kontrol edilmez ve düşülmez. OTP kaydı `restaurantId` olmadan tutulur.
 - **Ücretli mesaj**: gönderimden önce cüzdan bakiyesi kontrol edilir; kredi yoksa sağlayıcıya gidilmez ve kayıt `FAILED / INSUFFICIENT_CREDITS` olur. Sağlayıcı kabul edince düşüm atomik bir güvenceyle yapılır (`balance >= 1` koşuluyla azaltma), böylece eş zamanlı iki gönderim cüzdanı eksiye düşüremez. Her düşüm `message_transactions` içinde `DEBIT`, kalan bakiye ve log kimliğiyle kayıtlıdır.
 - **Kanal ve yedek**: tercih `WHATSAPP` ise önce WhatsApp sağlayıcısı denenir; reddederse veya WhatsApp kredisi yoksa ve `fallbackToSms` açıksa aynı metin SMS olarak gider. İki deneme iki kayıttır; yalnızca kabul edilen deneme kredi düşer.
-- **Sağlayıcılar**: `SMS_PROVIDER` ve `WHATSAPP_PROVIDER` jetonlarının arkasındadır (`apps/api/src/modules/messaging/providers`). `MOCK` varsayılandır: üretim dışında kabul eder, üretimde reddeder ve günlüğe yazar. Gerçek adaptörler: `NETGSM` (REST v2, Basic auth, `00/01/02` kabul, bakiye paket toplamı), `ILETI_MERKEZI` (v1 JSON, durum `200` kabul, bakiye kalan SMS), `TWILIO` (Programmable Messaging, form gövde, `queued/accepted/sending/sent` kabul; para bakiyesi kredi eşiğiyle kıyaslanamayacağı için bakiye bildirilmez) ve WhatsApp için `META` (Business Cloud API, 24 saatlik hizmet penceresinde metin mesajı; pencere dışında Meta onaylı şablon ister, bugün modellenmediğinden ret döner ve motor SMS yedeğine iner). Adaptör `env.ts` ile seçilir ve kimlik bilgileri eksikse uygulama açılışta durur; sağlayıcı reddi `PROVIDER_REJECTED`, ağ hatası ve zaman aşımı (10 sn) `PROVIDER_ERROR` olur. İstek ve yanıt biçimleri birim testlerle sabitlenmiştir (`providers.spec.ts`); canlı doğrulama sağlayıcının test hesabıyla yapılır.
+- **Sağlayıcılar**: `SMS_PROVIDER` ve `WHATSAPP_PROVIDER` jetonlarının arkasındadır (`apps/api/src/modules/messaging/providers`). `MOCK` varsayılandır: üretim dışında kabul eder, üretimde reddeder ve günlüğe yazar. Gerçek adaptörler: `NETGSM` (REST v2, Basic auth, `00/01/02` kabul, bakiye paket toplamı), `ILETI_MERKEZI` (v1 JSON, durum `200` kabul, bakiye kalan SMS), `TWILIO` (Programmable Messaging, form gövde, `queued/accepted/sending/sent` kabul; para bakiyesi kredi eşiğiyle kıyaslanamayacağı için bakiye bildirilmez) ve WhatsApp için `META` (Business Cloud API; şablonu olan her mesaj onaylı şablon mesajı olarak gider, aşağıda "WhatsApp şablonları"; şablonu olmayan mesaj metin olarak gider ve yalnızca 24 saatlik hizmet penceresinde ulaşır, ret halinde motor SMS yedeğine iner). Adaptör `env.ts` ile seçilir ve kimlik bilgileri eksikse uygulama açılışta durur; sağlayıcı reddi `PROVIDER_REJECTED`, ağ hatası ve zaman aşımı (10 sn) `PROVIDER_ERROR` olur. İstek ve yanıt biçimleri birim testlerle sabitlenmiştir (`providers.spec.ts`); canlı doğrulama sağlayıcının test hesabıyla yapılır.
 
 ## Sipariş bildirimleri
 
@@ -25,6 +25,34 @@ Tek bir motor her mesajı gönderir (`MessagingService`, `apps/api/src/modules/m
 `DELIVERED` mesajlanmaz: takip sayfası zaten gösterir ve müşterinin elindeki habere kredi harcanmaz. Alıcı numarası siparişin müşteri kaydından, yoksa adres anlık görüntüsündeki iletişim numarasından alınır; numara yoksa mesaj yoktur. Restoran `customerOrderUpdates` ayarıyla tümünü kapatabilir.
 
 Bu mesajlar işlemsel (hizmet) mesajlarıdır: müşterinin kendi siparişi hakkındadır, ticari ileti sayılmaz ve İYS / sessiz saat kontrolüne tabi değildir. Kampanya ve pazarlama mesajları (PRO) ticari iletidir; izin kaydı, İYS sorgusu ve sessiz saat kontrolü kampanya modülündedir (`docs/KAMPANYALAR.md`) ve gönderim `campaign.body` şablonuyla aynı motordan, `billable: true` ve yedek kanalsız geçer.
+
+## WhatsApp şablonları
+
+WhatsApp, işletmenin başlattığı mesajı 24 saatlik hizmet penceresi dışında yalnızca hesapta onaylanmış bir şablonla teslim eder. Bu nedenle sipariş, fatura, listeleme, davet ve kampanya mesajları şablon mesajı olarak gider (`packages/shared/src/whatsapp-templates.ts`, `WHATSAPP_TEMPLATES`). Her kayıt şablon adını, Meta kategorisini ve mesaj parametrelerinin `{{1}}`, `{{2}}`... sırasını taşır; metnin kendisi Meta Business Manager'da dil başına kaydedilir ve `messaging.template.<anahtar>` metnini karşılar. Dil, alıcının dilinin temel kısmıdır (`tr-TR` için `tr`). OTP kodu şablonsuz kalır (SMS ile gider).
+
+- `details` değişkeni neden, iade notu ve serbest notun birleşimidir: Meta boş veya yan yana değişken kabul etmez. Boşsa şablonun yedek metni gider (`messaging.whatsapp.details.*`). Parametreler tek satıra indirilir ve 1024 karakterle kesilir.
+- Şablon onaylanmadan veya adı eşleşmeden giden mesajı Meta reddeder; motor `PROVIDER_REJECTED` yazar ve restoran izin verdiyse SMS yedeğine iner. Kredi yalnızca kabul edilen mesajda düşer.
+- Meta şablonun bir değişkenle başlamasını veya bitmesini kabul etmez; aşağıdaki metinler buna göre yazılmıştır. Kategori `UTILITY` işlemsel, `MARKETING` ticari iletidir (kampanya; izin ve İYS kontrolü kampanya modülündedir).
+
+Hesaba kaydedilecek şablonlar (Türkçe; İngilizce metinler `en` dilinde aynı değişken sırasıyla `messaging.template.<anahtar>` karşılığından yazılır):
+
+| Şablon | Kategori | Metin (`tr`) |
+| --- | --- | --- |
+| `resget_staff_invite` | UTILITY | Merhaba, {{1}} sizi ekibine {{2}} olarak davet ediyor. Katılmak için {{3}} saat içinde bağlantıyı açın: {{4}} Görüşmek üzere. |
+| `resget_order_accepted` | UTILITY | Merhaba, {{1}} siparişinizi ({{2}}) kabul etti; yaklaşık {{3}} dakika içinde hazır olur. Takip bağlantısı: {{4}} Afiyet olsun. |
+| `resget_order_ready_for_pickup` | UTILITY | Merhaba, {{1}} siparişiniz ({{2}}) hazır, teslim alabilirsiniz. Afiyet olsun. |
+| `resget_order_out_for_delivery` | UTILITY | Merhaba, {{1}} siparişiniz yola çıktı. Kuryeyi canlı izleyin: {{2}} Afiyet olsun. |
+| `resget_order_rejected` | UTILITY | Merhaba, {{1}} siparişinizi ({{2}}) maalesef kabul edemedi. {{3}} Anlayışınız için teşekkürler. |
+| `resget_order_cancelled` | UTILITY | Merhaba, {{1}} siparişinizi ({{2}}) iptal etti. {{3}} Anlayışınız için teşekkürler. |
+| `resget_order_refunded` | UTILITY | Merhaba, {{1}} siparişinizin ({{2}}) ödemesi iade edildi. Tutarın hesabınıza geçmesi bankanıza göre birkaç gün sürebilir. |
+| `resget_order_accept_overdue` | UTILITY | Dikkat: {{1}} için {{2}} numaralı sipariş {{3}} dakikadır kabul bekliyor. Sipariş ekranını açın. |
+| `resget_invoice_issued` | UTILITY | Merhaba, {{1}} için {{2}} dönemi komisyon faturası {{3}}, son ödeme {{4}}. Kayıtlı kartınızdan otomatik tahsil edilir; ayrıntılar panelde. |
+| `resget_invoice_overdue` | UTILITY | Merhaba, {{1}} için {{2}} dönemi komisyon faturasının ({{3}}) vadesi geçti. Pazaryeri listelemesi ödeme alınana kadar askıda; masa QR ve sipariş sayfası çalışmaya devam eder. |
+| `resget_listing_approved` | UTILITY | Merhaba, {{1}} için pazaryeri listelemesi onaylandı. {{2}} Bölgenizdeki müşteriler artık sizi görebilir. |
+| `resget_listing_declined` | UTILITY | Merhaba, {{1}} için pazaryeri listeleme talebi şu an onaylanamadı. {{2}} Düzenleyip panelden yeniden talep edebilirsiniz. |
+| `resget_campaign` | MARKETING | Merhaba, {{1}} size yazıyor: {{2}} Bu mesajları almak istemiyorsanız: {{3}} Teşekkürler. |
+
+Şablon adı ve değişken sırası kodla birlikte değişir; `whatsapp-templates.spec.ts` her değişkenin mesaj metninde bulunduğunu her dilde doğrular.
 
 ## Push bildirimleri
 

@@ -138,6 +138,40 @@ describe('SMS and WhatsApp provider adapters', () => {
     await expect(refused.send(TO, 'x')).resolves.toEqual({ accepted: false, providerRef: null });
   });
 
+  it('Meta WhatsApp: an approved template goes out as a template message with body variables in order', async () => {
+    const ok = fake({ messages: [{ id: 'wamid.2' }] });
+    const meta = new MetaWhatsAppProvider({ accessToken: 'tok', phoneNumberId: '1001', fetchImpl: ok.fetchImpl });
+    const template = {
+      name: 'resget_order_accepted',
+      language: 'tr',
+      params: ['Kebapci', 'AB12', '20', 'https://x.test'],
+    };
+    await expect(meta.send(TO, 'plain text', template)).resolves.toEqual({ accepted: true, providerRef: 'wamid.2' });
+    const sent = JSON.parse(ok.calls[0].body ?? '{}') as Record<string, unknown>;
+    expect(sent).toEqual({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: '905321234567',
+      type: 'template',
+      template: {
+        name: 'resget_order_accepted',
+        language: { code: 'tr' },
+        components: [
+          {
+            type: 'body',
+            parameters: [
+              { type: 'text', text: 'Kebapci' },
+              { type: 'text', text: 'AB12' },
+              { type: 'text', text: '20' },
+              { type: 'text', text: 'https://x.test' },
+            ],
+          },
+        ],
+      },
+    });
+    expect(sent).not.toHaveProperty('text');
+  });
+
   it('network trouble surfaces as an error for the engine to log as PROVIDER_ERROR', async () => {
     const down = (async () => {
       throw new Error('socket hang up');

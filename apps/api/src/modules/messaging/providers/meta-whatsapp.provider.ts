@@ -1,3 +1,4 @@
+import type { WhatsAppTemplateMessage } from '@resget/shared';
 import type { SmsSendResult } from '../sms.provider';
 import type { WhatsAppProvider } from '../whatsapp.provider';
 import { callProvider, digitsOf } from './http';
@@ -16,11 +17,13 @@ interface MetaMessagesResponse {
 }
 
 /**
- * WhatsApp Business Cloud API (docs/MESAJLASMA.md, "Sağlayıcılar"). Text
- * messages inside the 24-hour service window; outside it Meta requires an
- * approved template, which the engine does not model yet, so such a send is
- * refused by Meta and the engine falls back to SMS when the restaurant
- * allows it. Meta has no credit balance; the console shows it as unknown.
+ * WhatsApp Business Cloud API (docs/MESAJLASMA.md, "Sağlayıcılar" and
+ * "WhatsApp şablonları"). A message with a template goes out as a template
+ * message (body variables in order), which Meta delivers outside the
+ * 24-hour service window once the template is approved in the account;
+ * a message without one goes out as text, which only works inside the
+ * window. A refused send falls back to SMS when the restaurant allows it.
+ * Meta has no credit balance; the console shows it as unknown.
  */
 export class MetaWhatsAppProvider implements WhatsAppProvider {
   readonly code = 'META';
@@ -33,7 +36,20 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
-  async send(toE164: string, text: string): Promise<SmsSendResult> {
+  async send(toE164: string, text: string, template?: WhatsAppTemplateMessage): Promise<SmsSendResult> {
+    const content = template
+      ? {
+          type: 'template',
+          template: {
+            name: template.name,
+            language: { code: template.language },
+            components:
+              template.params.length > 0
+                ? [{ type: 'body', parameters: template.params.map((value) => ({ type: 'text', text: value })) }]
+                : [],
+          },
+        }
+      : { type: 'text', text: { preview_url: false, body: text } };
     const answer = await callProvider<MetaMessagesResponse>(this.fetchImpl, {
       url: `${this.base}/${encodeURIComponent(this.options.phoneNumberId)}/messages`,
       headers: { authorization: `Bearer ${this.options.accessToken}` },
@@ -41,8 +57,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
         to: digitsOf(toE164),
-        type: 'text',
-        text: { preview_url: false, body: text },
+        ...content,
       },
     });
     const id = answer.body?.messages?.[0]?.id;
