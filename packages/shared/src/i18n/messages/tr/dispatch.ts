@@ -63,6 +63,7 @@ export const trDispatch = {
   'dispatch.noCourierYet': 'Kurye sonra atanacak',
   'dispatch.moveUp': 'Yukarı taşı',
   'dispatch.moveDown': 'Aşağı taşı',
+  'dispatch.dragHint': 'Durakları sürükleyip bırakarak sıralayabilirsiniz.',
   'dispatch.noActiveTrips': 'Aktif sefer yok.',
   'dispatch.noReadyOrders': 'Sevk bekleyen sipariş yok.',
   'dispatch.tripTitle': 'Sefer {code}',

@@ -14,6 +14,7 @@ import {
   CreateOrderSchema,
   ORDER_TRANSITIONS,
   TERMINAL_ORDER_STATUSES,
+  reorderStopIds,
 } from './delivery';
 import { OrderStatus } from './enums';
 import { BASE_MESSAGES } from './i18n/messages';
@@ -207,5 +208,19 @@ describe('order input', () => {
   it('derives display helpers', () => {
     expect(orderShortCode('6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b')).toBe('2F3A4B');
     expect(courierDisplayName('  Mehmet Can Yilmaz ')).toBe('Mehmet');
+  });
+});
+
+describe('stop reordering', () => {
+  it('moves a dragged stop into the place of the one it was dropped on', () => {
+    expect(reorderStopIds(['a', 'b', 'c'], 'a', 'c')).toEqual(['b', 'c', 'a']);
+    expect(reorderStopIds(['a', 'b', 'c'], 'c', 'a')).toEqual(['c', 'a', 'b']);
+    expect(reorderStopIds(['a', 'b', 'c', 'd'], 'b', 'c')).toEqual(['a', 'c', 'b', 'd']);
+  });
+
+  it('leaves the order alone for an unknown or identical target', () => {
+    expect(reorderStopIds(['a', 'b'], 'a', 'a')).toEqual(['a', 'b']);
+    expect(reorderStopIds(['a', 'b'], 'x', 'a')).toEqual(['a', 'b']);
+    expect(reorderStopIds(['a', 'b'], 'a', 'x')).toEqual(['a', 'b']);
   });
 });

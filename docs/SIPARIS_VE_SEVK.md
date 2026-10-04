@@ -57,6 +57,8 @@ Kurye uçları `/restaurants/:id/courier/me/*` altındadır (`courier.deliver`):
 
 Sevk panosu (`GET /restaurants/:id/dispatch/board`, `dispatch.view`) tek yanıtta döner: sevk bekleyen hazır siparişler, mutfaktaki eve teslim siparişleri, aktif seferler (durak ve kurye konumlarıyla), kuryeler (son konum, aktif sefer) ve sevk ayarları.
 
+Panelde (`/panel/<slug>/sevk`) aktif seferin bekleyen durakları sürüklenip başka bir durağın üzerine bırakılarak sıralanır: sürüklenen durak bırakıldığı yerin sırasını alır, diğerleri göreli sırasını korur (`reorderStopIds`) ve yeni sıra `PUT .../trips/:id/sequence` ile gönderilir. Yukarı / aşağı düğmeleri klavye kullanımı için kalır.
+
 ## 3. Konum akışı
 
 - Kurye uygulaması konumunu küçük partiler halinde gönderir (`POST /restaurants/:id/courier/me/location { points[] }`, en fazla 60 nokta). Kısa çevrimdışı aralıklar kaybolmaz, geciken noktalar sırayla işlenir.

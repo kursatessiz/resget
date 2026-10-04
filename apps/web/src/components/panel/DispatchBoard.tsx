@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { formatMoney } from '@resget/shared';
+import { formatMoney, reorderStopIds } from '@resget/shared';
 import type {
   CourierSummaryDTO,
   DeliveryStopDTO,
@@ -70,6 +70,9 @@ export function DispatchBoard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [failing, setFailing] = useState<{ tripId: string; stopId: string; reason: string } | null>(null);
+  /** The stop being dragged and the one under the pointer; buttons remain for keyboard users. */
+  const [dragging, setDragging] = useState<{ tripId: string; stopId: string } | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
   const time = useMemo(() => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }), [locale]);
   const km = useMemo(() => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }), [locale]);
 
@@ -232,6 +235,17 @@ export function DispatchBoard({
     if (index < 0 || target < 0 || target >= movable.length) return;
     [movable[index], movable[target]] = [movable[target], movable[index]];
     void tripCall(trip.id, '/sequence', 'PUT', { stopIds: movable });
+  };
+
+  const drop = (trip: DeliveryTripDTO, targetId: string) => {
+    const moving = dragging;
+    setDragging(null);
+    setDropTarget(null);
+    if (!moving || moving.tripId !== trip.id) return;
+    const ids = trip.stops.filter((s) => ACTIVE_STOP.has(s.status)).map((s) => s.id);
+    const next = reorderStopIds(ids, moving.stopId, targetId);
+    if (next.every((id, i) => id === ids[i])) return;
+    void tripCall(trip.id, '/sequence', 'PUT', { stopIds: next });
   };
 
   if (!board) return <p className="ui-text-muted">{error ?? t('common.loading')}</p>;
@@ -398,100 +412,138 @@ export function DispatchBoard({
                       ? ` / ${t('dispatch.plannedRoute', { km: km.format(trip.plannedDistanceMeters / 1000), minutes: Math.round(trip.plannedDurationSeconds / 60) })}`
                       : ''}
                   </p>
+                  {canManage && movable.length > 1 && <p className="ui-caption">{t('dispatch.dragHint')}</p>}
                   <ol className="pui-timeline">
-                    {trip.stops.map((stop) => (
-                      <li key={stop.id} className="pui-checkpoint">
-                        <span
-                          className={`pui-checkpoint-icon ${ACTIVE_STOP.has(stop.status) ? 'pui-outline pui-muted' : 'pui-solid pui-theme'}`}
+                    {trip.stops.map((stop) => {
+                      const draggable = canManage && !busy && movable.length > 1 && ACTIVE_STOP.has(stop.status);
+                      return (
+                        <li
+                          key={stop.id}
+                          className={`pui-checkpoint${draggable ? ' cursor-grab' : ''}`}
+                          data-stop-code={stop.orderShortCode}
+                          draggable={draggable}
+                          onDragStart={(event) => {
+                            if (!draggable) return;
+                            event.dataTransfer.effectAllowed = 'move';
+                            event.dataTransfer.setData('text/plain', stop.id);
+                            setDragging({ tripId: trip.id, stopId: stop.id });
+                          }}
+                          onDragOver={(event) => {
+                            if (!draggable || dragging?.tripId !== trip.id) return;
+                            event.preventDefault();
+                            event.dataTransfer.dropEffect = 'move';
+                            if (dropTarget !== stop.id) setDropTarget(stop.id);
+                          }}
+                          onDragLeave={() => {
+                            if (dropTarget === stop.id) setDropTarget(null);
+                          }}
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            drop(trip, stop.id);
+                          }}
+                          onDragEnd={() => {
+                            setDragging(null);
+                            setDropTarget(null);
+                          }}
                         >
-                          {stop.sequence}
-                        </span>
-                        <div className="flex min-w-0 flex-1 flex-col gap-1">
-                          <div className="flex flex-wrap items-center gap-2">{stopLine(stop)}</div>
-                          {canManage && ACTIVE_STOP.has(stop.status) && (
-                            <div className="flex flex-wrap gap-1">
-                              {movable.length > 1 && (
-                                <>
+                          <span
+                            className={`pui-checkpoint-icon ${
+                              dropTarget === stop.id && dragging?.stopId !== stop.id
+                                ? 'pui-soft pui-theme'
+                                : ACTIVE_STOP.has(stop.status)
+                                  ? 'pui-outline pui-muted'
+                                  : 'pui-solid pui-theme'
+                            }`}
+                          >
+                            {stop.sequence}
+                          </span>
+                          <div className="flex min-w-0 flex-1 flex-col gap-1">
+                            <div className="flex flex-wrap items-center gap-2">{stopLine(stop)}</div>
+                            {canManage && ACTIVE_STOP.has(stop.status) && (
+                              <div className="flex flex-wrap gap-1">
+                                {movable.length > 1 && (
+                                  <>
+                                    <Button
+                                      variant="link"
+                                      tone="muted"
+                                      onClick={() => move(trip, stop.id, -1)}
+                                      disabled={busy}
+                                    >
+                                      {t('dispatch.moveUp')}
+                                    </Button>
+                                    <Button
+                                      variant="link"
+                                      tone="muted"
+                                      onClick={() => move(trip, stop.id, 1)}
+                                      disabled={busy}
+                                    >
+                                      {t('dispatch.moveDown')}
+                                    </Button>
+                                  </>
+                                )}
+                                {trip.status === 'IN_PROGRESS' && (
+                                  <>
+                                    <Button
+                                      variant="soft"
+                                      tone="success"
+                                      onClick={() => void tripCall(trip.id, `/stops/${stop.id}/deliver`)}
+                                      disabled={busy}
+                                    >
+                                      {t('dispatch.deliver')}
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      tone="error"
+                                      onClick={() => setFailing({ tripId: trip.id, stopId: stop.id, reason: '' })}
+                                      disabled={busy}
+                                    >
+                                      {t('dispatch.fail')}
+                                    </Button>
+                                  </>
+                                )}
+                                {trip.status !== 'IN_PROGRESS' && (
                                   <Button
                                     variant="link"
-                                    tone="muted"
-                                    onClick={() => move(trip, stop.id, -1)}
-                                    disabled={busy}
-                                  >
-                                    {t('dispatch.moveUp')}
-                                  </Button>
-                                  <Button
-                                    variant="link"
-                                    tone="muted"
-                                    onClick={() => move(trip, stop.id, 1)}
-                                    disabled={busy}
-                                  >
-                                    {t('dispatch.moveDown')}
-                                  </Button>
-                                </>
-                              )}
-                              {trip.status === 'IN_PROGRESS' && (
-                                <>
-                                  <Button
-                                    variant="soft"
-                                    tone="success"
-                                    onClick={() => void tripCall(trip.id, `/stops/${stop.id}/deliver`)}
-                                    disabled={busy}
-                                  >
-                                    {t('dispatch.deliver')}
-                                  </Button>
-                                  <Button
-                                    variant="outline"
                                     tone="error"
-                                    onClick={() => setFailing({ tripId: trip.id, stopId: stop.id, reason: '' })}
+                                    onClick={() => void tripCall(trip.id, `/stops/${stop.id}`, 'DELETE')}
                                     disabled={busy}
+                                  >
+                                    {t('dispatch.removeStop')}
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                            {failing && failing.stopId === stop.id && (
+                              <div className="flex flex-col gap-2">
+                                <TextField
+                                  id={`fail-${stop.id}`}
+                                  label={t('dispatch.failReason')}
+                                  value={failing.reason}
+                                  onChange={(e) => setFailing({ ...failing, reason: e.target.value })}
+                                />
+                                <div className="flex gap-2">
+                                  <Button
+                                    tone="error"
+                                    disabled={busy || failing.reason.trim().length < 2}
+                                    onClick={() => {
+                                      void tripCall(trip.id, `/stops/${stop.id}/fail`, 'POST', {
+                                        reason: failing.reason.trim(),
+                                      });
+                                      setFailing(null);
+                                    }}
                                   >
                                     {t('dispatch.fail')}
                                   </Button>
-                                </>
-                              )}
-                              {trip.status !== 'IN_PROGRESS' && (
-                                <Button
-                                  variant="link"
-                                  tone="error"
-                                  onClick={() => void tripCall(trip.id, `/stops/${stop.id}`, 'DELETE')}
-                                  disabled={busy}
-                                >
-                                  {t('dispatch.removeStop')}
-                                </Button>
-                              )}
-                            </div>
-                          )}
-                          {failing && failing.stopId === stop.id && (
-                            <div className="flex flex-col gap-2">
-                              <TextField
-                                id={`fail-${stop.id}`}
-                                label={t('dispatch.failReason')}
-                                value={failing.reason}
-                                onChange={(e) => setFailing({ ...failing, reason: e.target.value })}
-                              />
-                              <div className="flex gap-2">
-                                <Button
-                                  tone="error"
-                                  disabled={busy || failing.reason.trim().length < 2}
-                                  onClick={() => {
-                                    void tripCall(trip.id, `/stops/${stop.id}/fail`, 'POST', {
-                                      reason: failing.reason.trim(),
-                                    });
-                                    setFailing(null);
-                                  }}
-                                >
-                                  {t('dispatch.fail')}
-                                </Button>
-                                <Button variant="outline" tone="muted" onClick={() => setFailing(null)}>
-                                  {t('common.cancel')}
-                                </Button>
+                                  <Button variant="outline" tone="muted" onClick={() => setFailing(null)}>
+                                    {t('common.cancel')}
+                                  </Button>
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      </li>
-                    ))}
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ol>
                   {canManage && (
                     <div className="flex flex-wrap items-end gap-2">

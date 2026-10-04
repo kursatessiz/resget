@@ -65,6 +65,7 @@ export const enDispatch: Record<keyof typeof trDispatch, string> = {
   'dispatch.noCourierYet': 'Assign the courier later',
   'dispatch.moveUp': 'Move up',
   'dispatch.moveDown': 'Move down',
+  'dispatch.dragHint': 'Drag and drop stops to change their order.',
   'dispatch.noActiveTrips': 'No active trips.',
   'dispatch.noReadyOrders': 'No orders waiting for dispatch.',
   'dispatch.tripTitle': 'Trip {code}',

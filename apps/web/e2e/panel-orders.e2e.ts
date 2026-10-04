@@ -118,4 +118,60 @@ test.describe('Orders screen and dispatch board', () => {
     await expect(card.getByText(/İade edildi: /)).toBeVisible();
     await expect(card.getByRole('button', { name: 'İade et' })).toHaveCount(0);
   });
+  test('the dispatcher drags a stop onto another to change the order of a trip', async ({ page }) => {
+    const me = await bff<Me>(page.request, 'auth/me');
+    const restaurantId = me.memberships.find((m) => m.restaurantSlug === SEED.restaurantSlug)!.restaurantId;
+    const restaurant = await bff<Restaurant>(page.request, `restaurants/${restaurantId}`);
+    const menu = await bff<Category[]>(page.request, `restaurants/${restaurantId}/menu`);
+    const item = menu.flatMap((c) => c.items).find((i) => i.name === SEED.firstMenuItem)!;
+    const base = `restaurants/${restaurantId}`;
+    const readyOrder = async (line: string, lat: number) => {
+      const order = await bff<{ id: string; shortCode: string }>(page.request, `${base}/orders`, {
+        method: 'POST',
+        data: {
+          branchId: restaurant.branches[0].id,
+          channel: 'PHONE',
+          fulfillment: 'DELIVERY',
+          items: [{ menuItemId: item.id, quantity: 1 }],
+          address: {
+            addressLine: line,
+            city: 'Istanbul',
+            district: 'Kadikoy',
+            contactName: 'Playwright Sira',
+            contactPhone: '0532 999 03 02',
+            point: { lat, lng: 29.0275 },
+          },
+          payment: { method: 'CASH_ON_DELIVERY' },
+          note: 'pw-drag',
+        },
+      });
+      await bff(page.request, `${base}/orders/${order.id}/transition`, {
+        method: 'POST',
+        data: { to: 'ACCEPTED', prepMinutes: 10 },
+      });
+      await bff(page.request, `${base}/orders/${order.id}/transition`, { method: 'POST', data: { to: 'READY' } });
+      return order;
+    };
+    const first = await readyOrder('Moda Cad. No 1', 40.9871);
+    const second = await readyOrder('Moda Cad. No 2', 40.9902);
+    const trip = await bff<{ id: string }>(page.request, `${base}/dispatch/trips`, {
+      method: 'POST',
+      data: { orderIds: [first.id, second.id], sequenceMode: 'MANUAL' },
+    });
+
+    try {
+      await page.goto(`/panel/${SEED.restaurantSlug}/sevk`);
+      const card = page.locator(`[data-trip-id="${trip.id}"]`);
+      const stops = card.locator('li[data-stop-code]');
+      await expect(stops).toHaveCount(2);
+      await expect(stops.first()).toHaveAttribute('data-stop-code', first.shortCode);
+      await expect(card.getByText('Durakları sürükleyip bırakarak sıralayabilirsiniz.')).toBeVisible();
+
+      await card.locator(`li[data-stop-code="${second.shortCode}"]`).dragTo(stops.first());
+      await expect(stops.first()).toHaveAttribute('data-stop-code', second.shortCode);
+      await expect(stops.nth(1)).toHaveAttribute('data-stop-code', first.shortCode);
+    } finally {
+      await bff(page.request, `${base}/dispatch/trips/${trip.id}/cancel`, { method: 'POST', data: {} });
+    }
+  });
 });
