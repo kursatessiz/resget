@@ -79,8 +79,8 @@ export class AuthService {
       throw unauthorized('Invalid refresh token');
     }
     if (claims.type !== 'refresh') throw unauthorized('Not a refresh token');
-    const user = await this.prisma.user.findUnique({
-      where: { id: claims.sub },
+    const user = await this.prisma.user.findFirst({
+      where: { id: claims.sub, deletedAt: null },
       select: { id: true, phone: true, isSuperAdmin: true },
     });
     if (!user) throw unauthorized('Unknown user');

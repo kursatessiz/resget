@@ -73,4 +73,6 @@ export const trMobile = {
   'mobile.account.title': 'Hesap',
   'mobile.account.signedInAs': '{name} ({phone})',
   'mobile.account.version': 'Sürüm {version}',
+  'mobile.account.deleteIntro':
+    'Hesabınızı buradan kalıcı olarak silebilirsiniz. Verilerinizi indirmek için web sitesindeki Hesabım sayfasını kullanın.',
 } as const satisfies Record<string, string>;

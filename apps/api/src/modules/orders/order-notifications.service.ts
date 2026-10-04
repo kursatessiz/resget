@@ -7,6 +7,7 @@ import {
   customerPushTemplate,
   dispatchSettingsFrom,
   isAutoRefundStatus,
+  isDeletedUserPhone,
   isOnlinePayment,
   notificationSettingsFrom,
   orderNotificationTemplate,
@@ -102,7 +103,10 @@ export class OrderNotificationsService {
 
     const templateKey = orderNotificationTemplate(order.fulfillment, status);
     if (!templateKey) return;
-    const phone = order.customer?.phone ?? contactPhoneOf(order.addressSnapshot);
+    // A deleted account has no number to write to (docs/KISISEL_VERI.md).
+    const phone = isDeletedUserPhone(order.customer?.phone)
+      ? null
+      : (order.customer?.phone ?? contactPhoneOf(order.addressSnapshot));
     if (!phone) return;
     await this.messaging.send({
       restaurantId: order.restaurantId,

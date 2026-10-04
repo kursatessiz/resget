@@ -32,4 +32,26 @@ test.describe('Customer account', () => {
     await page.getByRole('listitem', { name: label }).getByRole('button', { name: 'Sil' }).click();
     await expect(page.getByRole('listitem', { name: label })).toHaveCount(0);
   });
+  test('a person downloads their data and deletes their account for good', async ({ page }) => {
+    // A throwaway number: each run deletes the account it made, and the next sign-in starts a new one.
+    await signIn(page, '0532 999 08 61');
+    await page.goto('/hesabim');
+    const card = page.locator('section', { has: page.getByRole('heading', { name: 'Kişisel verileriniz' }) });
+    await expect(card).toBeVisible();
+
+    const download = page.waitForEvent('download');
+    await card.getByRole('button', { name: 'Verilerimi indir' }).click();
+    expect((await download).suggestedFilename()).toBe('personal-data.json');
+
+    await card.getByRole('button', { name: 'Hesabımı sil' }).click();
+    const confirm = card.getByRole('button', { name: 'Hesabımı kalıcı olarak sil' });
+    await expect(confirm).toBeDisabled();
+    await card.getByLabel('Hesabımın geri alınamaz şekilde silineceğini anlıyorum.').check();
+    await confirm.click();
+    await page.waitForURL((url) => url.pathname === '/');
+
+    // The session went with the account.
+    await page.goto('/hesabim');
+    await expect(page).toHaveURL(/\/giris/);
+  });
 });

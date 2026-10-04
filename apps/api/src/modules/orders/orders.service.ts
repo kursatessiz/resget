@@ -24,6 +24,7 @@ import {
   canStartRefund,
   refundableMinor,
   refundStateOf,
+  visibleContact,
 } from '@resget/shared';
 import type {
   AddressSnapshot,
@@ -693,7 +694,9 @@ export class OrdersService {
   toSummary(row: OrderRow, canSeeContacts: boolean): OrderSummaryDTO {
     const address = this.addressOf(row);
     const stop = row.deliveryStops[0];
-    const phone = row.customer?.phone ?? address?.contactPhone ?? null;
+    // A customer who deleted their account shows no name or number (docs/KISISEL_VERI.md).
+    const customer = visibleContact(row.customer);
+    const phone = customer?.phone ?? (address?.contactPhone || null);
     return {
       id: row.id,
       shortCode: orderShortCode(row.id),
@@ -708,7 +711,7 @@ export class OrdersService {
       tableLabel: row.table?.label ?? null,
       customer: {
         userId: row.customer?.id ?? null,
-        fullName: row.customer?.fullName ?? address?.contactName ?? null,
+        fullName: customer?.fullName ?? (address?.contactName || null),
         phone: phone ? (canSeeContacts ? phone : maskPhoneForDisplay(phone)) : null,
       },
       address: address

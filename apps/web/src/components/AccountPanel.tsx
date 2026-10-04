@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatMoney } from '@resget/shared';
-import type { CustomerAccountDTO, CustomerAddressDTO } from '@resget/shared';
+import type { CustomerAccountDTO, CustomerAddressDTO, PersonalDataExportDTO } from '@resget/shared';
 import { Badge, Button, Card, LinkButton, TextField } from '@/components/ui';
 import { SignOutButton } from '@/components/SignOutButton';
 import { ApiError, bffJson } from '@/lib/client-api';
@@ -19,6 +19,9 @@ export function AccountPanel({ locale }: { locale: string }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [understood, setUnderstood] = useState(false);
+  const signOutForm = useRef<HTMLFormElement>(null);
 
   const fail = useCallback(
     (err: unknown) => setError(err instanceof ApiError ? t(`errors.${err.code}`) : t('common.error.network')),
@@ -86,6 +89,24 @@ export function AccountPanel({ locale }: { locale: string }) {
   const remove = (id: string) =>
     act(async () => {
       withAddresses(await bffJson<CustomerAddressDTO[]>(`me/addresses/${id}`, { method: 'DELETE' }));
+    });
+
+  /** The person's data as a JSON file (docs/KISISEL_VERI.md); built in the browser, nothing is stored. */
+  const downloadData = () =>
+    act(async () => {
+      const data = await bffJson<PersonalDataExportDTO>('me/data-export');
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'personal-data.json';
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+  const deleteAccount = () =>
+    act(async () => {
+      await bffJson<void>('me/account/delete', { method: 'POST', body: JSON.stringify({ confirm: true }) });
+      // The session cookies go with the account; the logout handler clears them and sends the visitor home.
+      signOutForm.current?.submit();
     });
 
   const day = (iso: string) => new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(iso));
@@ -247,6 +268,57 @@ export function AccountPanel({ locale }: { locale: string }) {
               </ul>
             )}
           </Card>
+
+          <Card title={t('account.privacy.title')}>
+            <div className="flex flex-col gap-3">
+              <p className="ui-text-muted">{t('account.privacy.intro')}</p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" tone="muted" onClick={() => void downloadData()} disabled={busy}>
+                  {t('account.privacy.download')}
+                </Button>
+                {!deleting && (
+                  <Button variant="outline" tone="error" onClick={() => setDeleting(true)} disabled={busy}>
+                    {t('account.privacy.delete')}
+                  </Button>
+                )}
+              </div>
+              {deleting && (
+                <div className="flex flex-col gap-3" role="group" aria-label={t('account.privacy.deleteTitle')}>
+                  <p className="ui-heading">{t('account.privacy.deleteTitle')}</p>
+                  <p>{t('account.privacy.deleteErased')}</p>
+                  <p className="ui-text-muted">{t('account.privacy.deleteKept')}</p>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      className="pui-checkbox"
+                      checked={understood}
+                      onChange={(e) => setUnderstood(e.target.checked)}
+                    />
+                    <span>{t('account.privacy.deleteConfirm')}</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <Button tone="error" onClick={() => void deleteAccount()} disabled={busy || !understood}>
+                      {t('account.privacy.deleteNow')}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      tone="muted"
+                      onClick={() => {
+                        setDeleting(false);
+                        setUnderstood(false);
+                      }}
+                      disabled={busy}
+                    >
+                      {t('common.cancel')}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+          <form ref={signOutForm} method="post" action="/api/session/logout" hidden>
+            <input type="hidden" name="next" value="/" />
+          </form>
         </>
       )}
     </>

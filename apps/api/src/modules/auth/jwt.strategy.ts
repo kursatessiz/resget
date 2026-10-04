@@ -23,8 +23,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   /** Runs on every authenticated request so a deleted or demoted user is cut off immediately. */
   async validate(claims: AccessTokenClaims): Promise<AuthUser> {
     if (claims.type !== 'access') throw unauthorized('Not an access token');
-    const user = await this.prisma.user.findUnique({
-      where: { id: claims.sub },
+    const user = await this.prisma.user.findFirst({
+      // A deleted account is cut off at once, whatever tokens it still holds (docs/KISISEL_VERI.md).
+      where: { id: claims.sub, deletedAt: null },
       select: { id: true, phone: true, fullName: true, isSuperAdmin: true },
     });
     if (!user) throw unauthorized('Unknown user');

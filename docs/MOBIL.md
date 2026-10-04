@@ -15,7 +15,7 @@
 - Müşteri modu (herkes için): telefon numarasıyla verilen siparişler (`GET /me/orders`), uygulama içi canlı takip (`/t/<token>`: adım merdiveni, durum cümlesi, kurye mesafesi ve tahmini varış, harita bağlantısı, sipariş içeriği, işletmeyi arama, 1-5 puan ve yorum), tekrar sipariş (işletmenin sipariş sayfası tarayıcıda açılır).
 - Takip bağlantısı derin bağlantıdır: SMS veya WhatsApp ile gelen `https://<web>/t/<token>` ve `resget://t/<token>` doğrudan takip ekranını açar; giriş gerekmez, token yeterlidir.
 - Push bildirimleri (`expo-notifications`): girişten sonra cihaz jetonu `POST /me/devices` ile kaydedilir, çıkışta silinir; müşteri sipariş güncellemeleri, kuryeye sefer ataması ve personele yeni sipariş uyarısı aynı telefona rolüne göre gelir (`docs/MESAJLASMA.md`, push bölümü). Bildirime dokunmak ilgili ekranı açar (takip, sefer, siparişler); tanınmayan veri yok sayılır.
-- Hesap: kim giriş yapmış, işletme değiştirici, çıkış.
+- Hesap: kim giriş yapmış, işletme değiştirici, çıkış ve hesabı kalıcı olarak silme (mağaza kuralı; sistem onay penceresiyle, `docs/KISISEL_VERI.md`).
 
 Henüz olmayanlar: uygulama içi harita (web takip sayfası ve web sevk panosu haritayı gösterir), mağaza hesaplarıyla EAS derleme ve yayın. Masa QR'ı (`/m/<token>`) bilerek web'de kalır: sipariş vermek uygulama kurulumu gerektirmez. Bunlar `HANDOVER.md` B1 maddesinde kalan iş olarak listelenir.
 
