@@ -247,6 +247,12 @@ export interface RoutingProviderAdapter {
   readonly code: string;
   /** Legs between consecutive points: result[i] is the leg from points[i] to points[i + 1]. */
   legs(points: GeoPoint[]): Promise<RouteLeg[]>;
+  /**
+   * Road distance in metres between every pair of points (result[i][j] from
+   * points[i] to points[j]) for the stop optimiser; absent when the engine
+   * has no matrix service, the optimiser then uses straight lines.
+   */
+  matrix?(points: GeoPoint[]): Promise<number[][]>;
 }
 
 export function haversineLegs(points: GeoPoint[], settings: DispatchSettings): RouteLeg[] {
@@ -276,15 +282,28 @@ export interface RoutableStop {
  * dispatch allows (maxStopsPerTrip); stops without coordinates cannot be
  * routed and are appended in their given order. Deterministic: ties keep
  * the earlier stop first, so the same input always yields the same route.
+ * Distances are straight lines unless a road matrix over [origin, ...routable
+ * stops] is given (a routing engine's table service); a matrix of the wrong
+ * shape is ignored rather than trusted.
  */
-export function optimizeStopOrder<T extends RoutableStop>(origin: GeoPoint, stops: readonly T[]): T[] {
+export function optimizeStopOrder<T extends RoutableStop>(
+  origin: GeoPoint,
+  stops: readonly T[],
+  roadMatrix?: readonly (readonly number[])[],
+): T[] {
   const routable = stops.filter((s): s is T & { point: GeoPoint } => s.point !== null);
   const unroutable = stops.filter((s) => s.point === null);
   if (routable.length <= 1) return [...routable, ...unroutable];
 
   const points: GeoPoint[] = [origin, ...routable.map((s) => s.point)];
   const n = points.length;
-  const dist: number[][] = points.map((a) => points.map((b) => haversineMeters(a, b)));
+  const usable =
+    roadMatrix !== undefined &&
+    roadMatrix.length === n &&
+    roadMatrix.every((row) => row.length === n && row.every((v) => Number.isFinite(v) && v >= 0));
+  const dist: number[][] = usable
+    ? roadMatrix.map((row) => [...row])
+    : points.map((a) => points.map((b) => haversineMeters(a, b)));
 
   // Nearest neighbour from the origin (index 0).
   const remaining = new Set<number>();

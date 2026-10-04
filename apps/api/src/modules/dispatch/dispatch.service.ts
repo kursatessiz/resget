@@ -328,10 +328,15 @@ export class DispatchService {
     const start = fixed.at(-1);
     const from: GeoPoint =
       start && start.lat !== null && start.lng !== null ? { lat: start.lat, lng: start.lng } : origin;
-    const ordered = optimizeStopOrder(
-      from,
-      movable.map((s) => this.routable(s)),
-    );
+    const routableStops = movable.map((s) => this.routable(s));
+    // A road engine's matrix orders by real distance; without one (or when it fails) straight lines decide.
+    const adapter = this.routing.adapterFor(await this.settingsOf(restaurantId));
+    const matrix = adapter.matrix
+      ? await adapter
+          .matrix([from, ...routableStops.filter((r) => r.point).map((r) => r.point!)])
+          .catch(() => undefined)
+      : undefined;
+    const ordered = optimizeStopOrder(from, routableStops, matrix);
     await this.prisma.$transaction(async (tx) => {
       await this.applySequence(tx, trip, [...fixed, ...ordered.map((r) => movable.find((s) => s.id === r.id)!)]);
       await tx.deliveryTrip.update({ where: { id: tripId }, data: { sequenceMode: 'OPTIMIZED' } });
