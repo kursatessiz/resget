@@ -36,4 +36,7 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.order_availability.description': 'Pausing orders, busy mode and refusing orders outside opening hours.',
   'features.delivery_zones.name': 'Delivery zone',
   'features.delivery_zones.description': 'Delivery radius, minimum basket and delivery fee by distance.',
+  'features.coupons.name': 'Coupons',
+  'features.coupons.description':
+    'Discount codes funded by the business: percent or amount, first order, usage limits.',
 };

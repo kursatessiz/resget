@@ -22,4 +22,5 @@ export const trPlans = {
   'plans.credits.buy': 'Kredi paketi satın al',
   'plans.credits.rule': 'Kredi yalnızca mesaj fiilen gönderildiğinde düşer.',
   'plans.credits.package': '{credits} {channel} kredisi',
+  'plans.feature.coupons': 'Kuponlar ve indirim kodları',
 } as const satisfies Record<string, string>;

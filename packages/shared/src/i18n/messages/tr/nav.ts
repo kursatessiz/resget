@@ -19,4 +19,5 @@ export const trNav = {
   'nav.integrations': 'API erişimi',
   'nav.switchRestaurant': 'İşletme değiştir',
   'nav.signOut': 'Çıkış yap',
+  'nav.coupons': 'Kuponlar',
 } as const satisfies Record<string, string>;

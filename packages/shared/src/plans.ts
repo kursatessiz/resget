@@ -31,6 +31,7 @@ export const PLAN_FEATURES = [
   'campaigns',
   'analytics',
   'loyalty',
+  'coupons',
   'custom_domain',
   'api_access',
 ] as const;

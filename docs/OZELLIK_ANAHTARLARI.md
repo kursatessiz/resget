@@ -52,6 +52,7 @@ Anahtar, modülün işletme için var olup olmadığına karar verir. Plan (BASI
 | `crm` | Pazarlama | açık |
 | `campaigns` | Pazarlama | açık |
 | `loyalty` | Pazarlama | açık |
+| `coupons` | Pazarlama | kapalı (BETA) |
 | `whatsapp_channel` | Pazarlama | açık |
 | `custom_domain` | Entegrasyon | açık |
 | `api_access` | Entegrasyon | açık |

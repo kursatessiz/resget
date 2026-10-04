@@ -2,13 +2,14 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { customerDeliveryFee, pointsEarnedFor, redeemableFor, formatMoney } from '@resget/shared';
+import { couponDiscountMinor, customerDeliveryFee, pointsEarnedFor, redeemableFor, formatMoney } from '@resget/shared';
 import type {
   CustomerAddressDTO,
   StorefrontViewerDTO,
   FulfillmentTypeValue,
   MenuModifierGroupDTO,
   OrderLineInput,
+  PublicCouponDTO,
   PublicOrderResultDTO,
   StorefrontDTO,
   StorefrontItemDTO,
@@ -66,6 +67,9 @@ export function Storefront({
   const [note, setNote] = useState('');
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [usePoints, setUsePoints] = useState(false);
+  const [couponText, setCouponText] = useState('');
+  const [coupon, setCoupon] = useState<PublicCouponDTO | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
   const [startedSent, setStartedSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -117,8 +121,25 @@ export function Storefront({
   const points = viewer?.loyaltyPoints ?? null;
   const redemption =
     loyalty && points !== null ? redeemableFor(loyalty, points, subtotal) : { points: 0, discountMinor: 0 };
-  const pointsDiscount = usePoints && redemption.points > 0 ? redemption.discountMinor : 0;
-  const pointsToEarn = loyalty ? pointsEarnedFor(loyalty, subtotal - pointsDiscount) : 0;
+  const pointsDiscount = !coupon && usePoints && redemption.points > 0 ? redemption.discountMinor : 0;
+  // Coupon (docs/KUPONLAR.md): a preview with the shared arithmetic; never combined with points.
+  const couponDiscount = coupon && subtotal >= coupon.minBasketMinor ? couponDiscountMinor(coupon, subtotal) : 0;
+  const discount = pointsDiscount + couponDiscount;
+  const pointsToEarn = loyalty ? pointsEarnedFor(loyalty, subtotal - discount) : 0;
+
+  const applyCoupon = async () => {
+    setCouponError(null);
+    try {
+      const found = await bffJson<PublicCouponDTO>(
+        `public/restaurants/${restaurant.slug}/coupons/${encodeURIComponent(couponText.trim().toUpperCase())}`,
+      );
+      setCoupon(found);
+      setUsePoints(false);
+    } catch (err) {
+      setCoupon(null);
+      setCouponError(err instanceof ApiError ? t(`errors.${err.code}`) : t('common.error.network'));
+    }
+  };
 
   const noteStarted = () => {
     if (startedSent || source.kind !== 'qr') return;
@@ -201,6 +222,7 @@ export function Storefront({
         ...(contact ? { customer: contact } : {}),
         ...(contact && marketingOptIn ? { marketingOptIn: true } : {}),
         ...(pointsDiscount > 0 ? { useLoyaltyPoints: true } : {}),
+        ...(coupon ? { couponCode: coupon.code } : {}),
         ...(fulfillment === 'DELIVERY'
           ? {
               address: {
@@ -422,17 +444,58 @@ export function Storefront({
                 <dd>-{money(pointsDiscount)}</dd>
               </div>
             )}
+            {couponDiscount > 0 && coupon && (
+              <div className="flex justify-between" data-coupon-line>
+                <dt className="ui-text-muted">{t('shop.coupon.line', { code: coupon.code })}</dt>
+                <dd>-{money(couponDiscount)}</dd>
+              </div>
+            )}
             <div className="flex justify-between">
               <dt className="ui-heading">{t('shop.cart.total')}</dt>
-              <dd className="ui-price">{money(subtotal + previewFee - pointsDiscount)}</dd>
+              <dd className="ui-price">{money(subtotal + previewFee - discount)}</dd>
             </div>
           </dl>
+        )}
+        {cart.length > 0 && ordering.coupons && (
+          <div className="flex flex-col gap-2" data-coupon>
+            {coupon ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge tone="success">{t('shop.coupon.applied', { code: coupon.code })}</Badge>
+                <Button variant="link" onClick={() => setCoupon(null)}>
+                  {t('shop.coupon.remove')}
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-end gap-2">
+                <TextField
+                  id="sf-coupon"
+                  label={t('shop.coupon.label')}
+                  value={couponText}
+                  maxLength={24}
+                  onChange={(e) => setCouponText(e.target.value)}
+                />
+                <Button variant="soft" onClick={() => void applyCoupon()} disabled={couponText.trim().length < 3}>
+                  {t('shop.coupon.apply')}
+                </Button>
+              </div>
+            )}
+            {coupon && subtotal < coupon.minBasketMinor && (
+              <p className="ui-caption">{t('shop.coupon.minimum', { amount: money(coupon.minBasketMinor) })}</p>
+            )}
+            {coupon?.firstOrderOnly && <p className="ui-caption">{t('shop.coupon.firstOrder')}</p>}
+            {coupon && redemption.points > 0 && <p className="ui-caption">{t('shop.coupon.withPoints')}</p>}
+            {couponError && (
+              <p role="alert" className="ui-caption">
+                {couponError}
+              </p>
+            )}
+          </div>
         )}
         {cart.length > 0 && loyalty && (
           <div className="flex flex-col gap-2" data-loyalty>
             {points === null && <p className="ui-caption">{t('loyalty.shop.signInHint')}</p>}
             {points !== null && <p className="ui-caption">{t('loyalty.shop.balance', { points })}</p>}
-            {points !== null && redemption.points > 0 && (
+            {points !== null && redemption.points > 0 && !coupon && (
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"

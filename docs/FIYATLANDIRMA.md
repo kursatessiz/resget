@@ -7,7 +7,7 @@ Karar: bedava dönem süreyle değil katmanla çözülür. "6 ay bedava, sonra �
 | Katman | Fiyat | İçerik |
 |---|---|---|
 | `BASIC` | Süresiz ücretsiz | Menü yönetimi, sipariş alma, masa QR, yüzde 1 pazaryeri, kendi sipariş sayfası |
-| `PRO` | Aylık ücret (platform verisi, `plans` tablosu) | BASIC + CRM, SMS/WhatsApp kampanyaları, gelişmiş analitik, sadakat programı, kendi alan adı, API erişimi |
+| `PRO` | Aylık ücret (platform verisi, `plans` tablosu) | BASIC + CRM, SMS/WhatsApp kampanyaları, gelişmiş analitik, sadakat programı, kuponlar, kendi alan adı, API erişimi |
 
 Yeni restoran `PRO`'yu deneme süresiyle başlar (`PRO_TRIAL_DAYS_DEFAULT = 90`; platform ayarı). Deneme bitince `BASIC`'e düşer: siparişleri almaya devam eder, yalnızca gelişmiş araçlar kapanır. Churn anı yoktur.
 

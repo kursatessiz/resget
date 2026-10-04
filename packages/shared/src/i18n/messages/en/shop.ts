@@ -70,4 +70,12 @@ export const enShop: Record<keyof typeof trShop, string> = {
   'shop.availability.busy': 'The restaurant is busy; preparation may take about {minutes} min.',
   'shop.zone.minimum': 'Minimum basket for delivery: {amount}.',
   'shop.zone.radius': 'Delivers up to {km} km from the branch.',
+  'shop.coupon.label': 'Coupon code',
+  'shop.coupon.apply': 'Apply',
+  'shop.coupon.remove': 'Remove',
+  'shop.coupon.applied': '{code} applied',
+  'shop.coupon.line': 'Coupon ({code})',
+  'shop.coupon.withPoints': 'A coupon cannot be combined with loyalty points.',
+  'shop.coupon.minimum': 'Minimum basket for this coupon: {amount}.',
+  'shop.coupon.firstOrder': 'This coupon is valid on the first order only.',
 };

@@ -449,6 +449,8 @@ model Restaurant {
   webhooks             RestaurantWebhook[]
   orderRatings         OrderRating[]
   loyaltyTransactions  LoyaltyTransaction[]
+  coupons              Coupon[]
+  couponRedemptions    CouponRedemption[]
 
   @@index([serviceAreaId, isListed])
   @@map("restaurants")
@@ -724,6 +726,7 @@ model RestaurantCustomer {
   user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   campaignRecipients  CampaignRecipient[]
   loyaltyTransactions LoyaltyTransaction[]
+  couponRedemptions   CouponRedemption[]
 
   @@unique([restaurantId, userId])
   @@index([restaurantId, lastOrderAt])
@@ -1000,6 +1003,7 @@ model Order {
   payments            Payment[]
   ledgerEntries       LedgerEntry[]
   loyaltyTransactions LoyaltyTransaction[]
+  couponRedemption    CouponRedemption?
   rating              OrderRating?
   deliveryRequest     DeliveryRequest?
   deliveryStops       DeliveryStop[]
@@ -1665,4 +1669,57 @@ model AuditLog {
 
   @@index([restaurantId, createdAt])
   @@map("audit_logs")
+}
+
+/// A restaurant-funded discount code (docs/KUPONLAR.md). Rules are fixed once created; only isActive changes.
+model Coupon {
+  id               String    @id @default(uuid())
+  restaurantId     String
+  /// Upper case, unique per restaurant.
+  code             String
+  /// PERCENT or AMOUNT (COUPON_KINDS in shared).
+  kind             String
+  percentBps       Int?
+  maxDiscountMinor Int?
+  amountMinor      Int?
+  minBasketMinor   Int       @default(0)
+  firstOrderOnly   Boolean   @default(false)
+  perCustomerLimit Int       @default(1)
+  maxRedemptions   Int?
+  /// Uses that still count; raised atomically with the order, lowered when the order is cancelled.
+  redemptionCount  Int       @default(0)
+  startsAt         DateTime?
+  endsAt           DateTime?
+  isActive         Boolean   @default(true)
+  createdByUserId  String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  restaurant  Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  redemptions CouponRedemption[]
+
+  @@unique([restaurantId, code])
+  @@map("coupons")
+}
+
+/// One order's use of a coupon; releasedAt is set when the order is cancelled and the use given back.
+model CouponRedemption {
+  id            String    @id @default(uuid())
+  restaurantId  String
+  couponId      String
+  orderId       String    @unique
+  customerId    String
+  discountMinor Int
+  currency      String
+  releasedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  restaurant Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  coupon     Coupon             @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  order      Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer   RestaurantCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([couponId, customerId])
+  @@index([restaurantId, createdAt])
+  @@map("coupon_redemptions")
 }

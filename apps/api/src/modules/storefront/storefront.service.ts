@@ -27,6 +27,7 @@ import type {
 import { AvailabilityService, availabilitySelect } from '../availability/availability.service';
 import { FeatureFlagsService } from '../features/feature-flags.service';
 import { DeliveryZoneService } from '../restaurants/delivery-zone.service';
+import { CouponsService } from '../coupons/coupons.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MenuService } from '../menu/menu.service';
 import { MealCardsService } from '../payments/meal-cards.service';
@@ -76,6 +77,7 @@ export class StorefrontService {
     private readonly features: FeatureFlagsService,
     private readonly availability: AvailabilityService,
     private readonly zones: DeliveryZoneService,
+    private readonly coupons: CouponsService,
   ) {}
 
   // -- Reads ---------------------------------------------------------------------------
@@ -287,7 +289,7 @@ export class StorefrontService {
     // Paused or outside the hours: consumer orders wait (docs/SIPARIS_VE_SEVK.md, "Sipariş alma durumu").
     await this.availability.assertAccepting(restaurant, branchId);
     const zone = input.fulfillment === 'DELIVERY' ? await this.zones.activeZone(restaurant) : null;
-    const ordering = this.orderingOf(restaurant, context.tableId !== undefined, zone);
+    const ordering = this.orderingOf(restaurant, context.tableId !== undefined, zone, false);
     if (input.fulfillment === 'DELIVERY' && !ordering.delivery)
       throw conflict('ORDER_TRANSITION_INVALID', 'No delivery here');
     if (input.fulfillment === 'DINE_IN' && !context.tableId) throw conflict('ORDER_TRANSITION_INVALID', 'No table');
@@ -332,7 +334,10 @@ export class StorefrontService {
       if (phone === null) create.customer = { fullName: context.viewer.fullName, phone: context.viewer.phone };
       loyaltyUserId = context.viewer.id;
     }
-    const order = await this.orders.create(restaurant.id, create, null, false, { loyaltyUserId });
+    const order = await this.orders.create(restaurant.id, create, null, false, {
+      loyaltyUserId,
+      couponCode: input.couponCode,
+    });
     const loyaltyPointsRedeemed = loyaltyUserId ? await this.loyalty.redeemedPointsOf(order.id) : 0;
     const token = order.trackingUrl.split('/t/')[1] ?? '';
     let checkoutUrl: string | null = null;
@@ -428,12 +433,13 @@ export class StorefrontService {
     table: { id: string; label: string } | null,
     branchId: string | null,
   ): Promise<StorefrontDTO> {
-    const [categories, payment, loyalty, availability, zone] = await Promise.all([
+    const [categories, payment, loyalty, availability, zone, coupons] = await Promise.all([
       this.menu.menuOf(restaurant.id),
       this.mealCards.acceptedMethods(restaurant.id),
       this.loyalty.storefrontRules(restaurant.id),
       this.availability.of(restaurant, branchId),
       this.zones.activeZone(restaurant),
+      this.coupons.accepts(restaurant.id),
     ]);
     return {
       restaurant: {
@@ -447,7 +453,7 @@ export class StorefrontService {
       },
       table,
       payment,
-      ordering: this.orderingOf(restaurant, table !== null, zone),
+      ordering: this.orderingOf(restaurant, table !== null, zone, coupons),
       categories,
       loyalty: loyalty
         ? {
@@ -463,7 +469,12 @@ export class StorefrontService {
     };
   }
 
-  private orderingOf(restaurant: RestaurantRow, hasTable: boolean, zone: DeliveryZone | null): StorefrontOrderingDTO {
+  private orderingOf(
+    restaurant: RestaurantRow,
+    hasTable: boolean,
+    zone: DeliveryZone | null,
+    coupons: boolean,
+  ): StorefrontOrderingDTO {
     const policy = DeliveryFeePolicySchema.safeParse(restaurant.deliveryFeePolicy);
     return {
       dineIn: hasTable,
@@ -473,6 +484,7 @@ export class StorefrontService {
       quotedDelivery: restaurant.deliveryMode === 'THIRD_PARTY_API',
       defaultPrepMinutes: dispatchSettingsFrom(restaurant.dispatchSettings).defaultPrepMinutes,
       deliveryZone: zone,
+      coupons,
     };
   }
 }

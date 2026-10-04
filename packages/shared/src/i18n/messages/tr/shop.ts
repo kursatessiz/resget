@@ -69,4 +69,12 @@ export const trShop = {
   'shop.availability.busy': 'Restoran yoğun; hazırlık yaklaşık {minutes} dk sürebilir.',
   'shop.zone.minimum': 'Teslimat için en az sepet tutarı: {amount}.',
   'shop.zone.radius': 'Şubeye {km} km mesafeye kadar teslimat yapılır.',
+  'shop.coupon.label': 'Kupon kodu',
+  'shop.coupon.apply': 'Uygula',
+  'shop.coupon.remove': 'Kaldır',
+  'shop.coupon.applied': '{code} uygulandı',
+  'shop.coupon.line': 'Kupon ({code})',
+  'shop.coupon.withPoints': 'Kupon sadakat puanıyla birlikte kullanılamaz.',
+  'shop.coupon.minimum': 'Bu kupon için en az sepet tutarı: {amount}.',
+  'shop.coupon.firstOrder': 'Bu kupon yalnızca ilk siparişte geçerlidir.',
 } as const satisfies Record<string, string>;
