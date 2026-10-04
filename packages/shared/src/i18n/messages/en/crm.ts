@@ -51,6 +51,8 @@ export const enCrm: Record<keyof typeof trCrm, string> = {
   'crm.activity.EMAIL': 'Email',
   'crm.activity.STAGE_CHANGE': 'Stage changed',
   'crm.activity.TASK_DONE': 'Task done',
+  'crm.activity.FORM': 'Site form',
+  'crm.activity.CONVERSION': 'Conversion',
   'crm.tasks.title': 'Tasks',
   'crm.tasks.mine': 'Only mine',
   'crm.tasks.empty': 'No open tasks.',

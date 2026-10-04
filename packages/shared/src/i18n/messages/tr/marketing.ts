@@ -42,5 +42,6 @@ export const trMarketing = {
   'marketing.admin.users.activate': 'Etkinleştir',
   'marketing.admin.users.hint': 'Kullanıcı bu numarayla telefon koduyla giriş yapar ve Pazarlama alanını görür.',
   'marketing.nav.pipeline': 'Satış hattı',
+  'marketing.nav.attribution': 'Atıf',
   'marketing.nav.tasks': 'Görevler',
 } as const satisfies Record<string, string>;

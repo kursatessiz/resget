@@ -49,3 +49,4 @@ export * from './order-actions';
 export * from './pos';
 export * from './platform';
 export * from './crm';
+export * from './attribution';

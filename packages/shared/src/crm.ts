@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ContactAttributionDTO } from './attribution';
 import { PhoneSchema } from './validators';
 
 /**
@@ -36,7 +37,16 @@ export const RESTAURANT_DEFAULT_STAGES: readonly DefaultStage[] = [
   { key: 'lost', kind: 'LOST' },
 ];
 
-export const ACTIVITY_TYPES = ['NOTE', 'CALL', 'MEETING', 'EMAIL', 'STAGE_CHANGE', 'TASK_DONE'] as const;
+export const ACTIVITY_TYPES = [
+  'NOTE',
+  'CALL',
+  'MEETING',
+  'EMAIL',
+  'STAGE_CHANGE',
+  'TASK_DONE',
+  'FORM',
+  'CONVERSION',
+] as const;
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 /** What a person can log by hand; the others are written by the system. */
 export const MANUAL_ACTIVITY_TYPES = ['NOTE', 'CALL', 'MEETING', 'EMAIL'] as const;
@@ -144,6 +154,8 @@ export interface ContactDetailDTO {
   contact: ContactCardDTO;
   activities: ContactActivityDTO[];
   tasks: ContactTaskDTO[];
+  /** Visits and conversions of the contact; null while the attribution module is off. */
+  attribution: ContactAttributionDTO | null;
 }
 
 /** CSV columns of the contact export, in order; values are tenant data, headers are the keys. */

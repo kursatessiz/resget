@@ -96,6 +96,7 @@ export const MARKETING_NAV: readonly MarketingNavItem[] = [
   { key: 'pipeline', path: '/satis-hatti', permission: 'platform.marketing.view', feature: 'contacts_crm' },
   { key: 'tasks', path: '/gorevler', permission: 'platform.marketing.view', feature: 'contacts_crm' },
   { key: 'campaigns', path: '/kampanyalar', permission: 'platform.marketing.view', feature: 'campaigns' },
+  { key: 'attribution', path: '/atif', permission: 'platform.marketing.view', feature: 'attribution' },
 ];
 
 export function visibleMarketingNav(

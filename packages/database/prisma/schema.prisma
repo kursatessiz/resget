@@ -459,6 +459,9 @@ model Restaurant {
   pipelineStages       PipelineStage[]
   contactActivities    ContactActivity[]
   contactTasks         ContactTask[]
+  visitors             Visitor[]
+  touchpoints          Touchpoint[]
+  conversionEvents     ConversionEvent[]
   couponRedemptions    CouponRedemption[]
 
   @@index([serviceAreaId, isListed])
@@ -656,10 +659,11 @@ model DiningTable {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  restaurant Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  branch     Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  scanEvents QrScanEvent[]
-  orders     Order[]
+  restaurant  Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  branch      Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  scanEvents  QrScanEvent[]
+  touchpoints Touchpoint[]
+  orders      Order[]
 
   @@unique([branchId, label])
   @@index([restaurantId])
@@ -754,6 +758,9 @@ model RestaurantCustomer {
   owner               Membership?          @relation("ContactOwner", fields: [ownerMembershipId], references: [id], onDelete: SetNull)
   activities          ContactActivity[]
   tasks               ContactTask[]
+  visitors            Visitor[]
+  touchpoints         Touchpoint[]
+  conversionEvents    ConversionEvent[]
 
   @@unique([restaurantId, userId])
   @@index([restaurantId, lastOrderAt])
@@ -1825,6 +1832,8 @@ enum ContactActivityType {
   EMAIL
   STAGE_CHANGE
   TASK_DONE
+  FORM
+  CONVERSION
 }
 
 /// A step of the tenant's pipeline (docs/CRM.md); defaults are created on first use, names are tenant data.
@@ -1883,4 +1892,92 @@ model ContactTask {
   @@index([restaurantId, doneAt, dueAt])
   @@index([customerId])
   @@map("contact_tasks")
+}
+
+// ---------------------------------------------------------------------------
+// Attribution (docs/ATIF.md)
+// ---------------------------------------------------------------------------
+
+/// An anonymous browser that allowed measurement; id is the rg_vid cookie. Linked to a contact once it orders or signs up.
+model Visitor {
+  restaurantId String
+  id           String
+  customerId   String?
+  firstSeenAt  DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
+
+  restaurant  Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  customer    RestaurantCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  touchpoints Touchpoint[]
+
+  @@id([restaurantId, id])
+  @@index([customerId])
+  @@map("visitors")
+}
+
+/// Where one visit came from. Host and path only (no query string), referrer host only, no IP address; click ids only with advertising consent.
+model Touchpoint {
+  id                 String   @id @default(uuid())
+  restaurantId       String
+  visitorId          String
+  sessionId          String
+  occurredAt         DateTime @default(now())
+  landingHost        String
+  landingPath        String
+  referrerHost       String?
+  utmSource          String?
+  utmMedium          String?
+  utmCampaign        String?
+  utmTerm            String?
+  utmContent         String?
+  utmId              String?
+  campaignId         String?
+  adsetId            String?
+  adId               String?
+  refCode            String?
+  adPlatform         String?
+  clickIds           Json?
+  advertisingConsent Boolean  @default(false)
+  untaggedPaid       Boolean  @default(false)
+  locale             String?
+  countryCode        String?
+  deviceType         String?
+  tableId            String?
+  customerId         String?
+
+  restaurant  Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  visitor     Visitor             @relation(fields: [restaurantId, visitorId], references: [restaurantId, id], onDelete: Cascade)
+  table       DiningTable?        @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  customer    RestaurantCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  conversions ConversionEvent[]
+
+  @@index([restaurantId, occurredAt])
+  @@index([restaurantId, visitorId, occurredAt])
+  @@index([customerId, occurredAt])
+  @@map("touchpoints")
+}
+
+/// A business result credited to touchpoints; (restaurantId, sourceKind, sourceId) makes recording idempotent.
+model ConversionEvent {
+  id                     String   @id @default(uuid())
+  restaurantId           String
+  type                   String
+  occurredAt             DateTime @default(now())
+  customerId             String?
+  valueMinor             Int?
+  currency               String?
+  sourceKind             String
+  sourceId               String
+  /// Last touch within the window at the time of recording, for the contact card and ad platform feedback.
+  attributedTouchpointId String?
+  createdAt              DateTime @default(now())
+
+  restaurant           Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  customer             RestaurantCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  attributedTouchpoint Touchpoint?         @relation(fields: [attributedTouchpointId], references: [id], onDelete: SetNull)
+
+  @@unique([restaurantId, sourceKind, sourceId])
+  @@index([restaurantId, occurredAt])
+  @@index([customerId])
+  @@map("conversion_events")
 }
