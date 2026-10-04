@@ -42,6 +42,13 @@ export const EnvSchema = z
     GOOGLE_ADS_CLIENT_ID: z.string().min(1).optional(),
     GOOGLE_ADS_CLIENT_SECRET: z.string().min(1).optional(),
     GOOGLE_ADS_DEVELOPER_TOKEN: z.string().min(1).optional(),
+    /** IndexNow (docs/SEO.md): LIVE tells search engines about changed public pages, MOCK only records, NONE does nothing. */
+    INDEXNOW_PROVIDER: z.enum(['NONE', 'MOCK', 'LIVE']).default('NONE'),
+    /** The site's IndexNow key; the web app serves it at /indexnow/<key>.txt. */
+    INDEXNOW_KEY: z
+      .string()
+      .regex(/^[A-Za-z0-9-]{8,128}$/)
+      .optional(),
     /** Push delivery: EXPO sends through Expo's push service; MOCK accepts outside production and refuses in it. */
     PUSH_PROVIDER: z.enum(['MOCK', 'EXPO']).default('MOCK'),
     EXPO_ACCESS_TOKEN: z.string().min(1).optional(),
@@ -185,6 +192,13 @@ export const EnvSchema = z
         code: z.ZodIssueCode.custom,
         path: ['GOOGLE_MAPS_API_KEY'],
         message: 'required when GEOCODER_PROVIDER=GOOGLE',
+      });
+    }
+    if (env.INDEXNOW_PROVIDER === 'LIVE' && !env.INDEXNOW_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['INDEXNOW_KEY'],
+        message: 'required when INDEXNOW_PROVIDER=LIVE',
       });
     }
     if (env.PAYMENT_PROVIDER === 'STRIPE' && !env.STRIPE_SECRET_KEY) {

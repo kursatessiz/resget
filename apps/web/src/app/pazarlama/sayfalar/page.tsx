@@ -23,6 +23,7 @@ export default async function MarketingPagesPage() {
         context.permissions.includes('platform.marketing.send')
       }
       areas={areas}
+      blogEnabled={context.features.includes('blog')}
     />
   );
 }

@@ -1,8 +1,17 @@
 import { Controller, Delete, Get, HttpCode, Post, Put, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
-import { LocaleCodeSchema, SitePagePathSchema, SlugSchema, UpsertSitePageSchema, UuidSchema } from '@resget/shared';
+import {
+  LocaleCodeSchema,
+  SITE_PAGE_KINDS,
+  SitePagePathSchema,
+  SlugSchema,
+  UpsertSitePageSchema,
+  UuidSchema,
+} from '@resget/shared';
 import type {
+  BlogIndexDTO,
   DistrictLandingDTO,
+  LlmsDTO,
   PublicSitePageDTO,
   RestaurantSeoDTO,
   SitePageDTO,
@@ -62,7 +71,9 @@ export class SitePagesController {
   }
 }
 
-const PageQuerySchema = z.object({ locale: LocaleCodeSchema, path: SitePagePathSchema }).strict();
+const PageQuerySchema = z
+  .object({ locale: LocaleCodeSchema, path: SitePagePathSchema, kind: z.enum(SITE_PAGE_KINDS).default('PAGE') })
+  .strict();
 const PlaceSegment = z
   .string()
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
@@ -77,7 +88,17 @@ export class PublicSiteController {
 
   @Get('page')
   page(@ZodQuery(PageQuerySchema) query: z.infer<typeof PageQuerySchema>): Promise<PublicSitePageDTO> {
-    return this.site.publicPage(query.locale, query.path);
+    return this.site.publicPage(query.locale, query.path, query.kind);
+  }
+
+  @Get('blog')
+  blog(): Promise<BlogIndexDTO> {
+    return this.site.blogIndex();
+  }
+
+  @Get('llms')
+  llms(): Promise<LlmsDTO> {
+    return this.site.llms();
   }
 
   @Get('districts/:city/:district')

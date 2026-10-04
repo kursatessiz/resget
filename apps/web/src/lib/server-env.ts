@@ -14,6 +14,11 @@ const ServerEnvSchema = z.object({
     .string()
     .regex(/^[a-z0-9.-]+(?::\d+)?$/)
     .optional(),
+  /** IndexNow key (docs/SEO.md); served at /indexnow/<key>.txt so search engines can verify pings. */
+  INDEXNOW_KEY: z
+    .string()
+    .regex(/^[A-Za-z0-9-]{8,128}$/)
+    .optional(),
   /** Tile URL template of the map provider; OpenStreetMap's public tiles by default (docs/SIPARIS_VE_SEVK.md). */
   MAP_TILE_URL: z.string().url().default('https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
   /** Attribution the provider requires, shown on every map as plain text. */
@@ -53,6 +58,7 @@ export function getServerEnv(): ServerEnv {
     NODE_ENV: process.env.NODE_ENV,
     APP_RELEASE: process.env.APP_RELEASE || undefined,
     WEB_DOMAIN: process.env.WEB_DOMAIN?.toLowerCase() || undefined,
+    INDEXNOW_KEY: process.env.INDEXNOW_KEY || undefined,
     MAP_TILE_URL: process.env.MAP_TILE_URL || undefined,
     MAP_ATTRIBUTION: process.env.MAP_ATTRIBUTION || undefined,
     MAP_MAX_ZOOM: process.env.MAP_MAX_ZOOM || undefined,

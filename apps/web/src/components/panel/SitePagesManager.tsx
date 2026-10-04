@@ -1,8 +1,21 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { SITE_BLOCK_TYPES, SITE_PAGE_STATUSES, UpsertSitePageSchema, sitePagePath } from '@resget/shared';
-import type { MarketplaceAreaDTO, SiteBlock, SiteBlockType, SitePageDTO, SitePageStatus } from '@resget/shared';
+import {
+  SITE_BLOCK_TYPES,
+  SITE_PAGE_KINDS,
+  SITE_PAGE_STATUSES,
+  UpsertSitePageSchema,
+  siteEntryPath,
+} from '@resget/shared';
+import type {
+  MarketplaceAreaDTO,
+  SiteBlock,
+  SiteBlockType,
+  SitePageDTO,
+  SitePageKind,
+  SitePageStatus,
+} from '@resget/shared';
 import { Badge, Button, Card, SelectField, TextAreaField, TextField } from '@/components/ui';
 import { ApiError, bffJson } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
@@ -15,6 +28,8 @@ interface Draft {
   description: string;
   translationKey: string;
   status: SitePageStatus;
+  kind: SitePageKind;
+  authorName: string;
   blocks: SiteBlock[];
 }
 
@@ -53,19 +68,22 @@ function clean(value: unknown): unknown {
 }
 
 /**
- * The platform's engine pages (docs/SAYFA_MOTORU.md): list, create, edit
- * blocks, publish and delete. Everything entered is plain text.
+ * The platform's engine pages (docs/SAYFA_MOTORU.md) and, with the blog
+ * module, its posts (docs/BLOG.md): list, create, edit blocks, publish and
+ * delete. Everything entered is plain text.
  */
 export function SitePagesManager({
   restaurantId,
   locale,
   canManage,
   areas,
+  blogEnabled,
 }: {
   restaurantId: string;
   locale: string;
   canManage: boolean;
   areas: MarketplaceAreaDTO[];
+  blogEnabled: boolean;
 }) {
   const t = useT(locale);
   const base = `restaurants/${restaurantId}/site/pages`;
@@ -96,10 +114,16 @@ export function SitePagesManager({
       description: '',
       translationKey: '',
       status: 'DRAFT',
+      kind: 'PAGE',
+      authorName: '',
       blocks: [emptyBlock('hero', areas)],
     });
-  const startEdit = (page: SitePageDTO) =>
-    setDraft({ ...page, translationKey: page.translationKey ?? '', blocks: page.blocks });
+  const toDraft = (page: SitePageDTO): Draft => ({
+    ...page,
+    translationKey: page.translationKey ?? '',
+    authorName: page.authorName ?? '',
+  });
+  const startEdit = (page: SitePageDTO) => setDraft(toDraft(page));
 
   const patch = (fields: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...fields } : d));
   const setBlocks = (update: (blocks: SiteBlock[]) => SiteBlock[]) =>
@@ -142,6 +166,8 @@ export function SitePagesManager({
         description: draft.description,
         translationKey: draft.translationKey,
         status: draft.status,
+        kind: draft.kind,
+        authorName: draft.kind === 'POST' ? draft.authorName : '',
         blocks: draft.blocks,
       }),
     );
@@ -154,7 +180,7 @@ export function SitePagesManager({
         method: draft.id ? 'PUT' : 'POST',
         body: JSON.stringify(parsed.data),
       });
-      setDraft({ ...saved, translationKey: saved.translationKey ?? '' });
+      setDraft(toDraft(saved));
       setNotice(t('site.manager.saved'));
     });
   };
@@ -189,9 +215,31 @@ export function SitePagesManager({
       {draft ? (
         <Card title={draft.id ? draft.title || draft.path : t('site.manager.new')} aria-label={t('site.manager.edit')}>
           <div className="grid gap-3 md:grid-cols-2">
+            {(blogEnabled || draft.kind === 'POST') && (
+              <SelectField
+                label={t('site.field.kind')}
+                value={draft.kind}
+                onChange={(e) => patch({ kind: e.target.value as SitePageKind })}
+              >
+                {SITE_PAGE_KINDS.map((k) => (
+                  <option key={k} value={k}>
+                    {t(`site.kind.${k}`)}
+                  </option>
+                ))}
+              </SelectField>
+            )}
+            {draft.kind === 'POST' && (
+              <TextField
+                label={t('site.field.authorName')}
+                help={t('site.field.authorNameHelp')}
+                maxLength={80}
+                value={draft.authorName}
+                onChange={(e) => patch({ authorName: e.target.value })}
+              />
+            )}
             <TextField
               label={t('site.field.path')}
-              help={t('site.field.pathHelp')}
+              help={draft.kind === 'POST' ? t('site.field.pathHelpPost') : t('site.field.pathHelp')}
               value={draft.path}
               onChange={(e) => patch({ path: e.target.value })}
             />
@@ -311,6 +359,7 @@ export function SitePagesManager({
             <thead>
               <tr>
                 <th scope="col">{t('site.manager.colPath')}</th>
+                <th scope="col">{t('site.manager.colKind')}</th>
                 <th scope="col">{t('site.manager.colLocale')}</th>
                 <th scope="col">{t('site.manager.colTitle')}</th>
                 <th scope="col">{t('site.manager.colStatus')}</th>
@@ -321,6 +370,7 @@ export function SitePagesManager({
               {pages.map((page) => (
                 <tr key={page.id} data-site-page={`${page.locale}/${page.path}`}>
                   <td>{page.path}</td>
+                  <td>{t(`site.kind.${page.kind}`)}</td>
                   <td>{page.locale}</td>
                   <td>
                     <span className="flex flex-col">
@@ -336,7 +386,10 @@ export function SitePagesManager({
                   <td>
                     <div className="flex flex-wrap justify-end gap-2">
                       {page.status === 'PUBLISHED' && (
-                        <a className="pui-btn pui-outline pui-muted" href={sitePagePath(page.locale, page.path)}>
+                        <a
+                          className="pui-btn pui-outline pui-muted"
+                          href={siteEntryPath(page.kind, page.locale, page.path)}
+                        >
                           {t('site.manager.open')}
                         </a>
                       )}

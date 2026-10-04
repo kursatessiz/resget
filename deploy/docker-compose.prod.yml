@@ -70,6 +70,9 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?CREDENTIAL_ENCRYPTION_KEY required}
+      # IndexNow (docs/SEO.md): LIVE with a key tells search engines about changed pages.
+      INDEXNOW_PROVIDER: ${INDEXNOW_PROVIDER:-NONE}
+      INDEXNOW_KEY: ${INDEXNOW_KEY:-}
       CARD_VAULT_PROVIDER: ${CARD_VAULT_PROVIDER:-}
       MASTERPASS_CLIENT_ID: ${MASTERPASS_CLIENT_ID:-}
       MASTERPASS_CLIENT_SECRET: ${MASTERPASS_CLIENT_SECRET:-}
@@ -117,6 +120,8 @@ services:
       # The platform host; any other host reaching the web app is a restaurant's custom domain (docs/VITRIN.md).
       WEB_DOMAIN: ${WEB_DOMAIN}
       APP_RELEASE: ${RELEASE_TAG:-dev}
+      # Served at /indexnow/<key>.txt so search engines can verify IndexNow pings (docs/SEO.md).
+      INDEXNOW_KEY: ${INDEXNOW_KEY:-}
       # Map tiles (docs/SIPARIS_VE_SEVK.md): empty keeps the OpenStreetMap default; production sets a provider.
       MAP_TILE_URL: ${MAP_TILE_URL:-}
       MAP_ATTRIBUTION: ${MAP_ATTRIBUTION:-}

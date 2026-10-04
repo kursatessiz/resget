@@ -5,16 +5,19 @@ import { RestaurantCards } from './RestaurantCards';
 /**
  * An engine page's blocks (docs/SAYFA_MOTORU.md). Every value is plain text
  * rendered as text; line breaks in long text become paragraphs. The first
- * hero heading is the page's only h1.
+ * hero heading is the page's only h1 unless the page has its own.
  */
 export function SiteBlocks({
   blocks,
   labels,
+  headingLevel = 'h1',
 }: {
   blocks: PublicSiteBlock[];
   labels: { openMenu: string; noRestaurants: string };
+  /** h2 when the page already has its own h1 (a blog post's title). */
+  headingLevel?: 'h1' | 'h2';
 }) {
-  const firstHero = blocks.findIndex((b) => b.type === 'hero');
+  const firstHero = headingLevel === 'h1' ? blocks.findIndex((b) => b.type === 'hero') : -1;
   return (
     <>
       {blocks.map((block, index) => {
