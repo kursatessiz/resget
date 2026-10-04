@@ -121,4 +121,7 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.COUPON_NOT_COMBINABLE': 'A coupon cannot be combined with loyalty points.',
   'errors.COUPON_CODE_TAKEN': 'Another coupon already uses this code.',
   'errors.COUPON_IN_USE': 'A used coupon cannot be deleted; you can pause it.',
+  'errors.PLATFORM_NOT_SET_UP': 'Platform marketing is not set up yet.',
+  'errors.PLATFORM_ACCESS_DENIED': 'You have no access to platform marketing.',
+  'errors.PLANS_MISSING': 'The plans must be created first.',
 };

@@ -16,6 +16,8 @@ export interface TenantContext {
   isSuperAdmin: boolean;
   permissions: Set<PermissionKey>;
   effectivePlan: PlanCode;
+  /** The platform tenant (docs/PAZARLAMA.md): only usable while marketing_platform is on, never for roles or money. */
+  isPlatform: boolean;
 }
 
 /** Present when the request authenticated with a restaurant API key instead of a session (docs/API_ERISIMI.md). */

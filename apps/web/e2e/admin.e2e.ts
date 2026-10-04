@@ -12,6 +12,8 @@ test.describe('Platform console', () => {
       await expect(page.getByRole('region', { name: 'İlçe bazlı sipariş yoğunluğu' })).toContainText('Kadikoy');
 
       await page.goto('/admin/restoranlar');
+      // Other scenarios open restaurants too; searching keeps the demo one on the first page.
+      await page.getByLabel('Ad veya adres ara').fill(SEED.restaurantName);
       const row = page.locator(`[data-restaurant-slug="${SEED.restaurantSlug}"]`);
       await expect(row).toBeVisible();
       await row.getByRole('link', { name: 'Aç' }).click();

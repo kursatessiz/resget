@@ -15,4 +15,5 @@ export const trPanel = {
   'panel.overview.openTables': 'Masalar ve QR',
   'panel.overview.openPayments': 'Ödeme ayarları',
   'panel.overview.openSettings': 'Ayarlar',
+  'panel.openMarketing': 'Pazarlama alanını aç',
 } as const satisfies Record<string, string>;

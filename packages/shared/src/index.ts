@@ -47,3 +47,4 @@ export * from './delivery-zone';
 export * from './coupons';
 export * from './order-actions';
 export * from './pos';
+export * from './platform';

@@ -1,0 +1,46 @@
+import type { trMarketing } from '../tr/marketing';
+
+export const enMarketing: Record<keyof typeof trMarketing, string> = {
+  'marketing.title': 'Marketing',
+  'marketing.subtitle': "The platform's own marketing",
+  'marketing.nav.overview': 'Overview',
+  'marketing.nav.contacts': 'Contacts',
+  'marketing.nav.campaigns': 'Campaigns',
+  'marketing.nav.backToConsole': 'Back to the console',
+  'marketing.role.marketing_admin': 'Marketing admin',
+  'marketing.role.marketing_editor': 'Marketing editor',
+  'marketing.role.marketing_viewer': 'Marketing viewer',
+  'marketing.role.superAdmin': 'Super admin',
+  'marketing.notSetUp':
+    'Platform marketing is not set up yet. The super admin sets it up on the Marketing page of the console.',
+  'marketing.disabled': 'Platform marketing is switched off. The super admin turns it on under Feature switches.',
+  'marketing.denied': 'This account has no access to platform marketing.',
+  'marketing.overview.intro':
+    'Restaurant owners and prospects are the contacts here. Campaigns, segments and reports are the same modules restaurants use, running on the platform tenant.',
+  'marketing.overview.contacts': 'Contacts',
+  'marketing.overview.campaigns': 'Campaigns',
+  'marketing.overview.roadmap':
+    'Next modules: CRM and pipeline, visitor and ad attribution, consent, email, segments, journeys, funnels, page engine and SEO, referral programme.',
+  'marketing.admin.title': 'Platform marketing',
+  'marketing.admin.intro':
+    "The platform's own marketing runs on a special tenant (platform) with the modules restaurants use. Marketing users reach only that tenant; roles, staff, payments and other restaurants are out of scope.",
+  'marketing.admin.setup.title': 'Setup',
+  'marketing.admin.setup.name': 'Platform name',
+  'marketing.admin.setup.country': 'Country',
+  'marketing.admin.setup.submit': 'Create the platform tenant',
+  'marketing.admin.setup.done': 'The platform tenant is ready ({currency}).',
+  'marketing.admin.enabled': 'The module is on.',
+  'marketing.admin.disabled': 'The module is off; turn it on under Feature switches.',
+  'marketing.admin.open': 'Open the marketing area',
+  'marketing.admin.users.title': 'Marketing users',
+  'marketing.admin.users.empty': 'No marketing users yet.',
+  'marketing.admin.users.phone': 'Phone',
+  'marketing.admin.users.name': 'Full name',
+  'marketing.admin.users.role': 'Role',
+  'marketing.admin.users.invite': 'Add user',
+  'marketing.admin.users.active': 'Active',
+  'marketing.admin.users.passive': 'Passive',
+  'marketing.admin.users.deactivate': 'Deactivate',
+  'marketing.admin.users.activate': 'Activate',
+  'marketing.admin.users.hint': 'The person signs in with a phone code on this number and sees the Marketing area.',
+};

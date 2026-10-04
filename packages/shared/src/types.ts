@@ -1,3 +1,4 @@
+import type { PlatformRoleKey } from './platform';
 import type { FeatureKey } from './features';
 import type { MembershipStatus } from './enums';
 import type { PermissionKey } from './permissions';
@@ -40,7 +41,10 @@ export interface MembershipSummaryDTO {
 /** GET /auth/me */
 export interface MeDTO {
   user: AuthUserDTO;
+  /** Restaurant memberships; the platform tenant is not among them (see platform). */
   memberships: MembershipSummaryDTO[];
+  /** Platform marketing access (docs/PAZARLAMA.md): the super admin, or a member of the platform tenant. */
+  platform: { role: PlatformRoleKey | null } | null;
 }
 
 export interface TokenPairDTO {

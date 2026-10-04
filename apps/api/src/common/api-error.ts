@@ -122,6 +122,9 @@ export type ApiErrorCode =
   | 'COUPON_NOT_COMBINABLE'
   | 'COUPON_CODE_TAKEN'
   | 'COUPON_IN_USE'
+  | 'PLATFORM_NOT_SET_UP'
+  | 'PLATFORM_ACCESS_DENIED'
+  | 'PLANS_MISSING'
   | 'RATE_LIMITED';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {
