@@ -1,7 +1,9 @@
 import { normalizePhone } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
+import type { ConsentRegistryAdapter } from '@resget/shared';
 import { CampaignsRunner } from '../../src/modules/campaigns/campaigns.runner';
+import { CONSENT_REGISTRY } from '../../src/modules/campaigns/consent-registry';
 
 /** PRO campaigns (docs/KAMPANYALAR.md): consent, segment, preview, batch send with credits, opt-out, quiet hours, plan gate. */
 describe('Campaigns (e2e)', () => {
@@ -220,6 +222,52 @@ describe('Campaigns (e2e)', () => {
         (r: { fullName: string; status: string }) => r.fullName === 'Izinli Iki' && r.status === 'SENT',
       ),
     ).toBe(true);
+  });
+
+  it('asks the consent registry only about channels it covers: SMS in Turkey, never WhatsApp', async () => {
+    const restaurant = await ctx.prisma.restaurant.findUniqueOrThrow({
+      where: { id: restaurantId },
+      select: { countryCode: true },
+    });
+    expect(restaurant.countryCode).toBe('TR');
+    const registry = ctx.app.get<ConsentRegistryAdapter>(CONSENT_REGISTRY);
+    // A registry that confirms nobody: whatever it is asked about is skipped.
+    const asked = jest.spyOn(registry, 'allowed').mockResolvedValue(new Set<string>());
+    try {
+      const send = async (name: string, channel: 'SMS' | 'WHATSAPP') => {
+        const created = await ctx
+          .http()
+          .post(`/restaurants/${restaurantId}/campaigns`)
+          .set(bearer(ownerToken))
+          .send({ name, channel, body: 'Kanal kapsami denemesi.', segment: { minOrders: 1 } })
+          .expect(201);
+        campaignIds.push(created.body.id);
+        await ctx
+          .http()
+          .post(`/restaurants/${restaurantId}/campaigns/${created.body.id}/send`)
+          .set(bearer(ownerToken))
+          .send({})
+          .expect(200);
+        await runner.tick(tomorrowNoon());
+        return ctx.prisma.campaignRecipient.findMany({
+          where: { campaignId: created.body.id },
+          select: { status: true, errorCode: true },
+        });
+      };
+
+      const sms = await send('IYS SMS', 'SMS');
+      expect(asked).toHaveBeenCalledWith('TR', 'SMS', expect.any(Array));
+      expect(sms.some((r) => r.errorCode === 'CONSENT_REGISTRY')).toBe(true);
+
+      asked.mockClear();
+      const whatsapp = await send('IYS WhatsApp', 'WHATSAPP');
+      // WhatsApp is not an IYS channel yet: the customer's own opt-in decides, the registry is not consulted.
+      expect(asked).not.toHaveBeenCalled();
+      expect(whatsapp.length).toBeGreaterThan(0);
+      expect(whatsapp.some((r) => r.errorCode === 'CONSENT_REGISTRY')).toBe(false);
+    } finally {
+      asked.mockRestore();
+    }
   });
 
   it('pauses on empty credits and resumes without double sends; cancels a draft; closes to BASIC', async () => {

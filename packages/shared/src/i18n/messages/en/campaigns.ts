@@ -68,7 +68,7 @@ export const enCampaigns: Record<keyof typeof trCampaigns, string> = {
   'campaigns.queued': 'Campaign queued for sending.',
   'campaigns.cancelled': 'Campaign cancelled.',
   'campaigns.rules':
-    'Consent: the customer ticked the box while ordering or registering. Anyone who taps the opt-out link receives nothing further. For Turkey the IYS registry is queried before sending.',
+    "Consent: the customer ticked the box while ordering or registering. Anyone who taps the opt-out link receives nothing further. In Turkey the IYS registry is queried before an SMS send; WhatsApp is not an IYS channel yet, so there the customer's own consent and opt-out record decide.",
   'campaigns.optout.title': 'Message subscription',
   'campaigns.optout.done':
     'You have left the campaign messages of {restaurant}. Order status messages are not affected.',

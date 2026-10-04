@@ -1,4 +1,18 @@
-import { isWithinSendWindow, localHour, nextSendWindowStart } from './campaigns';
+import { isWithinSendWindow, localHour, nextSendWindowStart, registryCovers } from './campaigns';
+
+describe('consent registry coverage', () => {
+  it('sends SMS, calls and e-mail to IYS in Turkey, never WhatsApp', () => {
+    expect(registryCovers('TR', 'SMS')).toBe(true);
+    expect(registryCovers('tr', 'CALL')).toBe(true);
+    expect(registryCovers('TR', 'EMAIL')).toBe(true);
+    expect(registryCovers('TR', 'WHATSAPP')).toBe(false);
+  });
+
+  it('asks no registry where the country has none', () => {
+    expect(registryCovers('DE', 'SMS')).toBe(false);
+    expect(registryCovers('US', 'EMAIL')).toBe(false);
+  });
+});
 
 describe('campaign send window', () => {
   it('reads the local hour of the restaurant time zone', () => {
