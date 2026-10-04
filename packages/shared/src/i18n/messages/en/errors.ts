@@ -30,6 +30,7 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.WEBHOOK_INVALID': 'The payment notification could not be verified.',
   'errors.RATE_LIMITED': 'Too many requests. Please wait a moment.',
   'errors.MENU_CATEGORY_NOT_FOUND': 'Category not found.',
+  'errors.MENU_IMPORT_INVALID': 'The file has invalid lines; fix the errors shown in the preview first.',
   'errors.MENU_ITEM_NOT_FOUND': 'Item not found.',
   'errors.MENU_CATEGORY_NOT_EMPTY': 'The category is not empty. Move or delete its items first.',
   'errors.MENU_ITEM_IN_USE': 'This item was used in past orders and cannot be deleted; mark it sold out instead.',
