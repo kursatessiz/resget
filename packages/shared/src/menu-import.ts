@@ -178,10 +178,10 @@ export function parseImportPrice(text: string, currency: string): number | null 
 /** VAT as a percentage ("10", "%10", "10,5") into basis points; null when it is not a rate between 0 and 100. */
 export function parseImportVat(text: string): number | null {
   // One percent sign before or after the number; anything else fails the pattern below.
-  const value = text
-    .trim()
-    .replace(/^%\s*|\s*%$/g, '')
-    .replace(/,/g, '.');
+  let value = text.trim();
+  if (value.startsWith('%')) value = value.slice(1).trimStart();
+  else if (value.endsWith('%')) value = value.slice(0, -1).trimEnd();
+  value = value.split(',').join('.');
   if (!/^\d{1,3}(\.\d{1,2})?$/.test(value)) return null;
   const [whole, fraction = ''] = value.split('.');
   const bps = Number(whole) * 100 + Number((fraction + '00').slice(0, 2));
