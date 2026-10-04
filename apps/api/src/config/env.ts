@@ -26,6 +26,9 @@ export const EnvSchema = z
       .default('dev'),
 
     SMS_PROVIDER: z.enum(['MOCK', 'NETGSM', 'ILETI_MERKEZI', 'TWILIO']).default('MOCK'),
+    /** Push delivery: EXPO sends through Expo's push service; MOCK accepts outside production and refuses in it. */
+    PUSH_PROVIDER: z.enum(['MOCK', 'EXPO']).default('MOCK'),
+    EXPO_ACCESS_TOKEN: z.string().min(1).optional(),
     NETGSM_USER: z.string().min(1).optional(),
     NETGSM_PASSWORD: z.string().min(1).optional(),
     NETGSM_HEADER: z.string().min(1).max(11).optional(),

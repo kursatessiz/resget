@@ -3,13 +3,14 @@ import { Body, Button, Caption, Card, Screen, Title } from '@/components/ui';
 import { APP_VERSION } from '@/lib/config';
 import { useT } from '@/lib/i18n';
 import { stopTracking } from '@/lib/location-tracker';
+import { unregisterPushDevice } from '@/lib/push';
 import { useSession } from '@/state/session';
 
 /** Who is signed in, which restaurant the app works in, and the switcher between memberships. */
 export default function Account() {
   const t = useT();
   const router = useRouter();
-  const { me, membership, chooseRestaurant, signOut } = useSession();
+  const { me, membership, chooseRestaurant, signOut, api } = useSession();
   if (!me) return null;
   const active = me.memberships.filter((m) => m.status === 'ACTIVE');
   return (
@@ -33,7 +34,9 @@ export default function Account() {
         variant="outline"
         tone="warn"
         onPress={() => {
-          void stopTracking().finally(() => signOut().then(() => router.replace('/giris')));
+          void Promise.all([stopTracking(), unregisterPushDevice(api)]).finally(() =>
+            signOut().then(() => router.replace('/giris')),
+          );
         }}
       />
       <Caption>{t('mobile.account.version', { version: APP_VERSION })}</Caption>

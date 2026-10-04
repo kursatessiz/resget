@@ -13,9 +13,10 @@
 - Sipariş listesi (`orders.view` izni): salt okunur, 15 saniyede bir yenilenir. Mutfak akışı web panelinde ve tablet panosunda kalır.
 - Müşteri modu (herkes için): telefon numarasıyla verilen siparişler (`GET /me/orders`), uygulama içi canlı takip (`/t/<token>`: adım merdiveni, durum cümlesi, kurye mesafesi ve tahmini varış, harita bağlantısı, sipariş içeriği, işletmeyi arama, 1-5 puan ve yorum), tekrar sipariş (işletmenin sipariş sayfası tarayıcıda açılır).
 - Takip bağlantısı derin bağlantıdır: SMS veya WhatsApp ile gelen `https://<web>/t/<token>` ve `resget://t/<token>` doğrudan takip ekranını açar; giriş gerekmez, token yeterlidir.
+- Push bildirimleri (`expo-notifications`): girişten sonra cihaz jetonu `POST /me/devices` ile kaydedilir, çıkışta silinir; müşteri sipariş güncellemeleri, kuryeye sefer ataması ve personele yeni sipariş uyarısı aynı telefona rolüne göre gelir (`docs/MESAJLASMA.md`, push bölümü). Bildirime dokunmak ilgili ekranı açar (takip, sefer, siparişler); tanınmayan veri yok sayılır.
 - Hesap: kim giriş yapmış, işletme değiştirici, çıkış.
 
-Henüz olmayanlar: kurye ekranında harita, restoran tablet sevk panosu, push bildirimi, EAS derleme ve mağaza yayını. Masa QR'ı (`/m/<token>`) bilerek web'de kalır: sipariş vermek uygulama kurulumu gerektirmez. Bunlar `HANDOVER.md` B1 maddesinde kalan iş olarak listelenir.
+Henüz olmayanlar: kurye ekranında harita, restoran tablet sevk panosu, EAS derleme ve mağaza yayını. Masa QR'ı (`/m/<token>`) bilerek web'de kalır: sipariş vermek uygulama kurulumu gerektirmez. Bunlar `HANDOVER.md` B1 maddesinde kalan iş olarak listelenir.
 
 ## 2. Dizin yapısı
 
@@ -39,6 +40,8 @@ apps/mobile/
     lib/location-batch.ts  LocationQueue: seyreltme, doğruluk filtresi, kuyruk sınırı, parti
     lib/location-tracker.ts expo-task-manager görevi, başlat / durdur / gönder
     lib/i18n.ts            cihaz dili, paylaşılan çevirmen
+    lib/push.ts            izin, Expo jetonu, kayıt / silme, dokunma yönlendirmesi
+    components/push-bridge.tsx  girişten sonra kayıt ve dokunma dinleyicisi
     lib/config.ts          EXPO_PUBLIC_API_URL, EXPO_PUBLIC_WEB_URL, sürüm
     state/session.tsx      SessionProvider / useSession
     components/ui.tsx      Screen, Title, Body, Caption, Card, Button, Field, Notice
@@ -57,6 +60,7 @@ apps/mobile/
 - **Takip anlık görüntüsü paylaşılan kurallarla.** Adım merdiveni, durum cümlesi anahtarı ve bitiş durumları `packages/shared/src/tracking-steps.ts` içindedir; web takip sayfası ve uygulama aynı fonksiyonları kullanır. Uygulama SSE yerine herkese açık anlık görüntüyü 10 saniyede bir yeniden okur (React Native'de yerleşik `EventSource` yoktur); sipariş bitince durur. Takip bağlantısından token `trackingTokenFromLink()` ile süzülür; biçime uymayan değer ekran açmaz.
 - **Tasarım token'ları paylaşılan paketten.** `theme.ts` renkleri `semanticColors` ve `PERFECT_UI_TOKENS` içinden, boşluk ve köşeleri `spacing` / `radii` içinden alır; uygulamada başka renk veya köşe tanımı yoktur. Açık / koyu mod cihazı izler.
 - **i18n.** Metinler `packages/shared/src/i18n/messages/{tr,en}/mobile.ts` içindedir (`mobile.*`); sipariş ve hata metinleri web ile aynı anahtarları kullanır (`orders.*`, `errors.*`). Dil cihazdan gelir (`expo-localization`), paket yoksa temel dil kullanılır. Arka plan servisi bildirimi de çevirmenden geçer; iOS izin metinleri `locales/*.json` ile çevrilir.
+- **Push jetonu kişiye aittir.** Aynı cihaz başka bir hesapla giriş yaparsa jeton yeni hesaba geçer; çıkışta silinir. Expo Go'da push sınırlıdır (Android'de çalışmaz); gerçek davranış geliştirme veya EAS derlemesiyle görülür ve `app.json` içindeki `extra.eas.projectId` gerektirir.
 - **Gizli bilgi yok.** Pakete yalnızca `EXPO_PUBLIC_API_URL` ve `EXPO_PUBLIC_APP_VERSION` girer. Anahtar, imza ya da sağlayıcı bilgisi uygulamada bulunmaz.
 
 ## 4. Çalıştırma
@@ -76,5 +80,6 @@ Doğrulama: `pnpm --filter @resget/mobile typecheck` ve `pnpm --filter @resget/m
 ## 5. İzinler ve mağaza notları
 
 - Android: `ACCESS_FINE_LOCATION`, `ACCESS_BACKGROUND_LOCATION`, `FOREGROUND_SERVICE_LOCATION`. Arka plan konumu için Play Console'da kullanım gerekçesi ve kısa video istenir; gerekçe "kurye seferi boyunca müşteriye canlı takip" olarak yazılır.
+- Push: APNs anahtarı ve FCM kimliği Expo projesinde tutulur (`eas credentials`); API tarafında yalnızca `PUSH_PROVIDER=EXPO` ve isteğe bağlı `EXPO_ACCESS_TOKEN` vardır.
 - iOS: `UIBackgroundModes: location`, "Always" izni sefer başlarken istenir. App Store incelemesinde arka plan konumunun yalnızca aktif seferde çalıştığı belirtilir.
 - Uygulama kimliği `com.resget.app`, URL şeması `resget://`. `/t/<token>` evrensel bağlantısı ve `resget://t/<token>` takip ekranını açar; `/m/<token>` masa QR'ı web'de kalır.
