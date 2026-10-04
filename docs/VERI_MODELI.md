@@ -89,6 +89,8 @@ Sevk ayarları `restaurants.dispatchSettings` JSON alanındadır (`DispatchSetti
 | `touchpoints` | Bir ziyaretin kaynağı: host ve yol (sorgu dizesi yok), yönlendiren host, UTM, kendi kampanya kimlikleri, reklam platformu, tıklama kimlikleri (yalnızca reklam izniyle), cihaz türü, kaba ülke, masa, kişi. IP saklanmaz. |
 | `contact_consents` | Ticari ileti izni: kanal, izin veya ret, dayanak, kaynak, not, form sürümü, onay isteği ve onay zamanı, sicil kaydı zamanı. Yalnızca ekleme; kanalın son satırı durumdur. Ayrıntılar: `docs/RIZA.md`. |
 | `consent_confirmations` | Çift onay bağlantısı; yalnızca belirteç özeti, 7 gün, tek kullanım. |
+| `email_domains` | Kiracının gönderici alan adı: DKIM belirteçleri, SPF / DKIM / DMARC durumu, doğrulama zamanı. Alan adı tekil. Ayrıntılar: `docs/EPOSTA.md`. |
+| `email_suppressions` | Gönderilmeyecek adresler: kalıcı geri dönme (genel), şikayet ve istemiyor (kiracı). |
 | `marketing_settings` | Kiracının günlük ve haftalık sınırı, çift onay bölgeleri, tacir muafiyeti. |
 | `conversion_events` | İlk / tekrar sipariş, aday, restoran kaydı, ilk ödeme; `(restaurantId, sourceKind, sourceId)` tekil, tutar ve para birimi, atfedilen ziyaret. Ayrıntılar: `docs/ATIF.md`. |
 

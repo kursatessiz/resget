@@ -28,6 +28,14 @@ export const EnvSchema = z
       .default('dev'),
 
     SMS_PROVIDER: z.enum(['MOCK', 'NETGSM', 'ILETI_MERKEZI', 'TWILIO']).default('MOCK'),
+    /** Email (docs/EPOSTA.md): SES sends for real; MOCK accepts outside production and refuses in it. */
+    EMAIL_PROVIDER: z.enum(['MOCK', 'SES']).default('MOCK'),
+    SES_REGION: z.string().min(1).optional(),
+    /** The platform's own sender: transactional mail of a restaurant without a verified domain goes from here. */
+    SES_FROM_ADDRESS: z.string().email().optional(),
+    SES_CONFIGURATION_SET: z.string().min(1).optional(),
+    /** SNS topics whose bounce and complaint messages are accepted, comma separated. */
+    SES_SNS_TOPIC_ARNS: z.string().optional(),
     /** Push delivery: EXPO sends through Expo's push service; MOCK accepts outside production and refuses in it. */
     PUSH_PROVIDER: z.enum(['MOCK', 'EXPO']).default('MOCK'),
     EXPO_ACCESS_TOKEN: z.string().min(1).optional(),
@@ -150,6 +158,13 @@ export const EnvSchema = z
           path: [key],
           message: `required when SMS_PROVIDER=${env.SMS_PROVIDER}`,
         });
+      }
+    }
+    if (env.EMAIL_PROVIDER === 'SES') {
+      for (const key of ['SES_REGION', 'SES_FROM_ADDRESS'] as const) {
+        if (!env[key]) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: 'required when EMAIL_PROVIDER=SES' });
+        }
       }
     }
     if (env.WHATSAPP_PROVIDER === 'META') {

@@ -35,6 +35,7 @@ import { trMarketing } from './tr/marketing';
 import { trCrm } from './tr/crm';
 import { trAttribution } from './tr/attribution';
 import { trConsent } from './tr/consent';
+import { trEmail } from './tr/email';
 import { trIntegrations } from './tr/integrations';
 import { enCommon } from './en/common';
 import { enNav } from './en/nav';
@@ -73,6 +74,7 @@ import { enMarketing } from './en/marketing';
 import { enCrm } from './en/crm';
 import { enAttribution } from './en/attribution';
 import { enConsent } from './en/consent';
+import { enEmail } from './en/email';
 import { enIntegrations } from './en/integrations';
 
 /**
@@ -121,6 +123,7 @@ export const TR_NAMESPACES = [
   trCrm,
   trAttribution,
   trConsent,
+  trEmail,
   trIntegrations,
   trMobile,
 ] as const;
@@ -162,6 +165,7 @@ export const EN_NAMESPACES = [
   enCrm,
   enAttribution,
   enConsent,
+  enEmail,
   enIntegrations,
   enMobile,
 ] as const;

@@ -56,6 +56,9 @@ export const trFeatures = {
   'features.consent_v2.name': 'Rıza v2: kanal başına izin',
   'features.consent_v2.description':
     'Sipariş sırasında kanal başına izin kutuları, izin geçmişi ve dayanağı, AB için çift onay, tacir muafiyeti, gönderim sınırları ve İYS kaydı.',
+  'features.email_channel.name': 'E-posta kanalı',
+  'features.email_channel.description':
+    'Kendi alan adından e-posta (SPF, DKIM, DMARC denetimi), geri dönen ve şikayet eden adreslerin bastırılması, deneme gönderimi.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',
