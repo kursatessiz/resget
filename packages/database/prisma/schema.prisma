@@ -245,17 +245,17 @@ enum DocumentType {
 // ---------------------------------------------------------------------------
 
 model User {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   /// E.164
-  phone        String   @unique
+  phone        String    @unique
   fullName     String
   email        String?
   locale       String?
-  isSuperAdmin Boolean  @default(false)
+  isSuperAdmin Boolean   @default(false)
   /// Set when the person deleted their account (docs/KISISEL_VERI.md); the row stays, anonymised, for kept records.
   deletedAt    DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   memberships         Membership[]
   addresses           CustomerAddress[]
@@ -312,16 +312,18 @@ model MarketplaceInterest {
 }
 
 model ServiceArea {
-  id           String    @id @default(uuid())
-  countryCode  String
-  city         String
-  district     String
+  id                 String    @id @default(uuid())
+  countryCode        String
+  city               String
+  district           String
   /// Phase 0 launches one district at a time; restaurants outside a launched area are onboarded but not listed in the marketplace.
-  isLaunched   Boolean   @default(false)
-  launchedAt   DateTime?
+  isLaunched         Boolean   @default(false)
+  launchedAt         DateTime?
   /// Restaurants with a sellable menu the district should reach before it opens (docs/PLATFORM_YONETIMI.md).
-  launchTarget Int       @default(30)
-  createdAt    DateTime  @default(now())
+  launchTarget       Int       @default(30)
+  /// Districts of the same city that border this one (docs/YOL_HARITASI.md); entered in the console.
+  neighbourDistricts String[]  @default([])
+  createdAt          DateTime  @default(now())
 
   restaurants Restaurant[]
 

@@ -15,6 +15,8 @@ export function AdminAreas({ locale }: { locale: string }) {
   const [form, setForm] = useState({ countryCode: 'TR', city: '', district: '' });
   const [candidates, setCandidates] = useState<AreaCandidateDTO[] | null>(null);
   const [targets, setTargets] = useState<Record<string, string>>({});
+  /** Neighbour districts as typed (comma separated), per area. */
+  const [neighbours, setNeighbours] = useState<Record<string, string>>({});
 
   const fail = useCallback(
     (err: unknown) => setError(err instanceof ApiError ? t(`errors.${err.code}`) : t('common.error.network')),
@@ -65,6 +67,23 @@ export function AdminAreas({ locale }: { locale: string }) {
         body: JSON.stringify({ launchTarget: Number(targets[area.id]) }),
       });
       setAreas((list) => list && list.map((a) => (a.id === updated.id ? updated : a)));
+    });
+
+  const saveNeighbours = (area: ServiceAreaDTO) =>
+    run(async () => {
+      const typed = neighbours[area.id] ?? area.neighbourDistricts.join(', ');
+      const updated = await bffJson<ServiceAreaDTO>(`admin/service-areas/${area.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          neighbourDistricts: typed
+            .split(',')
+            .map((name) => name.trim())
+            .filter((name) => name.length > 0),
+        }),
+      });
+      setAreas((list) => list && list.map((a) => (a.id === updated.id ? updated : a)));
+      setNeighbours((d) => ({ ...d, [area.id]: updated.neighbourDistricts.join(', ') }));
+      await loadCandidates();
     });
 
   const toggle = (area: ServiceAreaDTO) =>
@@ -184,6 +203,18 @@ export function AdminAreas({ locale }: { locale: string }) {
                       {t('admin.areas.saveTarget')}
                     </Button>
                   </span>
+                  <span className="flex flex-wrap items-end gap-2">
+                    <TextField
+                      label={t('admin.areas.neighbours')}
+                      help={t('admin.areas.neighboursHelp')}
+                      value={neighbours[area.id] ?? area.neighbourDistricts.join(', ')}
+                      onChange={(e) => setNeighbours((d) => ({ ...d, [area.id]: e.target.value }))}
+                      maxLength={1000}
+                    />
+                    <Button variant="outline" tone="muted" disabled={busy} onClick={() => saveNeighbours(area)}>
+                      {t('admin.areas.saveNeighbours')}
+                    </Button>
+                  </span>
                 </span>
                 <Button
                   variant={area.isLaunched ? 'outline' : 'solid'}
@@ -215,6 +246,7 @@ export function AdminAreas({ locale }: { locale: string }) {
                     {c.city} / {c.district}
                   </span>
                   <span className="ui-text-muted">{c.countryCode}</span>
+                  {c.nextToLaunched && <Badge tone="theme">{t('admin.areas.candidates.nextToLaunched')}</Badge>}
                   <span className="ui-caption">
                     {t('admin.areas.candidates.line', { restaurants: c.restaurants, interest: c.interest })}
                   </span>

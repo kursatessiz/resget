@@ -298,6 +298,7 @@ export class AdminService {
         ordersPerRestaurantPerDay: oardBy.get(k) ?? 0,
         interest: interestBy.get(k) ?? 0,
         readyToLaunch: readyRestaurants >= r.launchTarget,
+        neighbourDistricts: r.neighbourDistricts,
       };
     });
   }
@@ -305,13 +306,19 @@ export class AdminService {
   /** Districts with restaurants or visitor interest but no service area: where the next launch is picked from. */
   async listAreaCandidates(): Promise<AreaCandidateDTO[]> {
     const [areas, density, interest] = await Promise.all([
-      this.prisma.serviceArea.findMany({ select: { countryCode: true, city: true, district: true } }),
+      this.prisma.serviceArea.findMany({
+        select: { countryCode: true, city: true, district: true, isLaunched: true, neighbourDistricts: true },
+      }),
       this.density(30),
       this.prisma.marketplaceInterest.findMany({
         select: { countryCode: true, city: true, district: true, count: true },
       }),
     ]);
     const known = new Set(areas.map((a) => key(a.countryCode, a.city, a.district)));
+    // Districts bordering a launched area come first: the platform grows into the neighbours (docs/YOL_HARITASI.md).
+    const nextToLaunched = new Set(
+      areas.filter((a) => a.isLaunched).flatMap((a) => a.neighbourDistricts.map((n) => key(a.countryCode, a.city, n))),
+    );
     const candidates = new Map<string, AreaCandidateDTO>();
     for (const d of density) {
       const k = key(d.countryCode, d.city, d.district);
@@ -322,6 +329,7 @@ export class AdminService {
         district: d.district,
         restaurants: d.restaurants,
         interest: 0,
+        nextToLaunched: nextToLaunched.has(k),
       });
     }
     for (const i of interest) {
@@ -336,9 +344,14 @@ export class AdminService {
           district: i.district,
           restaurants: 0,
           interest: i.count,
+          nextToLaunched: nextToLaunched.has(k),
         });
     }
-    return [...candidates.values()].sort((a, b) => b.restaurants + b.interest - (a.restaurants + a.interest));
+    return [...candidates.values()].sort(
+      (a, b) =>
+        Number(b.nextToLaunched) - Number(a.nextToLaunched) ||
+        b.restaurants + b.interest - (a.restaurants + a.interest),
+    );
   }
 
   async createServiceArea(actorUserId: string, input: CreateServiceAreaInput): Promise<ServiceAreaDTO> {
@@ -371,7 +384,7 @@ export class AdminService {
   async updateServiceArea(actorUserId: string, id: string, input: UpdateServiceAreaInput): Promise<ServiceAreaDTO> {
     const current = await this.prisma.serviceArea.findUnique({
       where: { id },
-      select: { isLaunched: true, launchedAt: true },
+      select: { isLaunched: true, launchedAt: true, district: true },
     });
     if (!current) throw notFound('NOT_FOUND', 'Service area not found');
     const data: Prisma.ServiceAreaUpdateInput = {};
@@ -381,6 +394,17 @@ export class AdminService {
       if (input.isLaunched && !current.launchedAt) data.launchedAt = new Date();
     }
     if (input.launchTarget !== undefined) data.launchTarget = input.launchTarget;
+    if (input.neighbourDistricts !== undefined) {
+      // One entry per district, the area itself excluded, whatever the casing typed.
+      const own = key('', '', current.district);
+      const seen = new Set<string>();
+      data.neighbourDistricts = input.neighbourDistricts.filter((name) => {
+        const k = key('', '', name);
+        if (k === own || seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+    }
     await this.prisma.serviceArea.update({ where: { id }, data });
     await this.audit(actorUserId, null, 'service_area.updated', 'service_area', id, input);
     return (await this.listServiceAreas()).find((a) => a.id === id)!;

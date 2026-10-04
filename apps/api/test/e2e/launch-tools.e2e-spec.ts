@@ -10,6 +10,7 @@ describe('Launch tools and marketplace ranking (e2e)', () => {
   let openId: string;
   const marketplace = '/public/marketplace?countryCode=TR&city=Istanbul&district=Kadikoy';
   const interestDistrict = `Talep ${Date.now().toString(36)}`;
+  const neighbourDistrict = `Komsu ${Date.now().toString(36)}`;
 
   beforeAll(async () => {
     ctx = await createTestApp();
@@ -53,10 +54,12 @@ describe('Launch tools and marketplace ranking (e2e)', () => {
 
   afterAll(async () => {
     await ctx.prisma.restaurant.deleteMany({ where: { id: { in: [closedId, openId] } } });
-    await ctx.prisma.marketplaceInterest.deleteMany({ where: { district: interestDistrict } });
+    await ctx.prisma.marketplaceInterest.deleteMany({
+      where: { district: { in: [interestDistrict, neighbourDistrict] } },
+    });
     await ctx.prisma.serviceArea.updateMany({
       where: { restaurants: { some: { id: demoId } } },
-      data: { launchTarget: 30 },
+      data: { launchTarget: 30, neighbourDistricts: [] },
     });
     await ctx.close();
   });
@@ -122,5 +125,31 @@ describe('Launch tools and marketplace ranking (e2e)', () => {
     const wanted = candidates.body.find((c: { district: string }) => c.district === interestDistrict);
     expect(wanted).toMatchObject({ countryCode: 'TR', city: 'Istanbul', restaurants: 0, interest: 2 });
     expect(candidates.body.some((c: { district: string }) => c.district === 'Kadikoy')).toBe(false);
+  });
+
+  it('puts districts that border a launched area first among the candidates', async () => {
+    const areas = await ctx.http().get('/admin/service-areas').set(bearer(adminToken)).expect(200);
+    const kadikoy = areas.body.find((a: { district: string }) => a.district === 'Kadikoy');
+    expect(kadikoy.isLaunched).toBe(true);
+    // Less interest than the other candidate, but next to the launched district.
+    await ctx.prisma.marketplaceInterest.create({
+      data: { countryCode: 'TR', city: 'Istanbul', district: neighbourDistrict, count: 1 },
+    });
+    const saved = await ctx
+      .http()
+      .patch(`/admin/service-areas/${kadikoy.id}`)
+      .set(bearer(adminToken))
+      .send({ neighbourDistricts: [neighbourDistrict, 'kadikoy', neighbourDistrict.toUpperCase()] })
+      .expect(200);
+    // The area itself and a repeat in other casing are dropped.
+    expect(saved.body.neighbourDistricts).toEqual([neighbourDistrict]);
+
+    const candidates = await ctx.http().get('/admin/service-areas/candidates').set(bearer(adminToken)).expect(200);
+    const list = candidates.body as { district: string; nextToLaunched: boolean }[];
+    const neighbour = list.findIndex((c) => c.district === neighbourDistrict);
+    const other = list.findIndex((c) => c.district === interestDistrict);
+    expect(list[neighbour].nextToLaunched).toBe(true);
+    expect(list[other].nextToLaunched).toBe(false);
+    expect(neighbour).toBeLessThan(other);
   });
 });
