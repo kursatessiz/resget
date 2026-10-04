@@ -40,6 +40,7 @@ export const FEATURES = {
   crm: { group: 'marketing', defaultEnabled: true, stage: 'GA' },
   campaigns: { group: 'marketing', defaultEnabled: true, stage: 'GA' },
   loyalty: { group: 'marketing', defaultEnabled: true, stage: 'GA' },
+  coupons: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   whatsapp_channel: { group: 'marketing', defaultEnabled: true, stage: 'GA' },
   custom_domain: { group: 'integrations', defaultEnabled: true, stage: 'GA' },
   api_access: { group: 'integrations', defaultEnabled: true, stage: 'GA' },

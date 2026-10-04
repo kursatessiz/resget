@@ -24,4 +24,5 @@ export const enPlans: Record<keyof typeof trPlans, string> = {
   'plans.credits.buy': 'Buy a credit package',
   'plans.credits.rule': 'A credit is used only when a message is actually sent.',
   'plans.credits.package': '{credits} {channel} credits',
+  'plans.feature.coupons': 'Coupons and promo codes',
 };

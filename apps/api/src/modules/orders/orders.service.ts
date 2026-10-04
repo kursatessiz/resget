@@ -52,6 +52,8 @@ import { FeatureFlagsService } from '../features/feature-flags.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
+import { COUPON_RELEASE_STATUSES, CouponsService } from '../coupons/coupons.service';
+import type { PreparedCoupon } from '../coupons/coupons.service';
 import { GeocodingService } from '../geocoding/geocoding.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { PushService } from '../push/push.service';
@@ -99,6 +101,8 @@ export interface ResolvedPaymentIntent {
 export interface CreateOrderOptions {
   /** Spend this signed-in customer's loyalty points on the order (docs/SADAKAT.md). */
   loyaltyUserId?: string;
+  /** A coupon code (docs/KUPONLAR.md); the discount is restaurant-funded and never combined with points. */
+  couponCode?: string;
 }
 
 export type PaymentIntentResolver = (
@@ -139,6 +143,7 @@ export class OrdersService {
     private readonly webhooks: WebhooksService,
     private readonly push: PushService,
     private readonly features: FeatureFlagsService,
+    private readonly coupons: CouponsService,
   ) {}
 
   setTripEventsProvider(provider: (tripId: string) => Promise<TopicEvent[]>): void {
@@ -246,6 +251,21 @@ export class OrdersService {
         )
       : null;
 
+    // Coupon (docs/KUPONLAR.md): one restaurant-funded discount per order, tied to the customer's phone.
+    let coupon: PreparedCoupon | null = null;
+    if (options.couponCode) {
+      if (redemption) throw conflict('COUPON_NOT_COMBINABLE', 'A coupon is not combined with loyalty points');
+      const phone = input.customer?.phone ?? address?.contactPhone ?? null;
+      if (!phone) throw conflict('COUPON_PHONE_REQUIRED', 'A coupon needs the customer phone');
+      coupon = await this.coupons.prepare(
+        restaurantId,
+        options.couponCode,
+        phone,
+        lines.reduce((sum, l) => sum + l.lineTotalMinor, 0),
+      );
+    }
+    const discountMinor = redemption?.discountMinor ?? coupon?.discountMinor ?? 0;
+
     const regional = settlementDefaultsFor(restaurant.countryCode);
     const isDelivery = input.fulfillment === 'DELIVERY';
     const deliveryFee: SettlementLine | null =
@@ -256,7 +276,7 @@ export class OrdersService {
       currency: restaurant.currency,
       items: lines.map((l) => ({ amountMinor: l.lineTotalMinor, vatRateBps: l.vatRateBps })),
       deliveryFee,
-      discount: redemption ? { amountMinor: redemption.discountMinor, fundedBy: 'RESTAURANT' } : null,
+      discount: discountMinor > 0 ? { amountMinor: discountMinor, fundedBy: 'RESTAURANT' } : null,
       commissionBps: restaurant.commissionBps,
       commissionVatBps: regional.commissionVatBps,
       psp: { percentBps: restaurant.pspPercentBps, fixedMinor: restaurant.pspFixedMinor, bearer: 'RESTAURANT' },
@@ -269,6 +289,7 @@ export class OrdersService {
     const placedAt = new Date();
     const orderId = await this.prisma.$transaction(async (tx) => {
       let customerUserId: string | null = null;
+      let restaurantCustomerId: string | null = null;
       if (contact) {
         const user = await tx.user.upsert({
           where: { phone: contact.phone },
@@ -277,8 +298,9 @@ export class OrdersService {
           select: { id: true },
         });
         customerUserId = user.id;
-        await tx.restaurantCustomer.upsert({
+        const customer = await tx.restaurantCustomer.upsert({
           where: { restaurantId_userId: { restaurantId, userId: user.id } },
+          select: { id: true },
           update: {
             orderCount: { increment: 1 },
             lastOrderAt: new Date(),
@@ -300,6 +322,7 @@ export class OrdersService {
             ...(input.marketingOptIn ? { marketingOptIn: true, marketingOptInAt: new Date() } : {}),
           },
         });
+        restaurantCustomerId = customer.id;
       }
       const created = await tx.order.create({
         data: {
@@ -365,6 +388,17 @@ export class OrdersService {
       });
       if (redemption) {
         await this.loyalty.applyRedemption(tx, restaurantId, redemption.customerId, created.id, redemption.points);
+      }
+      if (coupon && restaurantCustomerId) {
+        await this.coupons.apply(
+          tx,
+          restaurantId,
+          coupon,
+          created.id,
+          restaurantCustomerId,
+          settlement.discountMinor,
+          restaurant.currency,
+        );
       }
       if (input.qrSessionId) {
         await tx.qrScanEvent.create({
@@ -547,6 +581,8 @@ export class OrdersService {
     if (to === 'REJECTED' || to === 'CANCELLED_BY_RESTAURANT' || to === 'CANCELLED_BY_CUSTOMER' || to === 'REFUNDED') {
       await this.loyalty.recordReversal(tx, order.id, now);
     }
+    // A cancelled order gives its coupon use back (docs/KUPONLAR.md).
+    if ((COUPON_RELEASE_STATUSES as readonly string[]).includes(to)) await this.coupons.release(tx, order.id, now);
     await tx.orderStatusHistory.create({
       data: { orderId: order.id, fromStatus: order.status, toStatus: to, actorUserId, reason: options.reason ?? null },
     });

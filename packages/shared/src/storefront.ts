@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { OrderAvailabilityDTO } from './availability';
+import { CouponCodeSchema } from './coupons';
 import type { DeliveryZone } from './delivery-zone';
 import type { StorefrontLoyaltyDTO } from './loyalty';
 import type { RatingSummaryDTO } from './ratings';
@@ -48,6 +49,8 @@ export interface StorefrontOrderingDTO {
   defaultPrepMinutes: number;
   /** Radius, minimum basket and distance bands while the delivery_zones module is on; null otherwise. */
   deliveryZone: DeliveryZone | null;
+  /** The restaurant takes coupon codes (module on and a plan with coupons, docs/KUPONLAR.md). */
+  coupons: boolean;
 }
 
 export interface StorefrontDTO {
@@ -87,6 +90,8 @@ export const PublicOrderSchema = z
     marketingOptIn: z.boolean().optional(),
     /** Spend the signed-in customer's loyalty points on this order (docs/SADAKAT.md); the API decides how many. */
     useLoyaltyPoints: z.boolean().optional(),
+    /** A coupon code (docs/KUPONLAR.md); not combined with loyalty points. */
+    couponCode: CouponCodeSchema.optional(),
   })
   .strict()
   .superRefine((order, ctx) => {

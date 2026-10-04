@@ -1,6 +1,7 @@
 import { Controller, Get, Headers, HttpCode, Post, UseGuards } from '@nestjs/common';
 import type { z } from 'zod';
 import {
+  CouponCodeSchema,
   MarketplaceInterestSchema,
   MarketplaceQuerySchema,
   PublicOrderSchema,
@@ -13,6 +14,7 @@ import type {
   MarketplaceAreaDTO,
   MarketplaceDTO,
   MarketplaceInterestResultDTO,
+  PublicCouponDTO,
   PublicOrderResultDTO,
   StorefrontDTO,
 } from '@resget/shared';
@@ -22,6 +24,7 @@ import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import type { AuthUser } from '../auth/tenant-context';
 import { PublicRateLimitGuard, RateLimit } from './public-rate-limit.guard';
 import { StorefrontService } from './storefront.service';
+import { CouponsService } from '../coupons/coupons.service';
 
 function sessionOf(header: string | undefined): string | null {
   return header && QrScanSessionSchema.safeParse(header).success ? header : null;
@@ -31,7 +34,20 @@ function sessionOf(header: string | undefined): string | null {
 @Controller('public')
 @UseGuards(PublicRateLimitGuard)
 export class StorefrontController {
-  constructor(private readonly storefront: StorefrontService) {}
+  constructor(
+    private readonly storefront: StorefrontService,
+    private readonly coupons: CouponsService,
+  ) {}
+
+  /** A code the customer typed on the menu page: enough to preview the discount (docs/KUPONLAR.md). */
+  @Get('restaurants/:slug/coupons/:code')
+  @RateLimit({ bucket: 'coupon', limit: 30, windowSeconds: 600 })
+  coupon(
+    @ZodParam('slug', SlugSchema) slug: string,
+    @ZodParam('code', CouponCodeSchema) code: string,
+  ): Promise<PublicCouponDTO> {
+    return this.coupons.publicLookup(slug, code);
+  }
 
   /** The page behind a table QR: menu with option groups, what can be ordered and how it can be paid. */
   @Get('qr/:token')

@@ -36,4 +36,7 @@ export const trFeatures = {
     'Siparişleri duraklatma, yoğun mod ve çalışma saatleri dışında sipariş kabul etmeme.',
   'features.delivery_zones.name': 'Teslimat bölgesi',
   'features.delivery_zones.description': 'Teslimat yarıçapı, en az sepet tutarı ve mesafeye göre teslimat ücreti.',
+  'features.coupons.name': 'Kuponlar',
+  'features.coupons.description':
+    'İşletmenin karşıladığı indirim kodları: yüzde veya tutar, ilk sipariş, kullanım sınırları.',
 } as const satisfies Record<string, string>;

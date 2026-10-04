@@ -112,6 +112,16 @@ export type ApiErrorCode =
   | 'RESTAURANT_NOT_ACCEPTING'
   | 'DELIVERY_OUT_OF_ZONE'
   | 'MIN_BASKET_NOT_MET'
+  | 'COUPON_NOT_FOUND'
+  | 'COUPON_EXPIRED'
+  | 'COUPON_MIN_BASKET'
+  | 'COUPON_FIRST_ORDER_ONLY'
+  | 'COUPON_LIMIT_REACHED'
+  | 'COUPON_ALREADY_USED'
+  | 'COUPON_PHONE_REQUIRED'
+  | 'COUPON_NOT_COMBINABLE'
+  | 'COUPON_CODE_TAKEN'
+  | 'COUPON_IN_USE'
   | 'RATE_LIMITED';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {
