@@ -35,6 +35,9 @@ describe('menu import', () => {
     expect(parseImportVat('%10')).toBe(1000);
     expect(parseImportVat('8,5')).toBe(850);
     expect(parseImportVat('120')).toBeNull();
+    expect(parseImportVat('10 %')).toBe(1000);
+    expect(parseImportVat('%%10')).toBeNull();
+    expect(parseImportVat('1,2,3')).toBeNull();
     expect(parseImportAvailable('Evet')).toBe(true);
     expect(parseImportAvailable('HAYIR')).toBe(false);
     expect(parseImportAvailable('')).toBe(true);
