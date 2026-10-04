@@ -1,4 +1,4 @@
-import { API_KEY_HEADER } from '@resget/shared';
+import { API_KEY_HEADER, parseApiKeyToken } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
 
@@ -51,10 +51,12 @@ describe('API keys (e2e)', () => {
     const mine = list.body.find((k: { id: string }) => k.id === keyId);
     expect(mine).toBeDefined();
     expect(mine.token).toBeUndefined();
-    expect(JSON.stringify(mine)).not.toContain(token.split('_')[2]);
+    const secret = parseApiKeyToken(token)!.secret;
+    expect(secret).toHaveLength(43);
+    expect(JSON.stringify(mine)).not.toContain(secret);
     // Only a hash is stored.
     const row = await ctx.prisma.restaurantApiKey.findUniqueOrThrow({ where: { id: keyId } });
-    expect(row.secretHash).not.toContain(token.split('_')[2]);
+    expect(row.secretHash).not.toContain(secret);
 
     // Granted: orders and menu.
     await ctx.http().get(`/restaurants/${restaurantId}/orders`).set(API_KEY_HEADER, token).expect(200);
