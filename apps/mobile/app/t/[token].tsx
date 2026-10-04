@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -12,9 +12,12 @@ import {
   trackingTokenFromLink,
 } from '@resget/shared';
 import type { OrderTrackingDTO } from '@resget/shared';
+import { MapPanel, useInAppMap } from '@/components/map-panel';
+import type { MapPin } from '@/components/map-panel';
 import { Body, Button, Caption, Card, Field, Notice, Screen, Title } from '@/components/ui';
 import { ApiError } from '@/lib/api';
 import { deviceLocale, useT } from '@/lib/i18n';
+import { trackingMapModel } from '@/lib/maps';
 import { useSession } from '@/state/session';
 import { useTheme } from '@/theme';
 
@@ -40,6 +43,7 @@ export default function TrackingScreen() {
   const [score, setScore] = useState<number | null>(null);
   const [comment, setComment] = useState('');
   const [busy, setBusy] = useState(false);
+  const showMap = useInAppMap();
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -84,6 +88,31 @@ export default function TrackingScreen() {
       setBusy(false);
     }
   };
+
+  // The courier and the door while the order is on the road, the same rule as the web page.
+  const map = useMemo(() => {
+    if (!tracking) return null;
+    const model = trackingMapModel(tracking);
+    const pins: MapPin[] = [];
+    if (model.destination) {
+      pins.push({
+        id: 'destination',
+        point: model.destination,
+        title: t('tracking.map.destination'),
+        tone: 'success',
+        shape: 'square',
+      });
+    }
+    if (model.courier && tracking.courier) {
+      pins.push({
+        id: 'courier',
+        point: model.courier,
+        title: t('tracking.map.courier', { name: tracking.courier.firstName }),
+        tone: 'theme',
+      });
+    }
+    return pins.length > 0 ? { pins, region: model.region } : null;
+  }, [t, tracking]);
 
   if (!token) {
     return (
@@ -161,6 +190,15 @@ export default function TrackingScreen() {
             />
           )}
         </Card>
+      )}
+      {showMap && map && (
+        <MapPanel
+          pins={map.pins}
+          region={map.region}
+          label={t('tracking.map')}
+          fitLabel={t('mobile.map.fit')}
+          height={240}
+        />
       )}
       {tracking && (tracking.canRate || tracking.rating) && (
         <Card title={t('tracking.rating.title')}>

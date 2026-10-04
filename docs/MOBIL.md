@@ -17,7 +17,7 @@
 - Push bildirimleri (`expo-notifications`): girişten sonra cihaz jetonu `POST /me/devices` ile kaydedilir, çıkışta silinir; müşteri sipariş güncellemeleri, kuryeye sefer ataması ve personele yeni sipariş uyarısı aynı telefona rolüne göre gelir (`docs/MESAJLASMA.md`, push bölümü). Bildirime dokunmak ilgili ekranı açar (takip, sefer, siparişler); tanınmayan veri yok sayılır.
 - Hesap: kim giriş yapmış, işletme değiştirici, çıkış ve hesabı kalıcı olarak silme (mağaza kuralı; sistem onay penceresiyle, `docs/KISISEL_VERI.md`).
 
-Henüz olmayanlar: müşteri modunda ve uygulamadaki sevk panosunda harita (web takip sayfası ve web sevk panosu gösterir), mağaza hesaplarıyla EAS derleme ve yayın. Masa QR'ı (`/m/<token>`) bilerek web'de kalır: sipariş vermek uygulama kurulumu gerektirmez. Bunlar `HANDOVER.md` B1 maddesinde kalan iş olarak listelenir.
+Henüz olmayanlar: mağaza hesaplarıyla EAS derleme ve yayın. Masa QR'ı (`/m/<token>`) bilerek web'de kalır: sipariş vermek uygulama kurulumu gerektirmez. Bunlar `HANDOVER.md` B1 maddesinde kalan iş olarak listelenir.
 
 ## 2. Dizin yapısı
 
@@ -40,9 +40,11 @@ apps/mobile/
     lib/session.ts         expo-secure-store ile jeton ve son işletme
     lib/tabs.ts            tabsFor, pickMembership
     lib/dispatch.ts        sevk panosu kuralları: seçim, sefer aksiyonları, kurye sırası, tablet eşiği
-    lib/trip-map.ts        kurye haritası modeli (işaretler, çizgi, bölge), navigasyon bağlantıları, haritanın açık olup olmadığı
+    lib/maps.ts            harita modelleri: bölge, haritanın açık olup olmadığı, müşteri takibi ve sevk panosu işaretleri
+    lib/trip-map.ts        kurye haritası modeli (işaretler, çizgi, bölge), navigasyon bağlantıları
     lib/use-navigation-app.ts  seçilen navigasyon uygulaması (cihaz tercihi)
-    components/trip-map.tsx    react-native-maps ile sefer haritası
+    components/map-panel.tsx   react-native-maps ile ortak harita (işaretler, kesikli çizgi, tümünü göster)
+    components/trip-map.tsx    sefer haritası (MapPanel üstünde)
     lib/location-batch.ts  LocationQueue: seyreltme, doğruluk filtresi, kuyruk sınırı, parti
     lib/location-tracker.ts expo-task-manager görevi, başlat / durdur / gönder
     lib/i18n.ts            cihaz dili, paylaşılan çevirmen
@@ -67,21 +69,30 @@ apps/mobile/
 - **Tasarım token'ları paylaşılan paketten.** `theme.ts` renkleri `semanticColors` ve `PERFECT_UI_TOKENS` içinden, boşluk ve köşeleri `spacing` / `radii` içinden alır; uygulamada başka renk veya köşe tanımı yoktur. Açık / koyu mod cihazı izler.
 - **i18n.** Metinler `packages/shared/src/i18n/messages/{tr,en}/mobile.ts` içindedir (`mobile.*`); sipariş ve hata metinleri web ile aynı anahtarları kullanır (`orders.*`, `errors.*`). Dil cihazdan gelir (`expo-localization`), paket yoksa temel dil kullanılır. Arka plan servisi bildirimi de çevirmenden geçer; iOS izin metinleri `locales/*.json` ile çevrilir.
 - **Push jetonu kişiye aittir.** Aynı cihaz başka bir hesapla giriş yaparsa jeton yeni hesaba geçer; çıkışta silinir. Expo Go'da push sınırlıdır (Android'de çalışmaz); gerçek davranış geliştirme veya EAS derlemesiyle görülür ve `app.json` içindeki `extra.eas.projectId` gerektirir.
-- **Gizli bilgi yok.** Pakete yalnızca `EXPO_PUBLIC_API_URL` ve `EXPO_PUBLIC_APP_VERSION` girer. İmza ya da sağlayıcı bilgisi uygulamada bulunmaz. Tek istisna Android harita anahtarıdır: Google bu anahtarı uygulamanın manifestinde ister, bu yüzden derlenmiş pakette görünür; depoya yazılmaz, EAS ortamından gelir ve Google Cloud'da paket adı ile imza parmak izine kısıtlanır (aşağıda "Kurye haritası").
+- **Gizli bilgi yok.** Pakete yalnızca `EXPO_PUBLIC_API_URL` ve `EXPO_PUBLIC_APP_VERSION` girer. İmza ya da sağlayıcı bilgisi uygulamada bulunmaz. Tek istisna Android harita anahtarıdır: Google bu anahtarı uygulamanın manifestinde ister, bu yüzden derlenmiş pakette görünür; depoya yazılmaz, EAS ortamından gelir ve Google Cloud'da paket adı ile imza parmak izine kısıtlanır (aşağıda "Harita sağlayıcısı").
 
-## 3a. Kurye haritası
+## 3a. Haritalar
 
-Sefer ekranında, aksiyon düğmesinin altında sefer haritası durur (`components/trip-map.tsx`, `react-native-maps`, MIT lisanslı; sürüm Expo SDK'nın önerdiğidir). Model saf fonksiyondur (`lib/trip-map.ts`, `tripMapModel()`) ve testlidir:
+Uygulamadaki bütün haritalar tek bileşenden çizilir (`components/map-panel.tsx`, `react-native-maps`, MIT lisanslı; sürüm Expo SDK'nın önerdiğidir). Hangi işaretin görüneceğine saf ve testli fonksiyonlar karar verir (`lib/maps.ts`, `lib/trip-map.ts`); renkler kitin rollerinden gelir. Bölge bir kez ayarlanır: yenilemeler işaretleri taşır ama kişinin kaydırdığı görünümü değiştirmez, "Tümünü göster" bütün noktaları geri getirir. Haritanın açılıp açılmayacağı her ekranda aynı kuraldır (`inAppMapAvailable()`; aşağıda "Harita sağlayıcısı").
+
+- **Müşteri takibi** (`t/[token]`, `trackingMapModel()`): web takip sayfasıyla aynı kural. Kurye konumu biliniyorsa kurye, sipariş yoldayken ve kurye varken kapı. Başka hiçbir müşterinin bilgisi yoktur; "Haritada aç" bağlantısı da durur.
+- **Sevk panosu** (`sevk`, `dispatchMapModel()`): web panosu gibi, konum paylaşan kuryeler (adının baş harfiyle) ve aktif seferlerin koordinatlı durakları (sıra numarasıyla; bekleyen, yolda / varıldı, bitti). Tablette sağ panelde seferlerin üstünde, telefonda listeler arasında durur; gösterilecek nokta yoksa bunu söyleyen bir satır çıkar.
+
+### Kurye haritası
+
+Sefer ekranında, aksiyon düğmesinin altında sefer haritası durur (`components/trip-map.tsx`). Model saf fonksiyondur (`lib/trip-map.ts`, `tripMapModel()`) ve testlidir:
 
 - Teslim alma noktası: şubenin koordinatı (`DeliveryTripDTO.pickupPoint`; şubede koordinat yoksa çizilmez).
 - Duraklar sıra numarasıyla; renk duruma göre kitin rollerinden gelir: sıradaki durak tema rengi, sonraki duraklar tema çerçeveli yüzey, teslim edilen başarı, teslim edilemeyen hata rengi. Koordinatı olmayan durak haritada yoktur, listede "haritada açılamaz" yazar.
 - Kuryenin kendi konumu cihazın yerleşik konum noktasıyla gösterilir (yalnızca sefer atanmış veya yoldayken).
 - Kesikli çizgi, henüz gidilmemiş durakları gidilecek sırayla birleştirir: yoldayken kuryenin API'ye son gönderdiği konumdan, öncesinde teslim alma noktasından başlar. Çizgi düz çizgidir, yol değildir; sefer bitince çizgi ve konum kalkar.
-- "Tüm seferi göster" haritayı bütün noktaları içine alan bölgeye geri getirir. Harita, liste her 10 saniyede yenilendiğinde işaretleri günceller ama kuryenin kaydırdığı görünümü değiştirmez.
+- "Tüm seferi göster" haritayı bütün noktaları içine alan bölgeye geri getirir.
 
 Navigasyon (sesli, adım adım yol tarifi) bilerek uygulamaya gömülmez: duraktaki "Yol tarifi" düğmesi seçilen uygulamayı açar (`navigationUrl()`). Seçenekler iOS'ta Apple Haritalar, Google Haritalar, Yandex Haritalar; Android'de Google Haritalar ve Yandex Haritalar. Varsayılan cihazın kendi harita uygulamasıdır, tercih Hesap sekmesinden değiştirilir ve cihazda saklanır (yalnızca `courier.deliver` izni olanlara görünür). Bağlantıların hepsi https evrensel bağlantıdır: uygulama yüklüyse uygulama, değilse web sayfası açılır; URL şeması tanımlamak veya yoklamak gerekmez.
 
-Harita sağlayıcısı: iOS'ta Apple Haritalar anahtarsız çalışır. Android'de Google Maps SDK kullanılır ve anahtar gerekir: `GOOGLE_MAPS_ANDROID_API_KEY` EAS ortam değişkeni olarak tanımlanır (`eas env:create --name GOOGLE_MAPS_ANDROID_API_KEY --environment production --visibility sensitive`), `app.config.ts` onu `react-native-maps` eklentisine verir. Anahtar Google Cloud'da "Maps SDK for Android" ile sınırlandırılır ve "Android uygulamaları" kısıtıyla `com.resget.app` paket adına ve imza anahtarının SHA-1 parmak izine bağlanır. Anahtar verilmeden yapılan Android derlemesinde harita gizlenir (`extra.androidMapsKeyConfigured`), duraklar ve yol tarifi düğmesi çalışmaya devam eder; böylece anahtarsız bir derleme boş harita göstermez. Expo Go haritayı kendi anahtarıyla gösterir, geliştirmede ayrıca bir şey gerekmez. Google Maps SDK mobil harita gösterimi için ücretsiz kotadadır; kota ve fiyat Google'ın güncel tarifesine tabidir.
+### Harita sağlayıcısı
+
+iOS'ta Apple Haritalar anahtarsız çalışır. Android'de Google Maps SDK kullanılır ve anahtar gerekir: `GOOGLE_MAPS_ANDROID_API_KEY` EAS ortam değişkeni olarak tanımlanır (`eas env:create --name GOOGLE_MAPS_ANDROID_API_KEY --environment production --visibility sensitive`), `app.config.ts` onu `react-native-maps` eklentisine verir. Anahtar Google Cloud'da "Maps SDK for Android" ile sınırlandırılır ve "Android uygulamaları" kısıtıyla `com.resget.app` paket adına ve imza anahtarının SHA-1 parmak izine bağlanır. Anahtar verilmeden yapılan Android derlemesinde bütün haritalar gizlenir (`extra.androidMapsKeyConfigured`); listeler, yol tarifi ve "Haritada aç" düğmeleri çalışmaya devam eder, böylece anahtarsız bir derleme boş harita göstermez. Expo Go haritayı kendi anahtarıyla gösterir, geliştirmede ayrıca bir şey gerekmez. Google Maps SDK mobil harita gösterimi için ücretsiz kotadadır; kota ve fiyat Google'ın güncel tarifesine tabidir.
 
 ## 4. Çalıştırma
 
@@ -99,12 +110,12 @@ EXPO_PUBLIC_API_URL=http://<bilgisayar-ip>:4000 EXPO_PUBLIC_WEB_URL=http://<bilg
 
 Expo Go ile telefondan QR okutulur. Arka plan konumu Expo Go'da sınırlıdır; gerçek davranış geliştirme derlemesiyle (`expo run:android`, `expo run:ios`) ya da EAS derlemesiyle görülür. Simülatörde `localhost` çalışır, fiziksel cihazda bilgisayarın ağ adresi verilir.
 
-Doğrulama: `pnpm --filter @resget/mobile typecheck` ve `pnpm --filter @resget/mobile test` (turbo bunları kök `typecheck` ve `test` görevlerinde çalıştırır). Testler yalnızca saf mantığı kapsar: API istemcisi (yenileme, oturum kapatma, hata kodu), konum kuyruğu, sekme / üyelik seçimi, sevk panosu kuralları ve kurye haritası modeli ile navigasyon bağlantıları. Ekranlar cihazda denenir.
+Doğrulama: `pnpm --filter @resget/mobile typecheck` ve `pnpm --filter @resget/mobile test` (turbo bunları kök `typecheck` ve `test` görevlerinde çalıştırır). Testler yalnızca saf mantığı kapsar: API istemcisi (yenileme, oturum kapatma, hata kodu), konum kuyruğu, sekme / üyelik seçimi, sevk panosu kuralları, harita modelleri (kurye, müşteri takibi, sevk) ve navigasyon bağlantıları. Ekranlar cihazda denenir.
 
 ## 5. İzinler ve mağaza notları
 
 - Android: `ACCESS_FINE_LOCATION`, `ACCESS_BACKGROUND_LOCATION`, `FOREGROUND_SERVICE_LOCATION`. Arka plan konumu için Play Console'da kullanım gerekçesi ve kısa video istenir; gerekçe "kurye seferi boyunca müşteriye canlı takip" olarak yazılır.
-- Harita: Android derlemesi için `GOOGLE_MAPS_ANDROID_API_KEY` (yukarıda "Kurye haritası"); iOS için ek bir şey gerekmez.
+- Harita: Android derlemesi için `GOOGLE_MAPS_ANDROID_API_KEY` (yukarıda "Harita sağlayıcısı"); iOS için ek bir şey gerekmez.
 - Push: APNs anahtarı ve FCM kimliği Expo projesinde tutulur (`eas credentials`); API tarafında yalnızca `PUSH_PROVIDER=EXPO` ve isteğe bağlı `EXPO_ACCESS_TOKEN` vardır.
 - iOS: `UIBackgroundModes: location`, "Always" izni sefer başlarken istenir. App Store incelemesinde arka plan konumunun yalnızca aktif seferde çalıştığı belirtilir.
 - Uygulama kimliği `com.resget.app`, URL şeması `resget://`. `/t/<token>` evrensel bağlantısı ve `resget://t/<token>` takip ekranını açar; `/m/<token>` masa QR'ı web'de kalır.

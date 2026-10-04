@@ -1,13 +1,5 @@
 import type { DeliveryStopDTO, DeliveryTripDTO, GeoPoint } from '@resget/shared';
-import {
-  MIN_REGION_DELTA,
-  inAppMapAvailable,
-  navigationAppsFor,
-  navigationUrl,
-  regionFor,
-  resolveNavigationApp,
-  tripMapModel,
-} from './trip-map';
+import { navigationAppsFor, navigationUrl, resolveNavigationApp, tripMapModel } from './trip-map';
 
 const PICKUP: GeoPoint = { lat: 41.0, lng: 29.0 };
 
@@ -121,18 +113,6 @@ describe('tripMapModel', () => {
   });
 });
 
-describe('regionFor', () => {
-  it('is null without points and never narrower than the minimum around one point', () => {
-    expect(regionFor([])).toBeNull();
-    expect(regionFor([PICKUP])).toEqual({
-      latitude: PICKUP.lat,
-      longitude: PICKUP.lng,
-      latitudeDelta: MIN_REGION_DELTA,
-      longitudeDelta: MIN_REGION_DELTA,
-    });
-  });
-});
-
 describe('navigation handoff', () => {
   const point = { lat: 41.0082376, lng: 28.9783589 };
 
@@ -152,12 +132,5 @@ describe('navigation handoff', () => {
     );
     expect(navigationUrl('apple', point)).toBe('https://maps.apple.com/?daddr=41.008238,28.978359');
     expect(navigationUrl('yandex', point)).toBe('https://yandex.com/maps/?rtext=~41.008238,28.978359&rtt=auto');
-  });
-
-  it('shows the in-app map on iOS always and on Android only with a key', () => {
-    expect(inAppMapAvailable('ios', false)).toBe(true);
-    expect(inAppMapAvailable('android', true)).toBe(true);
-    expect(inAppMapAvailable('android', false)).toBe(false);
-    expect(inAppMapAvailable('web', true)).toBe(false);
   });
 });
