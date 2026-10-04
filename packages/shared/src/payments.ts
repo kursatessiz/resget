@@ -179,6 +179,24 @@ export interface GatewayWebhookEvent {
   /** The PSP's own fee when the webhook carries it. */
   pspFeeMinor: number | null;
   occurredAt: string;
+  /** The exact answer the provider expects (PayTR wants a plain "OK"); JSON when absent. */
+  ack?: { contentType: string; body: string };
+  /** Set when the notification was the customer's browser (a provider callback): where to send it next. */
+  browserRedirectUrl?: string;
+}
+
+/** What a hosted checkout needs from the order; optional fields are passed when known, providers fill the rest. */
+export interface HostedCheckoutParams {
+  orderRef: string;
+  amountMinor: number;
+  currency: string;
+  /** Where the customer's browser goes after the provider's page. */
+  returnUrl: string;
+  customerPhone: string;
+  customerName?: string;
+  customerIp?: string;
+  /** The platform's webhook endpoint for this connection; providers that take it per request post there. */
+  notifyUrl?: string;
 }
 
 /** One provider behind which either a restaurant's own POS or the platform's PSP merchant lives. */
@@ -188,18 +206,25 @@ export interface PaymentGatewayAdapter {
   verifyCredentials(credentials: Record<string, string>): Promise<{ ok: boolean; label: string; reason?: string }>;
   createHostedCheckout(
     credentials: Record<string, string>,
-    params: { orderRef: string; amountMinor: number; currency: string; returnUrl: string; customerPhone: string },
+    params: HostedCheckoutParams,
   ): Promise<HostedCheckoutSession>;
   refund(
     credentials: Record<string, string>,
     providerRef: string,
     amountMinor: number,
   ): Promise<{ ok: boolean; providerRef: string | null }>;
+  /**
+   * Verifies and interprets a provider notification. Some providers only
+   * announce that something happened and the truth is fetched from them, so
+   * the result may be a promise. `query` carries the request's query string
+   * (a browser callback may bring the return address there).
+   */
   parseWebhook(
     credentials: Record<string, string>,
     rawBody: string,
     headers: Record<string, string | undefined>,
-  ): GatewayWebhookEvent;
+    query?: Record<string, string | undefined>,
+  ): GatewayWebhookEvent | Promise<GatewayWebhookEvent>;
 }
 
 // -- Commission by payment mode -------------------------------------------------
