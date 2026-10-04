@@ -75,6 +75,16 @@ Platform geliri 5 TL, tevkifat ve KDV devlete, PSP kesintisi ödeme kuruluşuna.
 - **Ödeme hareketi**: bugün banka transferidir; konsol (`/admin/hakedisler`, `GET /admin/payouts`, `POST /admin/payouts/run`, `POST /admin/payouts/:id/{sent,settled,failed}`) ödemeyi gönderildi, hesaba geçti veya başarısız olarak işaretler ve her adım denetim kaydıdır. Restoran `GET /restaurants/:id/finance/ledger` (`finance.view`) ile bekleyen hakedişini, satırlarını ve ödemelerini görür (`/panel/<slug>/finans`). Gerçek ödeme sağlayıcısı adaptörü B4'ün PSP sözleşmesiyle gelir.
 - İade (`docs/ODEME.md` bölüm 3b): `Payment.refundedMinor` artar, defterde `REFUND` satırı açılır (`recordRefund`, yalnızca `PLATFORM_PSP`, yalnızca siparişin `RESTAURANT_PAYABLE` satırı yazılmışsa, yani tamamlanmışsa, ve sipariş başına bir kez) ve bir sonraki hakedişten düşer; satır iade edilen tutarın tamamıdır. Tamamlanmadan iade edilen siparişte restorana alacak yazılmadığı için düşülecek bir şey yoktur. PSP iade komisyonunu geri veriyorsa `PSP_FEE` düzeltmesi yazılır (PSP sözleşmesine bağlı).
 
+## İade ve chargeback
+
+Restoranla yapılan sözleşme gereği iade ve chargeback (ters ibraz) maliyeti restorana yüklenir (4 Ekim 2026 kararı):
+
+- **Komisyon geri dönmez.** Tamamlanmış (`DELIVERED` / `PICKED_UP`) bir sipariş sonradan iade edilse veya chargeback'e uğrasa da platform komisyonu ve KDV'si doğmuş sayılır. `OWN_POS`'ta sipariş, durumu `REFUNDED` olsa bile tamamlandığı ayın komisyon faturasında kalır (`COMMISSIONABLE_ORDER_STATUSES`: `DELIVERED`, `PICKED_UP`, `REFUNDED`; dönem `completedAt` ile seçilir). Panelin raporlarındaki biriken komisyon da bu siparişleri sayar.
+- **Tamamlanmadan iptal edilen sipariş komisyon doğurmaz.** `completedAt` boş kaldığı için hiçbir döneme girmez; `PLATFORM_PSP`'de defterde satırı yoktur.
+- **`PLATFORM_PSP` iadesi**: iade edilen tutarın tamamı `REFUND` satırıyla bir sonraki hakedişten düşer (aşağıda "İade"); komisyon, PSP kesintisi ve tevkifat satırları yerinde kalır.
+- **`PLATFORM_PSP` chargeback'i**: PSP'nin chargeback bildirimi (`GatewayWebhookEvent.status = CHARGEBACK`) ödemeyi `CHARGED_BACK` yapar ve tamamlanmış siparişte kalan tahsil edilmiş tutar kadar `CHARGEBACK` satırı yazar (`LedgerService.recordChargeback`); satır `REFUND` gibi bir sonraki hakedişten düşer (`PAYABLE_LINE_TYPES`). Sipariş başına bir kez; daha önce iade edilmiş siparişte yazılmaz. Chargeback'ten sonra gelen yakalama veya iade bildirimi bir şey değiştirmez; itirazı restoran kazanırsa platform `ADJUSTMENT` satırıyla geri verir. Her chargeback `payment.charged_back` denetim kaydıdır. PSP'nin chargeback ücreti PSP sözleşmesiyle `PSP_FEE` düzeltmesi olarak eklenir.
+- **`OWN_POS` chargeback'i** restoranla kendi bankası arasındadır; platform yalnızca bildirimi kaydeder (ödeme `CHARGED_BACK`), defter satırı yazmaz ve komisyon faturada kalır.
+
 ## Yönteme göre hakediş modu
 
 Hangi siparişin hangi modla hesaplanacağı ödeme yöntemine bağlıdır (`effectivePaymentModeFor`, `docs/YEMEK_KARTI.md`): yalnızca çevrim içi kart ödemesi restoranın `paymentMode`'unu izler. Nakit, kapıda kart ve yemek kartlarını restoran kendisi tahsil ettiği için bu siparişler `PLATFORM_PSP` restoranında bile `OWN_POS` gibi hesaplanır: PSP kesintisi ve tevkifat sıfır, komisyon + KDV ay sonu faturasına girer. Mod sipariş kaydında saklanır.

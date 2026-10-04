@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PaymentConnectionStatus, PaymentMode } from '@resget/database';
-import { buildCommissionStatement, commissionPeriod } from '@resget/shared';
+import { COMMISSIONABLE_ORDER_STATUSES, buildCommissionStatement, commissionPeriod } from '@resget/shared';
 import type {
   CommissionStatement,
   ConnectOwnPosInput,
@@ -37,7 +37,8 @@ export class PaymentsService {
       where: {
         restaurantId,
         paymentMode: PaymentMode.OWN_POS,
-        status: { in: ['DELIVERED', 'PICKED_UP'] },
+        // Refunds and chargebacks are the restaurant's cost: an order refunded after completion still owes commission.
+        status: { in: [...COMMISSIONABLE_ORDER_STATUSES] },
         completedAt: { gte: periodStart, lt: periodEnd },
       },
       _sum: { platformReceivableMinor: true },
@@ -129,7 +130,8 @@ export class PaymentsService {
       where: {
         restaurantId,
         paymentMode: PaymentMode.OWN_POS,
-        status: { in: ['DELIVERED', 'PICKED_UP'] },
+        // Refunds and chargebacks are the restaurant's cost: an order refunded after completion still owes commission.
+        status: { in: [...COMMISSIONABLE_ORDER_STATUSES] },
         completedAt: { gte: period.periodStart, lt: period.periodEnd },
       },
       select: {

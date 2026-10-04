@@ -173,7 +173,8 @@ export interface HostedCheckoutSession {
 export interface GatewayWebhookEvent {
   providerRef: string;
   orderRef: string;
-  status: 'CAPTURED' | 'FAILED' | 'REFUNDED';
+  /** CHARGEBACK: the cardholder's bank took the money back (docs/MUTABAKAT.md, "İade ve chargeback"). */
+  status: 'CAPTURED' | 'FAILED' | 'REFUNDED' | 'CHARGEBACK';
   amountMinor: number;
   currency: string;
   /** The PSP's own fee when the webhook carries it. */

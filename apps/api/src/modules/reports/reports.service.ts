@@ -39,7 +39,7 @@ export class ReportsService {
     });
     if (!restaurant) throw notFound('RESTAURANT_NOT_FOUND', 'Restaurant not found');
     const { from, to } = this.range(days);
-    const [completed, cancelledOrders, topItems, ratingAgg, recentRatings] = await Promise.all([
+    const [completed, cancelledOrders, topItems, ratingAgg, recentRatings, refundedCommission] = await Promise.all([
       this.prisma.order.findMany({
         where: { restaurantId, status: { in: [...COMPLETED] }, completedAt: { gte: from, lt: to } },
         select: completedSelect,
@@ -66,9 +66,17 @@ export class ReportsService {
         take: 10,
         select: { orderId: true, score: true, comment: true, createdAt: true },
       }),
+      // Orders refunded after they completed still owe commission (refunds are the restaurant's cost).
+      this.prisma.order.aggregate({
+        where: { restaurantId, status: 'REFUNDED', completedAt: { gte: from, lt: to } },
+        _sum: { platformCommissionMinor: true, commissionVatMinor: true },
+      }),
     ]);
     const grossMinor = completed.reduce((n, o) => n + o.chargedToCustomerMinor, 0);
-    const commissionMinor = completed.reduce((n, o) => n + o.platformCommissionMinor + o.commissionVatMinor, 0);
+    const commissionMinor =
+      completed.reduce((n, o) => n + o.platformCommissionMinor + o.commissionVatMinor, 0) +
+      (refundedCommission._sum.platformCommissionMinor ?? 0) +
+      (refundedCommission._sum.commissionVatMinor ?? 0);
     return {
       days,
       from: from.toISOString(),

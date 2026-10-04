@@ -25,7 +25,7 @@ Masadan, restoranın kendi sipariş sayfasından veya pazaryerinden sipariş ver
 
 ## Raporlar (`/panel/<slug>/raporlar`, izin `reports.view`)
 
-- `GET /restaurants/:id/reports/summary?days=7`: dönem UTC gün bazında bugün dahil geriye doğrudur. Tamamlanan sipariş (`DELIVERED`, `PICKED_UP`; `completedAt` ile), iptal ve ret (`placedAt` ile), ciro (müşteriden tahsil edilen), ortalama sepet, biriken komisyon (KDV dahil, `docs/FATURALAMA.md`), teslim şekli ve kanala göre dağılım, en çok satan 10 ürün (`OrderItem.nameSnapshot`), günlük seri. Her sayı sipariş anlık görüntülerinden gelir; geçmiş gün sonradan değişmez.
+- `GET /restaurants/:id/reports/summary?days=7`: dönem UTC gün bazında bugün dahil geriye doğrudur. Tamamlanan sipariş (`DELIVERED`, `PICKED_UP`; `completedAt` ile), iptal ve ret (`placedAt` ile), ciro (müşteriden tahsil edilen), ortalama sepet, biriken komisyon (tamamlandıktan sonra iade edilen siparişler dahil, KDV dahil, `docs/FATURALAMA.md`), teslim şekli ve kanala göre dağılım, en çok satan 10 ürün (`OrderItem.nameSnapshot`), günlük seri. Her sayı sipariş anlık görüntülerinden gelir; geçmiş gün sonradan değişmez.
 - Temel plan en çok 30 gün görür (`BASIC_REPORT_MAX_DAYS`); daha uzun dönem Pro özelliği `analytics` ister (`PLAN_FEATURE_REQUIRED`).
 - `GET /restaurants/:id/reports/orders.csv?days` (`reports.view` + `analytics`): tamamlanan siparişler CSV olarak (tutarlar minör birim ve para birimi sütunu; formül karakteriyle başlayan hücreler etkisizleştirilir).
 

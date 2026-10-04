@@ -127,6 +127,7 @@ enum PaymentStatus {
   FAILED
   REFUNDED
   PARTIALLY_REFUNDED
+  CHARGED_BACK
 }
 
 enum LedgerEntryType {
@@ -139,6 +140,7 @@ enum LedgerEntryType {
   PSP_FEE
   WITHHOLDING_TAX
   REFUND
+  CHARGEBACK
   ADJUSTMENT
   RESTAURANT_PAYABLE
 }

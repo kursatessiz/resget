@@ -83,7 +83,7 @@ Yüzde 1 kopyalanabilir; rakip seçili restoranlarda komisyonu düşürebilir. S
 
 - Tüketici edinme planı sübvansiyon içermez; masa QR'ın dönüşümü ölçülmeden pazarlama bütçesi büyütülmez.
 - Teslimatı restoran yapıyor varsayımı pazarı daraltır; kendi kuryesi olmayan restoranlar için Faz 2 kurye ağı entegrasyonu gerekir.
-- Chargeback ve sahtecilik yükü yüzde 1 marjla ağırdır; risk paylaşımı PSP sözleşmesinde yazılı olmalıdır.
+- Chargeback ve sahtecilik yükü yüzde 1 marjla ağırdır. Karar (4 Ekim 2026): iade ve chargeback maliyeti restoranla yapılan sözleşmede restorana yüklenir, platform komisyonu geri dönmez (`docs/MUTABAKAT.md`); PSP sözleşmesi bu akışı (chargeback bildirimi, ücret) karşılamalıdır.
 - Her restoranın PSP alt üye işyeri KYC sürecinden geçmesi gerekir; onboarding süresi modele dahil edilmemiştir.
 - 6563 sayılı Kanun'un belirli hacim eşiklerindeki ETHS yükümlülükleri büyüdükçe devreye girer.
 

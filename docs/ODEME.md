@@ -70,7 +70,7 @@ Para her zaman geldiği yoldan geri döner (`RefundsService`, kurallar `packages
 - **Tek seferde bir deneme**: her ödeme ağ geçidi çağrısından önce atomik olarak sahiplenilir (`refundRequestedAt`); iki ekran veya tarama aynı ödemeyi iki kez iade edemez. Yanıt vermeden kalan bir sahiplenme 5 dakika sonra bırakılır; sağlayıcılar zaten iade edilmiş işlemi reddeder.
 - İade her zaman ödemenin kalan tutarının tamamıdır; kısmi iade sonraki iştir. Siparişin yakalanmış parası kalmadığında sipariş `REFUNDED` olur; bu durum yalnızca iade ucu veya sağlayıcının iade bildirimiyle gelir, çıplak durum geçişiyle (`/transition`) gelmez (`REFUND_NOT_ALLOWED`).
 - Sağlayıcının kendi panelinden yapılan iade, imzalı `REFUNDED` bildirimiyle aynı şekilde kapanır; tekrarlanan bildirim etkisizdir, iadeden sonra gelen geç bir yakalama bildirimi yok sayılır.
-- Defter: `PLATFORM_PSP` ile tahsil edilmiş ve tamamlanmış siparişin iadesi bir sonraki hakedişten düşer (`docs/MUTABAKAT.md`); tamamlanmadan iade edilen sipariş restorana hiç alacak yazmadığı için defterde iz bırakmaz. `OWN_POS`'ta iade edilen sipariş tamamlanmış sayılmaz ve henüz kesilmemiş aylık faturaya girmez.
+- Defter: `PLATFORM_PSP` ile tahsil edilmiş ve tamamlanmış siparişin iadesi bir sonraki hakedişten düşer (`docs/MUTABAKAT.md`); tamamlanmadan iade edilen sipariş restorana hiç alacak yazmadığı için defterde iz bırakmaz. İade ve chargeback maliyeti sözleşme gereği restorana aittir: tamamlanmış siparişin komisyonu iadeyle geri dönmez, `OWN_POS`'ta sipariş tamamlandığı ayın faturasında kalır; tamamlanmadan iptal edilen sipariş komisyon doğurmaz (`docs/MUTABAKAT.md`, "İade ve chargeback").
 
 ## 4. Komisyon faturası (`OWN_POS`)
 

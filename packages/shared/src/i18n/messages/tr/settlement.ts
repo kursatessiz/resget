@@ -10,6 +10,7 @@ export const trSettlement = {
   'settlement.line.PSP_FEE': 'Ödeme kuruluşu kesintisi',
   'settlement.line.WITHHOLDING_TAX': 'E-ticaret tevkifatı',
   'settlement.line.REFUND': 'İade',
+  'settlement.line.CHARGEBACK': 'Ters ibraz (chargeback)',
   'settlement.line.ADJUSTMENT': 'Düzeltme',
   'settlement.line.RESTAURANT_PAYABLE': 'Hakediş',
   'settlement.withholdingNote': 'Tevkifat adınıza vergi dairesine aktarılır; vergi beyanınızda mahsup edebilirsiniz.',

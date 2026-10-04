@@ -99,6 +99,7 @@ describe('Refunds (e2e)', () => {
       select: { id: true },
     });
     await ctx.prisma.ledgerEntry.deleteMany({ where: { orderId: { in: orders.map((o) => o.id) } } });
+    await ctx.prisma.auditLog.deleteMany({ where: { restaurantId, action: 'payment.charged_back' } });
     await ctx.prisma.order.deleteMany({ where: { restaurantId, customerNote: NOTE } });
   };
 
@@ -282,6 +283,72 @@ describe('Refunds (e2e)', () => {
       const lines = await ctx.prisma.ledgerEntry.findMany({ where: { orderId: late.id, type: 'REFUND' } });
       expect(lines).toHaveLength(1);
       expect(lines[0].amountMinor).toBe(-late.chargedToCustomerMinor);
+    } finally {
+      await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { paymentMode: 'OWN_POS' } });
+    }
+  });
+  it('keeps the commission of an order refunded after completion, and charges none for a cancelled one', async () => {
+    const now = new Date();
+    const period = { year: now.getUTCFullYear(), month: now.getUTCMonth() + 1 };
+    const statement = async () =>
+      (
+        await ctx
+          .http()
+          .get(`/restaurants/${restaurantId}/payments/commission`)
+          .query(period)
+          .set(bearer(ownerToken))
+          .expect(200)
+      ).body as { lines: { orderId: string }[] };
+
+    const completed = await paidOrder('pos-commission-1');
+    await complete(completed.id);
+    await refund(completed.id, { reason: 'Musteri sikayeti' }, 200);
+    const cancelled = await paidOrder('pos-commission-2');
+    expect((await transition(cancelled.id, 'REJECTED')).body.status).toBe('REFUNDED');
+
+    // Refunds are the restaurant's cost by contract: the completed one stays on the invoice, the cancelled one never was.
+    const lines = (await statement()).lines.map((l) => l.orderId);
+    expect(lines).toContain(completed.id);
+    expect(lines).not.toContain(cancelled.id);
+  });
+
+  it('takes a chargeback on platform-collected money out of the payout once, and keeps the commission', async () => {
+    await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { paymentMode: 'PLATFORM_PSP' } });
+    try {
+      const order = await createOrder({ method: 'ONLINE_CARD' });
+      await ctx.prisma.payment.updateMany({
+        where: { orderId: order.id },
+        data: { status: 'CAPTURED', providerRef: 'psp-chargeback-1', capturedAt: new Date() },
+      });
+      await ctx.prisma.order.update({ where: { id: order.id }, data: { status: 'PLACED' } });
+      await complete(order.id);
+      expect(await ctx.prisma.ledgerEntry.count({ where: { orderId: order.id, type: 'RESTAURANT_PAYABLE' } })).toBe(1);
+
+      // The PSP's notice (the platform PSP webhook arrives with its contract; the handler is the same).
+      const notice = {
+        providerRef: 'psp-chargeback-1',
+        orderRef: order.id,
+        status: 'CHARGEBACK',
+        amountMinor: order.chargedToCustomerMinor,
+      };
+      expect((await posWebhook(notice)).body.status).toBe('CHARGEBACK');
+      await posWebhook(notice);
+      await posWebhook({ ...notice, status: 'CAPTURED' });
+
+      const lines = await ctx.prisma.ledgerEntry.findMany({ where: { orderId: order.id, type: 'CHARGEBACK' } });
+      expect(lines).toHaveLength(1);
+      expect(lines[0].amountMinor).toBe(-order.chargedToCustomerMinor);
+      const payment = await ctx.prisma.payment.findFirstOrThrow({ where: { orderId: order.id } });
+      expect(payment.status).toBe('CHARGED_BACK');
+      // The commission lines of the completed order stay; nothing is due at the door and nothing can be refunded twice.
+      expect(await ctx.prisma.ledgerEntry.count({ where: { orderId: order.id, type: 'PLATFORM_COMMISSION' } })).toBe(1);
+      const detail = await getOrder(order.id);
+      expect(detail.status).toBe('PICKED_UP');
+      expect(detail.payment).toMatchObject({ dueMinor: 0, refundable: false });
+      expect((await refund(order.id, { reason: 'Tekrar' }, 409)).body.code).toBe('REFUND_NOT_ALLOWED');
+      expect(await ctx.prisma.auditLog.count({ where: { action: 'payment.charged_back', entityId: payment.id } })).toBe(
+        1,
+      );
     } finally {
       await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { paymentMode: 'OWN_POS' } });
     }

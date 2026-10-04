@@ -235,6 +235,28 @@ export class CheckoutService {
     if (payment.status === 'CAPTURED' && event.status === 'CAPTURED') return reply('CAPTURED');
     // A late capture notice never undoes a refund that already happened.
     if (payment.status === 'REFUNDED' && event.status !== 'REFUNDED') return reply('IGNORED');
+    // After a chargeback the money is gone; later notices change nothing (a reversal is an ADJUSTMENT by the platform).
+    if (payment.status === 'CHARGED_BACK') return reply(event.status === 'CHARGEBACK' ? 'CHARGEBACK' : 'IGNORED');
+    if (event.status === 'CHARGEBACK') {
+      if (payment.status !== 'CAPTURED' && payment.status !== 'PARTIALLY_REFUNDED') return reply('IGNORED');
+      const amountMinor = payment.amountMinor - payment.refundedMinor;
+      // By contract the restaurant bears chargebacks (docs/MUTABAKAT.md): platform-collected money comes out of the payout.
+      await this.prisma.$transaction(async (tx) => {
+        await tx.payment.update({ where: { id: payment.id }, data: { status: 'CHARGED_BACK' } });
+        const booked = await this.ledger.recordChargeback(tx, payment.orderId, amountMinor, new Date(event.occurredAt));
+        await tx.auditLog.create({
+          data: {
+            restaurantId,
+            action: 'payment.charged_back',
+            entity: 'Payment',
+            entityId: payment.id,
+            meta: { amountMinor, ledgerLine: booked },
+          },
+        });
+      });
+      this.realtime.publishMany(await this.orders.eventsForOrder(payment.orderId));
+      return reply('CHARGEBACK');
+    }
     if (event.status === 'CAPTURED' && event.amountMinor !== payment.amountMinor) {
       this.logger.warn(`Webhook amount ${event.amountMinor} differs from payment ${payment.amountMinor}`);
       throw badRequest('WEBHOOK_INVALID', 'Amount mismatch');
@@ -245,7 +267,7 @@ export class CheckoutService {
       await tx.payment.update({
         where: { id: payment.id },
         data: {
-          status: event.status,
+          status: event.status === 'CHARGEBACK' ? 'CHARGED_BACK' : event.status,
           // A refund notice keeps the capture reference; a refund started on the platform already stored its own.
           ...(event.status === 'REFUNDED' ? {} : { providerRef: event.providerRef, pspFeeMinor: event.pspFeeMinor }),
           capturedAt: event.status === 'CAPTURED' ? new Date(event.occurredAt) : payment.capturedAt,

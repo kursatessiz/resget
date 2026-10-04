@@ -139,9 +139,9 @@ describe('Launch tools and marketplace ranking (e2e)', () => {
       .http()
       .patch(`/admin/service-areas/${kadikoy.id}`)
       .set(bearer(adminToken))
-      .send({ neighbourDistricts: [neighbourDistrict, 'kadikoy', neighbourDistrict.toUpperCase()] })
+      .send({ neighbourDistricts: [neighbourDistrict, 'kadikoy', neighbourDistrict.toLocaleUpperCase('tr')] })
       .expect(200);
-    // The area itself and a repeat in other casing are dropped.
+    // The area itself and a repeat in other casing are dropped (district names compare in Turkish casing: i / İ, ı / I).
     expect(saved.body.neighbourDistricts).toEqual([neighbourDistrict]);
 
     const candidates = await ctx.http().get('/admin/service-areas/candidates').set(bearer(adminToken)).expect(200);
