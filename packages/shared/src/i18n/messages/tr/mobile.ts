@@ -29,6 +29,7 @@ export const trMobile = {
   'mobile.tracking.refresh': 'Durum birkaç saniyede bir yenilenir.',
   'mobile.tracking.notFound': 'Bu takip bağlantısı geçerli değil.',
   'mobile.tracking.back': 'Geri dön',
+  'mobile.push.channel': 'Sipariş ve sefer bildirimleri',
   'mobile.courier.title': 'Seferlerim',
   'mobile.courier.empty': 'Şu an size atanmış sefer yok. Yeni sefer gelince burada görünür.',
   'mobile.courier.trip': 'Sefer {code}',

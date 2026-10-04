@@ -43,6 +43,7 @@ import { LedgerService } from '../ledger/ledger.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { GeocodingService } from '../geocoding/geocoding.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { PushService } from '../push/push.service';
 import { OrderNotificationsService } from './order-notifications.service';
 import { RealtimeService, courierTopic, dispatchTopic, orderTopic } from '../realtime/realtime.service';
 import type { TopicEvent } from '../realtime/realtime.service';
@@ -118,6 +119,7 @@ export class OrdersService {
     private readonly loyalty: LoyaltyService,
     private readonly geocoding: GeocodingService,
     private readonly webhooks: WebhooksService,
+    private readonly push: PushService,
   ) {}
 
   setTripEventsProvider(provider: (tripId: string) => Promise<TopicEvent[]>): void {
@@ -148,6 +150,7 @@ export class OrdersService {
         paymentMode: true,
         deliveryMode: true,
         dispatchSettings: true,
+        name: true,
       },
     });
     if (!restaurant) throw notFound('NOT_FOUND', 'Restaurant not found');
@@ -356,6 +359,16 @@ export class OrdersService {
     });
 
     this.realtime.publishMany(await this.eventsForOrder(orderId));
+    // Orders typed in by the staff need no alert; the others wake the phones of everyone who works the orders screen.
+    if (input.channel !== 'PHONE') {
+      await this.push.notifyRestaurantStaff(
+        restaurantId,
+        'orders.view',
+        'order.placed',
+        { restaurant: restaurant.name, code: orderShortCode(orderId) },
+        { kind: 'orders' },
+      );
+    }
     return this.detail(restaurantId, orderId, canSeeContacts);
   }
 

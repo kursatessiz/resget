@@ -59,6 +59,7 @@
 | `restaurant_subscriptions` | Restoran başına tek; durum, deneme bitişi, dönem sonu. |
 | `message_credit_packages` | Kanal, kredi, fiyat. |
 | `message_wallets`, `message_transactions` | Kanal başına bakiye; her hareket bakiye sonrası değeriyle. |
+| `push_devices` | Kişinin telefonu: Expo push jetonu (benzersiz), platform, dil, son görülme, `disabledAt` (sağlayıcı cihazı ölü bildirince). Kullanıcıya bağlıdır, restorana değil. |
 | `message_logs` | Her deneme; `creditsCharged` yalnızca SENT'te sıfırdan büyük. Telefon maskeli. |
 
 ## Kurye

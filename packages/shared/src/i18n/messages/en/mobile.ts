@@ -30,6 +30,7 @@ export const enMobile: Record<keyof typeof trMobile, string> = {
   'mobile.tracking.refresh': 'The status refreshes every few seconds.',
   'mobile.tracking.notFound': 'This tracking link is not valid.',
   'mobile.tracking.back': 'Go back',
+  'mobile.push.channel': 'Order and trip notifications',
   'mobile.courier.title': 'My trips',
   'mobile.courier.empty': 'No trip is assigned to you right now. New trips show up here.',
   'mobile.courier.trip': 'Trip {code}',
