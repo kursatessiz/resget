@@ -181,6 +181,20 @@ export enum LedgerEntryType {
   RESTAURANT_PAYABLE = 'RESTAURANT_PAYABLE',
 }
 
+/** Why money went back to the customer (docs/ODEME.md, "İade"); one OrderRefund row per refund. */
+export enum OrderRefundSource {
+  /** Automatic refund of an online payment right after a rejection or cancellation. */
+  CANCELLATION = 'CANCELLATION',
+  /** Staff refund (`orders.refund`): the whole order, chosen items or an amount. */
+  STAFF = 'STAFF',
+  /** A customer's missing-item claim approved by the restaurant. */
+  CLAIM = 'CLAIM',
+  /** A refund made in the provider's own dashboard and reported by its webhook. */
+  PROVIDER = 'PROVIDER',
+  /** The cardholder's bank took the money back. */
+  CHARGEBACK = 'CHARGEBACK',
+}
+
 export enum PayoutStatus {
   SCHEDULED = 'SCHEDULED',
   SENT = 'SENT',

@@ -43,6 +43,8 @@ export const trErrors = {
     'Ödeme sağlayıcısına ulaşılamadı. İade kısa süre sonra kendiliğinden yeniden denenir; şimdi tekrar da deneyebilirsiniz.',
   'errors.REFUND_UNAVAILABLE':
     'Bu ödemenin alındığı bağlantı artık kullanılamıyor; iadeyi ödeme sağlayıcısının panelinden yapın.',
+  'errors.REFUND_ITEMS_INVALID': 'Seçilen ürünler bu siparişte yok veya o kadarı zaten iade edildi.',
+  'errors.REFUND_AMOUNT_TOO_HIGH': 'İade tutarı siparişte iade edilebilecek tutardan fazla.',
   'errors.MEAL_CARD_PROVIDER_UNAVAILABLE': 'Bu yemek kartı için çevrim içi ödeme entegrasyonu henüz hazır değil.',
   'errors.WEBHOOK_INVALID': 'Ödeme bildirimi doğrulanamadı.',
   'errors.MENU_CATEGORY_NOT_FOUND': 'Kategori bulunamadı.',

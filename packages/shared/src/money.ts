@@ -36,6 +36,21 @@ export function bpsOf(amountMinor: number, bps: number): number {
   return Math.round((amountMinor * bps) / 10000);
 }
 
+/**
+ * `amount * part / whole`, rounded half up: the share of an amount that a
+ * part of a whole carries (a partial refund's share of the commission,
+ * docs/MUTABAKAT.md "Kısmi iade"). The part is capped at the whole, so the
+ * share never exceeds the amount; a zero whole carries nothing.
+ */
+export function shareOf(amountMinor: number, partMinor: number, wholeMinor: number): number {
+  assertMinor(amountMinor);
+  assertMinor(partMinor);
+  assertMinor(wholeMinor);
+  if (wholeMinor <= 0 || partMinor <= 0) return 0;
+  if (partMinor >= wholeMinor) return amountMinor;
+  return Math.round((amountMinor * partMinor) / wholeMinor);
+}
+
 /** The VAT-exclusive part of a gross amount that includes VAT at `vatRateBps`. */
 export function netOfVat(grossMinor: number, vatRateBps: number): number {
   assertMinor(grossMinor);

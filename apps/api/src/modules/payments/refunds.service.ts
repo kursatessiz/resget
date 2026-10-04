@@ -2,14 +2,25 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { ConfigService } from '@nestjs/config';
 import {
   AUTO_REFUND_STATUSES,
+  PARTIAL_REFUND_ORDER_STATUSES,
   REFUND_CLAIM_STALE_MS,
+  allocateRefund,
   canStartRefund,
   isOnlinePayment,
   isRefundClaimLive,
   isRefundRetryDue,
+  itemsRefundMinor,
   refundableMinor,
+  refundedQuantities,
 } from '@resget/shared';
-import type { OrderActor, OrderDetailDTO, RefundOrderInput } from '@resget/shared';
+import type {
+  OrderActor,
+  OrderDetailDTO,
+  OrderRefundSourceValue,
+  OrderStatus,
+  RefundItem,
+  RefundOrderInput,
+} from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { OrdersService } from '../orders/orders.service';
@@ -31,8 +42,24 @@ interface RefundRun {
   actor: OrderActor;
   actorUserId: string | null;
   reason: string;
+  source: OrderRefundSourceValue;
   /** Staff refunds also record money taken at the door as given back by hand; the automatic path never does. */
   includeDoor: boolean;
+  now: Date;
+}
+
+/** What one payment refund books besides the money: why, who, which items (docs/ODEME.md, "Kısmi iade"). */
+interface RefundContext {
+  source: OrderRefundSourceValue;
+  reason: string;
+  actorUserId: string | null;
+  items: RefundItem[] | null;
+  /**
+   * A partial refund is a staff action on the screen: a failed attempt is
+   * reported there and leaves no failure mark for the automatic retry,
+   * which only gives back whole cancelled orders.
+   */
+  partial: boolean;
   now: Date;
 }
 
@@ -87,7 +114,11 @@ export class RefundsService implements OnModuleInit, OnModuleDestroy {
     if (this.timer) clearInterval(this.timer);
   }
 
-  /** Staff request (`orders.refund`): every captured payment of a cancelled or completed order goes back. */
+  /**
+   * Staff request (`orders.refund`): without items or an amount every captured
+   * payment of a cancelled or completed order goes back; with them, part of a
+   * completed order (refundPart).
+   */
   async refund(
     restaurantId: string,
     orderId: string,
@@ -95,6 +126,10 @@ export class RefundsService implements OnModuleInit, OnModuleDestroy {
     actorUserId: string,
     canSeeContacts: boolean,
   ): Promise<OrderDetailDTO> {
+    if (input.items || input.amountMinor !== undefined) {
+      await this.refundPart(restaurantId, orderId, input, actorUserId, 'STAFF');
+      return this.orders.detail(restaurantId, orderId, canSeeContacts);
+    }
     const now = new Date();
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, restaurantId },
@@ -111,11 +146,84 @@ export class RefundsService implements OnModuleInit, OnModuleDestroy {
       actor: 'RESTAURANT',
       actorUserId,
       reason: input.reason,
+      source: 'STAFF',
       includeDoor: true,
       now,
     });
     if (failure) throw conflict(failure, 'Refund did not go through');
     return this.orders.detail(restaurantId, orderId, canSeeContacts);
+  }
+
+  /**
+   * Part of a completed order goes back (docs/ODEME.md, "Kısmi iade"): the
+   * chosen items at what the customer paid for them, or an amount, taken
+   * from online payments first and then from money taken at the door. The
+   * order stays completed until nothing is left, then it is REFUNDED like a
+   * full refund. The restaurant bears it; the platform gives back the
+   * refunded share of its commission (LedgerService.recordRefund). Returns
+   * the amount that went back.
+   */
+  async refundPart(
+    restaurantId: string,
+    orderId: string,
+    input: RefundOrderInput,
+    actorUserId: string,
+    source: OrderRefundSourceValue,
+  ): Promise<number> {
+    const now = new Date();
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, restaurantId },
+      select: {
+        status: true,
+        itemsGrossMinor: true,
+        discountMinor: true,
+        items: { select: { id: true, quantity: true, lineTotalMinor: true } },
+        payments: { orderBy: { createdAt: 'asc' } },
+        refunds: { select: { items: true } },
+      },
+    });
+    if (!order) throw notFound('ORDER_NOT_FOUND', 'Order not found');
+    if (!PARTIAL_REFUND_ORDER_STATUSES.includes(order.status as OrderStatus)) {
+      throw conflict('REFUND_NOT_ALLOWED', 'Only a completed order is refunded in part');
+    }
+    if (order.payments.some((p) => isRefundClaimLive(p.refundRequestedAt, now))) {
+      throw conflict('REFUND_IN_PROGRESS', 'A refund is already in flight');
+    }
+    const left = order.payments.reduce((n, p) => n + refundableMinor(p), 0);
+    if (left === 0) throw conflict('REFUND_NOT_ALLOWED', 'Nothing to refund on this order');
+    const items = input.items ?? null;
+    let amountMinor = input.amountMinor ?? 0;
+    if (items) {
+      const given = refundedQuantities(order.refunds.map((r) => ({ items: r.items as RefundItem[] | null })));
+      const priced = itemsRefundMinor(order, order.items, items, given);
+      if (priced === null || priced === 0) throw conflict('REFUND_ITEMS_INVALID', 'Items cannot be refunded');
+      amountMinor = priced;
+    }
+    if (amountMinor > left) throw conflict('REFUND_AMOUNT_TOO_HIGH', 'More than is left to refund');
+    const plan = allocateRefund(order.payments, amountMinor, now);
+    if (!plan) throw conflict('REFUND_IN_PROGRESS', 'A refund is already in flight');
+
+    let refunded = 0;
+    let failure: RefundFailureCode | null = null;
+    for (const [index, step] of plan.entries()) {
+      const code = await this.refundPayment(
+        orderId,
+        restaurantId,
+        step.payment,
+        step.amountMinor,
+        isOnlinePayment(step.payment),
+        // The items ride on the first row only, so the quantities given back are counted once.
+        { source, reason: input.reason, actorUserId, items: index === 0 ? items : null, partial: true, now },
+      );
+      if (code) {
+        failure = code;
+        break;
+      }
+      refunded += step.amountMinor;
+    }
+    if (refunded > 0) await this.afterRefund(orderId, 'RESTAURANT', actorUserId, input.reason, refunded);
+    if (failure) throw conflict(failure, 'Refund did not go through');
+    return refunded;
   }
 
   /** Right after a cancellation committed; never throws, the cancellation stands whatever the gateway says. */
@@ -125,6 +233,7 @@ export class RefundsService implements OnModuleInit, OnModuleDestroy {
         actor: 'SYSTEM',
         actorUserId: null,
         reason: 'refund after cancellation',
+        source: 'CANCELLATION',
         includeDoor: false,
         now: new Date(),
       });
@@ -170,6 +279,7 @@ export class RefundsService implements OnModuleInit, OnModuleDestroy {
           actor: 'SYSTEM',
           actorUserId: null,
           reason: 'refund retry',
+          source: 'CANCELLATION',
           includeDoor: false,
           now,
         });
@@ -201,20 +311,42 @@ export class RefundsService implements OnModuleInit, OnModuleDestroy {
       const amountMinor = refundableMinor(payment);
       const online = isOnlinePayment(payment);
       if (amountMinor === 0 || (!online && !opts.includeDoor)) continue;
-      const code = await this.refundPayment(order.id, order.restaurantId, payment, amountMinor, online, opts.now);
+      const code = await this.refundPayment(order.id, order.restaurantId, payment, amountMinor, online, {
+        source: opts.source,
+        reason: opts.reason,
+        actorUserId: opts.actorUserId,
+        items: null,
+        partial: false,
+        now: opts.now,
+      });
       if (code) failure ??= code;
       if (code !== 'REFUND_IN_PROGRESS') changed = true;
     }
-
-    const leftFrom = changed
-      ? await this.prisma.$transaction((tx) =>
-          this.orders.closeAsRefunded(tx, order.id, opts.actor, opts.actorUserId, opts.reason),
-        )
-      : null;
-    if (changed) this.realtime.publishMany(await this.orders.eventsForOrder(order.id));
-    // A cancelled order's customer already heard about the refund in the cancellation message.
-    if (leftFrom === 'DELIVERED' || leftFrom === 'PICKED_UP') await this.notifications.notify(order.id, 'REFUNDED');
+    if (changed) await this.afterRefund(order.id, opts.actor, opts.actorUserId, opts.reason, null);
     return failure;
+  }
+
+  /**
+   * After money went back: the order becomes REFUNDED once nothing is left,
+   * the screens hear about it, and the customer of a completed order is told
+   * (a full refund by its own message, a partial one with the amount). A
+   * cancelled order's customer already heard about the refund in the
+   * cancellation message.
+   */
+  private async afterRefund(
+    orderId: string,
+    actor: OrderActor,
+    actorUserId: string | null,
+    reason: string,
+    partialMinor: number | null,
+  ): Promise<void> {
+    const leftFrom = await this.prisma.$transaction((tx) =>
+      this.orders.closeAsRefunded(tx, orderId, actor, actorUserId, reason),
+    );
+    this.realtime.publishMany(await this.orders.eventsForOrder(orderId));
+    if (leftFrom === 'DELIVERED' || leftFrom === 'PICKED_UP') await this.notifications.notify(orderId, 'REFUNDED');
+    else if (leftFrom === null && partialMinor !== null)
+      await this.notifications.notifyPartialRefund(orderId, partialMinor);
   }
 
   private async refundPayment(
@@ -223,8 +355,9 @@ export class RefundsService implements OnModuleInit, OnModuleDestroy {
     payment: CapturedPayment,
     amountMinor: number,
     online: boolean,
-    now: Date,
+    context: RefundContext,
   ): Promise<RefundFailureCode | null> {
+    const { now } = context;
     // The claim: only one attempt per payment at a time, a stale one is taken over.
     const claimed = await this.prisma.payment.updateMany({
       where: {
@@ -263,24 +396,35 @@ export class RefundsService implements OnModuleInit, OnModuleDestroy {
     if (code) {
       await this.prisma.payment.update({
         where: { id: payment.id },
-        data: { refundRequestedAt: null, refundFailureCode: code },
+        data: context.partial ? { refundRequestedAt: null } : { refundRequestedAt: null, refundFailureCode: code },
       });
       return code;
     }
+    const refundedMinor = payment.refundedMinor + amountMinor;
     await this.prisma.$transaction(async (tx) => {
       await tx.payment.update({
         where: { id: payment.id },
         data: {
-          status: 'REFUNDED',
-          refundedMinor: payment.amountMinor,
+          status: refundedMinor >= payment.amountMinor ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
+          refundedMinor,
           refundedAt: now,
           refundProviderRef: providerRef,
           refundRequestedAt: null,
           refundFailureCode: null,
         },
       });
-      // Platform-collected money of a completed order comes back out of the next payout (docs/MUTABAKAT.md).
-      await this.ledger.recordRefund(tx, orderId, amountMinor, now);
+      // The refund row with its commission share; platform-collected money of a completed order also comes back
+      // out of the next payout with the commission share returned in it (docs/MUTABAKAT.md, "Kısmi iade").
+      await this.ledger.recordRefund(tx, {
+        orderId,
+        paymentId: payment.id,
+        source: context.source,
+        amountMinor,
+        items: context.items,
+        reason: context.reason,
+        actorUserId: context.actorUserId,
+        now,
+      });
     });
     return null;
   }

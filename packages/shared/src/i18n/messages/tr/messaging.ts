@@ -12,6 +12,7 @@ export const trMessaging = {
   'messaging.template.order.cancelled': '{restaurant}: {code} numarali siparisiniz iptal edildi.{reason}{refund}',
   'messaging.template.order.refunded':
     '{restaurant}: {code} numarali siparisinizin odemesi iade edildi. Tutarin hesabiniza gecmesi bankaniza gore birkac gun surebilir.',
+  'messaging.template.order.partiallyRefunded': '{restaurant}: {code} numarali siparisiniz icin {amount} iade edildi.',
   'messaging.template.reasonSuffix': ' Neden: {reason}',
   'messaging.template.refundSuffix.done': ' Odemeniz iade edildi.',
   'messaging.template.refundSuffix.pending': ' Odemeniz iade edilecek.',
@@ -67,6 +68,7 @@ export const trMessaging = {
   'messaging.log.template.order.rejected': 'Sipariş reddedildi',
   'messaging.log.template.order.cancelled': 'Sipariş iptal edildi',
   'messaging.log.template.order.refunded': 'Sipariş iade edildi',
+  'messaging.log.template.order.partiallyRefunded': 'Kısmi iade',
   'messaging.log.error.INSUFFICIENT_CREDITS': 'Kredi yetersiz',
   'messaging.log.error.PROVIDER_REJECTED': 'Sağlayıcı kabul etmedi',
   'messaging.log.error.PROVIDER_ERROR': 'Sağlayıcı hatası',
@@ -95,6 +97,8 @@ export const trMessaging = {
   'messaging.push.order.refunded.title': 'Ödemeniz iade edildi',
   'messaging.push.order.refunded.body':
     '{restaurant}: {code} numaralı siparişinizin ödemesi iade edildi. Tutarın hesabınıza geçmesi bankanıza göre birkaç gün sürebilir.',
+  'messaging.push.order.partiallyRefunded.title': 'Kısmi iade yapıldı',
+  'messaging.push.order.partiallyRefunded.body': '{restaurant}: {code} numaralı siparişiniz için {amount} iade edildi.',
   'messaging.push.refundSuffix.done': ' Ödemeniz iade edildi.',
   'messaging.push.refundSuffix.pending': ' Ödemeniz iade edilecek.',
   'messaging.push.trip.assigned.title': 'Yeni sefer',

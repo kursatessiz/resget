@@ -5,6 +5,7 @@ import { isTerminalOrderStatus } from '@resget/shared';
 import type { OrderDetailDTO, OrderStatusValue, OrderSummaryDTO, RealtimeEvent } from '@resget/shared';
 import { Badge, Button } from '@/components/ui';
 import { ApiError, bffJson, useRealtime } from '@/lib/client-api';
+import type { RefundRequest } from './RefundPanel';
 import { useT } from '@/lib/use-t';
 import { OrderCard } from './OrderCard';
 
@@ -157,13 +158,13 @@ export function OrdersBoard({
     }
   };
 
-  const refund = async (order: OrderSummaryDTO, reason: string) => {
+  const refund = async (order: OrderSummaryDTO, request: RefundRequest) => {
     setBusyId(order.id);
     setError(null);
     try {
       const updated = await bffJson<OrderDetailDTO>(`${base}/${order.id}/refund`, {
         method: 'POST',
-        body: JSON.stringify({ reason }),
+        body: JSON.stringify(request),
       });
       upsert(updated);
     } catch (err) {
@@ -217,7 +218,8 @@ export function OrdersBoard({
                   canRefund={canRefund}
                   busy={busyId === order.id}
                   onTransition={(o, to, extra) => void transition(o, to, extra)}
-                  onRefund={(o, reason) => void refund(o, reason)}
+                  onRefund={(o, request) => void refund(o, request)}
+                  loadDetail={(o) => bffJson<OrderDetailDTO>(`${base}/${o.id}`)}
                 />
               ))}
             </section>

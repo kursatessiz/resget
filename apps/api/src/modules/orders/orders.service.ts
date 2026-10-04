@@ -23,6 +23,7 @@ import {
   isAutoRefundStatus,
   canStartRefund,
   refundableMinor,
+  refundedQuantities,
   refundStateOf,
   visibleContact,
 } from '@resget/shared';
@@ -42,6 +43,7 @@ import type {
   SettlementLine,
   DispatchSettings,
   RateOrderInput,
+  RefundItem,
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
@@ -65,6 +67,8 @@ const orderArgs = Prisma.validator<Prisma.OrderDefaultArgs>()({
     statusHistory: { orderBy: { createdAt: 'asc' } },
     // Every payment of the order, newest first: the refund state reads them all.
     payments: { orderBy: { createdAt: 'desc' } },
+    // Every refund, oldest first: the detail lists them and counts the items already given back.
+    refunds: { orderBy: { createdAt: 'asc' } },
     rating: true,
     deliveryStops: {
       where: { status: { in: [...ACTIVE_STOP_STATUSES] }, trip: { status: { in: [...ACTIVE_TRIP_STATUSES] } } },
@@ -447,11 +451,9 @@ export class OrdersService {
     const refunded = row.payments.some((p) => p.status === 'REFUNDED');
     if (remaining || !refunded || !canTransitionOrder(row.fulfillment, row.status, 'REFUNDED', actor)) return null;
     const from = row.status;
+    // No commission on a refunded order: the last refund row already cancelled what was left of it
+    // (LedgerService.recordRefund, docs/MUTABAKAT.md "Kısmi iade").
     await this.applyTransition(tx, row, 'REFUNDED', actor, actorUserId, { reason });
-    // No commission on a refunded order (docs/MUTABAKAT.md): a completed one is taken off, or credited if already billed.
-    if (row.completedAt) {
-      await tx.order.update({ where: { id: row.id }, data: { commissionReversedAt: new Date() } });
-    }
     return from;
   }
 
@@ -760,6 +762,9 @@ export class OrdersService {
   }
 
   toDetail(row: OrderRow, canSeeContacts: boolean): OrderDetailDTO {
+    const refundItems = (raw: unknown): RefundItem[] => (Array.isArray(raw) ? (raw as RefundItem[]) : []);
+    const given = refundedQuantities(row.refunds.map((r) => ({ items: refundItems(r.items) })));
+    const nameOf = new Map(row.items.map((item) => [item.id, item.nameSnapshot]));
     return {
       ...this.toSummary(row, canSeeContacts),
       items: row.items.map((item) => ({
@@ -771,6 +776,7 @@ export class OrdersService {
         modifiers: Array.isArray(item.modifiersSnapshot)
           ? (item.modifiersSnapshot as unknown as { name: string; priceDeltaMinor: number }[])
           : [],
+        refundedQuantity: given.get(item.id) ?? 0,
       })),
       history: row.statusHistory.map((h) => ({
         from: h.fromStatus,
@@ -784,6 +790,21 @@ export class OrdersService {
       discountMinor: row.discountMinor,
       restaurantPayableMinor: row.restaurantPayableMinor,
       platformReceivableMinor: row.platformReceivableMinor,
+      refunds: row.refunds.map((r) => ({
+        id: r.id,
+        source: r.source,
+        amountMinor: r.amountMinor,
+        currency: r.currency,
+        commissionMinor: r.commissionMinor,
+        commissionVatMinor: r.commissionVatMinor,
+        items: refundItems(r.items).map((i) => ({
+          orderItemId: i.orderItemId,
+          name: nameOf.get(i.orderItemId) ?? '',
+          quantity: i.quantity,
+        })),
+        reason: r.reason,
+        createdAt: r.createdAt.toISOString(),
+      })),
     };
   }
 }

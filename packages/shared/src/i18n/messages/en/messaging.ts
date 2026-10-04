@@ -13,6 +13,7 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
   'messaging.template.order.cancelled': '{restaurant}: your order {code} was cancelled.{reason}{refund}',
   'messaging.template.order.refunded':
     '{restaurant}: the payment for your order {code} has been refunded. Your bank may take a few days to show it.',
+  'messaging.template.order.partiallyRefunded': '{restaurant}: {amount} has been refunded for your order {code}.',
   'messaging.template.reasonSuffix': ' Reason: {reason}',
   'messaging.template.refundSuffix.done': ' Your payment has been refunded.',
   'messaging.template.refundSuffix.pending': ' Your payment will be refunded.',
@@ -68,6 +69,7 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
   'messaging.log.template.order.rejected': 'Order rejected',
   'messaging.log.template.order.cancelled': 'Order cancelled',
   'messaging.log.template.order.refunded': 'Order refunded',
+  'messaging.log.template.order.partiallyRefunded': 'Partial refund',
   'messaging.log.error.INSUFFICIENT_CREDITS': 'Insufficient credits',
   'messaging.log.error.PROVIDER_REJECTED': 'Rejected by the provider',
   'messaging.log.error.PROVIDER_ERROR': 'Provider error',
@@ -96,6 +98,8 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
   'messaging.push.order.refunded.title': 'Your payment has been refunded',
   'messaging.push.order.refunded.body':
     '{restaurant}: the payment for order {code} has been refunded. Your bank may take a few days to show it.',
+  'messaging.push.order.partiallyRefunded.title': 'Partial refund made',
+  'messaging.push.order.partiallyRefunded.body': '{restaurant}: {amount} has been refunded for your order {code}.',
   'messaging.push.refundSuffix.done': ' Your payment has been refunded.',
   'messaging.push.refundSuffix.pending': ' Your payment will be refunded.',
   'messaging.push.trip.assigned.title': 'New trip',

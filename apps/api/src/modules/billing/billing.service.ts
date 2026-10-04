@@ -162,15 +162,16 @@ export class BillingService {
             },
             select: invoiceSelect,
           });
-          // Which orders this invoice billed and which earlier ones it credited back (docs/MUTABAKAT.md).
+          // Which orders this invoice billed and which refunds it credited back (docs/MUTABAKAT.md, "Kısmi iade").
           await tx.order.updateMany({
             where: { id: { in: statement.lines.map((l) => l.orderId) }, commissionInvoiceId: null },
             data: { commissionInvoiceId: created.id },
           });
-          if (statement.credits.length > 0) {
-            await tx.order.updateMany({
-              where: { id: { in: statement.credits.map((l) => l.orderId) }, commissionCreditInvoiceId: null },
-              data: { commissionCreditInvoiceId: created.id },
+          const creditedRefunds = statement.credits.flatMap((l) => (l.refundId ? [l.refundId] : []));
+          if (creditedRefunds.length > 0) {
+            await tx.orderRefund.updateMany({
+              where: { id: { in: creditedRefunds }, creditInvoiceId: null },
+              data: { creditInvoiceId: created.id },
             });
           }
           // Signed from the restaurant's point of view: what it owes the platform for the month.

@@ -13,6 +13,7 @@ import type { GeoPoint } from './courier';
 import { MinorAmountSchema } from './money';
 import { OrderPaymentIntentSchema } from './meal-cards';
 import type { OrderPaymentDTO } from './meal-cards';
+import type { OrderRefundDTO } from './refunds';
 import { PhoneSchema, UuidSchema } from './validators';
 
 /**
@@ -568,6 +569,8 @@ export interface OrderItemDTO {
   unitPriceMinor: number;
   lineTotalMinor: number;
   modifiers: { name: string; priceDeltaMinor: number }[];
+  /** How many of this line earlier refunds gave back (docs/ODEME.md, "Kısmi iade"). */
+  refundedQuantity: number;
 }
 
 export interface OrderStatusChangeDTO {
@@ -623,6 +626,8 @@ export interface OrderDetailDTO extends OrderSummaryDTO {
   discountMinor: number;
   restaurantPayableMinor: number;
   platformReceivableMinor: number;
+  /** Every refund of the order, oldest first. */
+  refunds: OrderRefundDTO[];
 }
 
 export interface CourierPositionDTO {

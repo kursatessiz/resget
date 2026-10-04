@@ -240,22 +240,26 @@ export class CheckoutService {
     if (event.status === 'CHARGEBACK') {
       if (payment.status !== 'CAPTURED' && payment.status !== 'PARTIALLY_REFUNDED') return reply('IGNORED');
       const amountMinor = payment.amountMinor - payment.refundedMinor;
-      // The restaurant bears the chargeback and the platform takes no commission on the order (docs/MUTABAKAT.md).
+      // The restaurant bears the chargeback and the platform takes no commission on the order (docs/MUTABAKAT.md):
+      // the refund row gives back what is left of the commission and stamps the order, the ledger takes the amount
+      // out of the next payout for platform-collected money.
       await this.prisma.$transaction(async (tx) => {
         await tx.payment.update({ where: { id: payment.id }, data: { status: 'CHARGED_BACK' } });
-        // No commission on a charged-back order: off the open month, or credited if an invoice already billed it.
-        await tx.order.updateMany({
-          where: { id: payment.orderId, completedAt: { not: null }, commissionReversedAt: null },
-          data: { commissionReversedAt: new Date(event.occurredAt) },
+        const share = await this.ledger.recordRefund(tx, {
+          orderId: payment.orderId,
+          paymentId: payment.id,
+          source: 'CHARGEBACK',
+          amountMinor,
+          reason: 'chargeback reported by the provider',
+          now: new Date(event.occurredAt),
         });
-        const booked = await this.ledger.recordChargeback(tx, payment.orderId, amountMinor, new Date(event.occurredAt));
         await tx.auditLog.create({
           data: {
             restaurantId,
             action: 'payment.charged_back',
             entity: 'Payment',
             entityId: payment.id,
-            meta: { amountMinor, ledgerLine: booked },
+            meta: { amountMinor, commissionReturnedMinor: share.commissionMinor + share.commissionVatMinor },
           },
         });
       });
@@ -288,9 +292,16 @@ export class CheckoutService {
           await this.orders.applyTransition(tx, order, 'PLACED', 'SYSTEM', null, { reason: 'payment captured' });
         }
       }
-      if (event.status !== 'REFUNDED') return null;
-      // A refund of platform-collected money is a negative ledger line; the next payout carries it.
-      await this.ledger.recordRefund(tx, payment.orderId, payment.amountMinor);
+      if (event.status !== 'REFUNDED' || !refundedNow) return null;
+      // What was still on the payment went back; booked like any refund (docs/MUTABAKAT.md, "Kısmi iade").
+      await this.ledger.recordRefund(tx, {
+        orderId: payment.orderId,
+        paymentId: payment.id,
+        source: 'PROVIDER',
+        amountMinor: payment.amountMinor - payment.refundedMinor,
+        reason: 'refund reported by the provider',
+        now: new Date(event.occurredAt),
+      });
       // A refund made in the provider's own dashboard closes the order the same way (docs/ODEME.md, "İade").
       return this.orders.closeAsRefunded(tx, payment.orderId, 'SYSTEM', null, 'refund reported by the provider');
     });

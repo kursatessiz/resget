@@ -150,6 +150,16 @@ export class PaymentsService {
       commissionVatMinor: o.commissionVatMinor,
     });
 
+    // One credit line per refund: the share of the order's commission it gave back (docs/MUTABAKAT.md, "Kısmi iade").
+    const refundSelect = { id: true, orderId: true, commissionMinor: true, commissionVatMinor: true } as const;
+    const toCredit = (r: { id: string; orderId: string; commissionMinor: number; commissionVatMinor: number }) => ({
+      orderId: r.orderId,
+      refundId: r.id,
+      baseMinor: 0,
+      commissionMinor: r.commissionMinor,
+      commissionVatMinor: r.commissionVatMinor,
+    });
+
     if (invoice) {
       const [billed, credited] = await Promise.all([
         this.prisma.order.findMany({
@@ -157,42 +167,46 @@ export class PaymentsService {
           select,
           orderBy: { completedAt: 'asc' },
         }),
-        this.prisma.order.findMany({
-          where: { restaurantId, commissionCreditInvoiceId: invoice.id },
-          select,
-          orderBy: { commissionReversedAt: 'asc' },
+        this.prisma.orderRefund.findMany({
+          where: { restaurantId, creditInvoiceId: invoice.id },
+          select: refundSelect,
+          orderBy: { createdAt: 'asc' },
         }),
       ]);
-      return buildCommissionStatement(restaurant.currency, period, billed.map(toLine), credited.map(toLine));
+      return buildCommissionStatement(restaurant.currency, period, billed.map(toLine), credited.map(toCredit));
     }
 
-    const [charges, pending] = await Promise.all([
-      this.prisma.order.findMany({
-        where: {
-          restaurantId,
-          paymentMode: PaymentMode.OWN_POS,
-          status: { in: ['DELIVERED', 'PICKED_UP'] },
-          completedAt: { gte: period.periodStart, lt: period.periodEnd },
-          commissionInvoiceId: null,
-          // Refunded or charged back: no commission.
-          commissionReversedAt: null,
-        },
-        select,
-        orderBy: { completedAt: 'asc' },
-      }),
-      this.prisma.order.findMany({
-        where: {
-          restaurantId,
-          commissionInvoiceId: { not: null },
-          commissionReversedAt: { not: null },
-          commissionCreditInvoiceId: null,
-        },
-        select,
-        orderBy: { commissionReversedAt: 'asc' },
-      }),
-    ]);
+    const charges = await this.prisma.order.findMany({
+      where: {
+        restaurantId,
+        paymentMode: PaymentMode.OWN_POS,
+        status: { in: ['DELIVERED', 'PICKED_UP'] },
+        completedAt: { gte: period.periodStart, lt: period.periodEnd },
+        commissionInvoiceId: null,
+        // Fully refunded or charged back before any invoice: no commission at all, and no credit either.
+        commissionReversedAt: null,
+      },
+      select,
+      orderBy: { completedAt: 'asc' },
+    });
+    // Refunds give their share back only for an order that is billed: on an earlier invoice or on this one.
+    const pending = await this.prisma.orderRefund.findMany({
+      where: {
+        restaurantId,
+        creditInvoiceId: null,
+        OR: [{ commissionMinor: { gt: 0 } }, { commissionVatMinor: { gt: 0 } }],
+        order: { paymentMode: PaymentMode.OWN_POS },
+        AND: [
+          {
+            OR: [{ order: { commissionInvoiceId: { not: null } } }, { orderId: { in: charges.map((o) => o.id) } }],
+          },
+        ],
+      },
+      select: refundSelect,
+      orderBy: { createdAt: 'asc' },
+    });
     const chargeLines = charges.map(toLine);
-    const { applied } = applyCommissionCredits(chargeLines, pending.map(toLine));
+    const { applied } = applyCommissionCredits(chargeLines, pending.map(toCredit));
     return buildCommissionStatement(restaurant.currency, period, chargeLines, applied);
   }
 

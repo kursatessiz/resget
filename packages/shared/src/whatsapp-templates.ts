@@ -57,6 +57,11 @@ export const WHATSAPP_TEMPLATES: Partial<Record<MessageTemplateKey, WhatsAppTemp
     detailsFallbackKey: 'messaging.whatsapp.details.order',
   },
   'order.refunded': { name: 'resget_order_refunded', category: 'UTILITY', params: ['restaurant', 'code'] },
+  'order.partiallyRefunded': {
+    name: 'resget_order_partially_refunded',
+    category: 'UTILITY',
+    params: ['restaurant', 'code', 'amount'],
+  },
   'order.acceptOverdue': {
     name: 'resget_order_accept_overdue',
     category: 'UTILITY',

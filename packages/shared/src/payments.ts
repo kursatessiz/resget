@@ -269,6 +269,8 @@ export function computeModeSettlement(mode: PaymentModeValue, input: SettlementI
 
 export interface CommissionLine {
   orderId: string;
+  /** Set on a credit line: the refund whose commission share it gives back (docs/MUTABAKAT.md, "Kısmi iade"). */
+  refundId?: string;
   /** Commission base of the order (items after a restaurant-funded discount). */
   baseMinor: number;
   commissionMinor: number;
@@ -286,10 +288,10 @@ export interface CommissionStatement {
   totalMinor: number;
   lines: CommissionLine[];
   /**
-   * Orders billed on an earlier invoice whose commission was cancelled by a
-   * refund or chargeback after completion (docs/MUTABAKAT.md, "İade ve
-   * chargeback"): credited here, so commissionMinor, vatMinor and totalMinor
-   * are net of them.
+   * Commission given back by refunds and chargebacks after completion, one
+   * line per refund with its share (docs/MUTABAKAT.md, "Kısmi iade"):
+   * credited here, so commissionMinor, vatMinor and totalMinor are net of
+   * them.
    */
   credits: CommissionLine[];
   creditCommissionMinor: number;
@@ -339,7 +341,7 @@ export function buildCommissionStatement(
 }
 
 /**
- * Which pending commission credits an invoice absorbs: whole orders, oldest
+ * Which pending commission credits an invoice absorbs: whole refund lines, oldest
  * first, while their total stays below the month's charges, so an invoice
  * is never zero or negative; the rest waits for the next invoice.
  */

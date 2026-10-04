@@ -16,7 +16,7 @@ const completedSelect = Prisma.validator<Prisma.OrderSelect>()({
   chargedToCustomerMinor: true,
   platformCommissionMinor: true,
   commissionVatMinor: true,
-  commissionReversedAt: true,
+  refunds: { select: { commissionMinor: true, commissionVatMinor: true } },
   completedAt: true,
   placedAt: true,
   currency: true,
@@ -69,10 +69,16 @@ export class ReportsService {
       }),
     ]);
     const grossMinor = completed.reduce((n, o) => n + o.chargedToCustomerMinor, 0);
-    // No commission on a charged-back order (docs/MUTABAKAT.md); refunded ones are not among the completed.
-    const commissionMinor = completed
-      .filter((o) => o.commissionReversedAt === null)
-      .reduce((n, o) => n + o.platformCommissionMinor + o.commissionVatMinor, 0);
+    // Net of what refunds and chargebacks gave back (docs/MUTABAKAT.md, "Kısmi iade"); fully refunded orders
+    // are not among the completed.
+    const commissionMinor = completed.reduce(
+      (n, o) =>
+        n +
+        o.platformCommissionMinor +
+        o.commissionVatMinor -
+        o.refunds.reduce((m, r) => m + r.commissionMinor + r.commissionVatMinor, 0),
+      0,
+    );
     return {
       days,
       from: from.toISOString(),

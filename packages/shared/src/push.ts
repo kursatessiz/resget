@@ -62,6 +62,7 @@ export const PUSH_TEMPLATE_KEYS = [
   'order.rejected',
   'order.cancelled',
   'order.refunded',
+  'order.partiallyRefunded',
   'trip.assigned',
   'order.placed',
 ] as const;
