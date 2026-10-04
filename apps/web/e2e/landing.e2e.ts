@@ -11,6 +11,22 @@ test.describe('Landing page', () => {
     await expect(page.getByRole('link', { name: 'Giriş yap' })).toBeVisible();
   });
 
+  test('serves the universal link files from the configured store identifiers', async ({ request }) => {
+    const apple = await request.get('/.well-known/apple-app-site-association');
+    expect(apple.status()).toBe(200);
+    const aasa = (await apple.json()) as {
+      applinks: { details: { appIDs: string[]; components: { '/': string }[] }[] };
+    };
+    expect(aasa.applinks.details[0].appIDs).toEqual(['ABCDE12345.com.resget.app']);
+    expect(aasa.applinks.details[0].components[0]['/']).toBe('/t/*');
+
+    const android = await request.get('/.well-known/assetlinks.json');
+    expect(android.status()).toBe(200);
+    const links = (await android.json()) as { target: { package_name: string; sha256_cert_fingerprints: string[] } }[];
+    expect(links[0].target.package_name).toBe('com.resget.app');
+    expect(links[0].target.sha256_cert_fingerprints).toHaveLength(1);
+  });
+
   test('sends the baseline security headers', async ({ request }) => {
     const res = await request.get('/');
     expect(res.headers()['x-content-type-options']).toBe('nosniff');

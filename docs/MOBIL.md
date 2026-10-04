@@ -71,7 +71,11 @@ pnpm turbo run build --filter=@resget/shared
 EXPO_PUBLIC_API_URL=http://<bilgisayar-ip>:4000 EXPO_PUBLIC_WEB_URL=http://<bilgisayar-ip>:3000 pnpm --filter @resget/mobile start
 ```
 
-Üretim derlemesinde `EXPO_PUBLIC_WEB_URL` https alan adıdır; `app.config.ts` bu alan adını iOS `associatedDomains` ve Android `intentFilters` olarak kaydeder, böylece `/t/<token>` bağlantıları uygulamada açılır. Web tarafında `/.well-known/apple-app-site-association` ve `assetlinks.json` dosyaları mağaza kimlikleriyle yayınlanır (EAS adımıyla birlikte gelir).
+Üretim derlemesinde `EXPO_PUBLIC_WEB_URL` https alan adıdır; `app.config.ts` bu alan adını iOS `associatedDomains` ve Android `intentFilters` olarak kaydeder, böylece `/t/<token>` bağlantıları uygulamada açılır. Web tarafı karşılığını `apps/web/src/lib/app-links.ts` üretir: `/.well-known/apple-app-site-association` (`IOS_APP_IDENTIFIER`, `TEAMID.bundle`) ve `/.well-known/assetlinks.json` (`ANDROID_PACKAGE_NAME`, `ANDROID_CERT_FINGERPRINTS`; SHA-256, virgülle ayrılmış). Değerler web sunucusunun ortamından istek anında okunur; boşken dosyalar 404 döner ve bağlantılar tarayıcıda açılır. Kimlikler mağaza hesapları açılınca `.env` dosyasına yazılır, imaj değişmez.
+
+### EAS derleme profilleri
+
+`apps/mobile/eas.json` üç profil tanımlar: `development` (geliştirme istemcisi, iç dağıtım, yerel API ve web adresleri), `preview` (iç dağıtım, Android APK; `preview` EAS ortamının değişkenleri) ve `production` (sürüm numarası EAS'ta otomatik artar; `production` EAS ortamının değişkenleri). Üretim ve ön izleme için `EXPO_PUBLIC_API_URL` ve `EXPO_PUBLIC_WEB_URL` EAS ortam değişkeni olarak tanımlanır (`eas env:create`), depoya yazılmaz. İlk kurulum sırası: `eas init` (proje kimliği `app.json` içine `extra.eas.projectId` olarak girer; push bunu gerektirir), `eas credentials` (APNs anahtarı, Android imza anahtarı; SHA-256 parmak izi buradan alınıp web ortamına yazılır), `eas build --profile preview`, mağaza hesapları hazır olunca `eas submit`.
 
 Expo Go ile telefondan QR okutulur. Arka plan konumu Expo Go'da sınırlıdır; gerçek davranış geliştirme derlemesiyle (`expo run:android`, `expo run:ios`) ya da EAS derlemesiyle görülür. Simülatörde `localhost` çalışır, fiziksel cihazda bilgisayarın ağ adresi verilir.
 
