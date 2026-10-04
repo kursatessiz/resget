@@ -333,6 +333,7 @@ export class StorefrontService {
       note: input.note,
       qrSessionId: context.sessionId ?? undefined,
       marketingOptIn: input.marketingOptIn,
+      marketingChannels: input.marketingChannels,
     };
     // Points belong to the signed-in phone; an order placed for another number cannot spend them.
     let loyaltyUserId: string | undefined;
@@ -445,7 +446,7 @@ export class StorefrontService {
     table: { id: string; label: string } | null,
     branchId: string | null,
   ): Promise<StorefrontDTO> {
-    const [categories, payment, loyalty, availability, zone, coupons, tracking] = await Promise.all([
+    const [categories, payment, loyalty, availability, zone, coupons, tracking, consentV2] = await Promise.all([
       this.menu.menuOf(restaurant.id),
       this.mealCards.acceptedMethods(restaurant.id),
       this.loyalty.storefrontRules(restaurant.id),
@@ -453,6 +454,7 @@ export class StorefrontService {
       this.zones.activeZone(restaurant),
       this.coupons.accepts(restaurant.id),
       this.attribution.enabled(restaurant.id),
+      this.features.isEnabled('consent_v2', restaurant.id),
     ]);
     return {
       restaurant: {
@@ -480,6 +482,7 @@ export class StorefrontService {
         : null,
       availability,
       tracking,
+      consentV2,
     };
   }
 

@@ -20,6 +20,7 @@ import type {
   UpdateContactInput,
 } from '@resget/shared';
 import { AttributionService } from '../attribution/attribution.service';
+import { ConsentService } from '../consent/consent.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
 
@@ -66,6 +67,7 @@ export class CrmService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly attribution: AttributionService,
+    private readonly consent: ConsentService,
   ) {}
 
   // -- Stages --------------------------------------------------------------------------
@@ -195,7 +197,7 @@ export class CrmService {
 
   async detail(restaurantId: string, customerId: string, canSeeContacts: boolean): Promise<ContactDetailDTO> {
     await this.requireContact(restaurantId, customerId);
-    const [row, activities, tasks, attribution] = await Promise.all([
+    const [row, activities, tasks, attribution, consentOn] = await Promise.all([
       this.prisma.restaurantCustomer.findUniqueOrThrow({ where: { id: customerId }, select: contactSelect }),
       this.prisma.contactActivity.findMany({
         where: { customerId },
@@ -205,6 +207,7 @@ export class CrmService {
       }),
       this.prisma.contactTask.findMany({ where: { customerId }, orderBy: { createdAt: 'desc' }, select: taskSelect }),
       this.attribution.contactAttribution(restaurantId, customerId),
+      this.consent.enabled(restaurantId),
     ]);
     return {
       contact: this.toCard(row, canSeeContacts),
@@ -217,6 +220,7 @@ export class CrmService {
       })),
       tasks: tasks.map((t) => this.toTask(t)),
       attribution,
+      consent: consentOn ? await this.consent.contactConsent(restaurantId, customerId) : null,
     };
   }
 

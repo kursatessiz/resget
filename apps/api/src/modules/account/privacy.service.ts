@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@resget/database';
-import { TERMINAL_ORDER_STATUSES, anonymizedAddressSnapshot, deletedUserPhone, orderShortCode } from '@resget/shared';
+import {
+  CONSENT_CHANNELS,
+  TERMINAL_ORDER_STATUSES,
+  anonymizedAddressSnapshot,
+  deletedUserPhone,
+  orderShortCode,
+} from '@resget/shared';
 import type { PersonalDataExportDTO } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsRegistry } from '../payments/payments.registry';
@@ -185,9 +191,30 @@ export class PrivacyService {
           });
         }
       }
+      // Every channel is refused, so no rule can reach the anonymised contact again (docs/RIZA.md).
+      const contacts = await tx.restaurantCustomer.findMany({
+        where: { userId },
+        select: { id: true, restaurantId: true },
+      });
+      if (contacts.length > 0) {
+        await tx.contactConsent.createMany({
+          data: contacts.flatMap((c) =>
+            CONSENT_CHANNELS.map((channel) => ({
+              restaurantId: c.restaurantId,
+              customerId: c.id,
+              channel,
+              granted: false,
+              source: 'ACCOUNT_DELETED',
+              createdAt: now,
+            })),
+          ),
+        });
+      }
       await tx.restaurantCustomer.updateMany({
         where: { userId },
         data: {
+          consentChannels: [],
+          isBusiness: false,
           marketingOptIn: false,
           marketingOptOutAt: now,
           marketingToken: null,

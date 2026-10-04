@@ -16,6 +16,7 @@ import type { OrderPaymentDTO } from './meal-cards';
 import type { OrderRefundDTO } from './refunds';
 import type { CustomerClaimHistoryDTO, OrderClaimDTO } from './claims';
 import { PhoneSchema, UuidSchema } from './validators';
+import { MarketingChannelsSchema } from './consent';
 
 /**
  * Order lifecycle, dispatch of the restaurant's own couriers and live
@@ -477,6 +478,8 @@ export const CreateOrderSchema = z
     qrSessionId: z.string().trim().min(8).max(64).optional(),
     /** The customer ticked the marketing consent box; true records consent, false or absent changes nothing. */
     marketingOptIn: z.boolean().optional(),
+    /** Per-channel consent boxes (docs/RIZA.md); only granted channels are recorded. */
+    marketingChannels: MarketingChannelsSchema.optional(),
   })
   .strict()
   .superRefine((order, ctx) => {

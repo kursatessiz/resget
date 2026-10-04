@@ -7,6 +7,7 @@ import type { PlatformAdminDTO, PlatformRoleKey } from '@resget/shared';
 import { Badge, Button, Card, SelectField, TextField } from '@/components/ui';
 import { ApiError, bffJson } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
+import { AdminConsentPolicy } from './AdminConsentPolicy';
 
 /**
  * Platform marketing in the console (docs/PAZARLAMA.md): set up the platform
@@ -213,6 +214,7 @@ export function AdminMarketing({ locale }: { locale: string }) {
           </div>
         </Card>
       )}
+      {data.tenant && <AdminConsentPolicy restaurantId={data.tenant.id} locale={locale} />}
     </div>
   );
 }

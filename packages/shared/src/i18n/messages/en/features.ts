@@ -53,6 +53,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
     "The platform tenant, marketing users and the Marketing area for the platform's own marketing.",
   'features.contacts_crm.name': 'CRM and pipeline',
   'features.contacts_crm.description': 'Contacts, a staged pipeline, activity history, tasks and CSV export.',
+  'features.consent_v2.name': 'Consent v2: consent per channel',
+  'features.consent_v2.description':
+    'Per-channel consent boxes at checkout, consent history and legal basis, double opt-in for the EU, merchant exemption, sending limits and IYS registration.',
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',

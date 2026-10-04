@@ -53,6 +53,9 @@ export const trFeatures = {
     'Platformun kendi pazarlaması için platform kiracısı, pazarlama kullanıcıları ve Pazarlama alanı.',
   'features.contacts_crm.name': 'CRM ve satış hattı',
   'features.contacts_crm.description': 'Kişiler, aşamalı satış hattı, görüşme geçmişi, görevler ve CSV dışa aktarma.',
+  'features.consent_v2.name': 'Rıza v2: kanal başına izin',
+  'features.consent_v2.description':
+    'Sipariş sırasında kanal başına izin kutuları, izin geçmişi ve dayanağı, AB için çift onay, tacir muafiyeti, gönderim sınırları ve İYS kaydı.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',

@@ -460,9 +460,14 @@ export const PlatformLeadSchema = z
     district: z.string().trim().max(80).optional(),
     /** The visitor read the privacy notice; the form refuses without it. */
     privacyAccepted: z.literal(true),
+    /** Separate, unticked box: campaign and news messages by SMS (docs/RIZA.md). */
+    marketingConsent: z.boolean().optional(),
   })
   .strict();
 export type PlatformLeadInput = z.infer<typeof PlatformLeadSchema>;
+
+/** Version of the lead form's consent text; bump with the text (stored with each consent). */
+export const PLATFORM_LEAD_FORM_VERSION = 'lead-form-1';
 
 /** Whether the platform's site tracks visits and shows the lead form. */
 export interface PlatformSiteDTO {

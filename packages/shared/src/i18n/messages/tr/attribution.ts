@@ -68,6 +68,7 @@ export const trAttribution = {
   'attribution.lead.district': 'İlçe',
   'attribution.lead.privacy':
     'Bilgilerimin yalnızca bu talep için benimle iletişime geçilmesi amacıyla işlenmesine ilişkin aydınlatma metnini okudum.',
+  'attribution.lead.marketing': 'Kampanya ve duyurulardan SMS ile haberdar olmak istiyorum (isteğe bağlı).',
   'attribution.lead.send': 'Gönder',
   'attribution.lead.sent': 'Teşekkürler, en kısa sürede sizi arayacağız.',
 } as const;

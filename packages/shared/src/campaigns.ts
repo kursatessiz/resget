@@ -210,4 +210,20 @@ export function registryCovers(countryCode: string, channel: RegistryChannel): b
 export interface ConsentRegistryAdapter {
   readonly code: string;
   allowed(countryCode: string, channel: RegistryChannel, phones: readonly string[]): Promise<Set<string>>;
+  /**
+   * Registers one decision with the authority (IYS expects a brand's
+   * consents within days). Only called for covered channels and confirmed
+   * decisions; a merchant exemption is registered with the merchant type.
+   */
+  record(entry: RegistryConsentRecord): Promise<void>;
+}
+
+export interface RegistryConsentRecord {
+  restaurantId: string;
+  countryCode: string;
+  channel: RegistryChannel;
+  phone: string;
+  granted: boolean;
+  recipientType: 'INDIVIDUAL' | 'MERCHANT';
+  at: Date;
 }

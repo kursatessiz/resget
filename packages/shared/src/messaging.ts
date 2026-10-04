@@ -55,8 +55,11 @@ export const MESSAGE_TEMPLATE_KEYS = [
   'campaign.body',
   'listing.approved',
   'listing.declined',
+  'consent.confirm',
 ] as const;
 export type MessageTemplateKey = (typeof MESSAGE_TEMPLATE_KEYS)[number];
+/** Platform messages that always go by SMS and have no WhatsApp template: the sign-in code and the consent confirmation link. */
+export const SMS_ONLY_TEMPLATE_KEYS: readonly MessageTemplateKey[] = ['otp.code', 'consent.confirm'];
 
 /**
  * Which order transitions message the customer. Dine-in guests are at the

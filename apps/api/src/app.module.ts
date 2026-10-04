@@ -32,6 +32,7 @@ import { PosModule } from './modules/pos/pos.module';
 import { PlatformModule } from './modules/platform/platform.module';
 import { CrmModule } from './modules/crm/crm.module';
 import { AttributionModule } from './modules/attribution/attribution.module';
+import { ConsentModule } from './modules/consent/consent.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { DomainsModule } from './modules/domains/domains.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
@@ -74,6 +75,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
     PlatformModule,
     CrmModule,
     AttributionModule,
+    ConsentModule,
     BillingModule,
     CustomersModule,
     ReportsModule,

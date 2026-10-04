@@ -28,4 +28,4 @@ Telefon ve e-posta `customers.contact.view` olmadan maskelenir.
 
 ## Sonraki adımlar
 
-Kişi birleştirme, özel alanlar, aşama düzenleyici, toplu içe aktarma. Ziyaretçi ve atıf verisinin kişiye bağlanması tamamlandı: `attribution` açıkken kişi kartı ziyaretleri ve dönüşümleri gösterir (`docs/ATIF.md`).
+Kişi kartında `consent_v2` açıkken kanal başına ticari ileti izni bölümü vardır (`docs/RIZA.md`). Kişi birleştirme, özel alanlar, aşama düzenleyici, toplu içe aktarma. Ziyaretçi ve atıf verisinin kişiye bağlanması tamamlandı: `attribution` açıkken kişi kartı ziyaretleri ve dönüşümleri gösterir (`docs/ATIF.md`).

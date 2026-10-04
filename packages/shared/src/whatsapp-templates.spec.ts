@@ -1,5 +1,5 @@
 import { BUNDLED_MESSAGES, createTranslator } from './i18n';
-import { MESSAGE_TEMPLATE_KEYS } from './messaging';
+import { MESSAGE_TEMPLATE_KEYS, SMS_ONLY_TEMPLATE_KEYS } from './messaging';
 import {
   WHATSAPP_DETAILS_PARAM,
   WHATSAPP_PARAM_MAX_CHARS,
@@ -12,10 +12,10 @@ const t = createTranslator({ locale: 'tr', messages: BUNDLED_MESSAGES.tr!, fallb
 const DETAIL_SOURCES = ['reason', 'refund', 'note'];
 
 describe('WhatsApp templates', () => {
-  it('maps every business-initiated message and leaves the OTP code as text', () => {
+  it('maps every business-initiated message and leaves the SMS-only platform messages out', () => {
     const mapped = Object.keys(WHATSAPP_TEMPLATES);
-    expect(mapped).not.toContain('otp.code');
-    expect(MESSAGE_TEMPLATE_KEYS.filter((k) => k !== 'otp.code' && !mapped.includes(k))).toEqual([]);
+    for (const key of SMS_ONLY_TEMPLATE_KEYS) expect(mapped).not.toContain(key);
+    expect(MESSAGE_TEMPLATE_KEYS.filter((k) => !SMS_ONLY_TEMPLATE_KEYS.includes(k) && !mapped.includes(k))).toEqual([]);
     const names = Object.values(WHATSAPP_TEMPLATES).map((s) => s!.name);
     expect(new Set(names).size).toBe(names.length);
     for (const name of names) expect(name).toMatch(/^[a-z0-9_]{1,512}$/);

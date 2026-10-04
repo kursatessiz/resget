@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { OrderAvailabilityDTO } from './availability';
 import { CouponCodeSchema } from './coupons';
+import { MarketingChannelsSchema } from './consent';
 import type { DeliveryZone } from './delivery-zone';
 import type { StorefrontLoyaltyDTO } from './loyalty';
 import type { RatingSummaryDTO } from './ratings';
@@ -73,6 +74,8 @@ export interface StorefrontDTO {
   availability: OrderAvailabilityDTO;
   /** The restaurant measures visits (docs/ATIF.md): the page shows the consent banner and the beacon. */
   tracking: boolean;
+  /** Per-channel consent boxes instead of the single legacy box (docs/RIZA.md). */
+  consentV2: boolean;
 }
 
 export const PublicOrderSchema = z
@@ -90,6 +93,8 @@ export const PublicOrderSchema = z
     returnUrl: z.string().url().optional(),
     /** Marketing consent box (docs/KAMPANYALAR.md); only true is recorded. */
     marketingOptIn: z.boolean().optional(),
+    /** Per-channel consent boxes (docs/RIZA.md); used instead of marketingOptIn when the consent v2 module is on. */
+    marketingChannels: MarketingChannelsSchema.optional(),
     /** Spend the signed-in customer's loyalty points on this order (docs/SADAKAT.md); the API decides how many. */
     useLoyaltyPoints: z.boolean().optional(),
     /** A coupon code (docs/KUPONLAR.md); not combined with loyalty points. */
