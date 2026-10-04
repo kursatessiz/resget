@@ -38,6 +38,8 @@ export class PermissionGuard implements CanActivate {
       throw forbidden('PLAN_FEATURE_REQUIRED', `Feature ${feature} needs a higher plan`);
     }
 
+    // The platform tenant exists only while platform marketing is switched on.
+    if (tenant.isPlatform) await this.features.assertEnabled('marketing_platform', tenant.restaurantId);
     const module = this.reflector.getAllAndOverride<FeatureKey | undefined>(FEATURE_KEY, targets);
     if (module) await this.features.assertEnabled(module, tenant.restaurantId);
     // A restaurant API key works only while API access is switched on for its restaurant.

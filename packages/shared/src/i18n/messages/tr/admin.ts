@@ -219,4 +219,5 @@ export const trAdmin = {
   'admin.claims.reason': 'Ret nedeni (müşteriye gösterilir)',
   'admin.claims.declineConfirm': 'Bildirimi reddet',
   'admin.claims.done': 'Karar kaydedildi.',
+  'admin.nav.marketing': 'Pazarlama',
 } as const satisfies Record<string, string>;

@@ -31,6 +31,7 @@ import { trFinance } from './tr/finance';
 import { trMobile } from './tr/mobile';
 import { trLoyalty } from './tr/loyalty';
 import { trCoupons } from './tr/coupons';
+import { trMarketing } from './tr/marketing';
 import { trIntegrations } from './tr/integrations';
 import { enCommon } from './en/common';
 import { enNav } from './en/nav';
@@ -65,6 +66,7 @@ import { enFinance } from './en/finance';
 import { enMobile } from './en/mobile';
 import { enLoyalty } from './en/loyalty';
 import { enCoupons } from './en/coupons';
+import { enMarketing } from './en/marketing';
 import { enIntegrations } from './en/integrations';
 
 /**
@@ -109,6 +111,7 @@ export const TR_NAMESPACES = [
   trFinance,
   trLoyalty,
   trCoupons,
+  trMarketing,
   trIntegrations,
   trMobile,
 ] as const;
@@ -146,6 +149,7 @@ export const EN_NAMESPACES = [
   enFinance,
   enLoyalty,
   enCoupons,
+  enMarketing,
   enIntegrations,
   enMobile,
 ] as const;

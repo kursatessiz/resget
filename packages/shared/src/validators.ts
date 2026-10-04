@@ -14,6 +14,8 @@ export const RESERVED_SLUGS = [
   't',
   'j',
   'pazaryeri',
+  'pazarlama',
+  'platform',
   'public',
   'static',
   'assets',

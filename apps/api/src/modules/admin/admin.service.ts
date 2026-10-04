@@ -72,6 +72,8 @@ export class AdminService {
 
   async listRestaurants(query: AdminRestaurantQuery): Promise<AdminRestaurantPageDTO> {
     const where: Prisma.RestaurantWhereInput = {
+      // The platform tenant (docs/PAZARLAMA.md) is managed on the marketing page, not among the restaurants.
+      isPlatform: false,
       ...(query.listed ? { isListed: query.listed === 'true' } : {}),
       ...(query.pending ? { isListed: false, listingRequestedAt: { not: null }, listingReviewedAt: null } : {}),
       ...(query.query
@@ -471,7 +473,7 @@ export class AdminService {
     const since = new Date(Date.now() - 7 * DAY_MS);
     const [restaurants, listedRestaurants, pendingListingRequests, activeTrials, ordersLast7Days, density] =
       await Promise.all([
-        this.prisma.restaurant.count({ where: { isActive: true } }),
+        this.prisma.restaurant.count({ where: { isActive: true, isPlatform: false } }),
         this.prisma.restaurant.count({ where: { isActive: true, isListed: true } }),
         this.prisma.restaurant.count({
           where: { isActive: true, isListed: false, listingRequestedAt: { not: null }, listingReviewedAt: null },

@@ -48,4 +48,7 @@ export const trFeatures = {
   'features.pos_integration.name': 'POS entegrasyonu',
   'features.pos_integration.description':
     "Yeni sipariş işletmenin kendi POS sistemine gider; otomatik kabul ve POS'tan durum bildirimi.",
+  'features.marketing_platform.name': 'Platform pazarlaması',
+  'features.marketing_platform.description':
+    'Platformun kendi pazarlaması için platform kiracısı, pazarlama kullanıcıları ve Pazarlama alanı.',
 } as const satisfies Record<string, string>;

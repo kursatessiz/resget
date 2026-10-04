@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { OtpPurpose } from '@resget/database';
-import { PERMISSION_KEYS, effectivePermissions, effectivePlan } from '@resget/shared';
+import { PERMISSION_KEYS, effectivePermissions, effectivePlan, platformRoleOf } from '@resget/shared';
 import type {
   AccessTokenClaims,
   MeDTO,
@@ -97,7 +97,7 @@ export class AuthService {
     // Catalogue order, not the database's: the same role always yields the same list.
     const ordered = (granted: ReadonlySet<string>) => PERMISSION_KEYS.filter((key) => granted.has(key));
     const memberships = await this.prisma.membership.findMany({
-      where: { userId, status: 'ACTIVE', restaurant: { isActive: true } },
+      where: { userId, status: 'ACTIVE', restaurant: { isActive: true, isPlatform: false } },
       select: {
         id: true,
         status: true,
@@ -118,8 +118,19 @@ export class AuthService {
       orderBy: { createdAt: 'asc' },
     });
     const features = await Promise.all(memberships.map((m) => this.features.enabledFor(m.restaurant.id)));
+    // Platform marketing access (docs/PAZARLAMA.md) is reported apart from the restaurants.
+    const platformMembership = await this.prisma.membership.findFirst({
+      where: { userId, status: 'ACTIVE', restaurant: { isPlatform: true } },
+      select: { roleTemplate: { select: { systemKey: true } } },
+    });
+    const platform = user.isSuperAdmin
+      ? { role: null }
+      : platformMembership && platformRoleOf(platformMembership.roleTemplate.systemKey)
+        ? { role: platformRoleOf(platformMembership.roleTemplate.systemKey) }
+        : null;
     return {
       user,
+      platform,
       memberships: memberships.map((m, index) => ({
         membershipId: m.id,
         restaurantId: m.restaurant.id,

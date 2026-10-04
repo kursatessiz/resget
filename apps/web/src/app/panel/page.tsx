@@ -17,6 +17,8 @@ export default async function PanelIndexPage() {
   if (!me) redirect('/giris?next=/panel');
   const { t } = await getT();
   const memberships = me.memberships;
+  // A platform marketing user without a restaurant goes straight to the marketing area (docs/PAZARLAMA.md).
+  if (memberships.length === 0 && me.platform && !me.user.isSuperAdmin) redirect('/pazarlama');
   if (memberships.length === 1) redirect(`/panel/${memberships[0].restaurantSlug}`);
   const last = (await cookies()).get(RESTAURANT_COOKIE)?.value;
   const preferred = memberships.find((m) => m.restaurantId === last);
@@ -32,6 +34,11 @@ export default async function PanelIndexPage() {
         {me.user.isSuperAdmin && (
           <LinkButton href="/admin" variant="outline" tone="muted">
             {t('admin.title')}
+          </LinkButton>
+        )}
+        {me.platform && (
+          <LinkButton href="/pazarlama" variant="outline" tone="muted">
+            {t('panel.openMarketing')}
           </LinkButton>
         )}
         {memberships.length === 0 ? (

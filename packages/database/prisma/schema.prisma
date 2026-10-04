@@ -364,6 +364,8 @@ model Restaurant {
   defaultLocale          String    @default("tr")
   serviceAreaId          String?
   isActive               Boolean   @default(true)
+  /// The platform's own tenant for platform marketing (docs/PAZARLAMA.md); at most one row, never listed, never orders.
+  isPlatform             Boolean   @default(false)
   /// Listed in the consumer marketplace (requires a launched service area and an approved menu).
   isListed               Boolean   @default(false)
   /// Set while an overdue commission invoice keeps the restaurant out of the marketplace; cleared when it is settled.
@@ -490,6 +492,8 @@ model RoleTemplate {
   restaurantId String
   /// Key of a default template (owner, manager, counter, kitchen) or null for a custom role.
   templateKey  String?
+  /// Set on locked system roles (platform:<role> on the platform tenant); nobody edits or assigns them from the panel.
+  systemKey    String?
   name         String
   isOwner      Boolean  @default(false)
   createdAt    DateTime @default(now())

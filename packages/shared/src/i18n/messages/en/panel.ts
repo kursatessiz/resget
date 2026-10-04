@@ -16,4 +16,5 @@ export const enPanel: Record<keyof typeof trPanel, string> = {
   'panel.overview.openTables': 'Tables and QR',
   'panel.overview.openPayments': 'Payment settings',
   'panel.overview.openSettings': 'Settings',
+  'panel.openMarketing': 'Open the marketing area',
 };

@@ -1,6 +1,14 @@
 import { BadRequestException, CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ALL_PERMISSIONS, PLAN_FEATURE_SETS, UuidSchema, effectivePermissions, effectivePlan } from '@resget/shared';
+import {
+  ALL_PERMISSIONS,
+  PLAN_FEATURE_SETS,
+  PLATFORM_FORBIDDEN_TENANT_PERMISSIONS,
+  UuidSchema,
+  effectivePermissions,
+  effectivePlan,
+} from '@resget/shared';
+import type { PermissionKey } from '@resget/shared';
 import type { PlanCode, SubscriptionStatus as SharedSubscriptionStatus } from '@resget/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { forbidden } from '../../../common/api-error';
@@ -38,6 +46,7 @@ export class RestaurantTenantGuard implements CanActivate {
       where: { id: restaurantId },
       select: {
         isActive: true,
+        isPlatform: true,
         subscription: {
           select: { plan: { select: { code: true } }, status: true, trialEndsAt: true, currentPeriodEnd: true },
         },
@@ -70,8 +79,9 @@ export class RestaurantTenantGuard implements CanActivate {
         membershipId: null,
         isOwner: false,
         isSuperAdmin: false,
-        permissions: new Set(request.apiKey.permissions),
+        permissions: this.scoped(new Set(request.apiKey.permissions), restaurant.isPlatform),
         effectivePlan: plan,
+        isPlatform: restaurant.isPlatform,
       };
       return true;
     }
@@ -80,10 +90,11 @@ export class RestaurantTenantGuard implements CanActivate {
       request.tenant = {
         restaurantId,
         membershipId: null,
-        isOwner: true,
+        isOwner: !restaurant.isPlatform,
         isSuperAdmin: true,
-        permissions: new Set(ALL_PERMISSIONS),
+        permissions: this.scoped(new Set(ALL_PERMISSIONS), restaurant.isPlatform),
         effectivePlan: plan,
+        isPlatform: restaurant.isPlatform,
       };
       return true;
     }
@@ -104,14 +115,28 @@ export class RestaurantTenantGuard implements CanActivate {
       membershipId: membership.id,
       isOwner: membership.roleTemplate.isOwner,
       isSuperAdmin: false,
-      permissions: effectivePermissions(
-        membership.roleTemplate.isOwner,
-        membership.roleTemplate.permissions.map((p) => p.permissionKey),
+      permissions: this.scoped(
+        effectivePermissions(
+          membership.roleTemplate.isOwner,
+          membership.roleTemplate.permissions.map((p) => p.permissionKey),
+        ),
+        restaurant.isPlatform,
       ),
       effectivePlan: plan,
+      isPlatform: restaurant.isPlatform,
     };
     request.tenant = tenant;
     return true;
+  }
+
+  /**
+   * On the platform tenant (docs/PAZARLAMA.md) roles, staff, settings and money are out of reach for
+   * everyone, the super admin included: platform users are managed from the console only.
+   */
+  private scoped(permissions: Set<PermissionKey>, isPlatform: boolean): Set<PermissionKey> {
+    if (!isPlatform) return permissions;
+    for (const key of PLATFORM_FORBIDDEN_TENANT_PERMISSIONS) permissions.delete(key);
+    return permissions;
   }
 
   private resolveRestaurantId(request: AuthenticatedRequest): string {

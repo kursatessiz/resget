@@ -119,4 +119,7 @@ export const trErrors = {
   'errors.COUPON_NOT_COMBINABLE': 'Kupon sadakat puanıyla birlikte kullanılamaz.',
   'errors.COUPON_CODE_TAKEN': 'Bu kod başka bir kuponda kullanılıyor.',
   'errors.COUPON_IN_USE': 'Kullanılmış kupon silinemez; durdurabilirsiniz.',
+  'errors.PLATFORM_NOT_SET_UP': 'Platform pazarlaması henüz kurulmadı.',
+  'errors.PLATFORM_ACCESS_DENIED': 'Platform pazarlamasına erişiminiz yok.',
+  'errors.PLANS_MISSING': 'Önce planlar oluşturulmalı.',
 } as const satisfies Record<string, string>;

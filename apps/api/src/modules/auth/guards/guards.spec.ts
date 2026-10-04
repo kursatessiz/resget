@@ -156,6 +156,7 @@ describe('PermissionGuard', () => {
     isSuperAdmin: false,
     permissions: new Set<PermissionKey>(['orders.view']),
     effectivePlan: 'BASIC',
+    isPlatform: false,
     ...overrides,
   });
 

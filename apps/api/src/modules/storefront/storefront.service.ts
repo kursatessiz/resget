@@ -41,6 +41,7 @@ import { conflict, notFound } from '../../common/api-error';
 
 const restaurantSelect = {
   ...availabilitySelect,
+  isPlatform: true,
   slug: true,
   name: true,
   currency: true,
@@ -99,7 +100,8 @@ export class StorefrontService {
 
   async bySlug(slug: string): Promise<StorefrontDTO> {
     const restaurant = await this.prisma.restaurant.findUnique({ where: { slug }, select: restaurantSelect });
-    if (!restaurant || !restaurant.isActive) throw notFound('NOT_FOUND', 'Restaurant not found');
+    if (!restaurant || !restaurant.isActive || restaurant.isPlatform)
+      throw notFound('NOT_FOUND', 'Restaurant not found');
     return this.build(restaurant, null, restaurant.branches[0]?.id ?? null);
   }
 
@@ -263,7 +265,8 @@ export class StorefrontService {
     viewer: AuthUser | null = null,
   ): Promise<PublicOrderResultDTO> {
     const restaurant = await this.prisma.restaurant.findUnique({ where: { slug }, select: restaurantSelect });
-    if (!restaurant || !restaurant.isActive) throw notFound('NOT_FOUND', 'Restaurant not found');
+    if (!restaurant || !restaurant.isActive || restaurant.isPlatform)
+      throw notFound('NOT_FOUND', 'Restaurant not found');
     if (input.fulfillment === 'DINE_IN') throw conflict('ORDER_TRANSITION_INVALID', 'Dine-in orders need a table QR');
     const branch = restaurant.branches[0];
     if (!branch) throw notFound('NOT_FOUND', 'Restaurant has no branch');
@@ -491,6 +494,7 @@ export class StorefrontService {
 
 interface RestaurantRow {
   id: string;
+  isPlatform: boolean;
   timezone: string;
   ordersPausedUntil: Date | null;
   busyExtraMinutes: number;
