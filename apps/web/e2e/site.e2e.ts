@@ -85,6 +85,10 @@ test.describe('Page engine and SEO', () => {
       await expect(page).toHaveTitle('Demo Lokanta: menü ve online sipariş');
       await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/demo-lokanta$/);
       await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(0);
+      // A table QR page points its canonical address at the restaurant page.
+      await page.goto('/m/demo-masa-1-sabit-token-0001');
+      await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/demo-lokanta$/);
+      expect(robots).not.toContain('Disallow: /m/');
     } finally {
       const pages = await bff<SitePageDTO[]>(page.request, `restaurants/${platformId}/site/pages`).catch(() => []);
       for (const p of pages.filter((x) => x.path === PATH)) {

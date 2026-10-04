@@ -8,7 +8,7 @@ Web uygulaması mutlak adresleri `WEB_DOMAIN` ortam değişkeninden kurar (`http
 
 ## robots.txt
 
-Her zaman yayınlanır (`app/robots.ts`). Herkese izin verir, şu yolları dışarıda tutar (`ROBOTS_DISALLOW`): `/panel`, `/admin`, `/pazarlama`, `/hesabim`, `/giris`, `/kayit`, `/api`, `/t/` (sipariş takibi), `/m/` (masa QR oturumu), `/j/` (davet), `/iptal/` (abonelikten çıkma), `/onay/` (çift onay). Site haritası satırı yalnızca platform alan adında bulunur.
+Her zaman yayınlanır (`app/robots.ts`). Herkese izin verir, şu yolları dışarıda tutar (`ROBOTS_DISALLOW`): `/panel`, `/admin`, `/pazarlama`, `/hesabim`, `/giris`, `/kayit`, `/api`, `/t/` (sipariş takibi), `/j/` (davet), `/iptal/` (abonelikten çıkma), `/onay/` (çift onay). Site haritası satırı yalnızca platform alan adında bulunur. Masa QR sayfaları (`/m/<token>`) engellenmez: engellenen sayfa kanonik etiketini de okutamaz; bunun yerine her masa sayfası restoran sayfasını kanonik adres olarak gösterir ve arama motoru onları tek sayfada birleştirir.
 
 ## sitemap.xml
 
@@ -26,6 +26,7 @@ Bir restoranın kendi alan adına gelen istekte site haritası boştur (bu alan 
 | Sayfa | Başlık ve açıklama | Kanonik |
 | --- | --- | --- |
 | Restoran sayfası (`/<slug>`) | `site.restaurant.metaTitle`; açıklama ilk şubenin ilçe ve şehriyle (`site.restaurant.metaDescription`). Her zaman, anahtardan bağımsız. | Doğrulanmış kendi alan adı varsa `https://<alan adı>/`, yoksa `/<slug>`. |
+| Masa QR sayfası (`/m/<token>`) | Restoran sayfasıyla aynı. | Restoran sayfasının kanonik adresi. |
 | Motor sayfası | Sayfanın kendi başlığı ve açıklaması. | `/p/<dil>/<adres>`; dil karşılıkları `alternates.languages` (hreflang). |
 | İlçe sayfası | `site.district.metaTitle` / `metaDescription`. | `/ilce/<şehir>/<ilçe>`. |
 

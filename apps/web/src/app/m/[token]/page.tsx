@@ -1,5 +1,7 @@
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
+import { cache } from 'react';
 import { TableQrTokenSchema } from '@resget/shared';
 import type { StorefrontDTO, StorefrontViewerDTO } from '@resget/shared';
 import { ConsentManager } from '@/components/ConsentManager';
@@ -11,6 +13,26 @@ import { apiFetch, getMe } from '@/lib/api-server';
 import { apiInternalBaseUrl } from '@/lib/server-env';
 import { QR_SESSION_COOKIE } from '@/lib/session';
 import { consentRegime } from '@/lib/consent';
+import { restaurantMetadata } from '@/lib/site';
+
+/** One API read per request: the page and its metadata share it, so a scan is counted once. */
+const loadTableMenu = cache(async (token: string): Promise<StorefrontDTO | null> => {
+  const session = (await cookies()).get(QR_SESSION_COOKIE)?.value;
+  const res = await fetch(`${apiInternalBaseUrl()}/public/qr/${token}`, {
+    headers: session ? { 'x-qr-session': session } : {},
+    cache: 'no-store',
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Menu request failed with ${res.status}`);
+  return (await res.json()) as StorefrontDTO;
+});
+
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+  const { token } = await params;
+  if (!TableQrTokenSchema.safeParse(token).success) return {};
+  const storefront = await loadTableMenu(token);
+  return storefront ? restaurantMetadata(storefront.restaurant.slug) : {};
+}
 
 /**
  * The page behind a table QR sticker (docs/MASA_QR.md, docs/VITRIN.md).
@@ -22,15 +44,8 @@ export default async function TableMenuPage({ params }: { params: Promise<{ toke
   const { token } = await params;
   if (!TableQrTokenSchema.safeParse(token).success) notFound();
 
-  const cookieStore = await cookies();
-  const session = cookieStore.get(QR_SESSION_COOKIE)?.value;
-  const res = await fetch(`${apiInternalBaseUrl()}/public/qr/${token}`, {
-    headers: session ? { 'x-qr-session': session } : {},
-    cache: 'no-store',
-  });
-  if (res.status === 404) notFound();
-  if (!res.ok) throw new Error(`Menu request failed with ${res.status}`);
-  const storefront = (await res.json()) as StorefrontDTO;
+  const storefront = await loadTableMenu(token);
+  if (!storefront) notFound();
   const { t, locale } = await getT();
   const me = await getMe().catch(() => null);
   const viewerRes = me ? await apiFetch(`/me/viewer?restaurantId=${storefront.restaurant.id}`) : null;

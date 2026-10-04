@@ -275,7 +275,11 @@ export function serializeJsonLd(data: JsonLd): string {
     .replace(/\u2029/g, '\\u2029');
 }
 
-/** Paths search engines are told to stay out of: sessions, panels, personal and one-time links. */
+/**
+ * Paths search engines are told to stay out of: sessions, panels, personal
+ * and one-time links. Table QR pages (/m/) stay crawlable and point their
+ * canonical address at the restaurant page instead.
+ */
 export const ROBOTS_DISALLOW = [
   '/panel',
   '/admin',
@@ -285,7 +289,6 @@ export const ROBOTS_DISALLOW = [
   '/kayit',
   '/api',
   '/t/',
-  '/m/',
   '/j/',
   '/iptal/',
   '/onay/',
