@@ -76,7 +76,9 @@ export const EnvSchema = z
      * straight-line distance times the restaurant's detour factor; a road
      * engine is added as an adapter and listed here.
      */
-    ROUTING_PROVIDER: z.enum(['HAVERSINE']).default('HAVERSINE'),
+    ROUTING_PROVIDER: z.enum(['HAVERSINE', 'OSRM']).default('HAVERSINE'),
+    /** OSRM route and table services; the public demo server by default, own or hosted OSRM in production. */
+    OSRM_BASE_URL: z.string().url().optional(),
 
     /** Third-party courier network adapter (docs/KURYE.md). */
     COURIER_PROVIDER: z
