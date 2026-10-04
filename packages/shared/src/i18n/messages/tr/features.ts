@@ -74,6 +74,9 @@ export const trFeatures = {
   'features.ad_integrations.name': 'Reklam entegrasyonları',
   'features.ad_integrations.description':
     'Meta, Google Ads ve TikTok hesabı bağlama, sunucudan dönüşüm gönderimi (yalnızca reklam izniyle), günlük harcama ve reklam getirisi raporu.',
+  'features.page_engine.name': 'Sayfa motoru ve SEO',
+  'features.page_engine.description':
+    'Platform sitesinde bloklarla sayfa, açılan ilçeler için otomatik ilçe sayfaları, site haritası ve restoran sayfalarında yapılandırılmış veri.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',

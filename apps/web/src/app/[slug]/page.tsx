@@ -1,14 +1,52 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { SlugSchema } from '@resget/shared';
-import type { StorefrontDTO, StorefrontViewerDTO } from '@resget/shared';
+import { SlugSchema, restaurantJsonLd } from '@resget/shared';
+import type { RestaurantSeoDTO, StorefrontDTO, StorefrontViewerDTO } from '@resget/shared';
 import { ConsentManager } from '@/components/ConsentManager';
+import { JsonLdScript } from '@/components/site/JsonLdScript';
 import { Storefront } from '@/components/Storefront';
 import { ThemeRoot } from '@/components/ThemeRoot';
 import { getT } from '@/lib/i18n';
 import { apiFetch, getMe } from '@/lib/api-server';
-import { apiInternalBaseUrl } from '@/lib/server-env';
+import { apiInternalBaseUrl, publicSiteUrl } from '@/lib/server-env';
 import { consentRegime } from '@/lib/consent';
+import { getRestaurantSeo } from '@/lib/site';
+
+/** The address search engines should index: the restaurant's own verified domain, else its page here. */
+function canonicalOf(seo: RestaurantSeoDTO): string {
+  return seo.customDomain ? `https://${seo.customDomain}/` : `${publicSiteUrl()}/${seo.slug}`;
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  if (!SlugSchema.safeParse(slug).success) return {};
+  const seo = await getRestaurantSeo(slug);
+  if (!seo) return {};
+  const { t } = await getT();
+  const title = t('site.restaurant.metaTitle', { restaurant: seo.name });
+  const description = seo.address
+    ? t('site.restaurant.metaDescription', {
+        restaurant: seo.name,
+        district: seo.address.district,
+        city: seo.address.city,
+      })
+    : t('site.restaurant.metaDescriptionNoAddress', { restaurant: seo.name });
+  const url = canonicalOf(seo);
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'website',
+      title,
+      description,
+      url,
+      siteName: seo.name,
+      ...(seo.logoUrl ? { images: [{ url: seo.logoUrl }] } : {}),
+    },
+  };
+}
 
 /** The restaurant's own ordering page (docs/VITRIN.md): delivery and pickup, in the restaurant's colors. */
 export default async function RestaurantPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -22,6 +60,7 @@ export default async function RestaurantPage({ params }: { params: Promise<{ slu
   const me = await getMe().catch(() => null);
   const viewerRes = me ? await apiFetch(`/me/viewer?restaurantId=${storefront.restaurant.id}`) : null;
   const viewer = viewerRes?.ok ? ((await viewerRes.json()) as StorefrontViewerDTO) : null;
+  const seo = await getRestaurantSeo(slug).catch(() => null);
   return (
     <ThemeRoot
       tenantTheme={{ themePrimary: storefront.restaurant.themePrimary, logoUrl: storefront.restaurant.logoUrl }}
@@ -61,6 +100,7 @@ export default async function RestaurantPage({ params }: { params: Promise<{ slu
           )}
         </footer>
       </main>
+      {seo?.structuredData && <JsonLdScript data={restaurantJsonLd(seo, canonicalOf(seo))} />}
     </ThemeRoot>
   );
 }

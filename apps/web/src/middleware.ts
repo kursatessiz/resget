@@ -9,12 +9,7 @@ import {
   accessTokenNeedsRefresh,
   sessionCookieOptions,
 } from '@/lib/session';
-
-/** Hosts that are the platform itself; everything else that reaches us is a restaurant's custom domain. */
-function isPlatformHost(host: string): boolean {
-  const platform = (process.env.WEB_DOMAIN ?? '').toLowerCase();
-  return host === platform || host === 'localhost' || host === '127.0.0.1' || host.endsWith('.localhost');
-}
+import { hostOf, isPlatformHost } from '@/lib/hosts';
 
 /** Which restaurant a custom host serves, remembered briefly so the home page does not ask the API on every hit. */
 const hostCache = new Map<string, { slug: string | null; until: number }>();
@@ -46,7 +41,7 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   const secure = process.env.NODE_ENV === 'production';
 
   if (pathname === '/') {
-    const host = (req.headers.get('host') ?? '').split(':')[0].toLowerCase();
+    const host = hostOf(req.headers.get('host'));
     if (!host || isPlatformHost(host)) return NextResponse.next();
     const slug = await slugForHost(host);
     if (!slug) return NextResponse.next();

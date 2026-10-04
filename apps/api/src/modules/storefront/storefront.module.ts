@@ -13,5 +13,6 @@ import { StorefrontService } from './storefront.service';
   imports: [MenuModule, OrdersModule, PaymentsModule, CourierModule, AvailabilityModule, RestaurantsModule],
   controllers: [StorefrontController],
   providers: [StorefrontService, PublicRateLimitGuard],
+  exports: [StorefrontService],
 })
 export class StorefrontModule {}
