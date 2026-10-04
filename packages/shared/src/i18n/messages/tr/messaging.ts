@@ -15,6 +15,8 @@ export const trMessaging = {
   'messaging.template.reasonSuffix': ' Neden: {reason}',
   'messaging.template.refundSuffix.done': ' Odemeniz iade edildi.',
   'messaging.template.refundSuffix.pending': ' Odemeniz iade edilecek.',
+  'messaging.whatsapp.details.order': 'Sorunuz olursa restoranla iletişime geçebilirsiniz.',
+  'messaging.whatsapp.details.listing': 'Ayrıntılar panelde.',
   'messaging.template.listing.approved':
     '{restaurant}: pazaryeri listelemeniz onaylandi. Artik bolgenizdeki musteriler sizi gorebilir.{note}',
   'messaging.template.listing.declined':

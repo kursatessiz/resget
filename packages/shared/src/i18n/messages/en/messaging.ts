@@ -16,6 +16,8 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
   'messaging.template.reasonSuffix': ' Reason: {reason}',
   'messaging.template.refundSuffix.done': ' Your payment has been refunded.',
   'messaging.template.refundSuffix.pending': ' Your payment will be refunded.',
+  'messaging.whatsapp.details.order': 'If you have any questions, you can contact the restaurant.',
+  'messaging.whatsapp.details.listing': 'See the panel for details.',
   'messaging.template.listing.approved':
     '{restaurant}: your marketplace listing is approved. Customers in your district can now find you.{note}',
   'messaging.template.listing.declined':

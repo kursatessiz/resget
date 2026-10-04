@@ -7,6 +7,7 @@ import {
   NotificationSettingsSchema,
   createTranslator,
   notificationSettingsFrom,
+  whatsappTemplateFor,
 } from '@resget/shared';
 import type {
   CreditChannel,
@@ -18,6 +19,7 @@ import type {
   MessagingOverviewDTO,
   NotificationChannel,
   NotificationSettings,
+  WhatsAppTemplateMessage,
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { SMS_PROVIDER, maskPhone } from './sms.provider';
@@ -46,11 +48,6 @@ export interface SendMessageResult {
   errorCode: string | null;
 }
 
-interface Provider {
-  readonly code: string;
-  send(toE164: string, text: string): Promise<SmsSendResult>;
-}
-
 /**
  * The one door every message leaves through (docs/MESAJLASMA.md). Renders
  * the template in the recipient's language, writes a MessageLog per attempt
@@ -73,6 +70,13 @@ export class MessagingService {
     return t(`messaging.template.${templateKey}`, params);
   }
 
+  /** The approved WhatsApp template for a message, filled in the recipient's language (docs/MESAJLASMA.md). */
+  whatsappTemplate(request: SendMessageRequest): WhatsAppTemplateMessage | null {
+    const messages = BUNDLED_MESSAGES[request.locale] ?? BUNDLED_MESSAGES[BASE_LOCALE];
+    const t = createTranslator({ locale: request.locale, messages, fallback: BUNDLED_MESSAGES[BASE_LOCALE] });
+    return whatsappTemplateFor(request.templateKey, request.params, request.locale, t);
+  }
+
   async send(request: SendMessageRequest): Promise<SendMessageResult> {
     const text = this.render(request.templateKey, request.params, request.locale);
     const first = await this.attempt(request, request.channel, text);
@@ -85,7 +89,7 @@ export class MessagingService {
     channel: NotificationChannel,
     text: string,
   ): Promise<SendMessageResult> {
-    const provider: Provider = channel === 'WHATSAPP' ? this.whatsapp : this.sms;
+    const provider = channel === 'WHATSAPP' ? this.whatsapp : this.sms;
     const log = await this.prisma.messageLog.create({
       data: {
         restaurantId: request.restaurantId,
@@ -114,7 +118,10 @@ export class MessagingService {
 
     let result: SmsSendResult;
     try {
-      result = await provider.send(request.to, text);
+      result =
+        channel === 'WHATSAPP'
+          ? await this.whatsapp.send(request.to, text, this.whatsappTemplate(request) ?? undefined)
+          : await this.sms.send(request.to, text);
     } catch (error) {
       this.logger.warn(`${provider.code} ${channel} send failed: ${error instanceof Error ? error.message : 'error'}`);
       return fail('PROVIDER_ERROR');
