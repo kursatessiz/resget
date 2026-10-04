@@ -72,15 +72,19 @@ export const RestaurantSignupSchema = z
     legalName: z.string().trim().max(160).optional(),
     taxId: z.string().trim().max(32).optional(),
     branch: BranchInputSchema,
+    /** A partner code from an invite link (docs/RESTORAN_TAVSIYE.md); an unusable one is ignored, never refused. */
+    partnerCode: z.string().trim().max(16).optional(),
   })
   .strict();
 export type RestaurantSignupInput = z.infer<typeof RestaurantSignupSchema>;
 
 /** Super admin creates a restaurant for an owner identified by phone; an unknown phone becomes a user. */
-export const AdminCreateRestaurantSchema = RestaurantSignupSchema.extend({
-  ownerPhone: PhoneSchema,
-  ownerName: z.string().trim().min(2).max(120),
-}).strict();
+export const AdminCreateRestaurantSchema = RestaurantSignupSchema.omit({ partnerCode: true })
+  .extend({
+    ownerPhone: PhoneSchema,
+    ownerName: z.string().trim().min(2).max(120),
+  })
+  .strict();
 export type AdminCreateRestaurantInput = z.infer<typeof AdminCreateRestaurantSchema>;
 
 const TURKISH_MAP: Record<string, string> = { ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u', â: 'a', î: 'i', û: 'u' };
@@ -115,6 +119,7 @@ export const ADMIN_NAV = [
   { key: 'plans', path: '/planlar' },
   { key: 'claims', path: '/bildirimler' },
   { key: 'marketing', path: '/pazarlama' },
+  { key: 'partnerReferrals', path: '/tavsiye' },
   { key: 'features', path: '/ozellikler' },
   { key: 'invoices', path: '/faturalar' },
   { key: 'payouts', path: '/hakedisler' },

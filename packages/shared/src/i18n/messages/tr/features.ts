@@ -83,6 +83,9 @@ export const trFeatures = {
   'features.referrals.name': 'Müşteri tavsiyesi',
   'features.referrals.description':
     'Müşterinin kişisel davet kodu, arkadaşa ilk siparişte indirim ve davet edene ödül kuponu; kuponlar modülü ve PRO plan gerekir.',
+  'features.partner_referrals.name': 'Restoran tavsiyesi',
+  'features.partner_referrals.description':
+    'Restoranın davet bağlantısı; yeni restorana kayıtta, davet edene yeni restoranın siparişleri tamamlanınca PRO süresi. Ödüller konsoldan ayarlanır, komisyon değişmez.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',

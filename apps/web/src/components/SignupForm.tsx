@@ -8,7 +8,14 @@ import { Button, SelectField, TextField } from '@/components/ui';
 import { ApiError, bffJson } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
 
-export function SignupForm({ locale }: { locale: string }) {
+export function SignupForm({
+  locale,
+  partnerCode = null,
+}: {
+  locale: string;
+  /** A usable invite code (docs/RESTORAN_TAVSIYE.md); sent with the sign-up. */
+  partnerCode?: string | null;
+}) {
   const t = useT(locale);
   const router = useRouter();
   const regionNames = new Intl.DisplayNames([locale], { type: 'region' });
@@ -50,6 +57,7 @@ export function SignupForm({ locale }: { locale: string }) {
             district: district.trim(),
             ...(phone.trim() ? { phone: phone.trim() } : {}),
           },
+          ...(partnerCode ? { partnerCode } : {}),
         }),
       });
       setDone(true);

@@ -61,6 +61,7 @@ import { CampaignAttributionService } from '../campaigns/campaign-attribution.se
 import { JourneysService } from '../journeys/journeys.service';
 import type { PreparedCoupon } from '../coupons/coupons.service';
 import { ReferralsService } from '../coupons/referrals.service';
+import { PartnerReferralsService } from '../partner-referrals/partner-referrals.service';
 import { GeocodingService } from '../geocoding/geocoding.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { PushService } from '../push/push.service';
@@ -156,6 +157,7 @@ export class OrdersService {
     private readonly features: FeatureFlagsService,
     private readonly coupons: CouponsService,
     private readonly referrals: ReferralsService,
+    private readonly partnerReferrals: PartnerReferralsService,
     private readonly consent: ConsentService,
     private readonly campaignAttribution: CampaignAttributionService,
     private readonly journeys: JourneysService,
@@ -640,6 +642,8 @@ export class OrdersService {
       await this.journeys.recordCompletion(tx, order.id, now);
       // A friend's first order with a personal code rewards the referrer (docs/TAVSIYE.md).
       await this.referrals.recordCompletion(tx, order.id, now);
+      // A referred restaurant's qualifying order rewards the restaurant that invited it (docs/RESTORAN_TAVSIYE.md).
+      await this.partnerReferrals.recordCompletion(tx, order.id, now);
     }
     if (to === 'REJECTED' || to === 'CANCELLED_BY_RESTAURANT' || to === 'CANCELLED_BY_CUSTOMER' || to === 'REFUNDED') {
       await this.loyalty.recordReversal(tx, order.id, now);

@@ -4,7 +4,7 @@ Restoranın müşterisi kişisel kodunu paylaşır. Restorandan hiç sipariş ve
 
 Modül `referrals` anahtarının arkasındadır (varsayılan kapalı, BETA). Kuponlar modülü (`coupons`) açık ve plan PRO olmalıdır; plan BASIC'e düşünce kişisel kodlar ve ödüller kullanılamaz (kuponlarla aynı kural).
 
-Restorandan restorana tavsiye (platformun büyümesi) ayrı bir iştir: yol haritası 13. maddenin ikinci yarısı.
+Restorandan restorana tavsiye ayrı bir modüldür: `docs/RESTORAN_TAVSIYE.md`.
 
 ## Program
 
@@ -54,4 +54,3 @@ Veri: `referral_programs`, `referral_rewards`; `coupons` satırına `source` (`M
 
 - Ödül olarak sadakat puanı seçeneği.
 - Ödül verildiğinde müşteriye bildirim (push).
-- Restorandan restorana tavsiye.
