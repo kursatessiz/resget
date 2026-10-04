@@ -33,6 +33,9 @@ const tracking = (
   destination,
   rating: null,
   canRate: false,
+  reviewUrl: null,
+  nps: null,
+  canAnswerNps: false,
   claim: null,
   canClaim: false,
 });

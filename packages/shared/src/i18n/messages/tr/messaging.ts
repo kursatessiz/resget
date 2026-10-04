@@ -107,6 +107,9 @@ export const trMessaging = {
   'messaging.push.order.claimDeclined.title': 'Eksik ürün bildiriminiz kabul edilmedi',
   'messaging.push.order.claimDeclined.body':
     '{restaurant}: {code} numaralı siparişinizdeki eksik ürün bildiriminiz kabul edilmedi.{reason}',
+  'messaging.push.feedback.lowRating.title': 'Düşük puan: sipariş {code}',
+  'messaging.push.feedback.lowRating.body':
+    '{restaurant}: bir müşteri siparişe {score} puan verdi; geri bildirim sayfasında takip edin.',
   'messaging.push.order.claimFiled.title': 'Eksik ürün bildirimi {code}',
   'messaging.push.order.claimFiled.body': '{restaurant}: bir müşteri siparişinde eksik ürün bildirdi; onay bekliyor.',
   'messaging.push.refundSuffix.done': ' Ödemeniz iade edildi.',

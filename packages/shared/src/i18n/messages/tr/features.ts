@@ -86,6 +86,9 @@ export const trFeatures = {
   'features.partner_referrals.name': 'Restoran tavsiyesi',
   'features.partner_referrals.description':
     'Restoranın davet bağlantısı; yeni restorana kayıtta, davet edene yeni restoranın siparişleri tamamlanınca PRO süresi. Ödüller konsoldan ayarlanır, komisyon değişmez.',
+  'features.feedback.name': 'Geri bildirim ve NPS',
+  'features.feedback.description':
+    'Düşük puanlarda takip kaydı ve ekibe bildirim, puan veren herkese değerlendirme bağlantısı, takip sayfasında NPS sorusu ve özet; PRO analitik.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',

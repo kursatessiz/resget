@@ -15,6 +15,7 @@ import {
 } from '@resget/shared';
 import type { OrderTrackingDTO } from '@resget/shared';
 import { ClaimCard } from '@/components/ClaimCard';
+import { FeedbackCard } from '@/components/FeedbackCard';
 import { LiveMap } from '@/components/LiveMap';
 import { Button, Card, LinkButton, TextAreaField } from '@/components/ui';
 import type { MapMarker, MapTilesConfig } from '@/lib/map';
@@ -245,6 +246,8 @@ export function TrackingLive({
           )}
         </Card>
       )}
+
+      <FeedbackCard token={token} tracking={tracking} t={t} onUpdated={setTracking} />
 
       <Card title={t('tracking.items')}>
         <ul className="ui-divide">
