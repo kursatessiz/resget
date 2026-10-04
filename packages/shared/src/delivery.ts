@@ -348,6 +348,21 @@ export function optimizeStopOrder<T extends RoutableStop>(
 }
 
 /** Total length in metres of the open path origin -> stops in order (straight line, no detour). */
+/**
+ * Moves one stop to the place of another in the order the courier drives
+ * them (drag and drop on the dispatch board): the moved stop takes the
+ * target's position and the rest keep their relative order. Returns the
+ * list unchanged when either id is missing or both are the same.
+ */
+export function reorderStopIds(ids: readonly string[], movingId: string, targetId: string): string[] {
+  const from = ids.indexOf(movingId);
+  const to = ids.indexOf(targetId);
+  if (from < 0 || to < 0 || from === to) return [...ids];
+  const next = ids.filter((id) => id !== movingId);
+  next.splice(to, 0, movingId);
+  return next;
+}
+
 export function pathLengthMeters(origin: GeoPoint, points: readonly GeoPoint[]): number {
   let total = 0;
   let previous = origin;
