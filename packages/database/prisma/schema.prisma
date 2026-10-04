@@ -183,6 +183,15 @@ enum PayoutStatus {
   FAILED
 }
 
+/// Customer churn classes (packages/shared/src/churn.ts); kept by order placement and the churn sweep.
+enum ChurnRisk {
+  NEW
+  ACTIVE
+  NOT_RETURNED
+  AT_RISK
+  LOST
+}
+
 enum SubscriptionStatus {
   TRIALING
   ACTIVE
@@ -769,6 +778,8 @@ model RestaurantCustomer {
   isBusiness         Boolean       @default(false)
   /// Channels a campaign may reach now, derived from the consent history and the tenant's policy.
   consentChannels    String[]      @default([])
+  /// Churn class against the customer's own ordering rhythm (docs/KAYIP_RISKI.md); null for a contact who never ordered.
+  churnRisk          ChurnRisk?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -796,6 +807,7 @@ model RestaurantCustomer {
   @@unique([restaurantId, userId])
   @@index([restaurantId, lastOrderAt])
   @@index([restaurantId, marketingOptIn])
+  @@index([restaurantId, churnRisk])
   @@map("restaurant_customers")
 }
 

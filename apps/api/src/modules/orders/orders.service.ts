@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Prisma } from '@resget/database';
 import {
+  customerChurnRisk,
   COURIER_LEG_STATUSES,
   TRACKING_TOKEN_BYTES,
   canTransitionOrder,
@@ -330,7 +331,7 @@ export class OrdersService {
         customerUserId = user.id;
         const customer = await tx.restaurantCustomer.upsert({
           where: { restaurantId_userId: { restaurantId, userId: user.id } },
-          select: { id: true },
+          select: { id: true, orderCount: true, firstOrderAt: true, lastOrderAt: true, churnRisk: true },
           update: {
             orderCount: { increment: 1 },
             lastOrderAt: new Date(),
@@ -347,6 +348,11 @@ export class OrdersService {
             marketingToken: randomUUID(),
           },
         });
+        // An order resets the customer's churn class (docs/KAYIP_RISKI.md); the sweep moves it on as days pass.
+        const churnRisk = customerChurnRisk(customer, placedAt);
+        if (churnRisk !== customer.churnRisk) {
+          await tx.restaurantCustomer.update({ where: { id: customer.id }, data: { churnRisk } });
+        }
         restaurantCustomerId = customer.id;
         consentCustomerId = customer.id;
       }

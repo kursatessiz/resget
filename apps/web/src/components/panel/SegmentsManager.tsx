@@ -28,12 +28,15 @@ export function SegmentsManager({
   locale,
   canManage,
   withStages,
+  withChurn,
 }: {
   restaurantId: string;
   locale: string;
   canManage: boolean;
   /** CRM is on and the viewer may see the pipeline: stages become a field. */
   withStages: boolean;
+  /** The churn_signals module is on: the stored churn class becomes a field. */
+  withChurn: boolean;
 }) {
   const t = useT(locale);
   const base = `restaurants/${restaurantId}/segments`;
@@ -165,7 +168,14 @@ export function SegmentsManager({
 
       {list && (
         <Card title={editing ? t('segments.edit') : t('segments.new')} aria-label={t('segments.builder')}>
-          <SegmentBuilder value={rule} onChange={changeRule} locale={locale} stages={stages} currency={list.currency} />
+          <SegmentBuilder
+            value={rule}
+            onChange={changeRule}
+            locale={locale}
+            stages={stages}
+            currency={list.currency}
+            withChurn={withChurn}
+          />
           {!valid && <p className="ui-caption">{t('segments.invalid')}</p>}
           <div>
             <Button variant="outline" tone="muted" onClick={runPreview} disabled={busy || !valid}>

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { OrderChannel } from './enums';
 import { CONSENT_CHANNELS } from './consent';
+import { CHURN_RISKS } from './churn';
 import type { CampaignSegment } from './campaigns';
 
 /**
@@ -21,6 +22,8 @@ export const SEGMENT_FIELDS = {
   tags: { type: 'tags' },
   firstChannel: { type: 'enum' },
   consentChannel: { type: 'enum' },
+  /** Stored churn class (docs/KAYIP_RISKI.md); offered while the churn_signals module is on. */
+  churnRisk: { type: 'enum' },
   city: { type: 'text' },
   district: { type: 'text' },
   source: { type: 'text' },
@@ -44,9 +47,12 @@ export const SEGMENT_OPERATORS = {
   boolean: ['is'],
 } as const satisfies Record<SegmentFieldType, readonly string[]>;
 
-export const ENUM_FIELD_VALUES: Readonly<Record<'firstChannel' | 'consentChannel', readonly string[]>> = {
+export type SegmentEnumField = 'firstChannel' | 'consentChannel' | 'churnRisk';
+
+export const ENUM_FIELD_VALUES: Readonly<Record<SegmentEnumField, readonly string[]>> = {
   firstChannel: Object.values(OrderChannel),
   consentChannel: CONSENT_CHANNELS,
+  churnRisk: CHURN_RISKS,
 };
 
 export const SEGMENT_MAX_DEPTH = 3;
@@ -81,9 +87,7 @@ export const SegmentConditionSchema = z
             ? ListValue.safeParse(value).success
             : type === 'enum'
               ? ListValue.safeParse(value).success &&
-                (value as string[]).every((v) =>
-                  ENUM_FIELD_VALUES[condition.field as 'firstChannel' | 'consentChannel'].includes(v),
-                )
+                (value as string[]).every((v) => ENUM_FIELD_VALUES[condition.field as SegmentEnumField].includes(v))
               : type === 'boolean'
                 ? typeof value === 'boolean'
                 : type === 'id'
@@ -117,6 +121,11 @@ export function segmentDepth(group: SegmentGroup): number {
 
 export function segmentConditionCount(group: SegmentGroup): number {
   return group.rules.reduce((n, rule) => n + (isSegmentGroup(rule) ? segmentConditionCount(rule) : 1), 0);
+}
+
+/** Whether any condition in the tree reads the field. */
+export function segmentUsesField(group: SegmentGroup, field: SegmentField): boolean {
+  return group.rules.some((rule) => (isSegmentGroup(rule) ? segmentUsesField(rule, field) : rule.field === field));
 }
 
 /** A whole rule: nested at most three levels, at most twenty conditions. An empty group matches everyone. */

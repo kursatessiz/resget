@@ -46,6 +46,8 @@ export const FEATURES = {
   referrals: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   partner_referrals: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   feedback: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
+  churn_signals: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
+  restaurant_health: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   marketing_platform: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   contacts_crm: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   attribution: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
