@@ -46,6 +46,7 @@ export const MESSAGE_TEMPLATE_KEYS = [
   'order.outForDelivery',
   'order.rejected',
   'order.cancelled',
+  'order.refunded',
   'invoice.issued',
   'invoice.overdue',
   'order.acceptOverdue',
@@ -78,6 +79,8 @@ export function orderNotificationTemplate(
       return 'order.rejected';
     case 'CANCELLED_BY_RESTAURANT':
       return 'order.cancelled';
+    case 'REFUNDED':
+      return 'order.refunded';
     default:
       return null;
   }

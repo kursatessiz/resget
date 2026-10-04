@@ -19,7 +19,8 @@ Tek bir motor her mesajı gönderir (`MessagingService`, `apps/api/src/modules/m
 | `ACCEPTED` (hazırlık süresi ve takip bağlantısı ile) | evet | evet | hayır |
 | `READY` | hayır | evet | hayır |
 | `OUT_FOR_DELIVERY` (canlı takip bağlantısı ile) | evet | hayır | hayır |
-| `REJECTED`, `CANCELLED_BY_RESTAURANT` (neden varsa eklenir) | evet | evet | hayır |
+| `REJECTED`, `CANCELLED_BY_RESTAURANT` (neden varsa eklenir; çevrim içi ödeme varsa "iade edildi" veya "iade edilecek" notu da) | evet | evet | hayır |
+| `REFUNDED`, yalnızca tamamlanmış siparişin iadesinde (`order.refunded`; iptalin iadesi iptal mesajında söylenir) | evet | evet | hayır |
 
 `DELIVERED` mesajlanmaz: takip sayfası zaten gösterir ve müşterinin elindeki habere kredi harcanmaz. Alıcı numarası siparişin müşteri kaydından, yoksa adres anlık görüntüsündeki iletişim numarasından alınır; numara yoksa mesaj yoktur. Restoran `customerOrderUpdates` ayarıyla tümünü kapatabilir.
 

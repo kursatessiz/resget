@@ -38,6 +38,10 @@ Pro özelliği `loyalty`: tamamlanan siparişte puan, bir sonraki siparişte res
 
 Pro özelliği `api_access`: restoranın kendi yazılımı için kapsamlı API anahtarları; nasıl kullanılır, oluşturma, tek seferlik token, iptal `docs/API_ERISIMI.md` içinde anlatılır.
 
+## Sipariş kartında iade (`/panel/<slug>/siparisler`, izin `orders.refund`)
+
+İptal edilmiş veya tamamlanmış, yakalanmış parası olan siparişin kartında "İade et" düğmesi çıkar; gerekçe girilmeden onay düğmesi açılmaz. Kart iade durumunu gösterir: işleniyor, yapılamadı (sebebiyle; düğme "İadeyi yeniden dene" olur) veya iade edilen tutar. Çevrim içi ödeme sağlayıcısına iade edilir, kapıda alınan para personelin elden iadesinden sonra onaylanır (`docs/ODEME.md` bölüm 3b).
+
 ## Değişmeyen kurallar
 
 - Her uç `@RequirePermission` beyan eder; Pro özellikleri `@RequirePlanFeature` ile kapılanır ve `PLAN_FEATURE_REQUIRED` koduyla reddedilir.

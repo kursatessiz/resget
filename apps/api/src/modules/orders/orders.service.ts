@@ -20,6 +20,10 @@ import {
   trackingUrl,
   acceptDeadlineFor,
   canRateOrder,
+  isAutoRefundStatus,
+  canStartRefund,
+  refundableMinor,
+  refundStateOf,
 } from '@resget/shared';
 import type {
   AddressSnapshot,
@@ -58,7 +62,8 @@ const orderArgs = Prisma.validator<Prisma.OrderDefaultArgs>()({
     customer: { select: { id: true, fullName: true, phone: true } },
     items: { orderBy: { position: 'asc' } },
     statusHistory: { orderBy: { createdAt: 'asc' } },
-    payments: { orderBy: { createdAt: 'desc' }, take: 1 },
+    // Every payment of the order, newest first: the refund state reads them all.
+    payments: { orderBy: { createdAt: 'desc' } },
     rating: true,
     deliveryStops: {
       where: { status: { in: [...ACTIVE_STOP_STATUSES] }, trip: { status: { in: [...ACTIVE_TRIP_STATUSES] } } },
@@ -109,6 +114,8 @@ export class OrdersService {
   private tripEvents: ((tripId: string) => Promise<TopicEvent[]>) | null = null;
   /** Registered by the checkout service: validates a payment intent against what the restaurant accepts. */
   private resolvePayment: PaymentIntentResolver | null = null;
+  /** Registered by the refunds service: gives an online payment back after a cancellation (docs/ODEME.md, "İade"). */
+  private refundAfterCancel: ((orderId: string) => Promise<void>) | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -128,6 +135,10 @@ export class OrdersService {
 
   setPaymentIntentResolver(resolver: PaymentIntentResolver): void {
     this.resolvePayment = resolver;
+  }
+
+  setRefundAfterCancel(handler: (orderId: string) => Promise<void>): void {
+    this.refundAfterCancel = handler;
   }
 
   // -- Creation ------------------------------------------------------------------
@@ -417,6 +428,28 @@ export class OrdersService {
 
   // -- Transitions ------------------------------------------------------------------
 
+  /**
+   * Inside a transaction: once no captured money remains on the order and at
+   * least one payment went back, the order becomes REFUNDED. Returns the
+   * status it left, or null when it stays (money still captured, nothing
+   * refunded, already REFUNDED, or a status the state machine does not allow).
+   */
+  async closeAsRefunded(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+    actor: OrderActor,
+    actorUserId: string | null,
+    reason: string,
+  ): Promise<OrderStatusValue | null> {
+    const row = await this.loadRow(tx, orderId);
+    const remaining = row.payments.some((p) => refundableMinor(p) > 0);
+    const refunded = row.payments.some((p) => p.status === 'REFUNDED');
+    if (remaining || !refunded || !canTransitionOrder(row.fulfillment, row.status, 'REFUNDED', actor)) return null;
+    const from = row.status;
+    await this.applyTransition(tx, row, 'REFUNDED', actor, actorUserId, { reason });
+    return from;
+  }
+
   /** HTTP entry point for restaurant staff: the trip owns the courier leg of an order that rides in one. */
   async transition(
     restaurantId: string,
@@ -426,6 +459,8 @@ export class OrdersService {
     actorUserId: string | null,
     canSeeContacts: boolean,
   ): Promise<OrderDetailDTO> {
+    // Money goes back only through the refund endpoint, never by a bare status change.
+    if (input.to === 'REFUNDED') throw conflict('REFUND_NOT_ALLOWED', 'Use the refund endpoint');
     const row = await this.prisma.order.findFirst({ where: { id: orderId, restaurantId }, ...orderArgs });
     if (!row) throw notFound('ORDER_NOT_FOUND', 'Order not found');
     const activeStop = row.deliveryStops[0];
@@ -443,6 +478,10 @@ export class OrdersService {
         await tx.deliveryStop.update({ where: { id: activeStop.id }, data: { status: 'REMOVED' } });
       }
     });
+    // A captured online payment goes back right away; a failure is retried later and never undoes the cancellation.
+    if (isAutoRefundStatus(input.to) && this.refundAfterCancel) {
+      await this.refundAfterCancel(orderId);
+    }
     const events = await this.eventsForOrder(orderId);
     if (activeStop && this.tripEvents) events.push(...(await this.tripEvents(activeStop.tripId)));
     this.realtime.publishMany(events);
@@ -692,15 +731,22 @@ export class OrdersService {
     };
   }
 
-  paymentOf(row: OrderRow): OrderPaymentDTO {
+  paymentOf(row: OrderRow, now: Date = new Date()): OrderPaymentDTO {
     const latest = row.payments[0] ?? null;
     const captured = latest?.status === 'CAPTURED' ? latest.amountMinor - latest.refundedMinor : 0;
+    // A cancelled or refunded order owes nothing, whatever was or was not collected.
+    const closedUnpaid = isTerminalOrderStatus(row.status) && row.status !== 'DELIVERED' && row.status !== 'PICKED_UP';
+    const failure = row.payments.find((p) => p.refundFailureCode !== null && p.status === 'CAPTURED');
     return {
       method: latest?.method ?? row.paymentMethod ?? null,
       providerCode: latest?.method === 'MEAL_CARD' ? latest.provider : row.paymentProvider,
       status: latest?.status ?? null,
-      dueMinor: Math.max(0, row.chargedToCustomerMinor - captured),
+      dueMinor: closedUnpaid ? 0 : Math.max(0, row.chargedToCustomerMinor - captured),
       capturedAt: latest?.capturedAt?.toISOString() ?? null,
+      refundedMinor: row.payments.reduce((sum, p) => sum + p.refundedMinor, 0),
+      refundState: refundStateOf(row.payments, now),
+      refundFailureCode: failure?.refundFailureCode ?? null,
+      refundable: canStartRefund(row.status, row.payments, now),
     };
   }
 

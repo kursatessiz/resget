@@ -5,6 +5,7 @@ import { z } from 'zod';
 import {
   CheckoutRequestSchema,
   CollectPaymentSchema,
+  RefundOrderSchema,
   SlugSchema,
   TrackingTokenSchema,
   UuidSchema,
@@ -19,6 +20,7 @@ import { badRequest, notFound } from '../../common/api-error';
 import { CheckoutService } from './checkout.service';
 import type { WebhookOutcome } from './checkout.service';
 import { MealCardsService } from './meal-cards.service';
+import { RefundsService } from './refunds.service';
 
 const WebhookKindSchema = z.enum(['meal-cards', 'pos']);
 
@@ -26,7 +28,29 @@ const WebhookKindSchema = z.enum(['meal-cards', 'pos']);
 @Controller('restaurants/:restaurantId/orders/:orderId')
 @RestaurantScoped()
 export class OrderPaymentsController {
-  constructor(private readonly checkout: CheckoutService) {}
+  constructor(
+    private readonly checkout: CheckoutService,
+    private readonly refunds: RefundsService,
+  ) {}
+
+  /** Gives the order's captured money back the way it came (docs/ODEME.md, "İade"). */
+  @Post('refund')
+  @HttpCode(200)
+  @RequirePermission('orders.refund')
+  refund(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodParam('orderId', UuidSchema) orderId: string,
+    @ZodBody(RefundOrderSchema) body: z.infer<typeof RefundOrderSchema>,
+  ): Promise<OrderDetailDTO> {
+    return this.refunds.refund(
+      tenant.restaurantId,
+      orderId,
+      body,
+      user.id,
+      tenant.permissions.has('customers.contact.view'),
+    );
+  }
 
   /** A hosted payment session for an order waiting in PENDING_PAYMENT. */
   @Post('checkout')

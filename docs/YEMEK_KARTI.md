@@ -42,5 +42,5 @@ Sipariş oluşturulurken ödeme niyeti verilir (`CreateOrderSchema.payment`: `ON
 
 - İlk gerçek adaptörler: pilot ilçedeki restoranların en çok kabul ettiği kartlara göre; her biri için restoranın kuruluşla çevrim içi ödeme sözleşmesi ve API erişimi gerekir. Sahip kararı.
 - Kapıda nakit ve kart kabulü Faz 0'da her restoranda açıktır; restoran bazlı kapatma anahtarı panel ayarlarıyla (A3) gelir.
-- İade: yemek kartı iadesi kuruluşun kurallarına bağlıdır (`refund` adaptörde ayrılmıştır); platform `REFUNDED` webhook'unu işler, iade başlatma A4 ile.
+- İade: çevrim içi yemek kartı ödemesi kuruluş hesabının bilgileriyle adaptörün `refund` çağrısıyla iade edilir, kapıda alınan yemek kartı restoranın kendi cihazından iade edilip panelde onaylanır (`docs/ODEME.md` bölüm 3b). Kuruluşun kendi kuralları (kısmi iade, süre sınırı) gerçek adaptörle değerlendirilir.
 - Bakiye sorgulama ve kısmi yemek kartı + kart ödemesi (karma ödeme) bazı kuruluşlarda mümkündür; ilk adaptörle değerlendirilir.

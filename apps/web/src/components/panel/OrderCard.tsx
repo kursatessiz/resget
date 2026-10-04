@@ -76,22 +76,29 @@ export function OrderCard({
   locale,
   t,
   canManage,
+  canRefund = false,
   busy,
   onTransition,
+  onRefund,
 }: {
   order: OrderSummaryDTO;
   locale: string;
   t: Translate;
   canManage: boolean;
+  /** The member holds orders.refund; the API still decides whether this order can be refunded. */
+  canRefund?: boolean;
   busy: boolean;
   onTransition: (
     order: OrderSummaryDTO,
     to: OrderStatusValue,
     extra: { prepMinutes?: number; reason?: string },
   ) => void;
+  onRefund?: (order: OrderSummaryDTO, reason: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<OrderAction | null>(null);
+  const [refunding, setRefunding] = useState(false);
+  const [refundReason, setRefundReason] = useState('');
   const [prepMinutes, setPrepMinutes] = useState(20);
   const [reason, setReason] = useState('');
   const minutesAgo = Math.max(0, Math.round((Date.now() - new Date(order.placedAt).getTime()) / 60_000));
@@ -101,6 +108,15 @@ export function OrderCard({
       : null;
   const time = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' });
   const actions = canManage ? actionsFor(order, t) : [];
+  const { refundState, refundFailureCode, refundable } = order.payment;
+  const offerRefund = canRefund && Boolean(onRefund) && refundable;
+  const confirmRefund = () => {
+    const reason = refundReason.trim();
+    if (!reason || !onRefund) return;
+    onRefund(order, reason);
+    setRefunding(false);
+    setRefundReason('');
+  };
 
   const run = (action: OrderAction) => {
     if (action.needsPrep || action.needsReason) {
@@ -176,13 +192,46 @@ export function OrderCard({
                 : t('orders.paid')}
           </p>
         )}
+        {refundState !== 'NONE' && (
+          <p className="flex flex-wrap items-center gap-2">
+            <Badge tone={refundState === 'DONE' ? 'muted' : refundState === 'FAILED' ? 'error' : 'warn'}>
+              {refundState === 'DONE'
+                ? t('orders.refundState.DONE', {
+                    amount: formatMoney({ amountMinor: order.payment.refundedMinor, currency: order.currency }, locale),
+                  })
+                : t(`orders.refundState.${refundState}`)}
+            </Badge>
+            {refundState === 'FAILED' && refundFailureCode && (
+              <span className="ui-caption">{t(`errors.${refundFailureCode}`)}</span>
+            )}
+          </p>
+        )}
         {order.promisedReadyAt && ['ACCEPTED', 'PREPARING'].includes(order.status) && (
           <p className="ui-caption">
             {t('orders.promisedReadyAt')}: {time.format(new Date(order.promisedReadyAt))}
           </p>
         )}
 
-        {pending ? (
+        {refunding ? (
+          <div className="flex flex-col gap-3">
+            <p className="ui-caption">{t('orders.refundHint')}</p>
+            <TextField
+              id={`refund-reason-${order.id}`}
+              label={t('orders.refundReason')}
+              value={refundReason}
+              onChange={(event) => setRefundReason(event.target.value)}
+              maxLength={300}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={confirmRefund} disabled={busy || refundReason.trim() === ''} tone="error">
+                {t('orders.refundConfirm')}
+              </Button>
+              <Button variant="outline" tone="muted" onClick={() => setRefunding(false)} disabled={busy}>
+                {t('common.cancel')}
+              </Button>
+            </div>
+          </div>
+        ) : pending ? (
           <div className="flex flex-col gap-3">
             {pending.needsPrep && (
               <SelectField
@@ -229,6 +278,11 @@ export function OrderCard({
                 {action.label}
               </Button>
             ))}
+            {offerRefund && (
+              <Button variant="outline" tone="error" onClick={() => setRefunding(true)} disabled={busy}>
+                {refundState === 'FAILED' ? t('orders.refundRetry') : t('orders.refund')}
+              </Button>
+            )}
             <Button variant="link" tone="muted" onClick={() => setOpen((v) => !v)}>
               {open ? t('orders.hideDetails') : t('orders.showDetails')}
             </Button>

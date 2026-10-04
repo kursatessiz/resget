@@ -10,6 +10,7 @@ import { PaymentsService } from './payments.service';
 import { MealCardsRegistry } from './meal-cards.registry';
 import { MealCardsService } from './meal-cards.service';
 import { CheckoutService } from './checkout.service';
+import { RefundsService } from './refunds.service';
 
 @Module({
   imports: [AuthModule, OrdersModule],
@@ -21,7 +22,7 @@ import { CheckoutService } from './checkout.service';
     PublicPaymentsController,
     PaymentWebhooksController,
   ],
-  providers: [PaymentsRegistry, PaymentsService, MealCardsRegistry, MealCardsService, CheckoutService],
-  exports: [PaymentsRegistry, PaymentsService, MealCardsService, CheckoutService],
+  providers: [PaymentsRegistry, PaymentsService, MealCardsRegistry, MealCardsService, CheckoutService, RefundsService],
+  exports: [PaymentsRegistry, PaymentsService, MealCardsService, CheckoutService, RefundsService],
 })
 export class PaymentsModule {}

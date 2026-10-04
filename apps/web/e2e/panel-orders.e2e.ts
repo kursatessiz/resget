@@ -75,4 +75,47 @@ test.describe('Orders screen and dispatch board', () => {
     await expect(trips.getByText('Aktif sefer yok.')).toBeVisible();
     await expect(ready.getByText(`Sipariş ${order.shortCode}`)).toBeVisible();
   });
+  test('a cancelled order whose money was taken at the counter is refunded from its card with a reason', async ({
+    page,
+  }) => {
+    const me = await bff<Me>(page.request, 'auth/me');
+    const restaurantId = me.memberships.find((m) => m.restaurantSlug === SEED.restaurantSlug)!.restaurantId;
+    const restaurant = await bff<Restaurant>(page.request, `restaurants/${restaurantId}`);
+    const menu = await bff<Category[]>(page.request, `restaurants/${restaurantId}/menu`);
+    const item = menu.flatMap((c) => c.items).find((i) => i.name === SEED.firstMenuItem)!;
+    const base = `restaurants/${restaurantId}/orders`;
+    const order = await bff<{ id: string; shortCode: string }>(page.request, base, {
+      method: 'POST',
+      data: {
+        branchId: restaurant.branches[0].id,
+        channel: 'PHONE',
+        fulfillment: 'PICKUP',
+        items: [{ menuItemId: item.id, quantity: 1 }],
+        customer: { fullName: 'Playwright Iade', phone: '0532 999 03 01' },
+        payment: { method: 'CASH_ON_DELIVERY' },
+        note: 'pw-refund',
+      },
+    });
+    await bff(page.request, `${base}/${order.id}/transition`, {
+      method: 'POST',
+      data: { to: 'ACCEPTED', prepMinutes: 10 },
+    });
+    await bff(page.request, `${base}/${order.id}/collect`, { method: 'POST', data: { method: 'CASH_ON_DELIVERY' } });
+    await bff(page.request, `${base}/${order.id}/transition`, {
+      method: 'POST',
+      data: { to: 'CANCELLED_BY_RESTAURANT', reason: 'Musteri vazgecti' },
+    });
+    const card = page.locator(`[data-order-code="${order.shortCode}"]`);
+
+    await page.goto(`/panel/${SEED.restaurantSlug}/siparisler`);
+    await expect(card).toBeVisible();
+    await card.getByRole('button', { name: 'İade et' }).click();
+    const confirm = card.getByRole('button', { name: 'İadeyi onayla' });
+    await expect(confirm).toBeDisabled();
+    await card.getByLabel('İade nedeni').fill('Nakit elden iade edildi');
+    await confirm.click();
+    await expect(card.getByText('İade edildi', { exact: true })).toBeVisible();
+    await expect(card.getByText(/İade edildi: /)).toBeVisible();
+    await expect(card.getByRole('button', { name: 'İade et' })).toHaveCount(0);
+  });
 });

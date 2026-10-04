@@ -7,9 +7,14 @@ export const trMessaging = {
     '{restaurant}: {code} numarali siparisiniz kabul edildi, yaklasik {minutes} dk icinde hazir olur. Takip: {url}',
   'messaging.template.order.readyForPickup': '{restaurant}: {code} numarali siparisiniz hazir, teslim alabilirsiniz.',
   'messaging.template.order.outForDelivery': '{restaurant}: siparisiniz yola cikti. Kuryeyi canli izleyin: {url}',
-  'messaging.template.order.rejected': '{restaurant}: {code} numarali siparisiniz maalesef kabul edilemedi.{reason}',
-  'messaging.template.order.cancelled': '{restaurant}: {code} numarali siparisiniz iptal edildi.{reason}',
+  'messaging.template.order.rejected':
+    '{restaurant}: {code} numarali siparisiniz maalesef kabul edilemedi.{reason}{refund}',
+  'messaging.template.order.cancelled': '{restaurant}: {code} numarali siparisiniz iptal edildi.{reason}{refund}',
+  'messaging.template.order.refunded':
+    '{restaurant}: {code} numarali siparisinizin odemesi iade edildi. Tutarin hesabiniza gecmesi bankaniza gore birkac gun surebilir.',
   'messaging.template.reasonSuffix': ' Neden: {reason}',
+  'messaging.template.refundSuffix.done': ' Odemeniz iade edildi.',
+  'messaging.template.refundSuffix.pending': ' Odemeniz iade edilecek.',
   'messaging.template.listing.approved':
     '{restaurant}: pazaryeri listelemeniz onaylandi. Artik bolgenizdeki musteriler sizi gorebilir.{note}',
   'messaging.template.listing.declined':
@@ -59,6 +64,7 @@ export const trMessaging = {
   'messaging.log.template.order.outForDelivery': 'Sipariş yola çıktı',
   'messaging.log.template.order.rejected': 'Sipariş reddedildi',
   'messaging.log.template.order.cancelled': 'Sipariş iptal edildi',
+  'messaging.log.template.order.refunded': 'Sipariş iade edildi',
   'messaging.log.error.INSUFFICIENT_CREDITS': 'Kredi yetersiz',
   'messaging.log.error.PROVIDER_REJECTED': 'Sağlayıcı kabul etmedi',
   'messaging.log.error.PROVIDER_ERROR': 'Sağlayıcı hatası',
@@ -80,9 +86,15 @@ export const trMessaging = {
   'messaging.push.order.completed.title': 'Afiyet olsun',
   'messaging.push.order.completed.body': '{restaurant} siparişiniz tamamlandı. Birkaç saniyede değerlendirebilirsiniz.',
   'messaging.push.order.rejected.title': 'Siparişiniz kabul edilemedi',
-  'messaging.push.order.rejected.body': '{restaurant}: {code} numaralı siparişiniz maalesef kabul edilemedi.{reason}',
+  'messaging.push.order.rejected.body':
+    '{restaurant}: {code} numaralı siparişiniz maalesef kabul edilemedi.{reason}{refund}',
   'messaging.push.order.cancelled.title': 'Siparişiniz iptal edildi',
-  'messaging.push.order.cancelled.body': '{restaurant}: {code} numaralı siparişiniz iptal edildi.{reason}',
+  'messaging.push.order.cancelled.body': '{restaurant}: {code} numaralı siparişiniz iptal edildi.{reason}{refund}',
+  'messaging.push.order.refunded.title': 'Ödemeniz iade edildi',
+  'messaging.push.order.refunded.body':
+    '{restaurant}: {code} numaralı siparişinizin ödemesi iade edildi. Tutarın hesabınıza geçmesi bankanıza göre birkaç gün sürebilir.',
+  'messaging.push.refundSuffix.done': ' Ödemeniz iade edildi.',
+  'messaging.push.refundSuffix.pending': ' Ödemeniz iade edilecek.',
   'messaging.push.trip.assigned.title': 'Yeni sefer',
   'messaging.push.trip.assigned.body': '{restaurant}: {count} duraklı bir sefer size atandı.',
   'messaging.push.order.placed.title': 'Yeni sipariş {code}',
