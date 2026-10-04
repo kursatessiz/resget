@@ -18,7 +18,7 @@ Anahtar, modülün işletme için var olup olmadığına karar verir. Plan (BASI
 
 - **API, işletme uçları**: denetleyici veya uç `@RequireFeature('<anahtar>')` beyan eder; `PermissionGuard` izin ve plan kontrolünden sonra anahtarı kontrol eder, kapalıysa `403 FEATURE_DISABLED` döner.
 - **API anahtarları**: `api_access` kapalıyken işletmenin API anahtarları hiçbir uçta çalışmaz (`FEATURE_DISABLED`); oturumla panel çalışmaya devam eder.
-- **Herkese açık uçlar ve servisler**: `FeatureFlagsService.assertEnabled` / `isEnabled` ile. Masa QR sayfası ve siparişi (`table_qr`), değerlendirme (`ratings`), eksik ürün bildirimi (`missing_item_claims`), kısmi iade (`partial_refunds`) kapalıyken `FEATURE_DISABLED` döner; pazaryeri (`marketplace`) kapalı işletmeyi listelemez; kapalı ödeme yöntemi (`online_payment`, `meal_cards`) ödeme seçeneklerinden düşer; `custom_domain` kapalıyken alan adı servis edilmez (kayıt durur); `whatsapp_channel` kapalıyken mesaj SMS olarak gider; `own_courier_dispatch` ve `courier_network` sevk ve kurye ağı uçlarını kapatır.
+- **Herkese açık uçlar ve servisler**: `FeatureFlagsService.assertEnabled` / `isEnabled` ile. Masa QR sayfası ve siparişi (`table_qr`), değerlendirme (`ratings`), eksik ürün bildirimi (`missing_item_claims`), kısmi iade (`partial_refunds`) kapalıyken `FEATURE_DISABLED` döner; pazaryeri (`marketplace`) kapalı işletmeyi listelemez; kapalı ödeme yöntemi (`online_payment`, `meal_cards`) ödeme seçeneklerinden düşer; `custom_domain` kapalıyken alan adı servis edilmez (kayıt durur); `whatsapp_channel` kapalıyken mesaj SMS olarak gider; `own_courier_dispatch` ve `courier_network` sevk ve kurye ağı uçlarını kapatır; `order_availability` açıkken duraklatılmış veya çalışma saatleri dışındaki işletme müşteri siparişini `RESTAURANT_NOT_ACCEPTING` ile reddeder (`docs/SIPARIS_VE_SEVK.md`, bölüm 6b).
 - **Ekranlar**: `GET /auth/me` her üyelikte açık modülleri verir (`MembershipSummaryDTO.features`). Panel menüsü (`visibleNav`) ve mobil sekmeler (`tabsFor`) kapalı modülün ekranını göstermez. Takip sayfası `canRate` / `canClaim` alanlarını anahtara göre verir.
 - **Önbellek**: tablo küçüktür; her API süreci tamamını 15 saniye tutar, kendi yazdığında hemen yeniler. Başka bir süreç değişikliği en geç bu sürede görür.
 
@@ -42,6 +42,7 @@ Anahtar, modülün işletme için var olup olmadığına karar verir. Plan (BASI
 | `table_qr` | Sipariş | açık |
 | `ratings` | Sipariş | açık |
 | `missing_item_claims` | Sipariş | açık |
+| `order_availability` | Sipariş | kapalı (BETA) |
 | `online_payment` | Ödeme | açık |
 | `meal_cards` | Ödeme | açık |
 | `partial_refunds` | Ödeme | açık |

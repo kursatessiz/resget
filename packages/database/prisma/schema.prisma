@@ -397,6 +397,11 @@ model Restaurant {
   dispatchSettings     Json?
   /// Customer notification preferences (NotificationSettingsSchema in shared): order updates on or off, channel, SMS fallback.
   notificationSettings Json?
+  /// Order availability (docs/SIPARIS_VE_SEVK.md): consumer orders are refused until this instant; null when not paused.
+  ordersPausedUntil    DateTime?
+  /// Busy mode: extra preparation minutes customers see, while busyUntil lies ahead.
+  busyExtraMinutes     Int          @default(0)
+  busyUntil            DateTime?
 
   logoUrl      String?
   themePrimary String  @default("#0092CD")

@@ -22,6 +22,7 @@ import type {
   StorefrontDTO,
   StorefrontOrderingDTO,
 } from '@resget/shared';
+import { AvailabilityService, availabilitySelect } from '../availability/availability.service';
 import { FeatureFlagsService } from '../features/feature-flags.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MenuService } from '../menu/menu.service';
@@ -35,7 +36,7 @@ import type { AuthUser } from '../auth/tenant-context';
 import { conflict, notFound } from '../../common/api-error';
 
 const restaurantSelect = {
-  id: true,
+  ...availabilitySelect,
   slug: true,
   name: true,
   currency: true,
@@ -69,6 +70,7 @@ export class StorefrontService {
     private readonly geocoding: GeocodingService,
     private readonly config: ConfigService,
     private readonly features: FeatureFlagsService,
+    private readonly availability: AvailabilityService,
   ) {}
 
   // -- Reads ---------------------------------------------------------------------------
@@ -76,7 +78,7 @@ export class StorefrontService {
   async byTableToken(token: string, sessionId: string | null): Promise<StorefrontDTO> {
     const table = await this.prisma.diningTable.findUnique({
       where: { qrToken: token },
-      select: { id: true, label: true, isActive: true, restaurant: { select: restaurantSelect } },
+      select: { id: true, label: true, branchId: true, isActive: true, restaurant: { select: restaurantSelect } },
     });
     if (!table || !table.isActive || !table.restaurant.isActive) throw notFound('TABLE_NOT_FOUND', 'Table not found');
     await this.features.assertEnabled('table_qr', table.restaurant.id);
@@ -85,13 +87,13 @@ export class StorefrontService {
         data: { restaurantId: table.restaurant.id, tableId: table.id, sessionId, outcome: QrScanOutcome.VIEWED_MENU },
       });
     }
-    return this.build(table.restaurant, { id: table.id, label: table.label });
+    return this.build(table.restaurant, { id: table.id, label: table.label }, table.branchId);
   }
 
   async bySlug(slug: string): Promise<StorefrontDTO> {
     const restaurant = await this.prisma.restaurant.findUnique({ where: { slug }, select: restaurantSelect });
     if (!restaurant || !restaurant.isActive) throw notFound('NOT_FOUND', 'Restaurant not found');
-    return this.build(restaurant, null);
+    return this.build(restaurant, null, restaurant.branches[0]?.id ?? null);
   }
 
   /** The guest put the first item in the basket: the STARTED_ORDER funnel step. */
@@ -176,6 +178,7 @@ export class StorefrontService {
         themePrimary: true,
         deliveryMode: true,
         timezone: true,
+        ordersPausedUntil: true,
         branches: { where: { isActive: true }, take: 1, select: { city: true, district: true, openingHours: true } },
         ratingCount: true,
         ratingSum: true,
@@ -184,6 +187,8 @@ export class StorefrontService {
     // Only restaurants whose marketplace module is on are listed (docs/OZELLIK_ANAHTARLARI.md).
     const shown = await Promise.all(listed.map((r) => this.features.isEnabled('marketplace', r.id)));
     const rows = listed.filter((_, index) => shown[index]);
+    // A paused restaurant reads as closed while the availability module is on for it.
+    const availabilityOn = await Promise.all(rows.map((r) => this.features.isEnabled('order_availability', r.id)));
     // Ranking (docs/VITRIN.md): open now first, then a damped rating and recent completed orders, then the name.
     const now = new Date();
     const recent = await this.prisma.order.groupBy({
@@ -197,9 +202,12 @@ export class StorefrontService {
     });
     const recentBy = new Map(recent.map((r) => [r.restaurantId, r._count._all]));
     const ranked = rankRestaurants(
-      rows.map((r) => ({
+      rows.map((r, index) => ({
         ...r,
-        isOpenNow: isOpenAt(r.branches[0]?.openingHours ?? null, now, r.timezone),
+        isOpenNow:
+          availabilityOn[index] && r.ordersPausedUntil !== null && r.ordersPausedUntil > now
+            ? false
+            : isOpenAt(r.branches[0]?.openingHours ?? null, now, r.timezone),
         recentOrders: recentBy.get(r.id) ?? 0,
       })),
     );
@@ -271,6 +279,8 @@ export class StorefrontService {
       viewer: AuthUser | null;
     },
   ): Promise<PublicOrderResultDTO> {
+    // Paused or outside the hours: consumer orders wait (docs/SIPARIS_VE_SEVK.md, "Sipariş alma durumu").
+    await this.availability.assertAccepting(restaurant, branchId);
     const ordering = this.orderingOf(restaurant, context.tableId !== undefined);
     if (input.fulfillment === 'DELIVERY' && !ordering.delivery)
       throw conflict('ORDER_TRANSITION_INVALID', 'No delivery here');
@@ -394,11 +404,16 @@ export class StorefrontService {
 
   // -- Helpers -------------------------------------------------------------------------
 
-  private async build(restaurant: RestaurantRow, table: { id: string; label: string } | null): Promise<StorefrontDTO> {
-    const [categories, payment, loyalty] = await Promise.all([
+  private async build(
+    restaurant: RestaurantRow,
+    table: { id: string; label: string } | null,
+    branchId: string | null,
+  ): Promise<StorefrontDTO> {
+    const [categories, payment, loyalty, availability] = await Promise.all([
       this.menu.menuOf(restaurant.id),
       this.mealCards.acceptedMethods(restaurant.id),
       this.loyalty.storefrontRules(restaurant.id),
+      this.availability.of(restaurant, branchId),
     ]);
     return {
       restaurant: {
@@ -424,6 +439,7 @@ export class StorefrontService {
             maxDiscountBps: loyalty.maxDiscountBps,
           }
         : null,
+      availability,
     };
   }
 
@@ -442,6 +458,10 @@ export class StorefrontService {
 
 interface RestaurantRow {
   id: string;
+  timezone: string;
+  ordersPausedUntil: Date | null;
+  busyExtraMinutes: number;
+  busyUntil: Date | null;
   slug: string;
   name: string;
   currency: string;

@@ -32,4 +32,6 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.custom_domain.description': "The ordering page opens on the business's own domain (PRO).",
   'features.api_access.name': 'API access and webhooks',
   'features.api_access.description': 'API keys and outbound webhooks; keys stop working when switched off (PRO).',
+  'features.order_availability.name': 'Order availability',
+  'features.order_availability.description': 'Pausing orders, busy mode and refusing orders outside opening hours.',
 };

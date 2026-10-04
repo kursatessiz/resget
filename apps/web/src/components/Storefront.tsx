@@ -249,7 +249,28 @@ export function Storefront({
   };
 
   const needsContact = fulfillment !== 'DINE_IN';
+  const { availability } = storefront;
+  const clock = (iso: string | null) =>
+    iso
+      ? new Intl.DateTimeFormat(locale, {
+          weekday: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: availability.timezone,
+        }).format(new Date(iso))
+      : '';
+  const availabilityNote =
+    availability.state === 'PAUSED'
+      ? t('shop.availability.paused', { time: clock(availability.pausedUntil) })
+      : availability.state === 'CLOSED'
+        ? availability.nextOpenAt
+          ? t('shop.availability.closed', { time: clock(availability.nextOpenAt) })
+          : t('shop.availability.closedNoTime')
+        : availability.busyExtraMinutes > 0
+          ? t('shop.availability.busy', { minutes: ordering.defaultPrepMinutes + availability.busyExtraMinutes })
+          : null;
   const canSubmit =
+    availability.accepting &&
     cart.length > 0 &&
     selectedPayment !== null &&
     (!needsContact || (fullName.trim().length > 0 && phone.trim().length > 0)) &&
@@ -257,6 +278,11 @@ export function Storefront({
 
   return (
     <div className="flex flex-col gap-8">
+      {availabilityNote && (
+        <p role="status" className="ui-heading" data-availability={availability.state}>
+          {availabilityNote}
+        </p>
+      )}
       {storefront.categories.map((category) => (
         <section key={category.id} className="flex flex-col gap-3" aria-label={category.name}>
           <h2 className="ui-heading">{category.name}</h2>

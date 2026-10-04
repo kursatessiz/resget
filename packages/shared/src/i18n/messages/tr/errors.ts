@@ -106,4 +106,5 @@ export const trErrors = {
   'errors.SERVICE_AREA_EXISTS': 'Bu hizmet alanı zaten kayıtlı.',
   'errors.PLAN_NOT_FOUND': 'Plan bulunamadı.',
   'errors.RESTAURANT_NOT_FOUND': 'Restoran bulunamadı.',
+  'errors.RESTAURANT_NOT_ACCEPTING': 'Restoran şu an sipariş almıyor.',
 } as const satisfies Record<string, string>;

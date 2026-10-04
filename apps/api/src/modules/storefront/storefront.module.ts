@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AvailabilityModule } from '../availability/availability.module';
 import { CourierModule } from '../courier/courier.module';
 import { MenuModule } from '../menu/menu.module';
 import { OrdersModule } from '../orders/orders.module';
@@ -8,7 +9,7 @@ import { StorefrontController } from './storefront.controller';
 import { StorefrontService } from './storefront.service';
 
 @Module({
-  imports: [MenuModule, OrdersModule, PaymentsModule, CourierModule],
+  imports: [MenuModule, OrdersModule, PaymentsModule, CourierModule, AvailabilityModule],
   controllers: [StorefrontController],
   providers: [StorefrontService, PublicRateLimitGuard],
 })

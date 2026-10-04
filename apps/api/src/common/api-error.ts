@@ -109,6 +109,7 @@ export type ApiErrorCode =
   | 'SERVICE_AREA_EXISTS'
   | 'PLAN_NOT_FOUND'
   | 'RESTAURANT_NOT_FOUND'
+  | 'RESTAURANT_NOT_ACCEPTING'
   | 'RATE_LIMITED';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {

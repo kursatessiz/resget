@@ -31,4 +31,7 @@ export const trFeatures = {
   'features.custom_domain.description': 'Sipariş sayfasının işletmenin alan adında açılması (PRO).',
   'features.api_access.name': 'API erişimi ve webhook',
   'features.api_access.description': 'API anahtarları ve giden webhooklar; kapalıyken anahtarlar çalışmaz (PRO).',
+  'features.order_availability.name': 'Sipariş alma durumu',
+  'features.order_availability.description':
+    'Siparişleri duraklatma, yoğun mod ve çalışma saatleri dışında sipariş kabul etmeme.',
 } as const satisfies Record<string, string>;

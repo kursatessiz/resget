@@ -1,3 +1,4 @@
+import { OpeningHoursEditor } from '@/components/panel/OpeningHoursEditor';
 import { SettingsForm } from '@/components/panel/SettingsForm';
 import { getLocale } from '@/lib/i18n';
 import { requireMembership } from '@/lib/panel';
@@ -7,10 +8,17 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
   const { membership, can } = await requireMembership(slug, 'restaurant.settings.view');
   const locale = await getLocale();
   return (
-    <SettingsForm
-      restaurantId={membership.restaurantId}
-      locale={locale}
-      canManage={can('restaurant.settings.manage')}
-    />
+    <div className="flex flex-col gap-6">
+      <SettingsForm
+        restaurantId={membership.restaurantId}
+        locale={locale}
+        canManage={can('restaurant.settings.manage')}
+      />
+      <OpeningHoursEditor
+        restaurantId={membership.restaurantId}
+        locale={locale}
+        canManage={can('restaurant.settings.manage')}
+      />
+    </div>
   );
 }

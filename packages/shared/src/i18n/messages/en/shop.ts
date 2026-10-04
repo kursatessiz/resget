@@ -64,4 +64,8 @@ export const enShop: Record<keyof typeof trShop, string> = {
   'shop.marketplace.interest.launched': 'That district is already open; pick it above.',
   'shop.marketplace.pickup': 'Pickup',
   'shop.marketplace.cta': 'Discover restaurants',
+  'shop.availability.paused': 'The restaurant is not taking orders right now. Try again at {time}.',
+  'shop.availability.closed': 'The restaurant is closed right now. It opens at {time}.',
+  'shop.availability.closedNoTime': 'The restaurant is closed right now.',
+  'shop.availability.busy': 'The restaurant is busy; preparation may take about {minutes} min.',
 };
