@@ -13,6 +13,8 @@ export const trMessaging = {
   'messaging.template.order.refunded':
     '{restaurant}: {code} numarali siparisinizin odemesi iade edildi. Tutarin hesabiniza gecmesi bankaniza gore birkac gun surebilir.',
   'messaging.template.order.partiallyRefunded': '{restaurant}: {code} numarali siparisiniz icin {amount} iade edildi.',
+  'messaging.template.order.claimDeclined':
+    '{restaurant}: {code} numarali siparisinizdeki eksik urun bildiriminiz kabul edilmedi.{reason}',
   'messaging.template.reasonSuffix': ' Neden: {reason}',
   'messaging.template.refundSuffix.done': ' Odemeniz iade edildi.',
   'messaging.template.refundSuffix.pending': ' Odemeniz iade edilecek.',
@@ -69,6 +71,8 @@ export const trMessaging = {
   'messaging.log.template.order.cancelled': 'Sipariş iptal edildi',
   'messaging.log.template.order.refunded': 'Sipariş iade edildi',
   'messaging.log.template.order.partiallyRefunded': 'Kısmi iade',
+  'messaging.log.template.order.claimDeclined': 'Eksik ürün bildirimi reddedildi',
+  'messaging.log.template.order.claimFiled': 'Eksik ürün bildirimi',
   'messaging.log.error.INSUFFICIENT_CREDITS': 'Kredi yetersiz',
   'messaging.log.error.PROVIDER_REJECTED': 'Sağlayıcı kabul etmedi',
   'messaging.log.error.PROVIDER_ERROR': 'Sağlayıcı hatası',
@@ -99,6 +103,11 @@ export const trMessaging = {
     '{restaurant}: {code} numaralı siparişinizin ödemesi iade edildi. Tutarın hesabınıza geçmesi bankanıza göre birkaç gün sürebilir.',
   'messaging.push.order.partiallyRefunded.title': 'Kısmi iade yapıldı',
   'messaging.push.order.partiallyRefunded.body': '{restaurant}: {code} numaralı siparişiniz için {amount} iade edildi.',
+  'messaging.push.order.claimDeclined.title': 'Eksik ürün bildiriminiz kabul edilmedi',
+  'messaging.push.order.claimDeclined.body':
+    '{restaurant}: {code} numaralı siparişinizdeki eksik ürün bildiriminiz kabul edilmedi.{reason}',
+  'messaging.push.order.claimFiled.title': 'Eksik ürün bildirimi {code}',
+  'messaging.push.order.claimFiled.body': '{restaurant}: bir müşteri siparişinde eksik ürün bildirdi; onay bekliyor.',
   'messaging.push.refundSuffix.done': ' Ödemeniz iade edildi.',
   'messaging.push.refundSuffix.pending': ' Ödemeniz iade edilecek.',
   'messaging.push.trip.assigned.title': 'Yeni sefer',

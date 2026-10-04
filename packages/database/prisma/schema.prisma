@@ -138,6 +138,12 @@ enum OrderRefundSource {
   CHARGEBACK
 }
 
+enum OrderClaimStatus {
+  OPEN
+  APPROVED
+  DECLINED
+}
+
 enum LedgerEntryType {
   GROSS_SALE
   DISCOUNT
@@ -282,6 +288,7 @@ model User {
   tripsCreated        DeliveryTrip[]
   paymentsCollected   Payment[]            @relation("PaymentCollectedBy")
   refundsCreated      OrderRefund[]        @relation("OrderRefundCreatedBy")
+  claimsDecided       OrderClaim[]         @relation("OrderClaimDecidedBy")
   auditLogs           AuditLog[]
   campaignsCreated    Campaign[]           @relation("CampaignCreatedBy")
   apiKeysCreated      RestaurantApiKey[]   @relation("ApiKeyCreatedBy")
@@ -413,6 +420,7 @@ model Restaurant {
   orders               Order[]
   payments             Payment[]
   orderRefunds         OrderRefund[]
+  orderClaims          OrderClaim[]
   ledgerEntries        LedgerEntry[]
   payouts              Payout[]
   paymentConnection    PaymentProviderConnection?
@@ -989,6 +997,7 @@ model Order {
   deliveryRequest     DeliveryRequest?
   deliveryStops       DeliveryStop[]
   refunds             OrderRefund[]
+  claims              OrderClaim[]
 
   @@index([restaurantId, placedAt])
   @@index([restaurantId, status])
@@ -1098,18 +1107,49 @@ model OrderRefund {
   items              Json?
   reason             String?
   createdByUserId    String?
+  /// The customer's missing-item claim this refund paid out, when it came from one.
+  claimId            String?
   /// OWN_POS: the commission invoice that credited this refund's commission back.
   creditInvoiceId    String?
   createdAt          DateTime          @default(now())
 
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  payment    Payment?   @relation(fields: [paymentId], references: [id], onDelete: SetNull)
-  createdBy  User?      @relation("OrderRefundCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  restaurant Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  order      Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  payment    Payment?    @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  createdBy  User?       @relation("OrderRefundCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  claim      OrderClaim? @relation(fields: [claimId], references: [id], onDelete: SetNull)
 
   @@index([orderId, createdAt])
   @@index([restaurantId, creditInvoiceId])
   @@map("order_refunds")
+}
+
+/// A customer's report that items did not arrive (docs/ODEME.md, "Eksik ürün bildirimi"). The restaurant approves
+/// (all or part of it), which pays it out as a partial refund (OrderRefund.claimId), or declines with a reason.
+model OrderClaim {
+  id              String           @id @default(uuid())
+  restaurantId    String
+  orderId         String
+  status          OrderClaimStatus @default(OPEN)
+  /// Claimed items, [{ orderItemId, quantity }].
+  items           Json
+  /// What the claimed items were worth at what the customer paid, when filed.
+  requestedMinor  Int
+  note            String?
+  decidedByUserId String?
+  decidedAt       DateTime?
+  declineReason   String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  restaurant Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  order      Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  decidedBy  User?         @relation("OrderClaimDecidedBy", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+  refunds    OrderRefund[]
+
+  @@index([orderId, createdAt])
+  @@index([restaurantId, status])
+  @@map("order_claims")
 }
 
 /// A restaurant's own virtual POS (docs/ODEME.md). Credentials are encrypted

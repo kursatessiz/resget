@@ -49,4 +49,13 @@ export const trTracking = {
   'tracking.live': 'Canlı',
   'tracking.reconnecting': 'Bağlantı yeniden kuruluyor...',
   'tracking.updatedAt': 'Son güncelleme {time}',
+  'tracking.claim.title': 'Eksik ürün',
+  'tracking.claim.start': 'Eksik ürün bildir',
+  'tracking.claim.intro': 'Gelmeyen ürünleri ve adedini seçin. İşletme onaylarsa ödediğiniz tutar iade edilir.',
+  'tracking.claim.itemQuantity': '{name} (en fazla {left} adet)',
+  'tracking.claim.note': 'Not (isteğe bağlı)',
+  'tracking.claim.submit': 'Bildirimi gönder',
+  'tracking.claim.open': 'Bildiriminiz işletmeye iletildi. Karar verildiğinde size haber verilir.',
+  'tracking.claim.approved': 'Bildiriminiz onaylandı; {amount} iade edildi.',
+  'tracking.claim.declined': 'Bildiriminiz kabul edilmedi. Neden: {reason}',
 } as const satisfies Record<string, string>;

@@ -6,6 +6,7 @@ import type { OrderDetailDTO, OrderStatusValue, OrderSummaryDTO, RealtimeEvent }
 import { Badge, Button } from '@/components/ui';
 import { ApiError, bffJson, useRealtime } from '@/lib/client-api';
 import type { RefundRequest } from './RefundPanel';
+import type { ClaimDecision } from './ClaimReview';
 import { useT } from '@/lib/use-t';
 import { OrderCard } from './OrderCard';
 
@@ -174,6 +175,22 @@ export function OrdersBoard({
     }
   };
 
+  const decideClaim = async (order: OrderSummaryDTO, claimId: string, decision: ClaimDecision) => {
+    setBusyId(order.id);
+    setError(null);
+    try {
+      const updated = await bffJson<OrderDetailDTO>(`${base}/${order.id}/claims/${claimId}/${decision.action}`, {
+        method: 'POST',
+        body: JSON.stringify(decision.action === 'approve' ? { items: decision.items } : { reason: decision.reason }),
+      });
+      upsert(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? t(`errors.${err.code}`) : t('common.error.network'));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const list = [...orders.values()].sort((a, b) => b.placedAt.localeCompare(a.placedAt));
   const bySection = new Map<SectionKey, OrderSummaryDTO[]>(SECTIONS.map((key) => [key, []]));
   for (const order of list) bySection.get(SECTION_OF[order.status])!.push(order);
@@ -219,6 +236,7 @@ export function OrdersBoard({
                   busy={busyId === order.id}
                   onTransition={(o, to, extra) => void transition(o, to, extra)}
                   onRefund={(o, request) => void refund(o, request)}
+                  onClaim={(o, claimId, decision) => void decideClaim(o, claimId, decision)}
                   loadDetail={(o) => bffJson<OrderDetailDTO>(`${base}/${o.id}`)}
                 />
               ))}

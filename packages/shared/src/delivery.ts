@@ -14,6 +14,7 @@ import { MinorAmountSchema } from './money';
 import { OrderPaymentIntentSchema } from './meal-cards';
 import type { OrderPaymentDTO } from './meal-cards';
 import type { OrderRefundDTO } from './refunds';
+import type { OrderClaimDTO } from './claims';
 import { PhoneSchema, UuidSchema } from './validators';
 
 /**
@@ -613,6 +614,8 @@ export interface OrderSummaryDTO {
   acceptDeadlineAt: string | null;
   /** The trip this order currently rides in, when any. */
   activeTrip: { tripId: string; stopId: string; sequence: number; tripStatus: DeliveryTripStatusValue } | null;
+  /** The customer's missing-item claim waiting for the restaurant, if any. */
+  openClaimId: string | null;
   /** Chosen method, issuer and what is still due at the door (docs/YEMEK_KARTI.md). */
   payment: OrderPaymentDTO;
 }
@@ -628,6 +631,8 @@ export interface OrderDetailDTO extends OrderSummaryDTO {
   platformReceivableMinor: number;
   /** Every refund of the order, oldest first. */
   refunds: OrderRefundDTO[];
+  /** The customer's missing-item claims, newest first (docs/ODEME.md, "Eksik ürün bildirimi"). */
+  claims: OrderClaimDTO[];
 }
 
 export interface CourierPositionDTO {
@@ -706,7 +711,8 @@ export interface OrderTrackingDTO {
   status: OrderStatusValue;
   fulfillment: FulfillmentTypeValue;
   restaurant: { name: string; logoUrl: string | null; themePrimary: string; phone: string | null };
-  items: { name: string; quantity: number }[];
+  /** Lines of the order; refundedQuantity is how many already went back (a claim asks for at most the rest). */
+  items: { id: string; name: string; quantity: number; refundedQuantity: number }[];
   placedAt: string;
   promisedReadyAt: string | null;
   estimatedDeliveryAt: string | null;
@@ -724,6 +730,9 @@ export interface OrderTrackingDTO {
   /** The customer's rating once given (docs/VITRIN.md); canRate says whether the page should still ask. */
   rating: OrderRatingDTO | null;
   canRate: boolean;
+  /** The latest missing-item claim and whether a new one can be filed now. */
+  claim: OrderClaimDTO | null;
+  canClaim: boolean;
 }
 
 // -- Realtime events -----------------------------------------------------------------

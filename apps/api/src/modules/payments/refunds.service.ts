@@ -60,6 +60,7 @@ interface RefundContext {
    * which only gives back whole cancelled orders.
    */
   partial: boolean;
+  claimId: string | null;
   now: Date;
 }
 
@@ -169,6 +170,7 @@ export class RefundsService implements OnModuleInit, OnModuleDestroy {
     input: RefundOrderInput,
     actorUserId: string,
     source: OrderRefundSourceValue,
+    claimId: string | null = null,
   ): Promise<number> {
     const now = new Date();
     const order = await this.prisma.order.findFirst({
@@ -213,7 +215,15 @@ export class RefundsService implements OnModuleInit, OnModuleDestroy {
         step.amountMinor,
         isOnlinePayment(step.payment),
         // The items ride on the first row only, so the quantities given back are counted once.
-        { source, reason: input.reason, actorUserId, items: index === 0 ? items : null, partial: true, now },
+        {
+          source,
+          reason: input.reason,
+          actorUserId,
+          items: index === 0 ? items : null,
+          partial: true,
+          claimId,
+          now,
+        },
       );
       if (code) {
         failure = code;
@@ -317,6 +327,7 @@ export class RefundsService implements OnModuleInit, OnModuleDestroy {
         actorUserId: opts.actorUserId,
         items: null,
         partial: false,
+        claimId: null,
         now: opts.now,
       });
       if (code) failure ??= code;
@@ -423,6 +434,7 @@ export class RefundsService implements OnModuleInit, OnModuleDestroy {
         items: context.items,
         reason: context.reason,
         actorUserId: context.actorUserId,
+        claimId: context.claimId,
         now,
       });
     });

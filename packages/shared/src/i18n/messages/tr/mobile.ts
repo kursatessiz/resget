@@ -69,6 +69,8 @@ export const trMobile = {
   'mobile.courier.navApp.google': 'Google Haritalar',
   'mobile.courier.navApp.apple': 'Apple Haritalar',
   'mobile.courier.navApp.yandex': 'Yandex Haritalar',
+  'mobile.stepper.minus': '-',
+  'mobile.stepper.plus': '+',
   'mobile.map.fit': 'Tümünü göster',
   'mobile.courier.map.label': 'Sefer haritası',
   'mobile.courier.map.pickup': 'Teslim alma noktası',

@@ -33,6 +33,8 @@ const tracking = (
   destination,
   rating: null,
   canRate: false,
+  claim: null,
+  canClaim: false,
 });
 
 const stop = (

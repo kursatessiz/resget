@@ -1,16 +1,19 @@
-import { Controller, Get, Headers, HttpCode, Post, Query, Req, Res } from '@nestjs/common';
+import { Controller, Get, Headers, HttpCode, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import {
+  ApproveClaimSchema,
   CheckoutRequestSchema,
   CollectPaymentSchema,
+  DeclineClaimSchema,
+  FileClaimSchema,
   RefundOrderSchema,
   SlugSchema,
   TrackingTokenSchema,
   UuidSchema,
 } from '@resget/shared';
-import type { AcceptedPaymentMethodsDTO, CheckoutSessionDTO, OrderDetailDTO } from '@resget/shared';
+import type { AcceptedPaymentMethodsDTO, CheckoutSessionDTO, OrderDetailDTO, OrderTrackingDTO } from '@resget/shared';
 import { ZodBody, ZodParam } from '../../common/zod-body.pipe';
 import { RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
@@ -21,6 +24,8 @@ import { CheckoutService } from './checkout.service';
 import type { WebhookOutcome } from './checkout.service';
 import { MealCardsService } from './meal-cards.service';
 import { RefundsService } from './refunds.service';
+import { ClaimsService } from './claims.service';
+import { PublicRateLimitGuard, RateLimit } from '../storefront/public-rate-limit.guard';
 
 const WebhookKindSchema = z.enum(['meal-cards', 'pos']);
 
@@ -31,7 +36,50 @@ export class OrderPaymentsController {
   constructor(
     private readonly checkout: CheckoutService,
     private readonly refunds: RefundsService,
+    private readonly claims: ClaimsService,
   ) {}
+
+  /** Approves a missing-item claim, all of it or the chosen part; paid out as a partial refund (docs/ODEME.md). */
+  @Post('claims/:claimId/approve')
+  @HttpCode(200)
+  @RequirePermission('orders.refund')
+  approveClaim(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodParam('orderId', UuidSchema) orderId: string,
+    @ZodParam('claimId', UuidSchema) claimId: string,
+    @ZodBody(ApproveClaimSchema) body: z.infer<typeof ApproveClaimSchema>,
+  ): Promise<OrderDetailDTO> {
+    return this.claims.approve(
+      tenant.restaurantId,
+      orderId,
+      claimId,
+      body,
+      user.id,
+      tenant.permissions.has('customers.contact.view'),
+    );
+  }
+
+  /** Declines a missing-item claim with a reason the customer reads. */
+  @Post('claims/:claimId/decline')
+  @HttpCode(200)
+  @RequirePermission('orders.refund')
+  declineClaim(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodParam('orderId', UuidSchema) orderId: string,
+    @ZodParam('claimId', UuidSchema) claimId: string,
+    @ZodBody(DeclineClaimSchema) body: z.infer<typeof DeclineClaimSchema>,
+  ): Promise<OrderDetailDTO> {
+    return this.claims.decline(
+      tenant.restaurantId,
+      orderId,
+      claimId,
+      body,
+      user.id,
+      tenant.permissions.has('customers.contact.view'),
+    );
+  }
 
   /** Gives the order's captured money back the way it came (docs/ODEME.md, "İade"). */
   @Post('refund')
@@ -92,7 +140,20 @@ export class PublicPaymentsController {
     private readonly checkout: CheckoutService,
     private readonly mealCards: MealCardsService,
     private readonly prisma: PrismaService,
+    private readonly claims: ClaimsService,
   ) {}
+
+  /** The customer reports missing items from the tracking page; rate limited like the other anonymous writes. */
+  @Post('orders/:token/claims')
+  @HttpCode(201)
+  @UseGuards(PublicRateLimitGuard)
+  @RateLimit({ bucket: 'funnel', limit: 20, windowSeconds: 600 })
+  fileClaim(
+    @ZodParam('token', TrackingTokenSchema) token: string,
+    @ZodBody(FileClaimSchema) body: z.infer<typeof FileClaimSchema>,
+  ): Promise<OrderTrackingDTO> {
+    return this.claims.fileByToken(token, body);
+  }
 
   @Get('restaurants/:slug/payment-methods')
   async acceptedMethods(@ZodParam('slug', SlugSchema) slug: string): Promise<AcceptedPaymentMethodsDTO> {

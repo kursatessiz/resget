@@ -12,6 +12,7 @@ import {
   trackingTokenFromLink,
 } from '@resget/shared';
 import type { OrderTrackingDTO } from '@resget/shared';
+import { ClaimCard } from '@/components/claim-card';
 import { MapPanel, useInAppMap } from '@/components/map-panel';
 import type { MapPin } from '@/components/map-panel';
 import { Body, Button, Caption, Card, Field, Notice, Screen, Title } from '@/components/ui';
@@ -200,6 +201,7 @@ export default function TrackingScreen() {
           height={240}
         />
       )}
+      {tracking && <ClaimCard token={token} tracking={tracking} api={api} onUpdated={setTracking} />}
       {tracking && (tracking.canRate || tracking.rating) && (
         <Card title={t('tracking.rating.title')}>
           {tracking.rating ? (
