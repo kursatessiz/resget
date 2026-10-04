@@ -1,6 +1,6 @@
 import { test as setup } from '@playwright/test';
 import { SEED } from './support/seed';
-import { OWNER_STATE, signIn } from './support/session';
+import { ADMIN_STATE, OWNER_STATE, signIn } from './support/session';
 
 /**
  * Signs the demo owner in once and stores the cookies; the panel scenarios
@@ -10,4 +10,9 @@ import { OWNER_STATE, signIn } from './support/session';
 setup('the owner signs in once for the panel scenarios', async ({ page }) => {
   await signIn(page, SEED.ownerPhone);
   await page.context().storageState({ path: OWNER_STATE });
+});
+
+setup('the super admin signs in once for the console scenarios', async ({ page }) => {
+  await signIn(page, SEED.superAdminPhone);
+  await page.context().storageState({ path: ADMIN_STATE });
 });
