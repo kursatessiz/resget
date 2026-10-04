@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { OtpPurpose } from '@resget/database';
-import { effectivePermissions, effectivePlan } from '@resget/shared';
+import { PERMISSION_KEYS, effectivePermissions, effectivePlan } from '@resget/shared';
 import type {
   AccessTokenClaims,
   MeDTO,
@@ -92,6 +92,8 @@ export class AuthService {
       where: { id: userId },
       select: { id: true, phone: true, fullName: true, locale: true, isSuperAdmin: true },
     });
+    // Catalogue order, not the database's: the same role always yields the same list.
+    const ordered = (granted: ReadonlySet<string>) => PERMISSION_KEYS.filter((key) => granted.has(key));
     const memberships = await this.prisma.membership.findMany({
       where: { userId, status: 'ACTIVE', restaurant: { isActive: true } },
       select: {
@@ -125,12 +127,12 @@ export class AuthService {
         roleName: m.roleTemplate.name,
         themePrimary: m.restaurant.themePrimary,
         logoUrl: m.restaurant.logoUrl,
-        permissions: [
-          ...effectivePermissions(
+        permissions: ordered(
+          effectivePermissions(
             m.roleTemplate.isOwner,
             m.roleTemplate.permissions.map((p) => p.permissionKey),
           ),
-        ],
+        ),
         effectivePlan: effectivePlan(
           m.restaurant.subscription
             ? {
