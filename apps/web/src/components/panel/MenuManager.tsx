@@ -12,6 +12,7 @@ import type {
 } from '@resget/shared';
 import { Badge, Button, Card, SelectField, TextAreaField, TextField } from '@/components/ui';
 import { ApiError, bffJson } from '@/lib/client-api';
+import { MenuImport } from './MenuImport';
 import { useT } from '@/lib/use-t';
 
 interface Editing {
@@ -234,6 +235,14 @@ export function MenuManager({
             </Button>
           </form>
         </Card>
+      )}
+
+      {canManage && (
+        <MenuImport
+          restaurantId={restaurantId}
+          t={t}
+          onApplied={async () => setMenu(await bffJson<MenuAdminDTO>(`${base}/manage`))}
+        />
       )}
 
       {menu.categories.length === 0 && <p className="ui-text-muted">{t('menu.manage.empty')}</p>}

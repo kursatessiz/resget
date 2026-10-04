@@ -2,6 +2,17 @@
 
 Panel menüsü (`PANEL_NAV`, `packages/shared/src/navigation.ts`) kullanıcının etkin izinlerinden çizilir; her bağlantının arkasında bir ekran vardır. Sipariş, sevk, menü, masa, ayar, ödeme, personel, plan ve finans ekranları kendi belgelerinde anlatılır (`docs/SIPARIS_VE_SEVK.md`, `docs/MASA_QR.md`, `docs/ODEME.md`, `docs/PERSONEL.md`, `docs/MESAJLASMA.md`, `docs/FATURALAMA.md`). Bu belge kalan dört ekranı tanımlar.
 
+## Menü içe aktarma (`/panel/<slug>/menu`, izin `menu.manage`)
+
+Gerçek restoran verisiyle başlarken menü elle tek tek girilmez: restoranın elindeki Excel veya Google E-Tablolar dosyası CSV olarak kaydedilip menü ekranındaki "Menüyü dosyadan içe aktar" kartından yüklenir.
+
+- **Sütunlar**: `category`, `name`, `price` zorunlu; `description`, `vat_rate` (KDV yüzdesi), `available` (evet / hayır, 1 / 0) isteğe bağlı. Türkçe başlıklar da tanınır (`kategori`, `ürün adı`, `açıklama`, `fiyat`, `kdv`, `satışta`); büyük-küçük harf, boşluk ve aksan fark etmez. Ayraç virgül, noktalı virgül (Türkçe Excel) veya sekme olabilir, tırnaklı alanlar ve BOM desteklenir. Örnek dosya karttan indirilir (`menuImportTemplate()`).
+- **Fiyat**: ana birimde yazılır (`120`, `120,50`, `1.250,50`, `1,250.50`); restoranın para biriminin ondalık basamağına göre tam sayı minör birime çevrilir, kayan noktalı hesap yapılmaz ve basamak fazlası satırı hatalı sayar.
+- **KDV**: sütun yoksa restoranın ülkesinin yemek KDV'si kullanılır (`FOOD_VAT_BPS_BY_COUNTRY`; tanımsız ülkede sütun zorunludur). Sütun varsa satır bazında uygulanır.
+- **Eşleştirme**: kategori ve ürün adı (büyük-küçük harf ve boşluklar yok sayılarak) mevcut kayıtlarla eşleşir. Olmayan kategori sona eklenir, olmayan ürün kategorisinin sonuna eklenir; mevcut üründe fiyat her zaman, açıklama / KDV / satışta durumu yalnızca dosyada o sütun varsa güncellenir. Böylece aynı dosya fiyat güncellemesi için tekrar yüklenebilir. Ürün silinmez.
+- **Akış**: `POST /restaurants/:id/menu/import` (`{ csv, dryRun }`). Ön izleme (`dryRun: true`) hiçbir şey yazmaz; satır sayısı, yeni / güncellenecek / değişmeyecek ürün sayıları, yeni kategoriler ve her hatalı satır (satır numarası ve sebep) döner. Uygulama yalnızca hiç hata yoksa ve tek işlemde yapılır; hatalı dosya `MENU_IMPORT_INVALID` ile reddedilir. Bir dosyada en fazla 2000 ürün; JSON gövde sınırı bu yüzden 1 MB'dir.
+- Seçenek grupları (modifier) ve görseller dosyayla gelmez, menü düzenleyiciden eklenir.
+
 ## Müşteriler (`/panel/<slug>/musteriler`, izin `customers.view`)
 
 Masadan, restoranın kendi sipariş sayfasından veya pazaryerinden sipariş veren ya da masa QR'ından kaydolan herkes o restoranın `RestaurantCustomer` satırı olur (`docs/VERI_MODELI.md`). Liste restorana aittir; platform başka restoranla veya üçüncü tarafla paylaşmaz.

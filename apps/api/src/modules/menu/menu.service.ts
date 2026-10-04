@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@resget/database';
+import { menuMatchKey, parseMenuCsv } from '@resget/shared';
 import type {
   CreateMenuCategoryInput,
+  ImportMenuInput,
+  MenuImportResultDTO,
   CreateMenuItemInput,
   MenuAdminDTO,
   MenuCategoryAdminDTO,
@@ -239,6 +242,137 @@ export class MenuService {
   private async requireItem(restaurantId: string, itemId: string): Promise<void> {
     const item = await this.prisma.menuItem.findFirst({ where: { id: itemId, restaurantId }, select: { id: true } });
     if (!item) throw notFound('MENU_ITEM_NOT_FOUND', 'Item not found');
+  }
+
+  /**
+   * Menu import (docs/PANEL.md). Categories and items are matched by name
+   * (case and spacing ignored); missing categories are appended, missing
+   * items created at the end of their category, existing ones updated only
+   * in the columns the file has. One transaction: a file is applied whole
+   * or not at all, and never when any line is invalid.
+   */
+  async importCsv(restaurantId: string, input: ImportMenuInput): Promise<MenuImportResultDTO> {
+    const restaurant = await this.prisma.restaurant.findUniqueOrThrow({
+      where: { id: restaurantId },
+      select: { currency: true, countryCode: true },
+    });
+    const parsed = parseMenuCsv(input.csv, restaurant.currency, restaurant.countryCode);
+    const categories = await this.prisma.menuCategory.findMany({
+      where: { restaurantId },
+      select: { id: true, name: true, sortOrder: true },
+    });
+    const items = await this.prisma.menuItem.findMany({
+      where: { restaurantId },
+      select: {
+        id: true,
+        categoryId: true,
+        name: true,
+        description: true,
+        priceMinor: true,
+        vatRateBps: true,
+        isAvailable: true,
+      },
+    });
+    const categoryByKey = new Map(categories.map((c) => [menuMatchKey(c.name), c]));
+    const itemByKey = new Map(items.map((i) => [`${i.categoryId}\u0000${menuMatchKey(i.name)}`, i]));
+
+    const categoriesCreated: string[] = [];
+    const plannedCategories = new Set<string>();
+    let itemsCreated = 0;
+    let itemsUpdated = 0;
+    let itemsUnchanged = 0;
+    for (const row of parsed.rows) {
+      const categoryKey = menuMatchKey(row.category);
+      const category = categoryByKey.get(categoryKey);
+      if (!category && !plannedCategories.has(categoryKey)) {
+        plannedCategories.add(categoryKey);
+        categoriesCreated.push(row.category);
+      }
+      const existing = category ? itemByKey.get(`${category.id}\u0000${menuMatchKey(row.name)}`) : undefined;
+      if (!existing) itemsCreated += 1;
+      else if (this.importChanges(existing, row)) itemsUpdated += 1;
+      else itemsUnchanged += 1;
+    }
+    const summary = {
+      rows: parsed.rows.length + new Set(parsed.issues.filter((i) => i.line > 1).map((i) => i.line)).size,
+      categoriesCreated,
+      itemsCreated,
+      itemsUpdated,
+      itemsUnchanged,
+      issues: parsed.issues,
+    };
+    if (input.dryRun) return { dryRun: true, applied: false, ...summary };
+    if (parsed.issues.length > 0) throw badRequest('MENU_IMPORT_INVALID', 'The file has invalid lines');
+
+    await this.prisma.$transaction(async (tx) => {
+      let nextCategoryOrder = categories.reduce((max, c) => Math.max(max, c.sortOrder), 0) + 1;
+      const nextItemOrder = new Map<string, number>();
+      const orderFor = async (categoryId: string): Promise<number> => {
+        if (!nextItemOrder.has(categoryId)) {
+          const last = await tx.menuItem.aggregate({ where: { categoryId }, _max: { sortOrder: true } });
+          nextItemOrder.set(categoryId, (last._max.sortOrder ?? 0) + 1);
+        }
+        const value = nextItemOrder.get(categoryId)!;
+        nextItemOrder.set(categoryId, value + 1);
+        return value;
+      };
+      for (const row of parsed.rows) {
+        const categoryKey = menuMatchKey(row.category);
+        let category = categoryByKey.get(categoryKey);
+        if (!category) {
+          category = await tx.menuCategory.create({
+            data: { restaurantId, name: row.category, sortOrder: nextCategoryOrder },
+            select: { id: true, name: true, sortOrder: true },
+          });
+          nextCategoryOrder += 1;
+          categoryByKey.set(categoryKey, category);
+        }
+        const existing = itemByKey.get(`${category.id}\u0000${menuMatchKey(row.name)}`);
+        if (!existing) {
+          await tx.menuItem.create({
+            data: {
+              restaurantId,
+              categoryId: category.id,
+              name: row.name,
+              description: row.description ?? null,
+              priceMinor: row.priceMinor,
+              currency: restaurant.currency,
+              vatRateBps: row.vatRateBps ?? parsed.defaultVatRateBps ?? 0,
+              isAvailable: row.isAvailable ?? true,
+              sortOrder: await orderFor(category.id),
+            },
+          });
+        } else if (this.importChanges(existing, row)) {
+          await tx.menuItem.update({
+            where: { id: existing.id },
+            data: {
+              priceMinor: row.priceMinor,
+              ...(row.description !== undefined ? { description: row.description } : {}),
+              ...(row.vatRateBps !== undefined ? { vatRateBps: row.vatRateBps } : {}),
+              ...(row.isAvailable !== undefined ? { isAvailable: row.isAvailable } : {}),
+            },
+          });
+        }
+      }
+    });
+    return { dryRun: false, applied: true, ...summary };
+  }
+
+  private importChanges(
+    existing: { description: string | null; priceMinor: number; vatRateBps: number; isAvailable: boolean },
+    row: {
+      description: string | null | undefined;
+      priceMinor: number;
+      vatRateBps: number | undefined;
+      isAvailable: boolean | undefined;
+    },
+  ): boolean {
+    return (
+      existing.priceMinor !== row.priceMinor ||
+      (row.description !== undefined && existing.description !== row.description) ||
+      (row.vatRateBps !== undefined && existing.vatRateBps !== row.vatRateBps) ||
+      (row.isAvailable !== undefined && existing.isAvailable !== row.isAvailable)
+    );
   }
 
   private async nextCategoryOrder(restaurantId: string): Promise<number> {

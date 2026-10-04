@@ -8,11 +8,14 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { ERROR_CODE_HEADER, REQUEST_ID_HEADER } from '@resget/shared';
 import { AppModule } from './app.module';
 import { ErrorCodeFilter } from './common/error-code.filter';
+import { JSON_BODY_LIMIT } from './common/body-limit';
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
   // rawBody keeps the exact bytes of webhook requests for signature checks.
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
+  // A menu import (docs/PANEL.md) carries a whole spreadsheet; every other body stays far below this.
+  app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
   // Caddy is the only proxy in front of the API; trust exactly one hop.
   app.set('trust proxy', 1);
   app.useGlobalFilters(new ErrorCodeFilter());
