@@ -25,6 +25,20 @@ Tek bir motor her mesajı gönderir (`MessagingService`, `apps/api/src/modules/m
 
 Bu mesajlar işlemsel (hizmet) mesajlarıdır: müşterinin kendi siparişi hakkındadır, ticari ileti sayılmaz ve İYS / sessiz saat kontrolüne tabi değildir. Kampanya ve pazarlama mesajları (PRO) ticari iletidir; izin kaydı, İYS sorgusu ve sessiz saat kontrolü kampanya modülündedir (`docs/KAMPANYALAR.md`) ve gönderim `campaign.body` şablonuyla aynı motordan, `billable: true` ve yedek kanalsız geçer.
 
+## Push bildirimleri
+
+Mobil uygulama (`docs/MOBIL.md`) her girişten sonra cihazının Expo push jetonunu `POST /me/devices` ile kaydeder ve çıkışta `DELETE /me/devices/:token` ile siler (`push_devices`; cihaz kişiye aittir, restorana değil, aynı telefon müşteri, kurye ve personel bildirimlerini rolüne göre alır). Gönderim `PushService` üzerinden `PUSH_PROVIDER` jetonunun arkasındaki sağlayıcıyla yapılır: `EXPO` Expo push servisine gider (APNs ve FCM kimlikleri Expo projesindedir, platformda tutulmaz; isteğe bağlı `EXPO_ACCESS_TOKEN`), `MOCK` üretim dışında kabul eder, üretimde reddeder.
+
+Kurallar:
+
+- **Push ölçülmez.** Her deneme `message_logs` satırıdır (`channel = PUSH`, `creditsCharged = 0`); cüzdan kontrol edilmez ve düşülmez (CLAUDE.md kural 9).
+- **Push ücretli mesajın yerine geçer.** `OrderNotificationsService` önce müşterinin aktif cihazlarına push dener (`customerPushTemplate()`); en az bir cihaz kabul edildiyse SMS / WhatsApp gönderilmez ve restoranın kredisi harcanmaz. Hiç cihaz yoksa veya sağlayıcı reddettiyse akış eskisi gibi ücretli kanala iner.
+- **Ölü cihaz kapanır.** Sağlayıcı jetonun artık kayıtlı olmadığını söylerse (`DeviceNotRegistered`) kayıt `FAILED / DEVICE_GONE` olur, cihaz `disabledAt` ile kapatılır ve aynı güncelleme ücretli kanaldan gider; uygulama bir sonraki açılışta yeniden kaydolunca cihaz tekrar açılır.
+- **Yalnızca push ile giden güncellemeler**: kurye yaklaşıyor (`ARRIVING`) ve sipariş tamamlandı (`DELIVERED` / `PICKED_UP`, değerlendirme daveti). Bunların ücretli şablonu yoktur; cihaz yoksa hiçbir şey gönderilmez. Masa siparişleri (`DINE_IN`) hiç push almaz.
+- **Kurye**: sefer atandığında (`assignCourier`) kuryenin telefonuna `trip.assigned` gider; dokunma sefer ekranını açar.
+- **Personel**: müşterinin kendi verdiği sipariş (masa QR, restoran sayfası, pazaryeri) `orders.view` iznine sahip aktif personelin telefonlarına `order.placed` olarak düşer; telefonla alınıp personelin kendisinin girdiği sipariş (`PHONE`) uyarı üretmez.
+- Metinler `messaging.push.<anahtar>.title` ve `.body` mesajlarıdır; dil cihazın bildirdiği dil, yoksa profil dili, yoksa restoranın varsayılan dilidir. Bildirim verisi (`kind: tracking | trip | orders`) uygulamanın hangi ekranı açacağını söyler; uygulama tanımadığı veriyle gezinmez (`pushRouteFor()`).
+
 ## Krediler ve satın alma
 
 - Cüzdanlar kanal başınadır (`SMS`, `WHATSAPP`); yeni restoran hoş geldin bakiyesiyle başlar (`WELCOME_MESSAGE_CREDITS_DEFAULT`).

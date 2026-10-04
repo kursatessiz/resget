@@ -1,14 +1,18 @@
 import type { MembershipSummaryDTO, PermissionKey } from '@resget/shared';
 
-export type MobileTab = 'courier' | 'orders' | 'account';
+export type MobileTab = 'courier' | 'orders' | 'myOrders' | 'account';
 
-/** Tabs a member sees, from their effective permissions in the chosen restaurant (one app, roles from the membership). */
+/**
+ * Tabs a person sees: staff tabs from their effective permissions in the
+ * chosen restaurant, then their own orders as a customer (everyone is one)
+ * and the account. One app, roles from the membership.
+ */
 export function tabsFor(permissions: readonly PermissionKey[] | ReadonlySet<PermissionKey>): MobileTab[] {
   const set = permissions instanceof Set ? permissions : new Set(permissions);
   const tabs: MobileTab[] = [];
   if (set.has('courier.deliver')) tabs.push('courier');
   if (set.has('orders.view')) tabs.push('orders');
-  tabs.push('account');
+  tabs.push('myOrders', 'account');
   return tabs;
 }
 

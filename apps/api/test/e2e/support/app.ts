@@ -40,6 +40,8 @@ export async function createTestApp(): Promise<TestContext> {
   process.env.UPLOADS_DIR ??= path.join(os.tmpdir(), 'resget-e2e-uploads');
   // Custom domains are verified against a stand-in resolver: hosts under .verified.test pass.
   process.env.DOMAIN_VERIFIER ??= 'MOCK';
+  // Push goes to a stand-in provider: tokens containing 'gone' report the device as unregistered.
+  process.env.PUSH_PROVIDER ??= 'MOCK';
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = moduleRef.createNestApplication({ rawBody: true });
   app.useGlobalFilters(new ErrorCodeFilter());
