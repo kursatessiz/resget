@@ -68,6 +68,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.journeys.name': 'Automated flows',
   'features.journeys.description':
     'Post-order thank you, first order, review request and win-back messages, under the consent, hour and credit rules.',
+  'features.kpi_dashboard.name': 'Funnels and KPI board',
+  'features.kpi_dashboard.description':
+    'In the marketing area: orders per restaurant per day, table QR and restaurant funnels, channels, revenue and districts.',
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',

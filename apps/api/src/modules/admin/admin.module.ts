@@ -9,5 +9,6 @@ import { SystemHealthService } from './system-health.service';
   imports: [AuthModule, RestaurantsModule],
   controllers: [AdminController],
   providers: [AdminService, SystemHealthService],
+  exports: [AdminService],
 })
 export class AdminModule {}

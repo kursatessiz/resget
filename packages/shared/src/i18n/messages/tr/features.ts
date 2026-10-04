@@ -68,6 +68,9 @@ export const trFeatures = {
   'features.journeys.name': 'Otomatik akışlar',
   'features.journeys.description':
     'Sipariş sonrası teşekkür, ilk sipariş, değerlendirme isteği ve geri kazanım mesajları; izin, saat ve kredi kurallarıyla.',
+  'features.kpi_dashboard.name': 'Huniler ve KPI panosu',
+  'features.kpi_dashboard.description':
+    'Pazarlama alanında restoran başına günlük sipariş, masa QR ve restoran hunileri, kanallar, ciro ve ilçe kırılımı.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',
