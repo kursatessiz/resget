@@ -5,6 +5,7 @@ import { useSession } from '@/state/session';
 
 const TAB_ROUTES = {
   courier: '/(app)/kurye',
+  dispatch: '/(app)/sevk',
   orders: '/(app)/siparisler',
   myOrders: '/(app)/siparislerim',
   account: '/(app)/hesap',

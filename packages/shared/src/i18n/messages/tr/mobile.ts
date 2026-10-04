@@ -17,6 +17,7 @@ export const trMobile = {
   'mobile.tabs.orders': 'Siparişler',
   'mobile.tabs.account': 'Hesap',
   'mobile.tabs.myOrders': 'Siparişlerim',
+  'mobile.tabs.dispatch': 'Sevk',
   'mobile.customer.intro': 'Telefon numaranızla verdiğiniz siparişler burada görünür.',
   'mobile.customer.empty': 'Henüz sipariş yok. Masadaki QR kodunu okutun ya da bir işletmenin sayfasını açın.',
   'mobile.customer.order': '{restaurant}, sipariş {code}',
