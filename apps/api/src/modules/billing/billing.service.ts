@@ -138,7 +138,10 @@ export class BillingService {
         skipped += 1;
         continue;
       }
-      const memo = `commission ${year}-${String(month).padStart(2, '0')}`;
+      const memo =
+        statement.credits.length > 0
+          ? `commission ${year}-${String(month).padStart(2, '0')} (${statement.credits.length} credited)`
+          : `commission ${year}-${String(month).padStart(2, '0')}`;
       let row: InvoiceRow;
       try {
         row = await this.prisma.$transaction(async (tx) => {
@@ -159,6 +162,17 @@ export class BillingService {
             },
             select: invoiceSelect,
           });
+          // Which orders this invoice billed and which earlier ones it credited back (docs/MUTABAKAT.md).
+          await tx.order.updateMany({
+            where: { id: { in: statement.lines.map((l) => l.orderId) }, commissionInvoiceId: null },
+            data: { commissionInvoiceId: created.id },
+          });
+          if (statement.credits.length > 0) {
+            await tx.order.updateMany({
+              where: { id: { in: statement.credits.map((l) => l.orderId) }, commissionCreditInvoiceId: null },
+              data: { commissionCreditInvoiceId: created.id },
+            });
+          }
           // Signed from the restaurant's point of view: what it owes the platform for the month.
           await tx.ledgerEntry.createMany({
             data: [

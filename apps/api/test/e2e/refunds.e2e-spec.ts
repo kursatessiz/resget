@@ -22,6 +22,7 @@ describe('Refunds (e2e)', () => {
   let branchId: string;
   let menuItemId: string;
   let connectionId: string;
+  const invoiceIds: string[] = [];
   let originalMode: PaymentMode;
 
   const createOrder = async (payment: Record<string, unknown>) => {
@@ -101,6 +102,7 @@ describe('Refunds (e2e)', () => {
     await ctx.prisma.ledgerEntry.deleteMany({ where: { orderId: { in: orders.map((o) => o.id) } } });
     await ctx.prisma.auditLog.deleteMany({ where: { restaurantId, action: 'payment.charged_back' } });
     await ctx.prisma.order.deleteMany({ where: { restaurantId, customerNote: NOTE } });
+    if (invoiceIds.length > 0) await ctx.prisma.commissionInvoice.deleteMany({ where: { id: { in: invoiceIds } } });
   };
 
   beforeAll(async () => {
@@ -283,11 +285,24 @@ describe('Refunds (e2e)', () => {
       const lines = await ctx.prisma.ledgerEntry.findMany({ where: { orderId: late.id, type: 'REFUND' } });
       expect(lines).toHaveLength(1);
       expect(lines[0].amountMinor).toBe(-late.chargedToCustomerMinor);
+      // No commission on a refunded order: its commission and VAT come back in the same payout.
+      const snapshot = await ctx.prisma.order.findUniqueOrThrow({
+        where: { id: late.id },
+        select: { platformCommissionMinor: true, commissionVatMinor: true },
+      });
+      const reversal = await ctx.prisma.ledgerEntry.findMany({
+        where: { orderId: late.id, type: { in: ['COMMISSION_REVERSAL', 'COMMISSION_VAT_REVERSAL'] } },
+        orderBy: { type: 'asc' },
+      });
+      expect(reversal.map((l) => [l.type, l.amountMinor])).toEqual([
+        ['COMMISSION_REVERSAL', snapshot.platformCommissionMinor],
+        ['COMMISSION_VAT_REVERSAL', snapshot.commissionVatMinor],
+      ]);
     } finally {
       await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { paymentMode: 'OWN_POS' } });
     }
   });
-  it('keeps the commission of an order refunded after completion, and charges none for a cancelled one', async () => {
+  it('takes no commission on a refunded order and credits one already billed on the next invoice', async () => {
     const now = new Date();
     const period = { year: now.getUTCFullYear(), month: now.getUTCMonth() + 1 };
     const statement = async () =>
@@ -298,21 +313,59 @@ describe('Refunds (e2e)', () => {
           .query(period)
           .set(bearer(ownerToken))
           .expect(200)
-      ).body as { lines: { orderId: string }[] };
+      ).body as {
+        lines: { orderId: string }[];
+        credits: { orderId: string }[];
+        creditCommissionMinor: number;
+        totalMinor: number;
+      };
 
-    const completed = await paidOrder('pos-commission-1');
-    await complete(completed.id);
-    await refund(completed.id, { reason: 'Musteri sikayeti' }, 200);
-    const cancelled = await paidOrder('pos-commission-2');
-    expect((await transition(cancelled.id, 'REJECTED')).body.status).toBe('REFUNDED');
+    // Refunded within the open month: never on the invoice.
+    const refunded = await paidOrder('pos-commission-1');
+    await complete(refunded.id);
+    await refund(refunded.id, { reason: 'Musteri sikayeti' }, 200);
+    expect((await statement()).lines.map((l) => l.orderId)).not.toContain(refunded.id);
 
-    // Refunds are the restaurant's cost by contract: the completed one stays on the invoice, the cancelled one never was.
-    const lines = (await statement()).lines.map((l) => l.orderId);
-    expect(lines).toContain(completed.id);
-    expect(lines).not.toContain(cancelled.id);
+    // Billed on last month's invoice, refunded now: credited on this month's, which has enough to absorb it.
+    const billedEarlier = await paidOrder('pos-commission-2');
+    await complete(billedEarlier.id);
+    const previous = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    const invoice = await ctx.prisma.commissionInvoice.create({
+      data: {
+        restaurantId,
+        periodStart: previous,
+        periodEnd: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
+        currency: 'TRY',
+        orderCount: 1,
+        baseMinor: 1,
+        commissionMinor: 1,
+        vatMinor: 0,
+        totalMinor: 1,
+        status: 'PAID',
+      },
+    });
+    invoiceIds.push(invoice.id);
+    await ctx.prisma.order.update({ where: { id: billedEarlier.id }, data: { commissionInvoiceId: invoice.id } });
+    const first = await paidOrder('pos-commission-3');
+    const second = await paidOrder('pos-commission-4');
+    await complete(first.id);
+    await complete(second.id);
+    await refund(billedEarlier.id, { reason: 'Musteri sikayeti' }, 200);
+
+    const open = await statement();
+    expect(open.lines.map((l) => l.orderId)).toEqual(expect.arrayContaining([first.id, second.id]));
+    expect(open.lines.map((l) => l.orderId)).not.toContain(billedEarlier.id);
+    expect(open.credits.map((c) => c.orderId)).toContain(billedEarlier.id);
+    expect(open.creditCommissionMinor).toBeGreaterThan(0);
+    const settings = await ctx
+      .http()
+      .get(`/restaurants/${restaurantId}/payments/settings`)
+      .set(bearer(ownerToken))
+      .expect(200);
+    expect(settings.body.accruedCommissionMinor).toBe((await statement()).totalMinor);
   });
 
-  it('takes a chargeback on platform-collected money out of the payout once, and keeps the commission', async () => {
+  it('takes a chargeback on platform-collected money out of the payout once and gives the commission back', async () => {
     await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { paymentMode: 'PLATFORM_PSP' } });
     try {
       const order = await createOrder({ method: 'ONLINE_CARD' });
@@ -340,8 +393,11 @@ describe('Refunds (e2e)', () => {
       expect(lines[0].amountMinor).toBe(-order.chargedToCustomerMinor);
       const payment = await ctx.prisma.payment.findFirstOrThrow({ where: { orderId: order.id } });
       expect(payment.status).toBe('CHARGED_BACK');
-      // The commission lines of the completed order stay; nothing is due at the door and nothing can be refunded twice.
-      expect(await ctx.prisma.ledgerEntry.count({ where: { orderId: order.id, type: 'PLATFORM_COMMISSION' } })).toBe(1);
+      // No commission on a charged-back order: it comes back once, next to the chargeback line.
+      expect(await ctx.prisma.ledgerEntry.count({ where: { orderId: order.id, type: 'COMMISSION_REVERSAL' } })).toBe(1);
+      const stamped = await ctx.prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+      expect(stamped.commissionReversedAt).not.toBeNull();
+      // Nothing is due at the door and nothing can be refunded twice.
       const detail = await getOrder(order.id);
       expect(detail.status).toBe('PICKED_UP');
       expect(detail.payment).toMatchObject({ dueMinor: 0, refundable: false });

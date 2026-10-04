@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@resget/database';
-import { orderLedgerLines, orderShortCode } from '@resget/shared';
+import { commissionReversalLines, orderLedgerLines, orderShortCode } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 
 type Db = Prisma.TransactionClient | PrismaService;
@@ -82,17 +82,7 @@ export class LedgerService {
     if (credited === 0) return false;
     const booked = await db.ledgerEntry.count({ where: { orderId, type: { in: ['REFUND', 'CHARGEBACK'] } } });
     if (booked > 0) return false;
-    await db.ledgerEntry.create({
-      data: {
-        restaurantId: order.restaurantId,
-        orderId: order.id,
-        type: 'CHARGEBACK',
-        amountMinor: -amountMinor,
-        currency: order.currency,
-        occurredAt: now,
-        memo: `chargeback ${orderShortCode(order.id)}`,
-      },
-    });
+    await this.takeBack(db, order, 'CHARGEBACK', amountMinor, now, `chargeback ${orderShortCode(order.id)}`);
     return true;
   }
 
@@ -113,16 +103,32 @@ export class LedgerService {
     // Money already taken back (a refund or a chargeback) is never taken twice.
     const booked = await db.ledgerEntry.count({ where: { orderId, type: { in: ['REFUND', 'CHARGEBACK'] } } });
     if (booked > 0) return;
-    await db.ledgerEntry.create({
-      data: {
-        restaurantId: order.restaurantId,
-        orderId: order.id,
-        type: 'REFUND',
-        amountMinor: -amountMinor,
-        currency: order.currency,
-        occurredAt: now,
-        memo: `refund ${orderShortCode(order.id)}`,
-      },
+    await this.takeBack(db, order, 'REFUND', amountMinor, now, `refund ${orderShortCode(order.id)}`);
+  }
+
+  /**
+   * The restaurant bears the refund or chargeback (the amount comes out of the
+   * next payout) and the platform takes no commission on the order: its
+   * commission and VAT come back in the same payout (docs/MUTABAKAT.md).
+   */
+  private async takeBack(
+    db: Db,
+    order: { id: string; restaurantId: string; currency: string },
+    type: 'REFUND' | 'CHARGEBACK',
+    amountMinor: number,
+    now: Date,
+    memo: string,
+  ): Promise<void> {
+    const snapshot = await db.order.findUniqueOrThrow({
+      where: { id: order.id },
+      select: { platformCommissionMinor: true, commissionVatMinor: true },
+    });
+    const base = { restaurantId: order.restaurantId, orderId: order.id, currency: order.currency, occurredAt: now };
+    await db.ledgerEntry.createMany({
+      data: [
+        { ...base, type, amountMinor: -amountMinor, memo },
+        ...commissionReversalLines(snapshot).map((line) => ({ ...base, ...line, memo: `${memo} commission returned` })),
+      ],
     });
   }
 }

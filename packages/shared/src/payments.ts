@@ -285,6 +285,15 @@ export interface CommissionStatement {
   vatMinor: number;
   totalMinor: number;
   lines: CommissionLine[];
+  /**
+   * Orders billed on an earlier invoice whose commission was cancelled by a
+   * refund or chargeback after completion (docs/MUTABAKAT.md, "İade ve
+   * chargeback"): credited here, so commissionMinor, vatMinor and totalMinor
+   * are net of them.
+   */
+  credits: CommissionLine[];
+  creditCommissionMinor: number;
+  creditVatMinor: number;
 }
 
 export const CommissionPeriodSchema = z
@@ -305,21 +314,66 @@ export function buildCommissionStatement(
   currency: string,
   period: { periodStart: Date; periodEnd: Date },
   lines: readonly CommissionLine[],
+  credits: readonly CommissionLine[] = [],
 ): CommissionStatement {
-  const sum = (pick: (l: CommissionLine) => number) => lines.reduce((n, l) => n + pick(l), 0);
-  const commissionMinor = sum((l) => l.commissionMinor);
-  const vatMinor = sum((l) => l.commissionVatMinor);
+  const sum = (from: readonly CommissionLine[], pick: (l: CommissionLine) => number) =>
+    from.reduce((n, l) => n + pick(l), 0);
+  const creditCommissionMinor = sum(credits, (l) => l.commissionMinor);
+  const creditVatMinor = sum(credits, (l) => l.commissionVatMinor);
+  const commissionMinor = sum(lines, (l) => l.commissionMinor) - creditCommissionMinor;
+  const vatMinor = sum(lines, (l) => l.commissionVatMinor) - creditVatMinor;
   return {
     currency,
     periodStart: period.periodStart,
     periodEnd: period.periodEnd,
     orderCount: lines.length,
-    baseMinor: sum((l) => l.baseMinor),
+    baseMinor: sum(lines, (l) => l.baseMinor),
     commissionMinor,
     vatMinor,
     totalMinor: commissionMinor + vatMinor,
     lines: [...lines],
+    credits: [...credits],
+    creditCommissionMinor,
+    creditVatMinor,
   };
+}
+
+/**
+ * Which pending commission credits an invoice absorbs: whole orders, oldest
+ * first, while their total stays below the month's charges, so an invoice
+ * is never zero or negative; the rest waits for the next invoice.
+ */
+export function applyCommissionCredits(
+  charges: readonly CommissionLine[],
+  pending: readonly CommissionLine[],
+): { applied: CommissionLine[]; carried: CommissionLine[] } {
+  const charged = charges.reduce((n, l) => n + l.commissionMinor + l.commissionVatMinor, 0);
+  const applied: CommissionLine[] = [];
+  const carried: CommissionLine[] = [];
+  let credited = 0;
+  for (const credit of pending) {
+    const amount = credit.commissionMinor + credit.commissionVatMinor;
+    if (credited + amount < charged) {
+      applied.push(credit);
+      credited += amount;
+    } else {
+      carried.push(credit);
+    }
+  }
+  return { applied, carried };
+}
+
+/** Ledger lines that give a PLATFORM_PSP restaurant its commission back on a refunded or charged-back order. */
+export function commissionReversalLines(order: {
+  platformCommissionMinor: number;
+  commissionVatMinor: number;
+}): { type: 'COMMISSION_REVERSAL' | 'COMMISSION_VAT_REVERSAL'; amountMinor: number }[] {
+  const lines: { type: 'COMMISSION_REVERSAL' | 'COMMISSION_VAT_REVERSAL'; amountMinor: number }[] = [];
+  if (order.platformCommissionMinor > 0)
+    lines.push({ type: 'COMMISSION_REVERSAL', amountMinor: order.platformCommissionMinor });
+  if (order.commissionVatMinor > 0)
+    lines.push({ type: 'COMMISSION_VAT_REVERSAL', amountMinor: order.commissionVatMinor });
+  return lines;
 }
 
 /** Days after issue before an unpaid commission invoice counts as overdue and the marketplace listing is paused. */

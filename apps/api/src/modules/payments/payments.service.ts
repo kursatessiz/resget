@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PaymentConnectionStatus, PaymentMode } from '@resget/database';
-import { COMMISSIONABLE_ORDER_STATUSES, buildCommissionStatement, commissionPeriod } from '@resget/shared';
+import { applyCommissionCredits, buildCommissionStatement, commissionPeriod } from '@resget/shared';
 import type {
   CommissionStatement,
   ConnectOwnPosInput,
@@ -32,17 +32,8 @@ export class PaymentsService {
     });
     if (!restaurant) throw notFound('NOT_FOUND', 'Restaurant not found');
     const now = new Date();
-    const { periodStart, periodEnd } = commissionPeriod(now.getUTCFullYear(), now.getUTCMonth() + 1);
-    const accrued = await this.prisma.order.aggregate({
-      where: {
-        restaurantId,
-        paymentMode: PaymentMode.OWN_POS,
-        // Refunds and chargebacks are the restaurant's cost: an order refunded after completion still owes commission.
-        status: { in: [...COMMISSIONABLE_ORDER_STATUSES] },
-        completedAt: { gte: periodStart, lt: periodEnd },
-      },
-      _sum: { platformReceivableMinor: true },
-    });
+    // What this month's invoice would be today: charges net of the credits it would absorb.
+    const accrued = await this.commissionStatement(restaurantId, now.getUTCFullYear(), now.getUTCMonth() + 1);
     const c = restaurant.paymentConnection;
     return {
       paymentMode: restaurant.paymentMode,
@@ -54,7 +45,7 @@ export class PaymentsService {
             lastVerifiedAt: c.lastVerifiedAt?.toISOString() ?? null,
           }
         : null,
-      accruedCommissionMinor: accrued._sum.platformReceivableMinor ?? 0,
+      accruedCommissionMinor: accrued.totalMinor,
       currency: restaurant.currency,
     };
   }
@@ -118,7 +109,14 @@ export class PaymentsService {
     return this.settings(restaurantId);
   }
 
-  /** The commission a restaurant owes for a month, from the snapshots on its paid orders. */
+  /**
+   * The commission a restaurant owes for a month (docs/FATURALAMA.md). No
+   * commission is taken on a refunded or charged-back order (docs/MUTABAKAT.md,
+   * "İade ve chargeback"): such an order is left out while the month is open,
+   * and one billed on an earlier invoice is credited on the next one. Once
+   * the month's invoice exists, the statement shows exactly what it billed
+   * and credited.
+   */
   async commissionStatement(restaurantId: string, year: number, month: number): Promise<CommissionStatement> {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
@@ -126,35 +124,76 @@ export class PaymentsService {
     });
     if (!restaurant) throw notFound('NOT_FOUND', 'Restaurant not found');
     const period = commissionPeriod(year, month);
-    const orders = await this.prisma.order.findMany({
-      where: {
-        restaurantId,
-        paymentMode: PaymentMode.OWN_POS,
-        // Refunds and chargebacks are the restaurant's cost: an order refunded after completion still owes commission.
-        status: { in: [...COMMISSIONABLE_ORDER_STATUSES] },
-        completedAt: { gte: period.periodStart, lt: period.periodEnd },
-      },
-      select: {
-        id: true,
-        commissionBps: true,
-        platformCommissionMinor: true,
-        commissionVatMinor: true,
-        itemsGrossMinor: true,
-        discountMinor: true,
-        discountFundedBy: true,
-      },
-      orderBy: { completedAt: 'asc' },
+    const invoice = await this.prisma.commissionInvoice.findUnique({
+      where: { restaurantId_periodStart: { restaurantId, periodStart: period.periodStart } },
+      select: { id: true },
     });
-    return buildCommissionStatement(
-      restaurant.currency,
-      period,
-      orders.map((o) => ({
-        orderId: o.id,
-        baseMinor: o.itemsGrossMinor - (o.discountFundedBy === 'RESTAURANT' ? o.discountMinor : 0),
-        commissionMinor: o.platformCommissionMinor,
-        commissionVatMinor: o.commissionVatMinor,
-      })),
-    );
+    const select = {
+      id: true,
+      platformCommissionMinor: true,
+      commissionVatMinor: true,
+      itemsGrossMinor: true,
+      discountMinor: true,
+      discountFundedBy: true,
+    } as const;
+    const toLine = (o: {
+      id: string;
+      platformCommissionMinor: number;
+      commissionVatMinor: number;
+      itemsGrossMinor: number;
+      discountMinor: number;
+      discountFundedBy: string | null;
+    }) => ({
+      orderId: o.id,
+      baseMinor: o.itemsGrossMinor - (o.discountFundedBy === 'RESTAURANT' ? o.discountMinor : 0),
+      commissionMinor: o.platformCommissionMinor,
+      commissionVatMinor: o.commissionVatMinor,
+    });
+
+    if (invoice) {
+      const [billed, credited] = await Promise.all([
+        this.prisma.order.findMany({
+          where: { restaurantId, commissionInvoiceId: invoice.id },
+          select,
+          orderBy: { completedAt: 'asc' },
+        }),
+        this.prisma.order.findMany({
+          where: { restaurantId, commissionCreditInvoiceId: invoice.id },
+          select,
+          orderBy: { commissionReversedAt: 'asc' },
+        }),
+      ]);
+      return buildCommissionStatement(restaurant.currency, period, billed.map(toLine), credited.map(toLine));
+    }
+
+    const [charges, pending] = await Promise.all([
+      this.prisma.order.findMany({
+        where: {
+          restaurantId,
+          paymentMode: PaymentMode.OWN_POS,
+          status: { in: ['DELIVERED', 'PICKED_UP'] },
+          completedAt: { gte: period.periodStart, lt: period.periodEnd },
+          commissionInvoiceId: null,
+          // Refunded or charged back: no commission.
+          commissionReversedAt: null,
+        },
+        select,
+        orderBy: { completedAt: 'asc' },
+      }),
+      this.prisma.order.findMany({
+        where: {
+          restaurantId,
+          commissionInvoiceId: { not: null },
+          commissionReversedAt: { not: null },
+          commissionCreditInvoiceId: null,
+        },
+        select,
+        orderBy: { commissionReversedAt: 'asc' },
+      }),
+    ]);
+    const chargeLines = charges.map(toLine);
+    const { applied } = applyCommissionCredits(chargeLines, pending.map(toLine));
+    return buildCommissionStatement(restaurant.currency, period, chargeLines, applied);
   }
 
   // -- Customer cards -----------------------------------------------------------

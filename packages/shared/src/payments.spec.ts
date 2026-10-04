@@ -1,7 +1,9 @@
 import { LedgerEntryType, PaymentMode } from './enums';
 import {
   ConnectOwnPosSchema,
+  applyCommissionCredits,
   buildCommissionStatement,
+  commissionReversalLines,
   commissionDueAt,
   commissionPeriod,
   computeModeSettlement,
@@ -54,6 +56,48 @@ describe('commission statement', () => {
     expect(statement.commissionMinor).toBe(1000);
     expect(statement.vatMinor).toBe(200);
     expect(statement.totalMinor).toBe(1200);
+  });
+
+  it('nets the credits of refunded or charged-back orders billed on an earlier invoice', () => {
+    const period = commissionPeriod(2026, 11);
+    const statement = buildCommissionStatement(
+      'TRY',
+      period,
+      [{ orderId: 'a', baseMinor: 70000, commissionMinor: 700, commissionVatMinor: 140 }],
+      [{ orderId: 'old', baseMinor: 30000, commissionMinor: 300, commissionVatMinor: 60 }],
+    );
+    expect(statement.orderCount).toBe(1);
+    expect(statement).toMatchObject({
+      commissionMinor: 400,
+      vatMinor: 80,
+      totalMinor: 480,
+      creditCommissionMinor: 300,
+      creditVatMinor: 60,
+    });
+    expect(statement.credits.map((c) => c.orderId)).toEqual(['old']);
+  });
+
+  it('applies whole credits, oldest first, only while they stay below the charges', () => {
+    const line = (orderId: string, commissionMinor: number) => ({
+      orderId,
+      baseMinor: commissionMinor * 100,
+      commissionMinor,
+      commissionVatMinor: commissionMinor / 5,
+    });
+    const charges = [line('a', 500), line('b', 500)]; // 1200 with VAT
+    const { applied, carried } = applyCommissionCredits(charges, [line('x', 400), line('y', 500), line('z', 100)]);
+    // x (480) fits, y (600) would reach 1080 and fits, z (120) would reach 1200, which is not below the charges.
+    expect(applied.map((c) => c.orderId)).toEqual(['x', 'y']);
+    expect(carried.map((c) => c.orderId)).toEqual(['z']);
+    expect(applyCommissionCredits([], [line('x', 1)]).applied).toEqual([]);
+  });
+
+  it('gives the commission and its VAT back as payable lines', () => {
+    expect(commissionReversalLines({ platformCommissionMinor: 700, commissionVatMinor: 140 })).toEqual([
+      { type: 'COMMISSION_REVERSAL', amountMinor: 700 },
+      { type: 'COMMISSION_VAT_REVERSAL', amountMinor: 140 },
+    ]);
+    expect(commissionReversalLines({ platformCommissionMinor: 0, commissionVatMinor: 0 })).toEqual([]);
   });
 
   it('computes the due date and the quick commission', () => {

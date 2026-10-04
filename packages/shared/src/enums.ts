@@ -72,19 +72,6 @@ export enum OrderStatus {
 /** Statuses after which an order counts as completed revenue. */
 export const COMPLETED_ORDER_STATUSES: readonly OrderStatus[] = [OrderStatus.DELIVERED, OrderStatus.PICKED_UP];
 
-/**
- * Statuses of an order that owes the platform its commission once it
- * completed (docs/MUTABAKAT.md, "İade ve chargeback"): refunds and
- * chargebacks are the restaurant's cost by contract, so an order refunded
- * after completion still owes it. A cancelled order never completed and
- * owes nothing; it has no completedAt, which the period filter requires.
- */
-export const COMMISSIONABLE_ORDER_STATUSES: readonly OrderStatus[] = [
-  OrderStatus.DELIVERED,
-  OrderStatus.PICKED_UP,
-  OrderStatus.REFUNDED,
-];
-
 /** A trip is one courier leaving the restaurant with one or more orders (docs/SIPARIS_VE_SEVK.md). */
 export enum DeliveryTripStatus {
   PLANNED = 'PLANNED',
@@ -187,6 +174,9 @@ export enum LedgerEntryType {
   WITHHOLDING_TAX = 'WITHHOLDING_TAX',
   REFUND = 'REFUND',
   CHARGEBACK = 'CHARGEBACK',
+  /** Commission (and its VAT) given back when a completed order is refunded or charged back: no commission on those. */
+  COMMISSION_REVERSAL = 'COMMISSION_REVERSAL',
+  COMMISSION_VAT_REVERSAL = 'COMMISSION_VAT_REVERSAL',
   ADJUSTMENT = 'ADJUSTMENT',
   RESTAURANT_PAYABLE = 'RESTAURANT_PAYABLE',
 }

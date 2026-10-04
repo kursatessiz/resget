@@ -240,9 +240,14 @@ export class CheckoutService {
     if (event.status === 'CHARGEBACK') {
       if (payment.status !== 'CAPTURED' && payment.status !== 'PARTIALLY_REFUNDED') return reply('IGNORED');
       const amountMinor = payment.amountMinor - payment.refundedMinor;
-      // By contract the restaurant bears chargebacks (docs/MUTABAKAT.md): platform-collected money comes out of the payout.
+      // The restaurant bears the chargeback and the platform takes no commission on the order (docs/MUTABAKAT.md).
       await this.prisma.$transaction(async (tx) => {
         await tx.payment.update({ where: { id: payment.id }, data: { status: 'CHARGED_BACK' } });
+        // No commission on a charged-back order: off the open month, or credited if an invoice already billed it.
+        await tx.order.updateMany({
+          where: { id: payment.orderId, completedAt: { not: null }, commissionReversedAt: null },
+          data: { commissionReversedAt: new Date(event.occurredAt) },
+        });
         const booked = await this.ledger.recordChargeback(tx, payment.orderId, amountMinor, new Date(event.occurredAt));
         await tx.auditLog.create({
           data: {

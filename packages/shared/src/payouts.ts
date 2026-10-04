@@ -49,6 +49,8 @@ export const PAYABLE_LINE_TYPES: readonly `${LedgerEntryType}`[] = [
   LedgerEntryType.RESTAURANT_PAYABLE,
   LedgerEntryType.REFUND,
   LedgerEntryType.CHARGEBACK,
+  LedgerEntryType.COMMISSION_REVERSAL,
+  LedgerEntryType.COMMISSION_VAT_REVERSAL,
   LedgerEntryType.ADJUSTMENT,
 ];
 

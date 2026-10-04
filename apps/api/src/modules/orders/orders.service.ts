@@ -448,6 +448,10 @@ export class OrdersService {
     if (remaining || !refunded || !canTransitionOrder(row.fulfillment, row.status, 'REFUNDED', actor)) return null;
     const from = row.status;
     await this.applyTransition(tx, row, 'REFUNDED', actor, actorUserId, { reason });
+    // No commission on a refunded order (docs/MUTABAKAT.md): a completed one is taken off, or credited if already billed.
+    if (row.completedAt) {
+      await tx.order.update({ where: { id: row.id }, data: { commissionReversedAt: new Date() } });
+    }
     return from;
   }
 
