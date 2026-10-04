@@ -42,4 +42,7 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.claim_escalation.name': 'Claim escalation',
   'features.claim_escalation.description':
     'A missing item report undecided for 24 hours moves to the platform console; repeat-claimant warning.',
+  'features.app_order_handling.name': 'Order handling in the app',
+  'features.app_order_handling.description':
+    'Accept, reject, ready and hand-over steps on the tablet and phone; vibration and a notification for new orders.',
 };

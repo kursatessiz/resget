@@ -93,4 +93,10 @@ export const enMobile: Record<keyof typeof trMobile, string> = {
   'mobile.account.version': 'Version {version}',
   'mobile.account.deleteIntro':
     'You can delete your account for good here. To download your data, use the My account page on the website.',
+  'mobile.orders.newTitle': 'New order',
+  'mobile.orders.newBody': 'Order {code} is waiting to be accepted.',
+  'mobile.orders.newBanner': '{count} new orders are waiting to be accepted.',
+  'mobile.orders.readOnly': 'Use the business panel to manage orders from this device.',
+  'mobile.orders.confirm': 'Confirm',
+  'mobile.orders.overdue': 'Acceptance time passed',
 };

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { formatMoney } from '@resget/shared';
+import { ORDER_PREP_OPTIONS, formatMoney, orderActionsFor } from '@resget/shared';
 import type { OrderDetailDTO, OrderStatusValue, OrderSummaryDTO, Translate } from '@resget/shared';
 import { Badge, Button, SelectField, TextField } from '@/components/ui';
 import type { UiTone } from '@/components/ui/types';
@@ -35,44 +35,15 @@ const STATUS_TONE: Partial<Record<OrderStatusValue, UiTone>> = {
   REFUNDED: 'error',
 };
 
-const PREP_OPTIONS = [10, 15, 20, 25, 30, 40, 50, 60];
-
-/** Which transitions the restaurant screen offers for an order (the state machine on the API is the authority). */
+/** Which transitions the restaurant screen offers for an order (shared table; the API's state machine is the authority). */
 export function actionsFor(order: OrderSummaryDTO, t: Translate): OrderAction[] {
-  if (order.activeTrip) return [];
-  switch (order.status) {
-    case 'PLACED':
-      return [
-        { to: 'ACCEPTED', label: t('orders.accept'), needsPrep: true },
-        { to: 'REJECTED', label: t('orders.reject'), tone: 'error', needsReason: true },
-      ];
-    case 'ACCEPTED':
-      return [
-        { to: 'PREPARING', label: t('orders.markPreparing') },
-        { to: 'READY', label: t('orders.markReady') },
-        { to: 'CANCELLED_BY_RESTAURANT', label: t('orders.cancel'), tone: 'error', needsReason: true },
-      ];
-    case 'PREPARING':
-      return [
-        { to: 'READY', label: t('orders.markReady') },
-        { to: 'CANCELLED_BY_RESTAURANT', label: t('orders.cancel'), tone: 'error', needsReason: true },
-      ];
-    case 'READY':
-      if (order.fulfillment === 'PICKUP') return [{ to: 'PICKED_UP', label: t('orders.markPickedUp') }];
-      if (order.fulfillment === 'DINE_IN') return [{ to: 'DELIVERED', label: t('orders.markServed') }];
-      return [
-        { to: 'OUT_FOR_DELIVERY', label: t('orders.markOutForDelivery') },
-        { to: 'CANCELLED_BY_RESTAURANT', label: t('orders.cancel'), tone: 'error', needsReason: true },
-      ];
-    case 'OUT_FOR_DELIVERY':
-    case 'ARRIVING':
-      return [
-        { to: 'DELIVERED', label: t('orders.markDelivered') },
-        { to: 'READY', label: t('orders.returnToReady'), tone: 'warn' },
-      ];
-    default:
-      return [];
-  }
+  return orderActionsFor(order).map((action) => ({
+    to: action.to,
+    label: t(action.labelKey),
+    tone: action.tone,
+    needsPrep: action.needsPrep,
+    needsReason: action.needsReason,
+  }));
 }
 
 export function OrderCard({
@@ -262,7 +233,7 @@ export function OrderCard({
                 value={prepMinutes}
                 onChange={(event) => setPrepMinutes(Number(event.target.value))}
               >
-                {PREP_OPTIONS.map((minutes) => (
+                {ORDER_PREP_OPTIONS.map((minutes) => (
                   <option key={minutes} value={minutes}>
                     {t('orders.prepMinutesOption', { minutes })}
                   </option>

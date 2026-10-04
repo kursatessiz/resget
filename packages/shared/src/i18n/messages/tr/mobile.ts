@@ -91,4 +91,10 @@ export const trMobile = {
   'mobile.account.version': 'Sürüm {version}',
   'mobile.account.deleteIntro':
     'Hesabınızı buradan kalıcı olarak silebilirsiniz. Verilerinizi indirmek için web sitesindeki Hesabım sayfasını kullanın.',
+  'mobile.orders.newTitle': 'Yeni sipariş',
+  'mobile.orders.newBody': 'Sipariş {code} kabul bekliyor.',
+  'mobile.orders.newBanner': '{count} yeni sipariş kabul bekliyor.',
+  'mobile.orders.readOnly': 'Siparişleri bu cihazdan yönetmek için işletme panelini kullanın.',
+  'mobile.orders.confirm': 'Onayla',
+  'mobile.orders.overdue': 'Kabul süresi geçti',
 } as const satisfies Record<string, string>;
