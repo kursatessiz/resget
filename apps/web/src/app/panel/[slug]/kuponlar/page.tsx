@@ -15,6 +15,7 @@ export default async function CouponsPage({ params }: { params: Promise<{ slug: 
       locale={locale}
       canManage={can('campaigns.manage')}
       isPro={membership.effectivePlan === 'PRO'}
+      withReferrals={membership.features.includes('referrals')}
     />
   );
 }

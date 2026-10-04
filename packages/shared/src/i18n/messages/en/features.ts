@@ -80,6 +80,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.blog.name': 'Blog',
   'features.blog.description':
     'Blog posts on the platform site (/blog) with structured data per post and sitemap entries; the page engine must be on.',
+  'features.referrals.name': 'Customer referrals',
+  'features.referrals.description':
+    "A customer's personal invite code, a first-order discount for the friend and a reward coupon for the referrer; needs the coupons module and the PRO plan.",
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',

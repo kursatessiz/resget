@@ -6,6 +6,7 @@ import type { CouponDTO, CouponKind, RestaurantSettingsDTO } from '@resget/share
 import { Badge, Button, Card, SelectField, TextField } from '@/components/ui';
 import { ApiError, bffJson } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
+import { ReferralProgramCard } from './ReferralProgramCard';
 
 interface Draft {
   code: string;
@@ -44,11 +45,14 @@ export function CouponsManager({
   locale,
   canManage,
   isPro,
+  withReferrals = false,
 }: {
   restaurantId: string;
   locale: string;
   canManage: boolean;
   isPro: boolean;
+  /** The referral module is on: its programme card follows the coupons (docs/TAVSIYE.md). */
+  withReferrals?: boolean;
 }) {
   const t = useT(locale);
   const base = `restaurants/${restaurantId}/coupons`;
@@ -314,6 +318,15 @@ export function CouponsManager({
       )}
       {notice && <p role="status">{notice}</p>}
       {error && <p role="alert">{error}</p>}
+      {withReferrals && (
+        <ReferralProgramCard
+          restaurantId={restaurantId}
+          currency={currency}
+          locale={locale}
+          canManage={canManage}
+          isPro={isPro}
+        />
+      )}
     </div>
   );
 }

@@ -41,6 +41,7 @@ import { trJourneys } from './tr/journeys';
 import { trKpi } from './tr/kpi';
 import { trAds } from './tr/ads';
 import { trSite } from './tr/site';
+import { trReferrals } from './tr/referrals';
 import { trIntegrations } from './tr/integrations';
 import { enCommon } from './en/common';
 import { enNav } from './en/nav';
@@ -85,6 +86,7 @@ import { enJourneys } from './en/journeys';
 import { enKpi } from './en/kpi';
 import { enAds } from './en/ads';
 import { enSite } from './en/site';
+import { enReferrals } from './en/referrals';
 import { enIntegrations } from './en/integrations';
 
 /**
@@ -139,6 +141,7 @@ export const TR_NAMESPACES = [
   trKpi,
   trAds,
   trSite,
+  trReferrals,
   trIntegrations,
   trMobile,
 ] as const;
@@ -186,6 +189,7 @@ export const EN_NAMESPACES = [
   enKpi,
   enAds,
   enSite,
+  enReferrals,
   enIntegrations,
   enMobile,
 ] as const;

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { SlugSchema, restaurantJsonLd } from '@resget/shared';
+import { CouponCodeSchema, SlugSchema, restaurantJsonLd } from '@resget/shared';
 import type { StorefrontDTO, StorefrontViewerDTO } from '@resget/shared';
 import { ConsentManager } from '@/components/ConsentManager';
 import { JsonLdScript } from '@/components/site/JsonLdScript';
@@ -20,8 +20,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 /** The restaurant's own ordering page (docs/VITRIN.md): delivery and pickup, in the restaurant's colors. */
-export default async function RestaurantPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function RestaurantPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ kod?: string | string[] }>;
+}) {
   const { slug } = await params;
+  // An invite link carries the friend's code (docs/TAVSIYE.md); only a well-formed one fills the coupon field.
+  const kod = (await searchParams).kod;
+  const invite = typeof kod === 'string' ? CouponCodeSchema.safeParse(kod) : null;
   if (!SlugSchema.safeParse(slug).success) notFound();
   const res = await fetch(`${apiInternalBaseUrl()}/public/restaurants/${slug}/menu`, { cache: 'no-store' });
   if (res.status === 404) notFound();
@@ -61,7 +70,13 @@ export default async function RestaurantPage({ params }: { params: Promise<{ slu
             </p>
           )}
         </header>
-        <Storefront storefront={storefront} locale={locale} source={{ kind: 'site' }} viewer={viewer} />
+        <Storefront
+          storefront={storefront}
+          locale={locale}
+          source={{ kind: 'site' }}
+          viewer={viewer}
+          initialCouponCode={invite?.success ? invite.data : null}
+        />
         <footer className="ui-rule pt-4">
           <p className="ui-caption text-center">{t('qr.page.poweredBy')}</p>
           {storefront.tracking && (
