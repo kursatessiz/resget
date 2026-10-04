@@ -25,8 +25,8 @@ export function inviteUrl(publicAppUrl: string, token: string): string {
   return `${stripTrailingSlashes(publicAppUrl)}${invitePath(token)}`;
 }
 
-/** Channels a panel can send an invite through today; WhatsApp follows the messaging engine (A7). */
-export const INVITE_CHANNELS = ['SHOWN', 'SMS'] as const;
+/** Channels a panel can send an invite through; WhatsApp falls back to SMS when the provider refuses it (docs/PERSONEL.md). */
+export const INVITE_CHANNELS = ['SHOWN', 'SMS', 'WHATSAPP'] as const;
 export type InviteChannelInput = (typeof INVITE_CHANNELS)[number];
 
 const nonEmpty = (value: object) => Object.keys(value).length > 0;
@@ -91,8 +91,10 @@ export interface InviteDTO {
   url: string;
   expiresAt: string;
   createdAt: string;
-  /** For SMS invites: whether the provider accepted the message. Null when nothing was sent. */
+  /** For sent invites: whether a provider accepted the message (WhatsApp or its SMS fallback). Null when nothing was sent. */
   smsAccepted: boolean | null;
+  /** The channel the accepted message actually went through; null when nothing was sent or every attempt failed. */
+  sentVia: 'SMS' | 'WHATSAPP' | null;
 }
 
 export interface StaffOverviewDTO {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { InviteDTO, StaffMemberDTO, StaffOverviewDTO, Translate } from '@resget/shared';
+import type { InviteChannelInput, InviteDTO, StaffMemberDTO, StaffOverviewDTO, Translate } from '@resget/shared';
 import { Badge, Button, Card, LinkButton, SelectField, TextField } from '@/components/ui';
 import type { UiTone } from '@/components/ui/types';
 import { ApiError, bffJson } from '@/lib/client-api';
@@ -36,7 +36,7 @@ export function StaffManager({
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [roleId, setRoleId] = useState('');
-  const [channel, setChannel] = useState<'SHOWN' | 'SMS'>('SHOWN');
+  const [channel, setChannel] = useState<InviteChannelInput>('SHOWN');
   const [qrOpen, setQrOpen] = useState<string | null>(null);
 
   const fail = useCallback(
@@ -80,7 +80,10 @@ export function StaffManager({
       setData((d) => d && { ...d, invites: [created, ...d.invites.filter((i) => i.phone !== created.phone)] });
       setFullName('');
       setPhone('');
-      if (created.smsAccepted === true) setNotice(t('staff.invites.smsSent'));
+      if (created.sentVia === 'WHATSAPP') setNotice(t('staff.invites.whatsappSent'));
+      if (created.sentVia === 'SMS') {
+        setNotice(channel === 'WHATSAPP' ? t('staff.invites.whatsappFellBack') : t('staff.invites.smsSent'));
+      }
       if (created.smsAccepted === false) setNotice(t('staff.invites.smsFailed'));
       if (channel === 'SHOWN') setQrOpen(created.id);
     });
@@ -189,10 +192,11 @@ export function StaffManager({
             id="invite-channel"
             label={t('staff.invite.channel')}
             value={channel}
-            onChange={(e) => setChannel(e.target.value as 'SHOWN' | 'SMS')}
+            onChange={(e) => setChannel(e.target.value as InviteChannelInput)}
           >
             <option value="SHOWN">{t('staff.invite.channel.SHOWN')}</option>
             <option value="SMS">{t('staff.invite.channel.SMS')}</option>
+            <option value="WHATSAPP">{t('staff.invite.channel.WHATSAPP')}</option>
           </SelectField>
           <div className="md:col-span-2">
             <Button type="submit" disabled={busy || !roleId}>
