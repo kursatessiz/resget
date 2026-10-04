@@ -14,6 +14,7 @@ import {
   trackingStepIndex,
 } from '@resget/shared';
 import type { OrderTrackingDTO } from '@resget/shared';
+import { ClaimCard } from '@/components/ClaimCard';
 import { LiveMap } from '@/components/LiveMap';
 import { Button, Card, LinkButton, TextAreaField } from '@/components/ui';
 import type { MapMarker, MapTilesConfig } from '@/lib/map';
@@ -187,6 +188,8 @@ export function TrackingLive({
           </div>
         </Card>
       )}
+
+      <ClaimCard token={token} tracking={tracking} locale={locale} t={t} onUpdated={setTracking} />
 
       {(tracking.canRate || tracking.rating) && (
         <Card title={t('tracking.rating.title')} aria-label={t('tracking.rating.title')}>

@@ -22,6 +22,8 @@ export interface RefundRecord {
   items?: RefundItem[] | null;
   reason?: string | null;
   actorUserId?: string | null;
+  /** The missing-item claim this refund pays out. */
+  claimId?: string | null;
   now: Date;
 }
 
@@ -137,8 +139,9 @@ export class LedgerService {
         commissionMinor: share.commissionMinor,
         commissionVatMinor: share.commissionVatMinor,
         items: record.items && record.items.length > 0 ? record.items : Prisma.JsonNull,
-        reason: record.reason ?? null,
+        reason: record.reason || null,
         createdByUserId: record.actorUserId ?? null,
+        claimId: record.claimId ?? null,
         createdAt: record.now,
       },
     });

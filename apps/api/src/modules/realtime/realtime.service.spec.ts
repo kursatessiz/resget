@@ -23,6 +23,8 @@ function tracking(status: string): RealtimeEvent {
     destination: null,
     rating: null,
     canRate: false,
+    claim: null,
+    canClaim: false,
   };
   return { type: 'tracking.updated', tracking: dto };
 }

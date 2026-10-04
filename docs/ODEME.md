@@ -83,6 +83,16 @@ Tamamlanmış (`DELIVERED`, `PICKED_UP`) siparişin bir kısmı iade edilebilir;
 - Başarısız kısmi iade ekranda hata olarak döner ve otomatik yeniden denemeye girmez (otomatik deneme yalnızca iptal edilen siparişin tamamı içindir); ödeme işaretlenmez, personel yeniden dener. Birden çok ödemeye bölünen iadede ilk ödeme gitmiş, ikincisi başarısız olmuşsa giden kısım kayıtlıdır, kalanı yeniden denenir.
 - Her ödeme iadesi bir `OrderRefund` satırıdır; sipariş ayrıntısı iadeleri (`refunds`: tutar, kaynak, ürünler, gerekçe, geri verilen komisyon) ve ürün başına iade edilen adedi (`items[].refundedQuantity`) gösterir. Komisyonun iade payı ve faturaya yansıması: `docs/MUTABAKAT.md`, "Kısmi iade".
 
+### Eksik ürün bildirimi
+
+Müşteri, tamamlanmış siparişte gelmeyen ürünü takip sayfasından (web `/t/<token>` ve uygulamadaki takip ekranı) bildirir; restoran onaylarsa tutar kısmi iade olarak geri döner. Kurallar `packages/shared/src/claims.ts`, uygulama `apps/api/src/modules/payments/claims.service.ts` içindedir.
+
+- **Bildirim**: `POST /public/orders/:token/claims` gövde `{ items: [{ orderItemId, quantity }], note? }` (takip token'ı kimlik yerine geçer, değerlendirme gibi; anonim yazmalar gibi oran sınırlı). Sipariş tamamlanmış (`DELIVERED`, `PICKED_UP`), tamamlanmanın üzerinden en fazla `CLAIM_WINDOW_HOURS` (24) saat geçmiş, bekleyen başka bildirim yok ve iade edilecek para kalmış olmalıdır (`canFileClaim`); aksi `CLAIM_NOT_ALLOWED`. Ürün başına en fazla siparişteki adet eksi daha önce iade edilen adet bildirilir (`CLAIM_ITEMS_INVALID`). Bildirimin tutarı (`requestedMinor`) kısmi iadeyle aynı hesaptır: müşterinin o ürünler için ödediği.
+- **Restorana uyarı**: `orders.refund` iznine sahip personelin telefonuna `order.claimFiled` push'u gider (ücretsiz); panel olay akışıyla güncellenir, sipariş kartında "Eksik ürün bildirimi" rozeti ve "Bildirimi incele" düğmesi çıkar (`OrderSummaryDTO.openClaimId`).
+- **Onay**: `POST /restaurants/:id/orders/:orderId/claims/:claimId/approve` (`orders.refund`), gövde boş (bildirilenin tamamı) veya `{ items }` (bildirilenin bir kısmı; fazlası `CLAIM_ITEMS_INVALID`). Onay, bildirimi önce atomik olarak kapatır (iki ekran aynı bildirimi iki kez ödeyemez), sonra seçilen ürünler için kısmi iadeyi çalıştırır (kaynak `CLAIM`, `OrderRefund.claimId`). İade hiç gitmezse (sağlayıcı reddi vb.) bildirim yeniden açık olur ve hata ekranda görünür. Müşteriye kısmi iade mesajı gider; komisyonun iade payı her kısmi iadedeki gibi restorana döner (`docs/MUTABAKAT.md`, "Kısmi iade").
+- **Ret**: `POST .../claims/:claimId/decline` gövde `{ reason }` (zorunlu, müşteriye gösterilir). Müşteriye `order.claimDeclined` mesajı gider (neden ile).
+- Müşteri takip sayfasında son bildirimin durumunu görür (bekliyor, onaylandı ve iade edilen tutar, reddedildi ve nedeni); karar verilmiş bir bildirimden sonra süre içindeyse kalan ürünler için yeni bildirim yapabilir. Sipariş ayrıntısı bildirimleri listeler (`claims`).
+
 ## 4. Komisyon faturası (`OWN_POS`)
 
 - Her tamamlanan siparişin üzerindeki `platformCommissionMinor` ve `commissionVatMinor` değerleri (yerleştirme anı anlık görüntüsü) ay sonunda tek faturaya toplanır (`buildCommissionStatement`, UTC takvim ayı). Oran sonradan değişse geçmiş ay değişmez.

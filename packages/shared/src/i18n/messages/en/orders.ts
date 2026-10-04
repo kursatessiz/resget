@@ -111,4 +111,13 @@ export const enOrders: Record<keyof typeof trOrders, string> = {
   'orders.hideDetails': 'Hide',
   'orders.newOrderTitle': 'New order',
   'orders.walkIn': 'The form for table and phone orders comes with A3.',
+  'orders.claim.badge': 'Missing item report',
+  'orders.claim.review': 'Review the report',
+  'orders.claim.title': 'The customer reported missing items',
+  'orders.claim.requested': 'Reported items are worth: {amount}',
+  'orders.claim.itemQuantity': '{name} ({claimed} reported)',
+  'orders.claim.approve': 'Approve and refund',
+  'orders.claim.decline': 'Decline',
+  'orders.claim.declineReason': 'Reason for declining (shown to the customer)',
+  'orders.claim.declineConfirm': 'Decline the report',
 };

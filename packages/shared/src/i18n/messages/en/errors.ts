@@ -45,6 +45,12 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
     'The connection that took this payment is no longer available; refund it from the payment provider dashboard.',
   'errors.REFUND_ITEMS_INVALID': 'The chosen items are not on this order, or that many were already refunded.',
   'errors.REFUND_AMOUNT_TOO_HIGH': 'The amount is more than what is left to refund on this order.',
+  'errors.CLAIM_NOT_ALLOWED':
+    'A missing item cannot be reported for this order now: it is not completed, the time is up, a report is already waiting or nothing is left to refund.',
+  'errors.CLAIM_NOT_FOUND': 'Missing item report not found.',
+  'errors.CLAIM_NOT_OPEN': 'This report was already decided.',
+  'errors.CLAIM_ITEMS_INVALID':
+    'The chosen items are not on the order, are more than reported or were already refunded.',
   'errors.MEAL_CARD_PROVIDER_UNAVAILABLE': 'Online payment for this meal card is not integrated yet.',
   'errors.WEBHOOK_INVALID': 'The payment notification could not be verified.',
   'errors.RATE_LIMITED': 'Too many requests. Please wait a moment.',

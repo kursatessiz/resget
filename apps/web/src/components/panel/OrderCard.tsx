@@ -7,6 +7,8 @@ import { Badge, Button, SelectField, TextField } from '@/components/ui';
 import type { UiTone } from '@/components/ui/types';
 import { RefundPanel } from './RefundPanel';
 import type { RefundRequest } from './RefundPanel';
+import { ClaimReview } from './ClaimReview';
+import type { ClaimDecision } from './ClaimReview';
 
 export interface OrderAction {
   to: OrderStatusValue;
@@ -82,6 +84,7 @@ export function OrderCard({
   busy,
   onTransition,
   onRefund,
+  onClaim,
   loadDetail,
 }: {
   order: OrderSummaryDTO;
@@ -97,12 +100,15 @@ export function OrderCard({
     extra: { prepMinutes?: number; reason?: string },
   ) => void;
   onRefund?: (order: OrderSummaryDTO, request: RefundRequest) => void;
+  /** Decides the customer's missing-item report (approve all or part of it, or decline with a reason). */
+  onClaim?: (order: OrderSummaryDTO, claimId: string, decision: ClaimDecision) => void;
   /** The full order (items and earlier refunds) for the refund form. */
   loadDetail?: (order: OrderSummaryDTO) => Promise<OrderDetailDTO>;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<OrderAction | null>(null);
   const [refunding, setRefunding] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
   const [prepMinutes, setPrepMinutes] = useState(20);
   const [reason, setReason] = useState('');
   const minutesAgo = Math.max(0, Math.round((Date.now() - new Date(order.placedAt).getTime()) / 60_000));
@@ -115,6 +121,7 @@ export function OrderCard({
   const { refundState, refundFailureCode, refundable } = order.payment;
   const offerRefund = canRefund && Boolean(onRefund) && Boolean(loadDetail) && refundable;
   const partlyRefunded = refundState === 'NONE' && order.payment.refundedMinor > 0;
+  const offerClaim = canRefund && Boolean(onClaim) && Boolean(loadDetail) && order.openClaimId !== null;
 
   const run = (action: OrderAction) => {
     if (action.needsPrep || action.needsReason) {
@@ -151,6 +158,7 @@ export function OrderCard({
             {order.activeTrip && (
               <Badge tone="theme">{t('orders.inTrip', { sequence: order.activeTrip.sequence })}</Badge>
             )}
+            {order.openClaimId && <Badge tone="warn">{t('orders.claim.badge')}</Badge>}
           </div>
           <span className="ui-caption">
             {minutesAgo === 0 ? t('orders.placedJustNow') : t('orders.placedAgo', { minutes: minutesAgo })}
@@ -219,7 +227,20 @@ export function OrderCard({
           </p>
         )}
 
-        {refunding && onRefund && loadDetail ? (
+        {reviewing && onClaim && loadDetail ? (
+          <ClaimReview
+            order={order}
+            locale={locale}
+            t={t}
+            busy={busy}
+            loadDetail={() => loadDetail(order)}
+            onDecide={(claimId, decision) => {
+              onClaim(order, claimId, decision);
+              setReviewing(false);
+            }}
+            onCancel={() => setReviewing(false)}
+          />
+        ) : refunding && onRefund && loadDetail ? (
           <RefundPanel
             order={order}
             locale={locale}
@@ -279,6 +300,11 @@ export function OrderCard({
                 {action.label}
               </Button>
             ))}
+            {offerClaim && (
+              <Button tone="warn" onClick={() => setReviewing(true)} disabled={busy}>
+                {t('orders.claim.review')}
+              </Button>
+            )}
             {offerRefund && (
               <Button variant="outline" tone="error" onClick={() => setRefunding(true)} disabled={busy}>
                 {refundState === 'FAILED' ? t('orders.refundRetry') : t('orders.refund')}

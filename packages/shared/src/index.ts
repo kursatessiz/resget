@@ -7,6 +7,7 @@ export * from './plans';
 export * from './payments';
 export * from './meal-cards';
 export * from './refunds';
+export * from './claims';
 export * from './courier';
 export * from './delivery';
 export * from './tracking-steps';

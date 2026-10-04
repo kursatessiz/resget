@@ -18,7 +18,7 @@ import {
 import type { MessageTemplateKey, OrderStatusValue, PushTemplateKey } from '@resget/shared';
 
 /** What happened: a status change, or part of the order's money went back (docs/ODEME.md, "Kısmi iade"). */
-type OrderUpdate = { status: OrderStatusValue } | { partialRefundMinor: number };
+type OrderUpdate = { status: OrderStatusValue } | { partialRefundMinor: number } | { claimDeclined: string };
 import { PrismaService } from '../prisma/prisma.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { PushService } from '../push/push.service';
@@ -50,11 +50,36 @@ export class OrderNotificationsService {
     await this.safely(orderId, { partialRefundMinor: amountMinor });
   }
 
+  /** The restaurant declined the customer's missing-item claim; the reason goes with it. */
+  async notifyClaimDeclined(orderId: string, reason: string): Promise<void> {
+    await this.safely(orderId, { claimDeclined: reason });
+  }
+
+  /** A customer reported missing items: everyone who may refund hears about it (push only, free). */
+  async alertStaffOfClaim(orderId: string): Promise<void> {
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: { id: true, restaurantId: true, restaurant: { select: { name: true } } },
+      });
+      if (!order) return;
+      await this.push.notifyRestaurantStaff(
+        order.restaurantId,
+        'orders.refund',
+        'order.claimFiled',
+        { restaurant: order.restaurant.name, code: orderShortCode(order.id) },
+        { kind: 'orders' },
+      );
+    } catch (error) {
+      this.logger.warn(`Claim alert for ${orderId} skipped: ${error instanceof Error ? error.message : 'error'}`);
+    }
+  }
+
   private async safely(orderId: string, update: OrderUpdate): Promise<void> {
     try {
       await this.send(orderId, update);
     } catch (error) {
-      const what = 'status' in update ? update.status : 'partial refund';
+      const what = 'status' in update ? update.status : 'claimDeclined' in update ? 'claim declined' : 'partial refund';
       this.logger.warn(
         `Order ${orderId} ${what} notification skipped: ${error instanceof Error ? error.message : 'error'}`,
       );
@@ -96,7 +121,12 @@ export class OrderNotificationsService {
       url: order.trackingToken
         ? trackingUrl(this.config.getOrThrow<string>('PUBLIC_APP_URL'), order.trackingToken)
         : '',
-      reason: order.rejectReason ? t('messaging.template.reasonSuffix', { reason: order.rejectReason }) : '',
+      reason:
+        'claimDeclined' in update
+          ? t('messaging.template.reasonSuffix', { reason: update.claimDeclined })
+          : order.rejectReason
+            ? t('messaging.template.reasonSuffix', { reason: order.rejectReason })
+            : '',
       amount:
         'partialRefundMinor' in update
           ? formatMoney({ amountMinor: update.partialRefundMinor, currency: order.currency }, locale)
@@ -109,11 +139,12 @@ export class OrderNotificationsService {
     const messageParams = { ...params, refund: refund ? t(`messaging.template.refundSuffix.${refund}`) : '' };
 
     // Push is free and reaches the app directly; a device that took it spares the restaurant the paid message.
+    const otherKey = 'claimDeclined' in update ? 'order.claimDeclined' : 'order.partiallyRefunded';
     const pushKey: PushTemplateKey | null = status
       ? customerPushTemplate(order.fulfillment, status)
       : order.fulfillment === 'DINE_IN'
         ? null
-        : 'order.partiallyRefunded';
+        : otherKey;
     if (pushKey && order.customerUserId) {
       const outcome = await this.push.notifyUsers(
         [order.customerUserId],
@@ -129,7 +160,7 @@ export class OrderNotificationsService {
       ? orderNotificationTemplate(order.fulfillment, status)
       : order.fulfillment === 'DINE_IN'
         ? null
-        : 'order.partiallyRefunded';
+        : otherKey;
     if (!templateKey) return;
     // A deleted account has no number to write to (docs/KISISEL_VERI.md).
     const phone = isDeletedUserPhone(order.customer?.phone)

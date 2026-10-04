@@ -109,4 +109,13 @@ export const trOrders = {
   'orders.hideDetails': 'Gizle',
   'orders.newOrderTitle': 'Yeni sipariş',
   'orders.walkIn': 'Masa veya telefon siparişi girmek için sipariş formu A3 ile gelir.',
+  'orders.claim.badge': 'Eksik ürün bildirimi',
+  'orders.claim.review': 'Bildirimi incele',
+  'orders.claim.title': 'Müşterinin eksik ürün bildirimi',
+  'orders.claim.requested': 'Bildirilen ürünlerin tutarı: {amount}',
+  'orders.claim.itemQuantity': '{name} (bildirilen {claimed} adet)',
+  'orders.claim.approve': 'Onayla ve iade et',
+  'orders.claim.decline': 'Reddet',
+  'orders.claim.declineReason': 'Ret nedeni (müşteriye gösterilir)',
+  'orders.claim.declineConfirm': 'Bildirimi reddet',
 } as const satisfies Record<string, string>;

@@ -14,6 +14,8 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
   'messaging.template.order.refunded':
     '{restaurant}: the payment for your order {code} has been refunded. Your bank may take a few days to show it.',
   'messaging.template.order.partiallyRefunded': '{restaurant}: {amount} has been refunded for your order {code}.',
+  'messaging.template.order.claimDeclined':
+    '{restaurant}: your missing item report for order {code} was not accepted.{reason}',
   'messaging.template.reasonSuffix': ' Reason: {reason}',
   'messaging.template.refundSuffix.done': ' Your payment has been refunded.',
   'messaging.template.refundSuffix.pending': ' Your payment will be refunded.',
@@ -70,6 +72,8 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
   'messaging.log.template.order.cancelled': 'Order cancelled',
   'messaging.log.template.order.refunded': 'Order refunded',
   'messaging.log.template.order.partiallyRefunded': 'Partial refund',
+  'messaging.log.template.order.claimDeclined': 'Missing item report declined',
+  'messaging.log.template.order.claimFiled': 'Missing item report',
   'messaging.log.error.INSUFFICIENT_CREDITS': 'Insufficient credits',
   'messaging.log.error.PROVIDER_REJECTED': 'Rejected by the provider',
   'messaging.log.error.PROVIDER_ERROR': 'Provider error',
@@ -100,6 +104,12 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
     '{restaurant}: the payment for order {code} has been refunded. Your bank may take a few days to show it.',
   'messaging.push.order.partiallyRefunded.title': 'Partial refund made',
   'messaging.push.order.partiallyRefunded.body': '{restaurant}: {amount} has been refunded for your order {code}.',
+  'messaging.push.order.claimDeclined.title': 'Your missing item report was not accepted',
+  'messaging.push.order.claimDeclined.body':
+    '{restaurant}: your missing item report for order {code} was not accepted.{reason}',
+  'messaging.push.order.claimFiled.title': 'Missing item report {code}',
+  'messaging.push.order.claimFiled.body':
+    '{restaurant}: a customer reported a missing item; it waits for your decision.',
   'messaging.push.refundSuffix.done': ' Your payment has been refunded.',
   'messaging.push.refundSuffix.pending': ' Your payment will be refunded.',
   'messaging.push.trip.assigned.title': 'New trip',

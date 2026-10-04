@@ -50,4 +50,14 @@ export const enTracking: Record<keyof typeof trTracking, string> = {
   'tracking.live': 'Live',
   'tracking.reconnecting': 'Reconnecting...',
   'tracking.updatedAt': 'Last update {time}',
+  'tracking.claim.title': 'Missing items',
+  'tracking.claim.start': 'Report a missing item',
+  'tracking.claim.intro':
+    'Choose the items that did not arrive and how many. If the business approves, what you paid for them is refunded.',
+  'tracking.claim.itemQuantity': '{name} (up to {left})',
+  'tracking.claim.note': 'Note (optional)',
+  'tracking.claim.submit': 'Send report',
+  'tracking.claim.open': 'Your report was sent to the business. You will hear back once they decide.',
+  'tracking.claim.approved': 'Your report was approved; {amount} has been refunded.',
+  'tracking.claim.declined': 'Your report was not accepted. Reason: {reason}',
 };

@@ -195,6 +195,13 @@ export enum OrderRefundSource {
   CHARGEBACK = 'CHARGEBACK',
 }
 
+/** A customer's missing-item claim (docs/ODEME.md, "Eksik ürün bildirimi"). */
+export enum OrderClaimStatus {
+  OPEN = 'OPEN',
+  APPROVED = 'APPROVED',
+  DECLINED = 'DECLINED',
+}
+
 export enum PayoutStatus {
   SCHEDULED = 'SCHEDULED',
   SENT = 'SENT',

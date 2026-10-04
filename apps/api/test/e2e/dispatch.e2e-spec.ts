@@ -191,8 +191,8 @@ describe('Orders, dispatch, courier and tracking (e2e)', () => {
     expect(snapshot.status).toBe('READY');
     expect(snapshot.courier).toBeNull();
     expect(snapshot.items).toEqual([
-      { name: 'Izgara kofte', quantity: 2 },
-      { name: 'Ayran', quantity: 1 },
+      { id: expect.any(String), name: 'Izgara kofte', quantity: 2, refundedQuantity: 0 },
+      { id: expect.any(String), name: 'Ayran', quantity: 1, refundedQuantity: 0 },
     ]);
     await ctx
       .http()

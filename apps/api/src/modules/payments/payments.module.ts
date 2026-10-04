@@ -11,6 +11,7 @@ import { MealCardsRegistry } from './meal-cards.registry';
 import { MealCardsService } from './meal-cards.service';
 import { CheckoutService } from './checkout.service';
 import { RefundsService } from './refunds.service';
+import { ClaimsService } from './claims.service';
 
 @Module({
   imports: [AuthModule, OrdersModule],
@@ -22,7 +23,15 @@ import { RefundsService } from './refunds.service';
     PublicPaymentsController,
     PaymentWebhooksController,
   ],
-  providers: [PaymentsRegistry, PaymentsService, MealCardsRegistry, MealCardsService, CheckoutService, RefundsService],
+  providers: [
+    PaymentsRegistry,
+    PaymentsService,
+    MealCardsRegistry,
+    MealCardsService,
+    CheckoutService,
+    RefundsService,
+    ClaimsService,
+  ],
   exports: [PaymentsRegistry, PaymentsService, MealCardsService, CheckoutService, RefundsService],
 })
 export class PaymentsModule {}

@@ -43,6 +43,7 @@
 | `orders` | Kanal, teslimat türü, durum (`OrderStatus`, `docs/SIPARIS_VE_SEVK.md`), `computeModeSettlement()` anlık görüntüsü (brüt, KDV, komisyon, PSP, tevkifat, kurye, hakediş), ödeme modu ve platform alacağı, adres anlık görüntüsü (koordinat dahil), takip anahtarı (`trackingToken`, benzersiz), söz verilen hazır olma ve tahmini teslim zamanı. |
 | `order_items` | Ad ve fiyat anlık görüntüsü, modifiye anlık görüntüsü, sepet sırası. |
 | `order_status_history` | Her geçiş, aktör ve gerekçe. |
+| `order_claims` | Müşterinin eksik ürün bildirimi: ürünler ve adetler, tutar, not, durum (bekliyor, onaylandı, reddedildi), karar veren ve ret nedeni (`docs/ODEME.md`, "Eksik ürün bildirimi"). Onaylanan bildirimin iadeleri `order_refunds.claimId` ile bağlıdır. |
 | `order_refunds` | Her ödeme iadesi: tutar, kaynak (iptal, personel, müşteri bildirimi, sağlayıcı paneli, ters ibraz), iade edilen ürünler, gerekçe, geri verilen komisyon ve KDV payı, payı mahsup eden fatura (`docs/MUTABAKAT.md`, "Kısmi iade"). |
 | `payments` | Sağlayıcı (PSP, POS veya yemek kartı kuruluşu), yöntem, durum, PSP'nin bildirdiği kesinti, iade tutarı, tahsil anındaki ödeme modu, kullanılan kayıtlı kart, kapıda tahsil eden kişi. Siparişin yerleştirme anındaki niyeti `orders.paymentMethod` / `paymentProvider` alanlarındadır. |
 | `meal_card_connections` | Restoranın kabul ettiği yemek kartı kuruluşları (`docs/YEMEK_KARTI.md`): kapıda ve/veya çevrim içi; çevrim içi için şifreli API bilgileri, doğrulama durumu, maskeli etiket. (`restaurantId`, `providerCode`) benzersiz. |

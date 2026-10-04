@@ -70,6 +70,8 @@ export const enMobile: Record<keyof typeof trMobile, string> = {
   'mobile.courier.navApp.google': 'Google Maps',
   'mobile.courier.navApp.apple': 'Apple Maps',
   'mobile.courier.navApp.yandex': 'Yandex Maps',
+  'mobile.stepper.minus': '-',
+  'mobile.stepper.plus': '+',
   'mobile.map.fit': 'Show everything',
   'mobile.courier.map.label': 'Trip map',
   'mobile.courier.map.pickup': 'Pickup point',

@@ -45,6 +45,11 @@ export const trErrors = {
     'Bu ödemenin alındığı bağlantı artık kullanılamıyor; iadeyi ödeme sağlayıcısının panelinden yapın.',
   'errors.REFUND_ITEMS_INVALID': 'Seçilen ürünler bu siparişte yok veya o kadarı zaten iade edildi.',
   'errors.REFUND_AMOUNT_TOO_HIGH': 'İade tutarı siparişte iade edilebilecek tutardan fazla.',
+  'errors.CLAIM_NOT_ALLOWED':
+    'Bu sipariş için şu anda eksik ürün bildirilemez: sipariş tamamlanmadı, süre doldu, bekleyen bir bildirim var veya iade edilecek tutar kalmadı.',
+  'errors.CLAIM_NOT_FOUND': 'Eksik ürün bildirimi bulunamadı.',
+  'errors.CLAIM_NOT_OPEN': 'Bu bildirim için zaten karar verildi.',
+  'errors.CLAIM_ITEMS_INVALID': 'Seçilen ürünler siparişte yok, bildirilenden fazla veya zaten iade edildi.',
   'errors.MEAL_CARD_PROVIDER_UNAVAILABLE': 'Bu yemek kartı için çevrim içi ödeme entegrasyonu henüz hazır değil.',
   'errors.WEBHOOK_INVALID': 'Ödeme bildirimi doğrulanamadı.',
   'errors.MENU_CATEGORY_NOT_FOUND': 'Kategori bulunamadı.',

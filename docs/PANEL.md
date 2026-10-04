@@ -51,7 +51,9 @@ Pro özelliği `api_access`: restoranın kendi yazılımı için kapsamlı API a
 
 ## Sipariş kartında iade (`/panel/<slug>/siparisler`, izin `orders.refund`)
 
-İptal edilmiş veya tamamlanmış, yakalanmış parası olan siparişin kartında "İade et" düğmesi çıkar; gerekçe girilmeden onay düğmesi açılmaz. Tamamlanmış siparişte form üç seçenek sunar: tamamı, ürün seç (ürün başına iade edilebilecek adet; tutar API ile aynı hesapla önizlenir) veya tutar gir (kalan tutara kadar). Form siparişin önceki iadelerini (zaman, tutar, kaynak, ürünler, gerekçe, geri verilen komisyon) listeler; kısmen iade edilmiş sipariş kartında "Kısmi iade: tutar" rozeti görünür. Kart iade durumunu gösterir: işleniyor, yapılamadı (sebebiyle; düğme "İadeyi yeniden dene" olur) veya iade edilen tutar. Çevrim içi ödeme sağlayıcısına iade edilir, kapıda alınan para personelin elden iadesinden sonra onaylanır (`docs/ODEME.md` bölüm 3b).
+İptal edilmiş veya tamamlanmış, yakalanmış parası olan siparişin kartında "İade et" düğmesi çıkar; gerekçe girilmeden onay düğmesi açılmaz. Tamamlanmış siparişte form üç seçenek sunar: tamamı, ürün seç (ürün başına iade edilebilecek adet; tutar API ile aynı hesapla önizlenir) veya tutar gir (kalan tutara kadar). Form siparişin önceki iadelerini (zaman, tutar, kaynak, ürünler, gerekçe, geri verilen komisyon) listeler; kısmen iade edilmiş sipariş kartında "Kısmi iade: tutar" rozeti görünür.
+
+Müşterinin eksik ürün bildirimi bekleyen siparişin kartında "Eksik ürün bildirimi" rozeti ve "Bildirimi incele" düğmesi çıkar: bildirilen ürünler ve adetler (onaylanacak adet bildirilenden az seçilebilir), müşterinin notu, iade tutarının önizlemesi; "Onayla ve iade et" kısmi iadeyi yapar, "Reddet" müşteriye gösterilen bir neden ister (`docs/ODEME.md`, "Eksik ürün bildirimi"). Kart iade durumunu gösterir: işleniyor, yapılamadı (sebebiyle; düğme "İadeyi yeniden dene" olur) veya iade edilen tutar. Çevrim içi ödeme sağlayıcısına iade edilir, kapıda alınan para personelin elden iadesinden sonra onaylanır (`docs/ODEME.md` bölüm 3b).
 
 ## Değişmeyen kurallar
 

@@ -89,7 +89,7 @@ Sahibin kararı (4 Ekim 2026): restoranla yapılan sözleşme gereği iade ve ch
 
 ## Kısmi iade
 
-Sahibin kararı (4 Ekim 2026): restoran siparişin bir kısmını iade edebilir (seçilen ürünler veya bir tutar; müşterinin eksik ürün bildirimi restoran onaylayınca aynı yoldan iade olur). İade tutarı restorana aittir; platform komisyonunun iade edilen paya düşen kısmı restorana geri verilir.
+Sahibin kararı (4 Ekim 2026): restoran siparişin bir kısmını iade edebilir (seçilen ürünler veya bir tutar; müşterinin eksik ürün bildirimi restoran onaylayınca aynı yoldan iade olur, `docs/ODEME.md` "Eksik ürün bildirimi"). İade tutarı restorana aittir; platform komisyonunun iade edilen paya düşen kısmı restorana geri verilir.
 
 - **Pay.** Bir iadenin geri verdiği komisyon `refundCommissionShare()` ile hesaplanır: komisyon x (iade tutarı / müşterinin ödediği tutar, `chargedToCustomerMinor`), KDV'si için aynısı. Hesap sipariş başına birikimlidir: n'inci iadenin payı, ilk n iadenin toplamına düşen pay eksi öncekilerin payıdır (`shareOf()`, yarım yukarı); böylece yuvarlama kaymaz ve bütün iadelerin payları siparişin komisyonuna eşit olur. Siparişin parasını bitiren son iade ve chargeback, komisyonun kalanını olduğu gibi verir.
 - **Örnek.** Müşterinin ödediği 300,00, komisyon 3,00, KDV'si 0,60. Önce 100,00 iade: komisyon payı 1,00, KDV payı 0,20. Sonra 100,00 daha: birikimli 200,00'ün payı 2,00 / 0,40, bu iadeninki 1,00 / 0,20. Kalan 100,00 iade edilince kalan 1,00 / 0,20 döner ve sipariş `REFUNDED` olur.

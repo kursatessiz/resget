@@ -63,8 +63,10 @@ export const PUSH_TEMPLATE_KEYS = [
   'order.cancelled',
   'order.refunded',
   'order.partiallyRefunded',
+  'order.claimDeclined',
   'trip.assigned',
   'order.placed',
+  'order.claimFiled',
 ] as const;
 export type PushTemplateKey = (typeof PUSH_TEMPLATE_KEYS)[number];
 

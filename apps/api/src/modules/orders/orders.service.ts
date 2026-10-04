@@ -22,6 +22,7 @@ import {
   canRateOrder,
   isAutoRefundStatus,
   canStartRefund,
+  canFileClaim,
   refundableMinor,
   refundedQuantities,
   refundStateOf,
@@ -32,6 +33,7 @@ import type {
   CreateOrderInput,
   GeoPoint,
   OrderActor,
+  OrderClaimDTO,
   OrderDetailDTO,
   OrderPaymentDTO,
   OrderPaymentIntent,
@@ -69,6 +71,8 @@ const orderArgs = Prisma.validator<Prisma.OrderDefaultArgs>()({
     payments: { orderBy: { createdAt: 'desc' } },
     // Every refund, oldest first: the detail lists them and counts the items already given back.
     refunds: { orderBy: { createdAt: 'asc' } },
+    // The customer's missing-item claims, newest first (docs/ODEME.md, "Eksik ürün bildirimi").
+    claims: { orderBy: { createdAt: 'desc' } },
     rating: true,
     deliveryStops: {
       where: { status: { in: [...ACTIVE_STOP_STATUSES] }, trip: { status: { in: [...ACTIVE_TRIP_STATUSES] } } },
@@ -619,6 +623,7 @@ export class OrdersService {
     ]);
     const address = this.addressOf(row);
     const destination = address?.point ?? null;
+    const given = this.refundedQuantitiesOf(row);
     const stop = row.deliveryStops[0];
     let courier: OrderTrackingDTO['courier'] = null;
     if (
@@ -663,7 +668,12 @@ export class OrdersService {
         themePrimary: restaurant?.themePrimary ?? '#0092CD',
         phone: branch?.phone ?? null,
       },
-      items: row.items.map((item) => ({ name: item.nameSnapshot, quantity: item.quantity })),
+      items: row.items.map((item) => ({
+        id: item.id,
+        name: item.nameSnapshot,
+        quantity: item.quantity,
+        refundedQuantity: given.get(item.id) ?? 0,
+      })),
       placedAt: row.placedAt.toISOString(),
       promisedReadyAt: row.promisedReadyAt?.toISOString() ?? null,
       estimatedDeliveryAt: row.estimatedDeliveryAt?.toISOString() ?? null,
@@ -680,6 +690,12 @@ export class OrdersService {
         ? { score: row.rating.score, comment: row.rating.comment, createdAt: row.rating.createdAt.toISOString() }
         : null,
       canRate: canRateOrder(row.status, row.completedAt, row.rating !== null),
+      claim: row.claims[0] ? this.claimOf(row, row.claims[0]) : null,
+      canClaim: canFileClaim(
+        row,
+        row.claims.some((c) => c.status === 'OPEN'),
+        row.payments.reduce((n, p) => n + refundableMinor(p), 0),
+      ),
     };
   }
 
@@ -736,8 +752,38 @@ export class OrdersService {
       activeTrip: stop
         ? { tripId: stop.tripId, stopId: stop.id, sequence: stop.sequence, tripStatus: stop.trip.status }
         : null,
+      openClaimId: row.claims.find((c) => c.status === 'OPEN')?.id ?? null,
       payment: this.paymentOf(row),
     };
+  }
+
+  /** A claim as the panel and the tracking page show it, with what its approval paid out. */
+  claimOf(row: OrderRow, claim: OrderRow['claims'][number]): OrderClaimDTO {
+    const nameOf = new Map(row.items.map((item) => [item.id, item.nameSnapshot]));
+    const items = Array.isArray(claim.items) ? (claim.items as unknown as RefundItem[]) : [];
+    return {
+      id: claim.id,
+      status: claim.status,
+      items: items.map((i) => ({
+        orderItemId: i.orderItemId,
+        name: nameOf.get(i.orderItemId) ?? '',
+        quantity: i.quantity,
+      })),
+      requestedMinor: claim.requestedMinor,
+      refundedMinor: row.refunds.filter((r) => r.claimId === claim.id).reduce((n, r) => n + r.amountMinor, 0),
+      currency: row.currency,
+      note: claim.note,
+      declineReason: claim.declineReason,
+      createdAt: claim.createdAt.toISOString(),
+      decidedAt: claim.decidedAt?.toISOString() ?? null,
+    };
+  }
+
+  /** How many of each line already went back to the customer. */
+  refundedQuantitiesOf(row: OrderRow): Map<string, number> {
+    return refundedQuantities(
+      row.refunds.map((r) => ({ items: Array.isArray(r.items) ? (r.items as unknown as RefundItem[]) : null })),
+    );
   }
 
   paymentOf(row: OrderRow, now: Date = new Date()): OrderPaymentDTO {
@@ -763,7 +809,7 @@ export class OrdersService {
 
   toDetail(row: OrderRow, canSeeContacts: boolean): OrderDetailDTO {
     const refundItems = (raw: unknown): RefundItem[] => (Array.isArray(raw) ? (raw as RefundItem[]) : []);
-    const given = refundedQuantities(row.refunds.map((r) => ({ items: refundItems(r.items) })));
+    const given = this.refundedQuantitiesOf(row);
     const nameOf = new Map(row.items.map((item) => [item.id, item.nameSnapshot]));
     return {
       ...this.toSummary(row, canSeeContacts),
@@ -805,6 +851,7 @@ export class OrdersService {
         reason: r.reason,
         createdAt: r.createdAt.toISOString(),
       })),
+      claims: row.claims.map((claim) => this.claimOf(row, claim)),
     };
   }
 }
