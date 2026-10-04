@@ -28,6 +28,8 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.PAYMENT_STATE_INVALID': 'A payment cannot be made for this order at this stage.',
   'errors.REFUND_NOT_ALLOWED':
     'This order cannot be refunded: there is no payment to refund, the order is still open or it was already refunded.',
+  'errors.OWNERSHIP_TRANSFER_FORBIDDEN': 'Only the owner can hand the business over.',
+  'errors.OWNERSHIP_TARGET_INVALID': 'The new owner must be an active member of the team.',
   'errors.ACCOUNT_DELETE_OWNER':
     'An account that owns a business cannot be deleted. Hand the business over first, or write to the platform team to close it.',
   'errors.ACCOUNT_DELETE_SUPER_ADMIN': 'A platform administrator account cannot be deleted here.',

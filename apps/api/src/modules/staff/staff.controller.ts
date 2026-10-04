@@ -4,6 +4,7 @@ import {
   CreateInviteSchema,
   CreateRoleSchema,
   InviteTokenSchema,
+  TransferOwnershipSchema,
   UpdateMembershipSchema,
   UpdateRoleSchema,
   UuidSchema,
@@ -33,6 +34,18 @@ export class StaffController {
   @RequirePermission('staff.manage')
   overview(@Tenant() tenant: TenantContext): Promise<StaffOverviewDTO> {
     return this.staff.overview(tenant.restaurantId);
+  }
+
+  /** Hands the business over; only the owner (or the platform administrator) gets past the service check. */
+  @Post('ownership')
+  @HttpCode(200)
+  @RequirePermission('staff.manage')
+  transferOwnership(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodBody(TransferOwnershipSchema) body: z.infer<typeof TransferOwnershipSchema>,
+  ): Promise<StaffOverviewDTO> {
+    return this.staff.transferOwnership(tenant, user.id, body);
   }
 
   @Patch('members/:membershipId')

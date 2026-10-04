@@ -18,6 +18,17 @@ Kullanıcılar globaldir ve telefon numarasıyla tanımlanır; bir restorana ba�
 - `PASSIVE` üyelik her korumalı uçta `MEMBERSHIP_NOT_ACTIVE` ile reddedilir ve `/auth/me` listesinde görünmez; hesap silinmez, erişim yeniden açılabilir.
 - `DELETE /restaurants/:id/staff/invites/:inviteId` daveti iptal eder (süresi şimdiye çekilir).
 
+## Sahipliğin devri
+
+İşletme sahibi (veya platform yöneticisi) işletmeyi etkin bir ekip üyesine devreder: `POST /restaurants/:id/staff/ownership` (`staff.manage`; hizmet ayrıca çağıranın sahip veya platform yöneticisi olmasını şart koşar, aksi halde `OWNERSHIP_TRANSFER_FORBIDDEN`), gövde `{ toMembershipId, previousOwnerRoleId }`.
+
+- Hedef etkin, henüz sahip olmayan ve hesabını silmemiş bir üye olmalıdır (`OWNERSHIP_TARGET_INVALID`). Önceki sahip seçilen sahip olmayan role geçer (sahip rolü seçilemez, `ROLE_PROTECTED`); işletmede her zaman bir sahip vardır.
+- Komisyon faturalarının tahsilat kartı önceki sahibe aitse işletmeden ayrılır: eski sahibin kartı bir daha bu işletme için çekilmez, yeni sahip kendi kartını ekler (`docs/FATURALAMA.md`).
+- Tek işlemdir ve `ownership.transferred` denetim kaydı yazılır. Geri almak yalnızca yeni sahibin aynı işlemi yapmasıyla olur.
+- Panelde ekip listesinde, sahibin gördüğü her etkin üyenin satırında "Sahipliği devret" vardır; açıklama, kart uyarısı ve devirden sonraki rol seçimiyle onaylanır.
+
+Devir, sahibin hesabını silebilmesinin de önkoşuludur (`docs/KISISEL_VERI.md`).
+
 ## Roller
 
 - Her restoran `DEFAULT_ROLE_TEMPLATES` ile başlar (sahip, müdür, kasa, mutfak, kurye). Varsayılan şablonlar `templateKey` taşır ve adı `roles.default.<key>` mesajıyla gösterilir; adı ve izinleri sahibin düzenlemesine açıktır. Sahip şablonu değiştirilemez ve silinemez (`ROLE_PROTECTED`).
@@ -26,6 +37,6 @@ Kullanıcılar globaldir ve telefon numarasıyla tanımlanır; bir restorana ba�
 
 ## Ekranlar
 
-- `/panel/<slug>/personel` (`staff.manage`): davet formu, bekleyen davetler (bağlantı kopyalama, QR, iptal), ekip listesi (rol seçimi, erişimi kapat / aç).
+- `/panel/<slug>/personel` (`staff.manage`): davet formu, bekleyen davetler (bağlantı kopyalama, QR, iptal), ekip listesi (rol seçimi, erişimi kapat / aç, sahip için "Sahipliği devret").
 - `/panel/<slug>/personel/roller` (`roles.manage`): roller ve izin onay kutuları, yeni rol, rol silme.
 - `/j/<token>`: herkese açık davet sayfası, restoranın renginde.

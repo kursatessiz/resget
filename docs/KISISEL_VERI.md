@@ -14,7 +14,7 @@ Silmeyi engelleyen durumlar (409):
 
 | Kod | Durum |
 | --- | --- |
-| `ACCOUNT_DELETE_OWNER` | Kişi etkin bir işletmenin sahibi. İşletme devredilir veya platform ekibiyle kapatılır; sahipsiz işletme kalmaz. |
+| `ACCOUNT_DELETE_OWNER` | Kişi etkin bir işletmenin sahibi. Önce işletme bir ekip üyesine devredilir (`docs/PERSONEL.md`, "Sahipliğin devri") veya platform ekibiyle kapatılır; sahipsiz işletme kalmaz. |
 | `ACCOUNT_DELETE_SUPER_ADMIN` | Platform yöneticisi kendini buradan silemez. |
 | `ACCOUNT_DELETE_ACTIVE_ORDERS` | Müşterinin devam eden siparişi var (ödeme bekleyen sipariş engel değildir). |
 | `ACCOUNT_DELETE_ACTIVE_TRIP` | Kuryenin planlanmış, atanmış veya yoldaki seferi var. |
