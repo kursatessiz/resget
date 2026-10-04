@@ -17,6 +17,7 @@ import { RealtimeService, courierTopic, dispatchTopic } from '../realtime/realti
 import type { TopicEvent } from '../realtime/realtime.service';
 import { ACTIVE_STOP_STATUSES, ACTIVE_TRIP_STATUSES, OrdersService } from '../orders/orders.service';
 import { OrderNotificationsService } from '../orders/order-notifications.service';
+import { PushService } from '../push/push.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { RoutingRegistry } from './routing.registry';
 import { conflict, forbidden, notFound } from '../../common/api-error';
@@ -56,6 +57,7 @@ export class DispatchService {
     private readonly orders: OrdersService,
     private readonly routing: RoutingRegistry,
     private readonly notifications: OrderNotificationsService,
+    private readonly push: PushService,
   ) {
     this.orders.setTripEventsProvider((tripId) => this.eventsForTrip(tripId));
   }
@@ -200,7 +202,30 @@ export class DispatchService {
       data: { courierMembershipId, status: 'ASSIGNED', assignedAt: new Date() },
     });
     await this.publishTrip(tripId, previous && previous !== courierMembershipId ? [previous] : []);
+    if (previous !== courierMembershipId)
+      await this.pushTripAssigned(restaurantId, tripId, courierMembershipId, trip.stops.length);
     return this.getTrip(restaurantId, tripId);
+  }
+
+  /** The courier's phone learns about a new trip even when the app is closed (docs/MESAJLASMA.md, push). */
+  private async pushTripAssigned(
+    restaurantId: string,
+    tripId: string,
+    membershipId: string,
+    stops: number,
+  ): Promise<void> {
+    const membership = await this.prisma.membership.findUnique({
+      where: { id: membershipId },
+      select: { userId: true, restaurant: { select: { name: true, defaultLocale: true } } },
+    });
+    if (!membership) return;
+    await this.push.notifyUsers(
+      [membership.userId],
+      'trip.assigned',
+      { restaurant: membership.restaurant.name, count: stops },
+      { kind: 'trip', tripId },
+      { restaurantId, localeFallback: membership.restaurant.defaultLocale },
+    );
   }
 
   async addStop(restaurantId: string, tripId: string, orderId: string): Promise<DeliveryTripDTO> {
@@ -259,6 +284,7 @@ export class DispatchService {
     });
     await this.refreshEstimates(restaurantId, tripId);
     await this.publishTrip(tripId, [], [stop.orderId]);
+    await this.notifications.notify(stop.orderId, 'DELIVERED');
     return this.getTrip(restaurantId, tripId);
   }
 
@@ -367,6 +393,8 @@ export class DispatchService {
       }
     });
     await this.publishTrip(tripId);
+    // Free push only: there is no paid template for arriving (docs/MESAJLASMA.md).
+    await this.notifications.notify(stop.orderId, 'ARRIVING');
     return this.getTrip(restaurantId, tripId);
   }
 
