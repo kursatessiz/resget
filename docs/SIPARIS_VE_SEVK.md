@@ -94,17 +94,21 @@ Web'de akış BFF üzerinden geçer (`/api/bff/...`); BFF gövdeyi tamponlamadan
 
 ## 6. Müşteri takip sayfası
 
-`https://<web>/t/<token>`: sunucuda `GET /public/orders/:token` ile çizilir, ardından `TrackingLive` bileşeni olay akışına bağlanır. Gösterilenler: adım çizelgesi (teslimat türüne göre), durum metni, söz verilen hazır olma / tahmini teslim saati, kurye bloğu (yalnızca kuryede veya yoldayken): kuryenin adı (yalnızca ad), uzaklık, önünde kaç teslimat olduğu ("kuryeniz önce yakındaki N teslimatı tamamlayacak"), haritada aç bağlantısı, sipariş içeriği, işletmeyi ara. Başka müşterinin adresi veya kimliği hiçbir zaman yer almaz; kurye konumu yalnızca sefer IN_PROGRESS iken verilir.
+`https://<web>/t/<token>`: sunucuda `GET /public/orders/:token` ile çizilir, ardından `TrackingLive` bileşeni olay akışına bağlanır. Gösterilenler: adım çizelgesi (teslimat türüne göre), durum metni, söz verilen hazır olma / tahmini teslim saati, kurye bloğu (yalnızca kuryede veya yoldayken): kuryenin adı (yalnızca ad), uzaklık, önünde kaç teslimat olduğu ("kuryeniz önce yakındaki N teslimatı tamamlayacak"), harita (kurye ve teslimat noktası; yalnızca kurye yoldayken) ve haritada aç bağlantısı, sipariş içeriği, işletmeyi ara. Başka müşterinin adresi veya kimliği hiçbir zaman yer almaz; kurye konumu yalnızca sefer IN_PROGRESS iken verilir.
+
+### Harita
+
+Takip sayfası ve sevk panosu aynı bileşeni kullanır (`apps/web/src/components/MapView.tsx`, Leaflet; yalnızca tarayıcıda yüklenir). Döşeme (tile) sağlayıcısı dağıtım ayarıdır: web sunucusu `MAP_TILE_URL`, `MAP_ATTRIBUTION` ve `MAP_MAX_ZOOM` değerlerini istek anında okur ve bileşene prop olarak geçirir; imaja hiçbir şey gömülmez, sağlayıcı değiştirmek `.env` değişikliğidir. Varsayılan OpenStreetMap'in herkese açık döşemeleridir (geliştirme ve küçük dağıtımlar için; kullanım politikası geçerlidir), üretim ücretli bir sağlayıcıya yönlendirilir. İşaretler daire olarak çizilir ve renklerini kitin rollerinden alır (`globals.css`: kurye tema rengi, teslimat noktası başarı, sıradaki durak gri, aktif durak uyarı, biten durak çizgi rengi). Sevk panosundaki harita konum paylaşan kuryeleri ve aktif seferlerin koordinatlı duraklarını gösterir ve SSE olaylarıyla yeniden çizilir; takip sayfasındaki harita yalnızca o siparişin kuryesini ve kapısını gösterir.
 
 ## 7. Mobil uygulama sözleşmesi (Faz 1, Expo)
 
 Tek uygulama; rol üyelikten gelir.
 
 - **Kurye modu** (`courier.deliver`): `GET courier/me/trips` ve `courier/me/events` ile sefer listesi; sefer ekranında sıralı duraklar, her durak için adres, telefon, mesafe ve ETA; büyük tek aksiyon düğmesi (Teslim aldım -> Yola çık -> Vardım -> Teslim ettim / Teslim edilemedi); arka plan konum servisi sefer sürerken 3-5 saniyede bir nokta toplar ve partiler halinde `courier/me/location` ucuna gönderir; uygulama kapanınca konum gönderimi durur (platform da aktif sefer yoksa reddeder).
-- **Müşteri modu**: aynı takip DTO'su (`OrderTrackingDTO`) ve aynı olay akışı; harita üzerinde kurye ve varış noktası.
+- **Müşteri modu**: aynı takip DTO'su (`OrderTrackingDTO`); uygulama anlık görüntüyü yeniler (`docs/MOBIL.md`). Uygulama içi harita henüz yok, web takip sayfası gösterir.
 - **Restoran modu** (tablet): sevk panosu, sürükleyerek sıralama, "en kısa rotayı bul", kurye atama.
 
-Harita sağlayıcısı (ücret, lisans, Türkiye kapsama) sahibin kararıdır; kod yalnızca koordinat ve bağlantı üretir.
+Harita döşeme sağlayıcısı (ücret, lisans, Türkiye kapsama) sahibin kararıdır ve dağıtım ayarıyla seçilir (yukarıda "Harita"); kod koordinat üretir ve verilen döşemeleri çizer.
 
 ## 8. Üçüncü taraf kuryeyle ilişki
 

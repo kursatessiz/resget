@@ -68,6 +68,8 @@ test.describe('Orders screen and dispatch board', () => {
     await expect(trips.getByText('Kurye atandı')).toBeVisible();
     await expect(trips.getByText(`Sipariş ${order.shortCode}`)).toBeVisible();
     await expect(page.getByRole('region', { name: 'Kuryeler' }).getByText('Seferde')).toBeVisible();
+    // The map section is always there; it draws when a courier shares a position or a stop has coordinates.
+    await expect(page.getByRole('region', { name: 'Harita' }).first()).toBeVisible();
 
     await trips.getByRole('button', { name: 'Seferi iptal et' }).click();
     await expect(trips.getByText('Aktif sefer yok.')).toBeVisible();
