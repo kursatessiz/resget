@@ -38,6 +38,8 @@ export const EnvSchema = z
     TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
     TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
     TWILIO_FROM_NUMBER: z.string().min(1).optional(),
+    /** MOCK, or META for the WhatsApp Business Cloud API. */
+    WHATSAPP_PROVIDER: z.enum(['MOCK', 'META']).default('MOCK'),
     WHATSAPP_ACCESS_TOKEN: z.string().min(1).optional(),
     WHATSAPP_PHONE_NUMBER_ID: z.string().min(1).optional(),
     /** Fixed OTP for automated tests. Rejected outside NODE_ENV=test. */
@@ -131,6 +133,27 @@ export const EnvSchema = z
         path: ['PAYTR_MERCHANT_ID'],
         message: 'PAYTR_* keys are required when PAYMENT_PROVIDER=PAYTR',
       });
+    }
+    const requires: Record<string, (keyof typeof env)[]> = {
+      NETGSM: ['NETGSM_USER', 'NETGSM_PASSWORD', 'NETGSM_HEADER'],
+      ILETI_MERKEZI: ['ILETI_MERKEZI_USER', 'ILETI_MERKEZI_PASSWORD', 'ILETI_MERKEZI_SENDER'],
+      TWILIO: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM_NUMBER'],
+    };
+    for (const key of requires[env.SMS_PROVIDER] ?? []) {
+      if (!env[key]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `required when SMS_PROVIDER=${env.SMS_PROVIDER}`,
+        });
+      }
+    }
+    if (env.WHATSAPP_PROVIDER === 'META') {
+      for (const key of ['WHATSAPP_ACCESS_TOKEN', 'WHATSAPP_PHONE_NUMBER_ID'] as const) {
+        if (!env[key]) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: 'required when WHATSAPP_PROVIDER=META' });
+        }
+      }
     }
     if (env.PAYMENT_PROVIDER === 'STRIPE' && !env.STRIPE_SECRET_KEY) {
       ctx.addIssue({
