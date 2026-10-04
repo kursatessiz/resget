@@ -67,7 +67,7 @@ export const trCampaigns = {
   'campaigns.queued': 'Kampanya gönderim kuyruğuna alındı.',
   'campaigns.cancelled': 'Kampanya iptal edildi.',
   'campaigns.rules':
-    'İzin: müşteri sipariş verirken veya kaydolurken kutuyu işaretlediyse. Vazgeçme bağlantısına tıklayan bir daha mesaj almaz. Türkiye için İYS sorgusu gönderimden önce yapılır.',
+    "İzin: müşteri sipariş verirken veya kaydolurken kutuyu işaretlediyse. Vazgeçme bağlantısına tıklayan bir daha mesaj almaz. Türkiye'de SMS gönderiminden önce İYS sorgulanır; WhatsApp henüz bir İYS kanalı değildir, orada müşterinin kendi izni ve vazgeçme kaydı geçerlidir.",
   'campaigns.optout.title': 'Mesaj aboneliği',
   'campaigns.optout.done': '{restaurant} kampanya mesajlarından çıktınız. Sipariş durumu mesajları etkilenmez.',
   'campaigns.optout.invalid': 'Bu bağlantı geçerli değil.',

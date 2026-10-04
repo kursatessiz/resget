@@ -1,4 +1,4 @@
-import type { ConsentRegistryAdapter, NotificationChannel } from '@resget/shared';
+import type { ConsentRegistryAdapter, RegistryChannel } from '@resget/shared';
 
 export const CONSENT_REGISTRY = Symbol('CONSENT_REGISTRY');
 
@@ -11,7 +11,7 @@ export const CONSENT_REGISTRY = Symbol('CONSENT_REGISTRY');
 export class MockConsentRegistry implements ConsentRegistryAdapter {
   readonly code = 'MOCK';
 
-  async allowed(_countryCode: string, _channel: NotificationChannel, phones: readonly string[]): Promise<Set<string>> {
+  async allowed(_countryCode: string, _channel: RegistryChannel, phones: readonly string[]): Promise<Set<string>> {
     return new Set(phones);
   }
 }

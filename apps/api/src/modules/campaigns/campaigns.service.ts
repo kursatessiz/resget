@@ -10,6 +10,7 @@ import {
   createTranslator,
   isWithinSendWindow,
   nextSendWindowStart,
+  registryCovers,
 } from '@resget/shared';
 import type {
   CampaignAudienceDTO,
@@ -367,11 +368,11 @@ export class CampaignsService {
       return 0;
     }
     const channel = campaign.channel as NotificationChannel;
-    const allowed = await this.registry.allowed(
-      campaign.restaurant.countryCode,
-      channel,
-      pending.filter((r) => r.customer.marketingOptIn).map((r) => r.customer.user.phone),
-    );
+    const optedIn = pending.filter((r) => r.customer.marketingOptIn).map((r) => r.customer.user.phone);
+    // Only channels the country's registry keeps are checked there (IYS: SMS, calls, e-mail; not WhatsApp yet).
+    const allowed = registryCovers(campaign.restaurant.countryCode, channel)
+      ? await this.registry.allowed(campaign.restaurant.countryCode, channel, optedIn)
+      : new Set(optedIn);
     let sent = 0;
     for (const recipient of pending) {
       const customer = recipient.customer;

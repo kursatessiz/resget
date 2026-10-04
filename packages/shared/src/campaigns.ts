@@ -180,13 +180,34 @@ export function nextSendWindowStart(
   return topOfHour;
 }
 
+/** Commercial message channels a regional consent registry can keep records for. */
+export const REGISTRY_CHANNELS = ['SMS', 'CALL', 'EMAIL', 'WHATSAPP'] as const;
+export type RegistryChannel = (typeof REGISTRY_CHANNELS)[number];
+
+/**
+ * Which channels each country's registry actually covers. Turkey's IYS keeps
+ * SMS (MESAJ), calls (ARAMA) and e-mail (EPOSTA); WhatsApp is not an IYS
+ * channel yet, so it is never sent there. A channel outside the list is
+ * governed by the restaurant's own consent record alone: the customer's
+ * explicit opt-in and the one-click opt-out. When the authority adds a
+ * channel, it is added here and nothing else changes.
+ */
+export const CONSENT_REGISTRY_COVERAGE: Readonly<Record<string, readonly RegistryChannel[]>> = {
+  TR: ['SMS', 'CALL', 'EMAIL'],
+};
+
+export function registryCovers(countryCode: string, channel: RegistryChannel): boolean {
+  return CONSENT_REGISTRY_COVERAGE[countryCode.toUpperCase()]?.includes(channel) ?? false;
+}
+
 /**
  * Regional consent registry (Turkey: IYS). Before a commercial message goes
- * out, the registry says which of the opted-in numbers may still be
- * messaged. MOCK approves everything; the real adapter is selected by
- * CONSENT_REGISTRY_PROVIDER and queries the authority.
+ * out on a channel the registry covers (registryCovers), it says which of
+ * the opted-in numbers may still be messaged. MOCK approves everything; the
+ * real adapter is selected by CONSENT_REGISTRY_PROVIDER and queries the
+ * authority. It is never asked about a channel it does not cover.
  */
 export interface ConsentRegistryAdapter {
   readonly code: string;
-  allowed(countryCode: string, channel: NotificationChannel, phones: readonly string[]): Promise<Set<string>>;
+  allowed(countryCode: string, channel: RegistryChannel, phones: readonly string[]): Promise<Set<string>>;
 }
