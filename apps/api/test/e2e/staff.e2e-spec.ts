@@ -99,6 +99,32 @@ describe('Staff and roles (e2e)', () => {
       .expect('content-type', /image\/png/);
   });
 
+  it('sends a WhatsApp invite as platform traffic and reports the channel it went through', async () => {
+    const before = await ctx.prisma.messageLog.count({
+      where: { restaurantId, templateKey: 'staff.invite', channel: 'WHATSAPP' },
+    });
+    const invite = await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/staff/invites`)
+      .set(bearer(ownerToken))
+      .send({ phone: '0532 000 00 16', fullName: 'E2E WhatsApp Personel', roleTemplateId: roleId, channel: 'WHATSAPP' })
+      .expect(201);
+    expect(invite.body.channel).toBe('WHATSAPP');
+    expect(invite.body.smsAccepted).toBe(true);
+    expect(invite.body.sentVia).toBe('WHATSAPP');
+    const logs = await ctx.prisma.messageLog.findMany({
+      where: { restaurantId, templateKey: 'staff.invite', channel: 'WHATSAPP' },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(logs).toHaveLength(before + 1);
+    expect(logs[0].creditsCharged).toBe(0);
+    await ctx
+      .http()
+      .delete(`/restaurants/${restaurantId}/staff/invites/${invite.body.id}`)
+      .set(bearer(ownerToken))
+      .expect(204);
+  });
+
   it('rejects the invite for a different phone and accepts it for the invited one through the sign-in', async () => {
     await ctx.prisma.otpCode.deleteMany({ where: { phone: SEED.guestPhone } });
     await ctx.http().post('/auth/otp/request').send({ phone: SEED.guestPhone }).expect(200);

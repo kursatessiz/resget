@@ -217,12 +217,13 @@ export class StaffService {
     });
 
     let smsAccepted: boolean | null = null;
-    if (input.channel === 'SMS') {
+    let sentVia: 'SMS' | 'WHATSAPP' | null = null;
+    if (input.channel === 'SMS' || input.channel === 'WHATSAPP') {
       const t = this.translator(restaurant.defaultLocale);
       // Platform traffic like the OTP: logged by the engine, the restaurant's wallet is not charged.
       const result = await this.messaging.send({
         restaurantId: tenant.restaurantId,
-        channel: 'SMS',
+        channel: input.channel,
         to: input.phone,
         templateKey: 'staff.invite',
         params: {
@@ -233,10 +234,13 @@ export class StaffService {
         },
         locale: restaurant.defaultLocale,
         billable: false,
+        // A WhatsApp invite the provider refuses (no account, outside the window) still reaches the phone as SMS.
+        fallbackToSms: true,
       });
       smsAccepted = result.status === 'SENT';
+      sentVia = result.status === 'SENT' ? result.channel : null;
     }
-    return this.toInvite(invite, role, smsAccepted);
+    return this.toInvite(invite, role, smsAccepted, sentVia);
   }
 
   async revokeInvite(restaurantId: string, inviteId: string): Promise<void> {
@@ -340,7 +344,12 @@ export class StaffService {
     };
   }
 
-  private toInvite(row: InviteRow, role: RoleTemplateDTO | null, smsAccepted: boolean | null): InviteDTO {
+  private toInvite(
+    row: InviteRow,
+    role: RoleTemplateDTO | null,
+    smsAccepted: boolean | null,
+    sentVia: 'SMS' | 'WHATSAPP' | null = null,
+  ): InviteDTO {
     return {
       id: row.id,
       phone: row.phone,
@@ -353,6 +362,7 @@ export class StaffService {
       expiresAt: row.expiresAt.toISOString(),
       createdAt: row.createdAt.toISOString(),
       smsAccepted,
+      sentVia,
     };
   }
 }
