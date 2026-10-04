@@ -77,6 +77,9 @@ export const trFeatures = {
   'features.page_engine.name': 'Sayfa motoru ve SEO',
   'features.page_engine.description':
     'Platform sitesinde bloklarla sayfa, açılan ilçeler için otomatik ilçe sayfaları, site haritası ve restoran sayfalarında yapılandırılmış veri.',
+  'features.blog.name': 'Blog',
+  'features.blog.description':
+    'Platform sitesinde blog yazıları (/blog), yazı başına yapılandırılmış veri ve site haritası; sayfa motoru açık olmalıdır.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',

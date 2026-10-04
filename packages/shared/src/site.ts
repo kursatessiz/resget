@@ -87,6 +87,10 @@ export const SitePagePathSchema = z
 export const SITE_PAGE_STATUSES = ['DRAFT', 'PUBLISHED'] as const;
 export type SitePageStatus = (typeof SITE_PAGE_STATUSES)[number];
 
+/** A page of the site, or a blog post (module blog, docs/BLOG.md); posts live under /blog. */
+export const SITE_PAGE_KINDS = ['PAGE', 'POST'] as const;
+export type SitePageKind = (typeof SITE_PAGE_KINDS)[number];
+
 export const UpsertSitePageSchema = z
   .object({
     path: SitePagePathSchema,
@@ -103,8 +107,13 @@ export const UpsertSitePageSchema = z
       .regex(/^[a-z0-9-]{2,60}$/)
       .optional(),
     status: z.enum(SITE_PAGE_STATUSES).default('DRAFT'),
+    kind: z.enum(SITE_PAGE_KINDS).default('PAGE'),
+    /** Byline of a blog post; the platform's name when empty. */
+    authorName: z.string().trim().min(2).max(80).optional(),
   })
-  .strict();
+  .strict()
+  // A post's address is one segment: /blog/<locale>/<slug>.
+  .refine((v) => v.kind === 'PAGE' || !v.path.includes('/'), { message: 'post path is one segment', path: ['path'] });
 export type UpsertSitePageInput = z.infer<typeof UpsertSitePageSchema>;
 
 export interface SitePageDTO {
@@ -116,6 +125,8 @@ export interface SitePageDTO {
   blocks: SiteBlock[];
   translationKey: string | null;
   status: SitePageStatus;
+  kind: SitePageKind;
+  authorName: string | null;
   publishedAt: string | null;
   updatedAt: string;
 }
@@ -136,6 +147,7 @@ export type PublicSiteBlock =
     });
 
 export interface PublicSitePageDTO {
+  kind: SitePageKind;
   path: string;
   locale: string;
   title: string;
@@ -143,7 +155,37 @@ export interface PublicSitePageDTO {
   blocks: PublicSiteBlock[];
   /** The same page in other languages (hreflang). */
   alternates: { locale: string; path: string }[];
+  /** Posts: the byline (the platform's name when none was entered) and the first publication. */
+  authorName: string | null;
+  /** The byline is the platform itself (no author entered): structured data names an organisation. */
+  authorIsSite: boolean;
+  publishedAt: string | null;
   updatedAt: string;
+}
+
+export interface BlogPostSummaryDTO {
+  locale: string;
+  path: string;
+  title: string;
+  description: string;
+  authorName: string | null;
+  publishedAt: string;
+}
+
+export interface BlogIndexDTO {
+  /** The platform's name, the byline of posts without an author. */
+  siteName: string;
+  posts: BlogPostSummaryDTO[];
+}
+
+/** What /llms.txt lists (docs/SEO.md): the site in a form language models read. */
+export interface LlmsDTO {
+  siteName: string;
+  /** The platform tenant's language; the file's own headings use it. */
+  locale: string;
+  pages: { title: string; description: string; path: string }[];
+  posts: { title: string; description: string; path: string }[];
+  districts: { city: string; district: string; path: string }[];
 }
 
 export interface DistrictLandingDTO {
@@ -207,6 +249,28 @@ export function sitePagePath(locale: string, path: string): string {
   return `/p/${locale}/${path}`;
 }
 
+/** The public path of a blog post. */
+export function blogPostPath(locale: string, path: string): string {
+  return `/blog/${locale}/${path}`;
+}
+
+/** The public path of a page or a post by its kind. */
+export function siteEntryPath(kind: SitePageKind, locale: string, path: string): string {
+  return kind === 'POST' ? blogPostPath(locale, path) : sitePagePath(locale, path);
+}
+
+/** IndexNow keys are 8 to 128 letters, digits or dashes (indexnow.org). */
+export const INDEXNOW_KEY_PATTERN = /^[A-Za-z0-9-]{8,128}$/;
+
+/** Text safe inside a Markdown link label or list line: one line, no brackets or link syntax. */
+export function markdownInline(text: string): string {
+  return text
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/[\[\]()<>`*_#|\\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // -- Structured data (schema.org JSON-LD) ------------------------------------------------
 
 export type JsonLd = Record<string, unknown>;
@@ -232,6 +296,24 @@ export function restaurantJsonLd(seo: RestaurantSeoDTO, url: string): JsonLd {
     };
   }
   return data;
+}
+
+export function blogPostingJsonLd(
+  post: { title: string; description: string; locale: string; publishedAt: string; updatedAt: string },
+  author: { name: string; isOrganization: boolean },
+  url: string,
+): JsonLd {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: post.title,
+    description: post.description,
+    inLanguage: post.locale,
+    datePublished: post.publishedAt,
+    dateModified: post.updatedAt,
+    mainEntityOfPage: url,
+    author: { '@type': author.isOrganization ? 'Organization' : 'Person', name: author.name },
+  };
 }
 
 export function faqJsonLd(items: { question: string; answer: string }[]): JsonLd {

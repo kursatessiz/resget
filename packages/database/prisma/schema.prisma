@@ -2329,6 +2329,10 @@ model SitePage {
   translationKey String?
   /// DRAFT or PUBLISHED.
   status         String    @default("DRAFT")
+  /// PAGE (served at /p/<locale>/<path>) or POST (a blog post at /blog/<locale>/<path>, docs/BLOG.md).
+  kind           String    @default("PAGE")
+  /// Byline of a post; the platform's name when null.
+  authorName     String?
   publishedAt    DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -2337,5 +2341,6 @@ model SitePage {
 
   @@unique([restaurantId, locale, path])
   @@index([restaurantId, translationKey])
+  @@index([restaurantId, kind, status, publishedAt])
   @@map("site_pages")
 }

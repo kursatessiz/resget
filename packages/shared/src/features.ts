@@ -54,6 +54,7 @@ export const FEATURES = {
   kpi_dashboard: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   ad_integrations: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   page_engine: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
+  blog: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   whatsapp_channel: { group: 'marketing', defaultEnabled: true, stage: 'GA' },
   custom_domain: { group: 'integrations', defaultEnabled: true, stage: 'GA' },
   api_access: { group: 'integrations', defaultEnabled: true, stage: 'GA' },

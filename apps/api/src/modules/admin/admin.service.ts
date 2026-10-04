@@ -22,9 +22,11 @@ import type {
   AreaCandidateDTO,
   UpdateServiceAreaInput,
 } from '@resget/shared';
+import { districtPath } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { RestaurantProvisioningService } from '../restaurants/provisioning.service';
+import { IndexNowService } from '../site/indexnow.service';
 import { conflict, notFound } from '../../common/api-error';
 
 const restaurantSelect = Prisma.validator<Prisma.RestaurantSelect>()({
@@ -66,6 +68,7 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly messaging: MessagingService,
     private readonly provisioning: RestaurantProvisioningService,
+    private readonly indexNow: IndexNowService,
   ) {}
 
   // -- Restaurants ---------------------------------------------------------------------
@@ -147,7 +150,14 @@ export class AdminService {
     const { serviceAreaId, listingReviewNote, ...scalars } = input;
     const before = await this.prisma.restaurant.findUnique({
       where: { id },
-      select: { isListed: true, listingRequestedAt: true, listingReviewedAt: true, name: true, defaultLocale: true },
+      select: {
+        slug: true,
+        isListed: true,
+        listingRequestedAt: true,
+        listingReviewedAt: true,
+        name: true,
+        defaultLocale: true,
+      },
     });
     if (!before) throw notFound('RESTAURANT_NOT_FOUND', 'Restaurant not found');
     // A listing decision: isListed changes, or a note arrives on an open request.
@@ -173,6 +183,8 @@ export class AdminService {
         await this.notifyListingDecision(id, before.name, before.defaultLocale, approved, listingReviewNote ?? null);
       }
     }
+    // Listing adds the page to the sitemap and removing it drops it: search engines hear either way (docs/SEO.md).
+    if (input.isListed !== undefined && input.isListed !== before.isListed) this.indexNow.notify([`/${before.slug}`]);
     return this.getRestaurant(id);
   }
 
@@ -386,7 +398,7 @@ export class AdminService {
   async updateServiceArea(actorUserId: string, id: string, input: UpdateServiceAreaInput): Promise<ServiceAreaDTO> {
     const current = await this.prisma.serviceArea.findUnique({
       where: { id },
-      select: { isLaunched: true, launchedAt: true, district: true },
+      select: { isLaunched: true, launchedAt: true, city: true, district: true },
     });
     if (!current) throw notFound('NOT_FOUND', 'Service area not found');
     const data: Prisma.ServiceAreaUpdateInput = {};
@@ -409,6 +421,10 @@ export class AdminService {
     }
     await this.prisma.serviceArea.update({ where: { id }, data });
     await this.audit(actorUserId, null, 'service_area.updated', 'service_area', id, input);
+    // A launch opens the district page and a closure removes it (docs/SAYFA_MOTORU.md).
+    if (input.isLaunched !== undefined && input.isLaunched !== current.isLaunched) {
+      this.indexNow.notify([districtPath(current.city, current.district)]);
+    }
     return (await this.listServiceAreas()).find((a) => a.id === id)!;
   }
 

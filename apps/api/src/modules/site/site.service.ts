@@ -1,13 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { SiteBlockSchema, districtPath, placeSlug, sitePagePath } from '@resget/shared';
+import { Prisma } from '@resget/database';
+import { SiteBlockSchema, districtPath, placeSlug, siteEntryPath } from '@resget/shared';
 import type {
+  BlogIndexDTO,
   DistrictLandingDTO,
+  LlmsDTO,
   PublicSiteBlock,
   PublicSitePageDTO,
   RestaurantSeoDTO,
   SiteBlock,
   SitePageDTO,
+  SitePageKind,
   SitePageStatus,
   SiteRestaurantCardDTO,
   SitemapDTO,
@@ -15,6 +18,7 @@ import type {
   UpsertSitePageInput,
 } from '@resget/shared';
 import { FeatureFlagsService } from '../features/feature-flags.service';
+import { IndexNowService } from './indexnow.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorefrontService } from '../storefront/storefront.service';
 import { conflict, forbidden, notFound } from '../../common/api-error';
@@ -33,6 +37,7 @@ export class SiteService {
     private readonly prisma: PrismaService,
     private readonly features: FeatureFlagsService,
     private readonly storefront: StorefrontService,
+    private readonly indexNow: IndexNowService,
   ) {}
 
   // -- Pages (platform marketing) -------------------------------------------------------
@@ -53,52 +58,65 @@ export class SiteService {
 
   async create(restaurantId: string, input: UpsertSitePageInput): Promise<SitePageDTO> {
     await this.assertPlatform(restaurantId);
+    if (input.kind === 'POST') await this.features.assertEnabled('blog', restaurantId);
+    let row: PageRow;
     try {
-      const row = await this.prisma.sitePage.create({
+      row = await this.prisma.sitePage.create({
         data: {
           restaurantId,
           ...this.fields(input),
           publishedAt: input.status === 'PUBLISHED' ? new Date() : null,
         },
       });
-      return this.toDto(row);
     } catch (err) {
       throw this.pathTaken(err);
     }
+    if (row.status === 'PUBLISHED') this.indexNow.notify(this.changedPaths(row));
+    return this.toDto(row);
   }
 
   async update(restaurantId: string, pageId: string, input: UpsertSitePageInput): Promise<SitePageDTO> {
     await this.assertPlatform(restaurantId);
     const before = await this.find(restaurantId, pageId);
+    if (input.kind === 'POST' || before.kind === 'POST') await this.features.assertEnabled('blog', restaurantId);
     // publishedAt is the first publication; unpublishing keeps it so the date survives a correction.
     const publishedAt =
       input.status === 'PUBLISHED' && before.status !== 'PUBLISHED' && !before.publishedAt
         ? new Date()
         : before.publishedAt;
+    let row: PageRow;
     try {
-      const row = await this.prisma.sitePage.update({
+      row = await this.prisma.sitePage.update({
         where: { id: before.id },
         data: { ...this.fields(input), publishedAt },
       });
-      return this.toDto(row);
     } catch (err) {
       throw this.pathTaken(err);
     }
+    // The old address went away or changed, the new one appeared or changed: both are news to a search engine.
+    const paths = [
+      ...(before.status === 'PUBLISHED' ? this.changedPaths(before) : []),
+      ...(row.status === 'PUBLISHED' ? this.changedPaths(row) : []),
+    ];
+    this.indexNow.notify(paths);
+    return this.toDto(row);
   }
 
   async remove(restaurantId: string, pageId: string): Promise<void> {
     await this.assertPlatform(restaurantId);
     const page = await this.find(restaurantId, pageId);
     await this.prisma.sitePage.delete({ where: { id: page.id } });
+    if (page.status === 'PUBLISHED') this.indexNow.notify(this.changedPaths(page));
   }
 
   // -- Public ---------------------------------------------------------------------------
 
-  async publicPage(locale: string, path: string): Promise<PublicSitePageDTO> {
-    const platformId = await this.enabledPlatformId();
-    if (!platformId) throw notFound('SITE_PAGE_NOT_FOUND', 'Page not found');
+  async publicPage(locale: string, path: string, kind: SitePageKind): Promise<PublicSitePageDTO> {
+    const platform = await this.enabledPlatform(kind === 'POST');
+    if (!platform) throw notFound('SITE_PAGE_NOT_FOUND', 'Page not found');
+    const platformId = platform.id;
     const page = await this.prisma.sitePage.findFirst({
-      where: { restaurantId: platformId, locale, path, status: 'PUBLISHED' },
+      where: { restaurantId: platformId, locale, path, kind, status: 'PUBLISHED' },
     });
     if (!page) throw notFound('SITE_PAGE_NOT_FOUND', 'Page not found');
     const alternates = page.translationKey
@@ -106,6 +124,7 @@ export class SiteService {
           where: {
             restaurantId: platformId,
             translationKey: page.translationKey,
+            kind,
             status: 'PUBLISHED',
             id: { not: page.id },
           },
@@ -121,19 +140,74 @@ export class SiteService {
       } else blocks.push(block);
     }
     return {
+      kind,
       path: page.path,
       locale: page.locale,
       title: page.title,
       description: page.description,
       blocks,
       alternates,
+      authorName: kind === 'POST' ? (page.authorName ?? platform.name) : null,
+      authorIsSite: kind === 'POST' && !page.authorName,
+      publishedAt: page.publishedAt?.toISOString() ?? null,
       updatedAt: page.updatedAt.toISOString(),
+    };
+  }
+
+  /** Published posts, newest first (docs/BLOG.md); 404 while blog or page_engine is off. */
+  async blogIndex(): Promise<BlogIndexDTO> {
+    const platform = await this.enabledPlatform(true);
+    if (!platform) throw notFound('SITE_PAGE_NOT_FOUND', 'Blog not found');
+    const posts = await this.prisma.sitePage.findMany({
+      where: { restaurantId: platform.id, kind: 'POST', status: 'PUBLISHED' },
+      orderBy: [{ publishedAt: 'desc' }, { path: 'asc' }],
+      take: 100,
+      select: { locale: true, path: true, title: true, description: true, authorName: true, publishedAt: true },
+    });
+    return {
+      siteName: platform.name,
+      posts: posts.map((p) => ({
+        locale: p.locale,
+        path: p.path,
+        title: p.title,
+        description: p.description,
+        authorName: p.authorName,
+        publishedAt: (p.publishedAt ?? new Date(0)).toISOString(),
+      })),
+    };
+  }
+
+  /** The site for language models (/llms.txt, docs/SEO.md); 404 while page_engine is off. */
+  async llms(): Promise<LlmsDTO> {
+    const platform = await this.enabledPlatform(false);
+    if (!platform) throw notFound('NOT_FOUND', 'Not found');
+    const blogOn = await this.features.isEnabled('blog', platform.id);
+    const [entries, areas] = await Promise.all([
+      this.prisma.sitePage.findMany({
+        where: { restaurantId: platform.id, status: 'PUBLISHED', ...(blogOn ? {} : { kind: 'PAGE' }) },
+        orderBy: [{ kind: 'asc' }, { path: 'asc' }, { locale: 'asc' }],
+        take: 200,
+        select: { kind: true, locale: true, path: true, title: true, description: true },
+      }),
+      this.storefront.areas(),
+    ]);
+    const line = (e: (typeof entries)[number]) => ({
+      title: e.title,
+      description: e.description,
+      path: siteEntryPath(e.kind as SitePageKind, e.locale, e.path),
+    });
+    return {
+      siteName: platform.name,
+      locale: platform.defaultLocale,
+      pages: entries.filter((e) => e.kind === 'PAGE').map(line),
+      posts: entries.filter((e) => e.kind === 'POST').map(line),
+      districts: areas.map((a) => ({ city: a.city, district: a.district, path: districtPath(a.city, a.district) })),
     };
   }
 
   /** A launched district by its URL segments (placeSlug of city and district). */
   async district(citySlug: string, districtSlug: string): Promise<DistrictLandingDTO> {
-    if (!(await this.enabledPlatformId())) throw notFound('NOT_FOUND', 'District not found');
+    if (!(await this.enabledPlatform(false))) throw notFound('NOT_FOUND', 'District not found');
     const areas = await this.storefront.areas();
     const area = areas.find((a) => placeSlug(a.city) === citySlug && placeSlug(a.district) === districtSlug);
     if (!area) throw notFound('NOT_FOUND', 'District not found');
@@ -195,8 +269,10 @@ export class SiteService {
    * translations. Empty while page_engine is off for the platform.
    */
   async sitemap(): Promise<SitemapDTO> {
-    const platformId = await this.enabledPlatformId();
-    if (!platformId) return { entries: [] };
+    const platform = await this.enabledPlatform(false);
+    if (!platform) return { entries: [] };
+    const platformId = platform.id;
+    const blogOn = await this.features.isEnabled('blog', platformId);
     const now = new Date().toISOString();
     const entries: SitemapEntryDTO[] = [
       { path: '/', lastModified: now },
@@ -229,18 +305,24 @@ export class SiteService {
       .filter((_, index) => shown[index])
       .forEach((r) => entries.push({ path: `/${r.slug}`, lastModified: r.updatedAt.toISOString() }));
     const pages = await this.prisma.sitePage.findMany({
-      where: { restaurantId: platformId, status: 'PUBLISHED' },
-      orderBy: [{ path: 'asc' }, { locale: 'asc' }],
-      select: { locale: true, path: true, translationKey: true, updatedAt: true },
+      where: { restaurantId: platformId, status: 'PUBLISHED', ...(blogOn ? {} : { kind: 'PAGE' }) },
+      orderBy: [{ kind: 'asc' }, { path: 'asc' }, { locale: 'asc' }],
+      select: { kind: true, locale: true, path: true, translationKey: true, updatedAt: true },
     });
+    const pathOf = (p: (typeof pages)[number]) => siteEntryPath(p.kind as SitePageKind, p.locale, p.path);
+    const posts = pages.filter((p) => p.kind === 'POST');
+    if (posts.length > 0) {
+      const newest = posts.reduce((a, b) => (a.updatedAt > b.updatedAt ? a : b));
+      entries.push({ path: '/blog', lastModified: newest.updatedAt.toISOString() });
+    }
     for (const page of pages) {
-      const siblings = page.translationKey ? pages.filter((p) => p.translationKey === page.translationKey) : [];
+      const siblings = page.translationKey
+        ? pages.filter((p) => p.kind === page.kind && p.translationKey === page.translationKey)
+        : [];
       entries.push({
-        path: sitePagePath(page.locale, page.path),
+        path: pathOf(page),
         lastModified: page.updatedAt.toISOString(),
-        ...(siblings.length > 1
-          ? { alternates: Object.fromEntries(siblings.map((p) => [p.locale, sitePagePath(p.locale, p.path)])) }
-          : {}),
+        ...(siblings.length > 1 ? { alternates: Object.fromEntries(siblings.map((p) => [p.locale, pathOf(p)])) } : {}),
       });
     }
     return { entries };
@@ -248,11 +330,21 @@ export class SiteService {
 
   // -- Helpers --------------------------------------------------------------------------
 
-  /** The platform tenant's id when page_engine is on for it. */
-  private async enabledPlatformId(): Promise<string | null> {
-    const platform = await this.prisma.restaurant.findFirst({ where: { isPlatform: true }, select: { id: true } });
-    if (!platform) return null;
-    return (await this.features.isEnabled('page_engine', platform.id)) ? platform.id : null;
+  /** The platform tenant when page_engine (and, for the blog, blog) is on for it. */
+  private async enabledPlatform(blog: boolean): Promise<{ id: string; name: string; defaultLocale: string } | null> {
+    const platform = await this.prisma.restaurant.findFirst({
+      where: { isPlatform: true },
+      select: { id: true, name: true, defaultLocale: true },
+    });
+    if (!platform || !(await this.features.isEnabled('page_engine', platform.id))) return null;
+    if (blog && !(await this.features.isEnabled('blog', platform.id))) return null;
+    return platform;
+  }
+
+  /** Public addresses a change to this entry touches. */
+  private changedPaths(row: PageRow): string[] {
+    const path = siteEntryPath(row.kind as SitePageKind, row.locale, row.path);
+    return row.kind === 'POST' ? [path, '/blog'] : [path];
   }
 
   private async assertPlatform(restaurantId: string): Promise<void> {
@@ -294,6 +386,8 @@ export class SiteService {
       blocks: input.blocks as unknown as Prisma.InputJsonValue,
       translationKey: input.translationKey ?? null,
       status: input.status,
+      kind: input.kind,
+      authorName: input.kind === 'POST' ? (input.authorName ?? null) : null,
     };
   }
 
@@ -323,6 +417,8 @@ export class SiteService {
       blocks: this.blocksOf(row.blocks),
       translationKey: row.translationKey,
       status: row.status as SitePageStatus,
+      kind: row.kind as SitePageKind,
+      authorName: row.authorName,
       publishedAt: row.publishedAt?.toISOString() ?? null,
       updatedAt: row.updatedAt.toISOString(),
     };

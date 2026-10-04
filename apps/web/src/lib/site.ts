@@ -1,6 +1,13 @@
 import type { Metadata } from 'next';
 import { cache } from 'react';
-import type { DistrictLandingDTO, PublicSitePageDTO, RestaurantSeoDTO } from '@resget/shared';
+import type {
+  BlogIndexDTO,
+  DistrictLandingDTO,
+  LlmsDTO,
+  PublicSitePageDTO,
+  RestaurantSeoDTO,
+  SitePageKind,
+} from '@resget/shared';
 import { getT } from '@/lib/i18n';
 import { apiInternalBaseUrl, publicSiteUrl } from '@/lib/server-env';
 
@@ -15,9 +22,13 @@ async function read<T>(path: string): Promise<T | null> {
   return (await res.json()) as T;
 }
 
-export const getSitePage = cache((locale: string, path: string) =>
-  read<PublicSitePageDTO>(`/public/site/page?${new URLSearchParams({ locale, path }).toString()}`),
+export const getSitePage = cache((locale: string, path: string, kind: SitePageKind = 'PAGE') =>
+  read<PublicSitePageDTO>(`/public/site/page?${new URLSearchParams({ locale, path, kind }).toString()}`),
 );
+
+export const getBlogIndex = cache(() => read<BlogIndexDTO>('/public/site/blog'));
+
+export const getLlms = cache(() => read<LlmsDTO>('/public/site/llms'));
 
 export const getDistrictLanding = cache((city: string, district: string) =>
   read<DistrictLandingDTO>(`/public/site/districts/${encodeURIComponent(city)}/${encodeURIComponent(district)}`),

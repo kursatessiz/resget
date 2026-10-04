@@ -12,7 +12,8 @@ Platformun kendi sitesindeki sayfalar kod değişikliği olmadan bloklarla kurul
 
 | Alan | Kural |
 | --- | --- |
-| Adres | Küçük harf, rakam ve tire; en çok üç bölüm (`restoranlar-icin`, `rehber/qr-menu`). Dil başına tekil (`SITE_PAGE_PATH_TAKEN`). |
+| Tür | `PAGE` (varsayılan) veya `POST` (blog yazısı, `docs/BLOG.md`, anahtar `blog`). |
+| Adres | Küçük harf, rakam ve tire; en çok üç bölüm (`restoranlar-icin`, `rehber/qr-menu`), blog yazısında tek bölüm. Dil başına tekil, sayfa ve yazı ortak (`SITE_PAGE_PATH_TAKEN`). |
 | Dil | Dil kodu (`tr`, `en`, `de-AT` gibi). Sayfa `/p/<dil>/<adres>` altında açılır. |
 | Arama sonucu başlığı | 3 ile 70 karakter; 60 civarı tam görünür. |
 | Arama sonucu açıklaması | 10 ile 160 karakter; 155 civarı tam görünür. |
@@ -64,10 +65,11 @@ Herkese açık (`/public/site`, istemci başına dakikada 600 istek, `PUBLIC_SIT
 
 Hata kodları: `SITE_PAGE_NOT_FOUND`, `SITE_PAGE_PATH_TAKEN`, `PLATFORM_ONLY`.
 
-Veri: `site_pages` (`docs/VERI_MODELI.md`). Migration: `20261108000000_page_engine`.
+Değişen herkese açık adresler IndexNow ile bildirilir; `/llms.txt` yayımlanmış sayfalardan üretilir (`docs/SEO.md`).
+
+Veri: `site_pages` (`docs/VERI_MODELI.md`). Migration: `20261108000000_page_engine`, `20261109000000_blog`.
 
 ## Sonraki adımlar
 
 - Mutfak türü açılış sayfaları (mutfak türü menü verisinde henüz yok).
-- Blog, IndexNow ve `llms.txt` (yol haritası 12. madde).
 - Görsel bloğu (yükleme ve alternatif metinle).

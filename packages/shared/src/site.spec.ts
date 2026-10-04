@@ -3,7 +3,11 @@ import {
   SiteBlockSchema,
   SitePagePathSchema,
   UpsertSitePageSchema,
+  blogPostPath,
+  blogPostingJsonLd,
   districtPath,
+  markdownInline,
+  siteEntryPath,
   faqJsonLd,
   placeSlug,
   restaurantJsonLd,
@@ -87,5 +91,48 @@ describe('page engine and SEO helpers', () => {
     expect(ROBOTS_DISALLOW).toEqual(expect.arrayContaining(['/panel', '/admin', '/pazarlama', '/t/', '/onay/']));
     // Table QR pages stay crawlable so their canonical link to the restaurant page can be read.
     expect(ROBOTS_DISALLOW).not.toContain('/m/');
+  });
+
+  it('places posts under /blog with a one-segment address', () => {
+    expect(blogPostPath('tr', 'qr-menu')).toBe('/blog/tr/qr-menu');
+    expect(siteEntryPath('POST', 'en', 'a')).toBe('/blog/en/a');
+    expect(siteEntryPath('PAGE', 'en', 'a/b')).toBe('/p/en/a/b');
+    const post = {
+      path: 'qr-menu',
+      locale: 'tr',
+      title: 'Masa QR menü',
+      description: 'Masa QR menü nasıl kurulur, adım adım.',
+      blocks: [{ type: 'text', body: 'x' }],
+      kind: 'POST',
+    };
+    expect(UpsertSitePageSchema.parse(post).kind).toBe('POST');
+    expect(UpsertSitePageSchema.safeParse({ ...post, path: 'rehber/qr-menu' }).success).toBe(false);
+    expect(UpsertSitePageSchema.safeParse({ ...post, kind: 'PAGE', path: 'rehber/qr-menu' }).success).toBe(true);
+    expect(UpsertSitePageSchema.parse({ ...post, kind: undefined }).kind).toBe('PAGE');
+  });
+
+  it('describes a post for search engines with its author', () => {
+    const data = blogPostingJsonLd(
+      {
+        title: 'T',
+        description: 'D',
+        locale: 'tr',
+        publishedAt: '2026-10-01T00:00:00.000Z',
+        updatedAt: '2026-10-02T00:00:00.000Z',
+      },
+      { name: 'Platform', isOrganization: true },
+      'https://ornek.test/blog/tr/t',
+    );
+    expect(data).toMatchObject({
+      '@type': 'BlogPosting',
+      inLanguage: 'tr',
+      datePublished: '2026-10-01T00:00:00.000Z',
+      author: { '@type': 'Organization', name: 'Platform' },
+    });
+  });
+
+  it('flattens tenant text for llms.txt so it cannot add links or headings', () => {
+    expect(markdownInline('Başlık [tıkla](https://kotu.test)\n# H1')).toBe('Başlık tıklahttps://kotu.test H1');
+    expect(markdownInline('  a\r\n\r\nb  ')).toBe('a b');
   });
 });

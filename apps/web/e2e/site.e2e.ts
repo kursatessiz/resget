@@ -3,6 +3,7 @@ import type { PlatformAdminDTO, SitePageDTO } from '@resget/shared';
 import { ADMIN_STATE, bff } from './support/session';
 
 const PATH = `pw-sayfa-${Date.now().toString(36)}`;
+const POST = `pw-yazi-${Date.now().toString(36)}`;
 
 test.describe('Page engine and SEO', () => {
   test.use({ storageState: ADMIN_STATE });
@@ -85,19 +86,60 @@ test.describe('Page engine and SEO', () => {
       await expect(page).toHaveTitle('Demo Lokanta: menü ve online sipariş');
       await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/demo-lokanta$/);
       await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(0);
+      // The blog: a post written in the pages screen opens under /blog with its byline and structured data.
+      await bff(page.request, `admin/restaurants/${platformId}/features/blog`, {
+        method: 'PUT',
+        data: { enabled: true },
+      });
+      await page.goto('/pazarlama/sayfalar');
+      await page.getByRole('button', { name: 'Yeni sayfa' }).click();
+      await page.getByLabel('Tür').selectOption('POST');
+      await page.getByRole('textbox', { name: /^Yazar/ }).fill('Ayse Yilmaz');
+      await page.getByRole('textbox', { name: /^Adres/ }).fill(POST);
+      await page.getByRole('textbox', { name: /^Arama sonucu başlığı/ }).fill('Masa QR menü nasıl kurulur');
+      await page
+        .getByRole('textbox', { name: /^Arama sonucu açıklaması/ })
+        .fill('Masa QR menüyü kurmanın adımları ve sık yapılan hatalar.');
+      await page
+        .getByRole('group', { name: '1. blok: Giriş bandı' })
+        .getByRole('textbox', { name: 'Başlık', exact: true })
+        .fill('Adım adım kurulum');
+      await page.getByLabel('Durum').selectOption('PUBLISHED');
+      await page.getByRole('button', { name: 'Kaydet' }).click();
+      await expect(page.getByRole('status').filter({ hasText: 'Sayfa kaydedildi.' })).toBeVisible();
+
+      await page.goto('/blog');
+      await expect(page.getByRole('heading', { name: 'Blog', level: 1 })).toBeVisible();
+      await page.getByRole('link', { name: 'Masa QR menü nasıl kurulur', exact: true }).click();
+      await expect(page).toHaveURL(new RegExp(`/blog/tr/${POST}$`));
+      await expect(page.getByRole('heading', { name: 'Masa QR menü nasıl kurulur', level: 1 })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Adım adım kurulum', level: 2 })).toBeVisible();
+      await expect(page.getByText(/^Ayse Yilmaz, /)).toBeVisible();
+      const postLd = await page.locator('script[type="application/ld+json"]').allTextContents();
+      expect(postLd.some((s) => s.includes('"BlogPosting"') && s.includes('"Person"'))).toBe(true);
+
+      // llms.txt lists the published page and the post; the IndexNow key file answers only for the configured key.
+      const llms = await (await page.request.get('/llms.txt')).text();
+      expect(llms).toContain(`/p/tr/${PATH})`);
+      expect(llms).toContain(`/blog/tr/${POST})`);
+      expect(llms).toContain('/ilce/istanbul/kadikoy)');
+      expect((await page.request.get('/indexnow/bilinmeyen-anahtar-1234.txt')).status()).toBe(404);
+
       // A table QR page points its canonical address at the restaurant page.
       await page.goto('/m/demo-masa-1-sabit-token-0001');
       await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/demo-lokanta$/);
       expect(robots).not.toContain('Disallow: /m/');
     } finally {
       const pages = await bff<SitePageDTO[]>(page.request, `restaurants/${platformId}/site/pages`).catch(() => []);
-      for (const p of pages.filter((x) => x.path === PATH)) {
+      for (const p of pages.filter((x) => x.path === PATH || x.path === POST)) {
         await page.request.delete(`/api/bff/restaurants/${platformId}/site/pages/${p.id}`);
       }
-      await bff(page.request, `admin/restaurants/${platformId}/features/page_engine`, {
-        method: 'PUT',
-        data: { enabled: null },
-      });
+      for (const key of ['page_engine', 'blog']) {
+        await bff(page.request, `admin/restaurants/${platformId}/features/${key}`, {
+          method: 'PUT',
+          data: { enabled: null },
+        });
+      }
       await bff(page.request, `admin/restaurants/${platformId}/features/marketing_platform`, {
         method: 'PUT',
         data: { enabled: null },

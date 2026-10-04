@@ -48,7 +48,7 @@ Her işlem denetim kaydına yazılır (`platform.setup`, `platform.user.*`).
 9. Huniler ve platform KPI panosu: masa QR, pazaryeri ve B2B hunisi, ilçe kırılımı (tamamlandı, `docs/HUNILER.md`, anahtar `kpi_dashboard`; pazaryeri ziyaret hunisi ve filtreler sonraki adım).
 10. Reklam entegrasyonları ve dönüşüm API'leri (Meta CAPI, Google Ads, TikTok), harcama eşitleme (tamamlandı, `docs/REKLAM.md`, anahtar `ad_integrations`; canlı gönderim platform onaylarını bekler).
 11. Sayfa motoru ve SEO: platform sitesi, ilçe ve mutfak açılış sayfaları, site haritası, hreflang, yapılandırılmış veri (tamamlandı, `docs/SAYFA_MOTORU.md` ve `docs/SEO.md`, anahtar `page_engine`; mutfak sayfaları mutfak türü verisi gelince).
-12. Blog, IndexNow, `llms.txt`.
+12. Blog, IndexNow, `llms.txt` (tamamlandı, `docs/BLOG.md` ve `docs/SEO.md`, anahtar `blog`; IndexNow canlı gönderim `INDEXNOW_KEY` ile).
 13. Tavsiye programları: müşteri tavsiyesi ve restorandan restorana tavsiye.
 14. Geri bildirim yönlendirme: düşük puan uyarısı, yüksek puanda Google değerlendirme daveti (teşvik yok), NPS.
 15. Kayıp riski sinyalleri (müşteri ve restoran).

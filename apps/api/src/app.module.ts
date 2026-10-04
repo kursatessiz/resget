@@ -39,6 +39,7 @@ import { CampaignCoreModule } from './modules/campaigns/campaign-core.module';
 import { JourneysModule } from './modules/journeys/journeys.module';
 import { AdsModule } from './modules/ads/ads.module';
 import { SiteModule } from './modules/site/site.module';
+import { IndexNowModule } from './modules/site/indexnow.service';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { DomainsModule } from './modules/domains/domains.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
@@ -88,6 +89,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
     JourneysModule,
     AdsModule,
     SiteModule,
+    IndexNowModule,
     BillingModule,
     CustomersModule,
     ReportsModule,

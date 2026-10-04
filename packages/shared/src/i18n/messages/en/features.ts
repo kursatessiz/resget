@@ -77,6 +77,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.page_engine.name': 'Page engine and SEO',
   'features.page_engine.description':
     'Block-built pages on the platform site, automatic district pages for launched districts, the sitemap and structured data on restaurant pages.',
+  'features.blog.name': 'Blog',
+  'features.blog.description':
+    'Blog posts on the platform site (/blog) with structured data per post and sitemap entries; the page engine must be on.',
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',
