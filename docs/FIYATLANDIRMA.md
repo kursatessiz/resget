@@ -13,6 +13,10 @@ Yeni restoran `PRO`'yu deneme süresiyle başlar (`PRO_TRIAL_DAYS_DEFAULT = 90`;
 
 Kural kodu `packages/shared/src/plans.ts`: `effectivePlan()` deneme, ödeme gecikmesi ve iptal durumlarını çözer; `PAST_DUE` ve `CANCELLED` ödenmiş dönem bitene kadar PRO kalır. API'de `@RequirePlanFeature('campaigns')` gibi beyanlar `PermissionGuard` tarafından `PLAN_FEATURE_REQUIRED` koduyla reddedilir; UI aynı kodla yükseltme ekranına yönlendirir.
 
+## Tavsiyeyle kazanılan PRO süresi
+
+Restorandan restorana tavsiyede (`docs/RESTORAN_TAVSIYE.md`) ödül yalnızca PRO süresidir: deneme veya ödenmiş dönem uzar, BASIC restoran için bugünden bir PRO denemesi açılır. Komisyon oranı ve faturalar değişmez.
+
 ## Mesaj kredileri
 
 SMS ve WhatsApp platforma gerçek para maliyeti olan kanallardır; plandan ayrı ön ödemeli kredi paketleri olarak satılır (`message_credit_packages`). Push ve e-posta ölçülmez.

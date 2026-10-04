@@ -367,6 +367,8 @@ model Restaurant {
   isActive               Boolean   @default(true)
   /// The platform's own tenant for platform marketing (docs/PAZARLAMA.md); at most one row, never listed, never orders.
   isPlatform             Boolean   @default(false)
+  /// The restaurant's partner code for inviting other restaurants (docs/RESTORAN_TAVSIYE.md); made on first ask.
+  partnerCode            String?   @unique
   /// Listed in the consumer marketplace (requires a launched service area and an approved menu).
   isListed               Boolean   @default(false)
   /// Set while an overdue commission invoice keeps the restaurant out of the marketplace; cleared when it is settled.
@@ -456,6 +458,8 @@ model Restaurant {
   coupons              Coupon[]
   referralProgram      ReferralProgram?
   referralRewards      ReferralReward[]
+  partnerReferralsMade PartnerReferral[]          @relation("PartnerReferrer")
+  partnerReferredBy    PartnerReferral?           @relation("PartnerReferee")
   posConnection        PosConnection?
   posOrderSyncs        PosOrderSync[]
   pipelineStages       PipelineStage[]
@@ -2408,4 +2412,39 @@ model ReferralReward {
   @@index([referrerCustomerId, createdAt])
   @@index([restaurantId, createdAt])
   @@map("referral_rewards")
+}
+
+/// Platform settings of restaurant-to-restaurant referrals (docs/RESTORAN_TAVSIYE.md); a single row with id "default".
+model PartnerReferralConfig {
+  id                   String   @id @default("default")
+  isActive             Boolean  @default(false)
+  referrerRewardDays   Int      @default(30)
+  refereeBonusDays     Int      @default(30)
+  qualifyingOrders     Int      @default(10)
+  yearlyCapPerReferrer Int      @default(12)
+  updatedByUserId      String?
+  updatedAt            DateTime @updatedAt
+
+  @@map("partner_referral_config")
+}
+
+/// A restaurant that signed up with another restaurant's partner code, and what each side got.
+model PartnerReferral {
+  id                   String    @id @default(uuid())
+  referrerRestaurantId String
+  refereeRestaurantId  String    @unique
+  code                 String
+  /// PENDING, REWARDED or CAPPED (PARTNER_REFERRAL_STATUSES in shared).
+  status               String    @default("PENDING")
+  refereeBonusDays     Int       @default(0)
+  rewardDays           Int?
+  rewardedAt           DateTime?
+  createdAt            DateTime  @default(now())
+
+  referrer Restaurant @relation("PartnerReferrer", fields: [referrerRestaurantId], references: [id], onDelete: Cascade)
+  referee  Restaurant @relation("PartnerReferee", fields: [refereeRestaurantId], references: [id], onDelete: Cascade)
+
+  @@index([referrerRestaurantId, createdAt])
+  @@index([status])
+  @@map("partner_referrals")
 }

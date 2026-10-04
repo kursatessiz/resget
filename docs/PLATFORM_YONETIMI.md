@@ -9,6 +9,10 @@
 3. `POST /restaurants` (JWT) tek işlemde şunları açar: restoran (`isListed: false`, komisyon varsayılanı yüzde 1, `OWN_POS`), şube, varsayılan rol şablonları (`DEFAULT_ROLE_TEMPLATES`), sahip üyeliği (`ACTIVE`), aktif PRO planının deneme süresiyle `TRIALING` abonelik (PRO yoksa `BASIC`), kanal başına hoş geldin mesaj kredisi (`WELCOME_MESSAGE_CREDITS_DEFAULT`), `audit_logs` satırı (`restaurant.created`). İlçe bir hizmet alanıyla eşleşiyorsa (`countryCode` + il + ilçe, büyük küçük harf duyarsız) restoran o alana bağlanır.
 4. Sahip `/panel/<slug>` adresine yönlendirilir; menü, masalar ve ayarlar hemen kullanılabilir. Pazaryerinde listelenme süper adminin onayıyla başlar.
 
+## Kendi kendine kayıtta davet
+
+`/kayit?davet=<kod>` bağlantısı başka bir restoranın daveti olarak okunur; giriş sonrasına taşınır, kayıt sayfasında gösterilir ve kayıt gövdesine `partnerCode` olarak eklenir (`docs/RESTORAN_TAVSIYE.md`).
+
 ## Süper admin konsolu (`/admin`, `/admin/*` uçları `@SuperAdminOnly()`)
 
 - **Özet**: aktif restoran, listelenen restoran, Pro denemede olanlar, son 7 gün sipariş ve ilçe bazlı yoğunluk tablosu (`GET /admin/overview?days=7|14|30`). Yoğunluk, aktif restoranların şubelerinin il / ilçesine göre gruplanır; `OARD` = pencere içindeki sipariş / restoran / gün (`docs/YOL_HARITASI.md`). Lansman kararı bu tabloya göre verilir.
@@ -28,6 +32,10 @@ Her modül genel olarak veya işletme bazında açılıp kapatılır; işletmeni
 ## Pazarlama (`/admin/pazarlama`)
 
 Platformun kendi pazarlaması için platform kiracısının bir kez kurulması (ad ve ülke) ve pazarlama kullanıcılarının yönetimi: telefon ve adla ekleme, rol (yönetici, editör, izleyici) ve pasife alma. Modül `marketing_platform` anahtarıyla açılır; açıkken süper admin ve pazarlama kullanıcıları `/pazarlama` alanını görür. Ayrıntı: `docs/PAZARLAMA.md`.
+
+## Restoran tavsiyesi (`/admin/tavsiye`)
+
+Restorandan restorana tavsiye programının açık / kapalı durumu, ödül süreleri, sipariş eşiği ve yıllık sınır; bütün davetler ilerlemesiyle. Ayrıntılar: `docs/RESTORAN_TAVSIYE.md`.
 
 ## Yükseltilen bildirimler (`/admin/bildirimler`)
 

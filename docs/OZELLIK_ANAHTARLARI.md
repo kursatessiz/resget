@@ -56,6 +56,7 @@ Anahtar, modülün işletme için var olup olmadığına karar verir. Plan (BASI
 | `loyalty` | Pazarlama | açık |
 | `coupons` | Pazarlama | kapalı (BETA) |
 | `referrals` | Pazarlama | kapalı (BETA) |
+| `partner_referrals` | Pazarlama | kapalı (BETA) |
 | `marketing_platform` | Pazarlama | kapalı (BETA) |
 | `contacts_crm` | Pazarlama | kapalı (BETA) |
 | `attribution` | Pazarlama | kapalı (BETA) |

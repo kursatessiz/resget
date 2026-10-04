@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { GeocodingService } from '../geocoding/geocoding.service';
 import { conflict } from '../../common/api-error';
 import { AttributionService } from '../attribution/attribution.service';
+import { PartnerReferralsService } from '../partner-referrals/partner-referrals.service';
 
 /**
  * Creates a restaurant the way the seed does, for the owner signing up at
@@ -20,6 +21,7 @@ export class RestaurantProvisioningService {
     private readonly prisma: PrismaService,
     private readonly geocoding: GeocodingService,
     private readonly attribution: AttributionService,
+    private readonly partnerReferrals: PartnerReferralsService,
   ) {}
 
   async create(
@@ -144,6 +146,8 @@ export class RestaurantProvisioningService {
     });
     // The platform's own pipeline learns about the sign-up; never fails the sign-up itself.
     await this.attribution.onRestaurantCreatedSafely(created.id, ownerUserId, visitorId);
+    // An invite link's partner code links the two restaurants and adds the bonus days (docs/RESTORAN_TAVSIYE.md).
+    await this.partnerReferrals.onSignupSafely(created.id, ownerUserId, input.partnerCode);
     return created;
   }
 

@@ -58,3 +58,4 @@ export * from './kpi';
 export * from './ads';
 export * from './site';
 export * from './referrals';
+export * from './partner-referrals';

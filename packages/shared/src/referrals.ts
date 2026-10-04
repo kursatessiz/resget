@@ -80,7 +80,7 @@ export const REFERRAL_CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
  * returns a uniform integer in [0, max) (node:crypto randomInt in the API),
  * so every character is equally likely; no modulo over raw bytes.
  */
-export function referralCodeFrom(randomIndex: (max: number) => number, prefix: 'R' | 'W'): string {
+export function referralCodeFrom(randomIndex: (max: number) => number, prefix: 'R' | 'W' | 'P'): string {
   let code = prefix;
   for (let i = 0; i < 7; i++) code += REFERRAL_CODE_ALPHABET[randomIndex(REFERRAL_CODE_ALPHABET.length)];
   return code;

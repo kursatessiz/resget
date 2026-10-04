@@ -40,6 +40,7 @@ import { JourneysModule } from './modules/journeys/journeys.module';
 import { AdsModule } from './modules/ads/ads.module';
 import { SiteModule } from './modules/site/site.module';
 import { IndexNowModule } from './modules/site/indexnow.service';
+import { PartnerReferralsModule } from './modules/partner-referrals/partner-referrals.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { DomainsModule } from './modules/domains/domains.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
@@ -90,6 +91,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
     AdsModule,
     SiteModule,
     IndexNowModule,
+    PartnerReferralsModule,
     BillingModule,
     CustomersModule,
     ReportsModule,
