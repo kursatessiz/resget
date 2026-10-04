@@ -9,6 +9,11 @@ const ServerEnvSchema = z.object({
     .string()
     .regex(/^[A-Za-z0-9._-]{1,64}$/)
     .default('dev'),
+  /** The platform's public host (e.g. resget.com); absolute links, canonical addresses and the sitemap use it. */
+  WEB_DOMAIN: z
+    .string()
+    .regex(/^[a-z0-9.-]+(?::\d+)?$/)
+    .optional(),
   /** Tile URL template of the map provider; OpenStreetMap's public tiles by default (docs/SIPARIS_VE_SEVK.md). */
   MAP_TILE_URL: z.string().url().default('https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
   /** Attribution the provider requires, shown on every map as plain text. */
@@ -47,6 +52,7 @@ export function getServerEnv(): ServerEnv {
     API_INTERNAL_URL: process.env.API_INTERNAL_URL || undefined,
     NODE_ENV: process.env.NODE_ENV,
     APP_RELEASE: process.env.APP_RELEASE || undefined,
+    WEB_DOMAIN: process.env.WEB_DOMAIN?.toLowerCase() || undefined,
     MAP_TILE_URL: process.env.MAP_TILE_URL || undefined,
     MAP_ATTRIBUTION: process.env.MAP_ATTRIBUTION || undefined,
     MAP_MAX_ZOOM: process.env.MAP_MAX_ZOOM || undefined,
@@ -70,4 +76,10 @@ export function mapTilesConfig(): { url: string; attribution: string; maxZoom: n
 
 export function apiInternalBaseUrl(): string {
   return getServerEnv().API_INTERNAL_URL.replace(/\/+$/, '');
+}
+
+/** Absolute origin of the platform site: https on its domain, the dev server otherwise (docs/SEO.md). */
+export function publicSiteUrl(): string {
+  const domain = getServerEnv().WEB_DOMAIN;
+  return domain ? `https://${domain}` : 'http://localhost:3000';
 }

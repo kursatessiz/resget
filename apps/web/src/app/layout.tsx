@@ -4,10 +4,15 @@ import './globals.css';
 import '@chrissgon/perfectui/perfectui.css';
 import { DEFAULT_TENANT_THEME } from '@resget/shared';
 import { getLocale, getT } from '@/lib/i18n';
+import { publicSiteUrl } from '@/lib/server-env';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getT();
-  return { title: t('common.appName'), description: t('landing.subheadline') };
+  return {
+    metadataBase: new URL(publicSiteUrl()),
+    title: t('common.appName'),
+    description: t('landing.subheadline'),
+  };
 }
 
 export const viewport: Viewport = {

@@ -469,6 +469,7 @@ model Restaurant {
   journeys             Journey[]
   adConnections        AdConnection[]
   adSpend              AdSpendDaily[]
+  sitePages            SitePage[]
   touchpoints          Touchpoint[]
   conversionEvents     ConversionEvent[]
   couponRedemptions    CouponRedemption[]
@@ -2312,4 +2313,29 @@ model AdSpendDaily {
   @@unique([connectionId, date, campaignRef])
   @@index([restaurantId, date])
   @@map("ad_spend_daily")
+}
+
+/// A page of the platform's own site built from blocks (docs/SAYFA_MOTORU.md); served at /p/<locale>/<path>.
+model SitePage {
+  id             String    @id @default(uuid())
+  restaurantId   String
+  path           String
+  locale         String
+  title          String
+  description    String
+  /// SiteBlock[] (shared site.ts); plain text only.
+  blocks         Json
+  /// Pages sharing this key are translations of each other (hreflang).
+  translationKey String?
+  /// DRAFT or PUBLISHED.
+  status         String    @default("DRAFT")
+  publishedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, locale, path])
+  @@index([restaurantId, translationKey])
+  @@map("site_pages")
 }

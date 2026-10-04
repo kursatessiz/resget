@@ -74,6 +74,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.ad_integrations.name': 'Ad integrations',
   'features.ad_integrations.description':
     'Connect Meta, Google Ads and TikTok accounts, send conversions from the server (only with advertising consent), daily spend and return on ad spend report.',
+  'features.page_engine.name': 'Page engine and SEO',
+  'features.page_engine.description':
+    'Block-built pages on the platform site, automatic district pages for launched districts, the sitemap and structured data on restaurant pages.',
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',

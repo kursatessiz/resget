@@ -40,6 +40,7 @@ import { trSegments } from './tr/segments';
 import { trJourneys } from './tr/journeys';
 import { trKpi } from './tr/kpi';
 import { trAds } from './tr/ads';
+import { trSite } from './tr/site';
 import { trIntegrations } from './tr/integrations';
 import { enCommon } from './en/common';
 import { enNav } from './en/nav';
@@ -83,6 +84,7 @@ import { enSegments } from './en/segments';
 import { enJourneys } from './en/journeys';
 import { enKpi } from './en/kpi';
 import { enAds } from './en/ads';
+import { enSite } from './en/site';
 import { enIntegrations } from './en/integrations';
 
 /**
@@ -136,6 +138,7 @@ export const TR_NAMESPACES = [
   trJourneys,
   trKpi,
   trAds,
+  trSite,
   trIntegrations,
   trMobile,
 ] as const;
@@ -182,6 +185,7 @@ export const EN_NAMESPACES = [
   enJourneys,
   enKpi,
   enAds,
+  enSite,
   enIntegrations,
   enMobile,
 ] as const;

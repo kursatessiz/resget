@@ -138,6 +138,9 @@ export type ApiErrorCode =
   | 'AD_CREDENTIALS_INVALID'
   | 'AD_CREDENTIALS_REFUSED'
   | 'AD_CONNECTION_NOT_FOUND'
+  | 'SITE_PAGE_NOT_FOUND'
+  | 'SITE_PAGE_PATH_TAKEN'
+  | 'PLATFORM_ONLY'
   | 'RATE_LIMITED';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {

@@ -65,6 +65,7 @@ Anahtar, modülün işletme için var olup olmadığına karar verir. Plan (BASI
 | `journeys` | Pazarlama | kapalı (BETA) |
 | `kpi_dashboard` | Pazarlama | kapalı (BETA) |
 | `ad_integrations` | Pazarlama | kapalı (BETA) |
+| `page_engine` | Pazarlama | kapalı (BETA) |
 | `whatsapp_channel` | Pazarlama | açık |
 | `custom_domain` | Entegrasyon | açık |
 | `api_access` | Entegrasyon | açık |

@@ -98,6 +98,7 @@ Sevk ayarları `restaurants.dispatchSettings` JSON alanındadır (`DispatchSetti
 | `ad_connections` | Kiracının reklam hesabı (Meta, Google Ads, TikTok): şifreli bilgiler, görünür alanlar, gönderilecek türler, gelişmiş eşleşme, durum. Ayrıntılar: `docs/REKLAM.md`. |
 | `ad_conversion_deliveries` | Bir dönüşümün bir reklam platformuna gönderimi: durum, deneme, sonraki deneme, hata. |
 | `ad_spend_daily` | Platformun bildirdiği günlük kampanya harcaması, gösterim ve tıklama (minör birim, para birimiyle). |
+| `site_pages` | Platform sitesinin blok tabanlı sayfası: adres, dil, başlık, açıklama, bloklar (JSON, düz metin), çeviri anahtarı, durum, ilk yayın. `(restaurantId, locale, path)` tekil. Ayrıntılar: `docs/SAYFA_MOTORU.md`. |
 | `marketing_settings` | Kiracının günlük ve haftalık sınırı, çift onay bölgeleri, tacir muafiyeti. |
 | `conversion_events` | İlk / tekrar sipariş, aday, restoran kaydı, ilk ödeme; `(restaurantId, sourceKind, sourceId)` tekil, tutar ve para birimi, atfedilen ziyaret. Ayrıntılar: `docs/ATIF.md`. |
 
