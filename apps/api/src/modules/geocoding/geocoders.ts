@@ -68,6 +68,80 @@ export class NominatimGeocoder implements GeocoderAdapter {
   }
 }
 
+/** Shape of the fields this adapter reads from a Google Geocoding API answer. */
+interface GoogleGeocodeResponse {
+  status?: string;
+  error_message?: string;
+  results?: {
+    formatted_address?: string;
+    geometry?: { location?: { lat?: number; lng?: number }; location_type?: string };
+  }[];
+}
+
+/**
+ * Google Geocoding API, the paid option for deployments that need rooftop
+ * accuracy at volume. The restaurant's country narrows the search and the
+ * branch biases ambiguous matches through a small viewport; the key never
+ * leaves the server.
+ */
+export class GoogleGeocoder implements GeocoderAdapter {
+  readonly code = 'GOOGLE' as const;
+
+  constructor(
+    private readonly apiKey: string,
+    private readonly fetchImpl: typeof fetch = fetch,
+    private readonly timeoutMs = 2500,
+    private readonly baseUrl = 'https://maps.googleapis.com',
+  ) {}
+
+  async geocode(query: GeocodeQuery): Promise<GeocodeResult | null> {
+    const url = new URL('/maps/api/geocode/json', this.baseUrl);
+    url.searchParams.set('address', geocodeQueryText(query));
+    url.searchParams.set('key', this.apiKey);
+    if (query.countryCode) {
+      url.searchParams.set('region', query.countryCode.toLowerCase());
+      url.searchParams.set('components', `country:${query.countryCode.toUpperCase()}`);
+    }
+    if (query.near) {
+      // About five kilometres around the branch; a bias, not a fence.
+      const d = 0.05;
+      url.searchParams.set(
+        'bounds',
+        `${round(query.near.lat - d)},${round(query.near.lng - d)}|${round(query.near.lat + d)},${round(query.near.lng + d)}`,
+      );
+    }
+    const response = await this.fetchImpl(url, {
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(this.timeoutMs),
+    });
+    if (!response.ok) throw new Error(`Google Geocoding answered ${response.status}`);
+    const body = (await response.json()) as GoogleGeocodeResponse;
+    if (body.status === 'ZERO_RESULTS') return null;
+    if (body.status !== 'OK') throw new Error(`Google Geocoding status ${body.status ?? 'unknown'}`);
+    const hit = body.results?.[0];
+    const lat = hit?.geometry?.location?.lat;
+    const lng = hit?.geometry?.location?.lng;
+    if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+    return {
+      point: { lat, lng },
+      precision: googlePrecision(hit?.geometry?.location_type),
+      label: hit?.formatted_address ?? '',
+    };
+  }
+}
+
+function googlePrecision(locationType: string | undefined): GeocodeResult['precision'] {
+  switch (locationType) {
+    case 'ROOFTOP':
+      return 'ROOFTOP';
+    case 'RANGE_INTERPOLATED':
+    case 'GEOMETRIC_CENTER':
+      return 'STREET';
+    default:
+      return 'AREA';
+  }
+}
+
 function precisionOf(hit: NominatimHit): GeocodeResult['precision'] {
   const category = hit.category ?? hit.class ?? '';
   const type = hit.type ?? '';

@@ -15,7 +15,9 @@ export const EnvSchema = z
     PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
     PUBLIC_API_URL: z.string().url().default('http://localhost:4000'),
     /** Address geocoding (docs/VITRIN.md): NONE leaves points empty, MOCK is for development and tests, NOMINATIM asks OpenStreetMap. */
-    GEOCODER_PROVIDER: z.enum(['NONE', 'MOCK', 'NOMINATIM']).optional(),
+    GEOCODER_PROVIDER: z.enum(['NONE', 'MOCK', 'NOMINATIM', 'GOOGLE']).optional(),
+    /** Server-side key of the Google Geocoding API; required when GEOCODER_PROVIDER=GOOGLE. */
+    GOOGLE_MAPS_API_KEY: z.string().min(1).optional(),
     /** A self-hosted Nominatim; the public instance is the default and allows one request per second. */
     NOMINATIM_BASE_URL: z.string().url().optional(),
     /** How a restaurant's custom domain is checked: real DNS, or MOCK (hosts under .verified.test pass); tests default to MOCK. */
@@ -154,6 +156,13 @@ export const EnvSchema = z
           ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: 'required when WHATSAPP_PROVIDER=META' });
         }
       }
+    }
+    if (env.GEOCODER_PROVIDER === 'GOOGLE' && !env.GOOGLE_MAPS_API_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['GOOGLE_MAPS_API_KEY'],
+        message: 'required when GEOCODER_PROVIDER=GOOGLE',
+      });
     }
     if (env.PAYMENT_PROVIDER === 'STRIPE' && !env.STRIPE_SECRET_KEY) {
       ctx.addIssue({

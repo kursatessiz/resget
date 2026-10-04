@@ -1,6 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GEOCODER, MockGeocoder, NominatimGeocoder } from './geocoders';
+import { GEOCODER, GoogleGeocoder, MockGeocoder, NominatimGeocoder } from './geocoders';
 import { GeocodingService } from './geocoding.service';
 
 /** Address geocoding; global so orders, the storefront, the account and sign-up share one cache and one rate limiter. */
@@ -22,6 +22,8 @@ import { GeocodingService } from './geocoding.service';
               config.get<string>('NOMINATIM_BASE_URL') ?? 'https://nominatim.openstreetmap.org',
               `Resget/${config.get<string>('APP_RELEASE', 'dev')} (+${config.getOrThrow<string>('PUBLIC_APP_URL')})`,
             );
+          case 'GOOGLE':
+            return new GoogleGeocoder(config.getOrThrow<string>('GOOGLE_MAPS_API_KEY'));
           default:
             return null;
         }

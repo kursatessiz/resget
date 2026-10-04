@@ -9,7 +9,7 @@ import type { GeoPoint } from './courier';
  * country or a map vendor.
  */
 
-export const GEOCODER_PROVIDERS = ['NONE', 'MOCK', 'NOMINATIM'] as const;
+export const GEOCODER_PROVIDERS = ['NONE', 'MOCK', 'NOMINATIM', 'GOOGLE'] as const;
 export type GeocoderProvider = (typeof GEOCODER_PROVIDERS)[number];
 
 export interface GeocodeQuery {
