@@ -36,6 +36,7 @@ export const FEATURES = {
   partial_refunds: { group: 'payments', defaultEnabled: true, stage: 'GA' },
   own_courier_dispatch: { group: 'delivery', defaultEnabled: true, stage: 'GA' },
   courier_network: { group: 'delivery', defaultEnabled: true, stage: 'GA' },
+  delivery_zones: { group: 'delivery', defaultEnabled: false, stage: 'BETA' },
   crm: { group: 'marketing', defaultEnabled: true, stage: 'GA' },
   campaigns: { group: 'marketing', defaultEnabled: true, stage: 'GA' },
   loyalty: { group: 'marketing', defaultEnabled: true, stage: 'GA' },

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { OrderAvailabilityDTO } from './availability';
+import type { DeliveryZone } from './delivery-zone';
 import type { StorefrontLoyaltyDTO } from './loyalty';
 import type { RatingSummaryDTO } from './ratings';
 import type { DeliveryFeePolicy } from './courier';
@@ -45,6 +46,8 @@ export interface StorefrontOrderingDTO {
   /** True when the fee comes from a courier network quote at order time. */
   quotedDelivery: boolean;
   defaultPrepMinutes: number;
+  /** Radius, minimum basket and distance bands while the delivery_zones module is on; null otherwise. */
+  deliveryZone: DeliveryZone | null;
 }
 
 export interface StorefrontDTO {

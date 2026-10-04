@@ -34,4 +34,6 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.api_access.description': 'API keys and outbound webhooks; keys stop working when switched off (PRO).',
   'features.order_availability.name': 'Order availability',
   'features.order_availability.description': 'Pausing orders, busy mode and refusing orders outside opening hours.',
+  'features.delivery_zones.name': 'Delivery zone',
+  'features.delivery_zones.description': 'Delivery radius, minimum basket and delivery fee by distance.',
 };

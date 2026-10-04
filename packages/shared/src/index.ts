@@ -43,3 +43,4 @@ export * from './phone';
 export * from './design';
 export * from './i18n';
 export * from './availability';
+export * from './delivery-zone';

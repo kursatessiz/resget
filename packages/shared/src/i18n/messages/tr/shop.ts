@@ -67,4 +67,6 @@ export const trShop = {
   'shop.availability.closed': 'Restoran şu an kapalı. {time} saatinde açılıyor.',
   'shop.availability.closedNoTime': 'Restoran şu an kapalı.',
   'shop.availability.busy': 'Restoran yoğun; hazırlık yaklaşık {minutes} dk sürebilir.',
+  'shop.zone.minimum': 'Teslimat için en az sepet tutarı: {amount}.',
+  'shop.zone.radius': 'Şubeye {km} km mesafeye kadar teslimat yapılır.',
 } as const satisfies Record<string, string>;

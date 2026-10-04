@@ -107,4 +107,6 @@ export const trErrors = {
   'errors.PLAN_NOT_FOUND': 'Plan bulunamadı.',
   'errors.RESTAURANT_NOT_FOUND': 'Restoran bulunamadı.',
   'errors.RESTAURANT_NOT_ACCEPTING': 'Restoran şu an sipariş almıyor.',
+  'errors.DELIVERY_OUT_OF_ZONE': 'Bu adres restoranın teslimat bölgesinin dışında.',
+  'errors.MIN_BASKET_NOT_MET': 'Sepet tutarı teslimat için gereken en az tutarın altında.',
 } as const satisfies Record<string, string>;

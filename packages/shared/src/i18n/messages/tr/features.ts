@@ -34,4 +34,6 @@ export const trFeatures = {
   'features.order_availability.name': 'Sipariş alma durumu',
   'features.order_availability.description':
     'Siparişleri duraklatma, yoğun mod ve çalışma saatleri dışında sipariş kabul etmeme.',
+  'features.delivery_zones.name': 'Teslimat bölgesi',
+  'features.delivery_zones.description': 'Teslimat yarıçapı, en az sepet tutarı ve mesafeye göre teslimat ücreti.',
 } as const satisfies Record<string, string>;

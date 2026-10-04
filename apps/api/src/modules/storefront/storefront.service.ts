@@ -4,6 +4,7 @@ import { QrScanOutcome } from '@resget/database';
 import {
   DeliveryFeePolicySchema,
   customerDeliveryFee,
+  zoneDeliveryFee,
   dispatchSettingsFrom,
   isOpenAt,
   rankRestaurants,
@@ -12,6 +13,7 @@ import {
 } from '@resget/shared';
 import type {
   CreateOrderInput,
+  DeliveryZone,
   MarketplaceAreaDTO,
   MarketplaceDTO,
   MarketplaceInterestInput,
@@ -24,6 +26,7 @@ import type {
 } from '@resget/shared';
 import { AvailabilityService, availabilitySelect } from '../availability/availability.service';
 import { FeatureFlagsService } from '../features/feature-flags.service';
+import { DeliveryZoneService } from '../restaurants/delivery-zone.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MenuService } from '../menu/menu.service';
 import { MealCardsService } from '../payments/meal-cards.service';
@@ -47,6 +50,7 @@ const restaurantSelect = {
   isActive: true,
   deliveryMode: true,
   deliveryFeePolicy: true,
+  deliveryZone: true,
   dispatchSettings: true,
   branches: {
     where: { isActive: true },
@@ -71,6 +75,7 @@ export class StorefrontService {
     private readonly config: ConfigService,
     private readonly features: FeatureFlagsService,
     private readonly availability: AvailabilityService,
+    private readonly zones: DeliveryZoneService,
   ) {}
 
   // -- Reads ---------------------------------------------------------------------------
@@ -281,7 +286,8 @@ export class StorefrontService {
   ): Promise<PublicOrderResultDTO> {
     // Paused or outside the hours: consumer orders wait (docs/SIPARIS_VE_SEVK.md, "Sipariş alma durumu").
     await this.availability.assertAccepting(restaurant, branchId);
-    const ordering = this.orderingOf(restaurant, context.tableId !== undefined);
+    const zone = input.fulfillment === 'DELIVERY' ? await this.zones.activeZone(restaurant) : null;
+    const ordering = this.orderingOf(restaurant, context.tableId !== undefined, zone);
     if (input.fulfillment === 'DELIVERY' && !ordering.delivery)
       throw conflict('ORDER_TRANSITION_INVALID', 'No delivery here');
     if (input.fulfillment === 'DINE_IN' && !context.tableId) throw conflict('ORDER_TRANSITION_INVALID', 'No table');
@@ -299,7 +305,7 @@ export class StorefrontService {
       };
     }
     const deliveryFeeMinor =
-      input.fulfillment === 'DELIVERY' && input.address ? await this.deliveryFee(restaurant, branchId, input) : 0;
+      input.fulfillment === 'DELIVERY' && input.address ? await this.deliveryFee(restaurant, branchId, input, zone) : 0;
 
     const create: CreateOrderInput = {
       branchId,
@@ -355,15 +361,28 @@ export class StorefrontService {
    * coordinates on both ends; the policy then applies on a zero quote, which
    * is the honest fee until the address is geocoded (docs/VITRIN.md).
    */
-  private async deliveryFee(restaurant: RestaurantRow, branchId: string, input: PublicOrderInput): Promise<number> {
+  private async deliveryFee(
+    restaurant: RestaurantRow,
+    branchId: string,
+    input: PublicOrderInput,
+    zone: DeliveryZone | null,
+  ): Promise<number> {
     const basketMinor = await this.basketMinor(restaurant.id, input);
     const policy = DeliveryFeePolicySchema.safeParse(restaurant.deliveryFeePolicy);
-    const fallback = policy.success ? customerDeliveryFee(0, basketMinor, policy.data) : 0;
-    if (restaurant.deliveryMode !== 'THIRD_PARTY_API') return fallback;
     const branch = await this.prisma.branch.findUniqueOrThrow({
       where: { id: branchId },
       select: { addressLine: true, city: true, district: true, lat: true, lng: true, phone: true },
     });
+    // Delivery zone (docs/VITRIN.md): radius and minimum first, then the own-courier fee by distance band.
+    const distance = zone ? this.zones.distanceFrom(branch, input.address?.point) : null;
+    if (zone) this.zones.assertDeliverable(zone, distance, basketMinor);
+    const fallback =
+      zone && restaurant.deliveryMode !== 'THIRD_PARTY_API'
+        ? zoneDeliveryFee(zone, distance, basketMinor, policy.success ? policy.data : null)
+        : policy.success
+          ? customerDeliveryFee(0, basketMinor, policy.data)
+          : 0;
+    if (restaurant.deliveryMode !== 'THIRD_PARTY_API') return fallback;
     const address = input.address;
     if (!address || !address.point || branch.lat === null || branch.lng === null) return fallback;
     const quoted = await this.courier.quoteFor(
@@ -409,11 +428,12 @@ export class StorefrontService {
     table: { id: string; label: string } | null,
     branchId: string | null,
   ): Promise<StorefrontDTO> {
-    const [categories, payment, loyalty, availability] = await Promise.all([
+    const [categories, payment, loyalty, availability, zone] = await Promise.all([
       this.menu.menuOf(restaurant.id),
       this.mealCards.acceptedMethods(restaurant.id),
       this.loyalty.storefrontRules(restaurant.id),
       this.availability.of(restaurant, branchId),
+      this.zones.activeZone(restaurant),
     ]);
     return {
       restaurant: {
@@ -427,7 +447,7 @@ export class StorefrontService {
       },
       table,
       payment,
-      ordering: this.orderingOf(restaurant, table !== null),
+      ordering: this.orderingOf(restaurant, table !== null, zone),
       categories,
       loyalty: loyalty
         ? {
@@ -443,7 +463,7 @@ export class StorefrontService {
     };
   }
 
-  private orderingOf(restaurant: RestaurantRow, hasTable: boolean): StorefrontOrderingDTO {
+  private orderingOf(restaurant: RestaurantRow, hasTable: boolean, zone: DeliveryZone | null): StorefrontOrderingDTO {
     const policy = DeliveryFeePolicySchema.safeParse(restaurant.deliveryFeePolicy);
     return {
       dineIn: hasTable,
@@ -452,6 +472,7 @@ export class StorefrontService {
       deliveryFeePolicy: policy.success ? policy.data : null,
       quotedDelivery: restaurant.deliveryMode === 'THIRD_PARTY_API',
       defaultPrepMinutes: dispatchSettingsFrom(restaurant.dispatchSettings).defaultPrepMinutes,
+      deliveryZone: zone,
     };
   }
 }
@@ -472,6 +493,7 @@ interface RestaurantRow {
   isActive: boolean;
   deliveryMode: 'RESTAURANT_COURIER' | 'THIRD_PARTY_API' | 'NONE';
   deliveryFeePolicy: unknown;
+  deliveryZone: unknown;
   dispatchSettings: unknown;
   branches: {
     id: string;

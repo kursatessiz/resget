@@ -393,6 +393,8 @@ model Restaurant {
   courierProviderId    String?
   /// How the quoted courier fee becomes the customer's delivery fee (DeliveryFeePolicySchema in shared).
   deliveryFeePolicy    Json?
+  /// Delivery zone (DeliveryZoneSchema in shared): radius, minimum basket, fee by distance band; applied while delivery_zones is on.
+  deliveryZone         Json?
   /// Own-courier dispatch tuning (DispatchSettingsSchema in shared): speed, detour, arrival radius, stops per trip.
   dispatchSettings     Json?
   /// Customer notification preferences (NotificationSettingsSchema in shared): order updates on or off, channel, SMS fallback.
