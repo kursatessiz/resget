@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatMoney, reorderStopIds } from '@resget/shared';
 import type {
   CourierSummaryDTO,
@@ -72,6 +72,8 @@ export function DispatchBoard({
   const [failing, setFailing] = useState<{ tripId: string; stopId: string; reason: string } | null>(null);
   /** The stop being dragged and the one under the pointer; buttons remain for keyboard users. */
   const [dragging, setDragging] = useState<{ tripId: string; stopId: string } | null>(null);
+  // The drag also lives in a ref: dragover can arrive before React renders the state set in dragstart.
+  const draggingRef = useRef<{ tripId: string; stopId: string } | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const time = useMemo(() => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }), [locale]);
   const km = useMemo(() => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }), [locale]);
@@ -238,7 +240,8 @@ export function DispatchBoard({
   };
 
   const drop = (trip: DeliveryTripDTO, targetId: string) => {
-    const moving = dragging;
+    const moving = draggingRef.current;
+    draggingRef.current = null;
     setDragging(null);
     setDropTarget(null);
     if (!moving || moving.tripId !== trip.id) return;
@@ -426,10 +429,11 @@ export function DispatchBoard({
                             if (!draggable) return;
                             event.dataTransfer.effectAllowed = 'move';
                             event.dataTransfer.setData('text/plain', stop.id);
-                            setDragging({ tripId: trip.id, stopId: stop.id });
+                            draggingRef.current = { tripId: trip.id, stopId: stop.id };
+                            setDragging(draggingRef.current);
                           }}
                           onDragOver={(event) => {
-                            if (!draggable || dragging?.tripId !== trip.id) return;
+                            if (!draggable || draggingRef.current?.tripId !== trip.id) return;
                             event.preventDefault();
                             event.dataTransfer.dropEffect = 'move';
                             if (dropTarget !== stop.id) setDropTarget(stop.id);
@@ -442,6 +446,7 @@ export function DispatchBoard({
                             drop(trip, stop.id);
                           }}
                           onDragEnd={() => {
+                            draggingRef.current = null;
                             setDragging(null);
                             setDropTarget(null);
                           }}
