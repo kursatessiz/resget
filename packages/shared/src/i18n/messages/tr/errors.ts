@@ -37,6 +37,7 @@ export const trErrors = {
   'errors.MEAL_CARD_PROVIDER_UNAVAILABLE': 'Bu yemek kartı için çevrim içi ödeme entegrasyonu henüz hazır değil.',
   'errors.WEBHOOK_INVALID': 'Ödeme bildirimi doğrulanamadı.',
   'errors.MENU_CATEGORY_NOT_FOUND': 'Kategori bulunamadı.',
+  'errors.MENU_IMPORT_INVALID': 'Dosyada hatalı satırlar var; önce ön izlemedeki hataları düzeltin.',
   'errors.MENU_ITEM_NOT_FOUND': 'Ürün bulunamadı.',
   'errors.MENU_CATEGORY_NOT_EMPTY': 'Kategori boş değil. Önce ürünleri taşıyın veya silin.',
   'errors.MENU_ITEM_IN_USE': 'Bu ürün geçmiş siparişlerde kullanıldığı için silinemez; tükendi olarak işaretleyin.',

@@ -7,6 +7,8 @@ import { PrismaClient } from '@resget/database';
 import { normalizePhone } from '@resget/shared';
 import { AppModule } from '../../../src/app.module';
 import { ErrorCodeFilter } from '../../../src/common/error-code.filter';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import { JSON_BODY_LIMIT } from '../../../src/common/body-limit';
 
 /**
  * Boots the real application against the seeded database the CI job (or a
@@ -43,7 +45,8 @@ export async function createTestApp(): Promise<TestContext> {
   // Push goes to a stand-in provider: tokens containing 'gone' report the device as unregistered.
   process.env.PUSH_PROVIDER ??= 'MOCK';
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-  const app = moduleRef.createNestApplication({ rawBody: true });
+  const app = moduleRef.createNestApplication<NestExpressApplication>({ rawBody: true });
+  app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
   app.useGlobalFilters(new ErrorCodeFilter());
   await app.init();
   const prisma = new PrismaClient();

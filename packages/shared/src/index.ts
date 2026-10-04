@@ -13,6 +13,7 @@ export * from './tracking-steps';
 export * from './push';
 export * from './table-qr';
 export * from './menu';
+export * from './menu-import';
 export * from './restaurant';
 export * from './staff';
 export * from './messaging';

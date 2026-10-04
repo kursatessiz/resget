@@ -2,6 +2,7 @@ import { Controller, Delete, Get, HttpCode, Patch, Post, Put } from '@nestjs/com
 import type { z } from 'zod';
 import {
   CreateMenuCategorySchema,
+  ImportMenuSchema,
   CreateMenuItemSchema,
   ReorderSchema,
   ReplaceModifierGroupsSchema,
@@ -9,7 +10,7 @@ import {
   UpdateMenuItemSchema,
   UuidSchema,
 } from '@resget/shared';
-import type { MenuAdminDTO, MenuCategoryAdminDTO, MenuItemAdminDTO } from '@resget/shared';
+import type { MenuAdminDTO, MenuCategoryAdminDTO, MenuImportResultDTO, MenuItemAdminDTO } from '@resget/shared';
 import { ZodBody, ZodParam } from '../../common/zod-body.pipe';
 import { RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
 import { Tenant } from '../auth/decorators/current-user.decorator';
@@ -33,6 +34,17 @@ export class MenuController {
   @RequirePermission('menu.manage')
   manage(@Tenant() tenant: TenantContext): Promise<MenuAdminDTO> {
     return this.menu.adminMenu(tenant.restaurantId);
+  }
+
+  /** Spreadsheet import: a dry run reports every bad line; a real run applies only a fully valid file (docs/PANEL.md). */
+  @Post('import')
+  @HttpCode(200)
+  @RequirePermission('menu.manage')
+  importMenu(
+    @Tenant() tenant: TenantContext,
+    @ZodBody(ImportMenuSchema) body: z.infer<typeof ImportMenuSchema>,
+  ): Promise<MenuImportResultDTO> {
+    return this.menu.importCsv(tenant.restaurantId, body);
   }
 
   @Post('categories')
