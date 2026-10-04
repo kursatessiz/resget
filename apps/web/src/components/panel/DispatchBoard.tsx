@@ -11,7 +11,9 @@ import type {
   RealtimeEvent,
   StopSequenceModeValue,
 } from '@resget/shared';
+import { LiveMap } from '@/components/LiveMap';
 import { Badge, Button, SelectField, TextField } from '@/components/ui';
+import type { MapMarker, MapTilesConfig } from '@/lib/map';
 import type { UiTone } from '@/components/ui/types';
 import { ApiError, bffJson, useRealtime } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
@@ -52,10 +54,12 @@ export function DispatchBoard({
   restaurantId,
   locale,
   canManage,
+  tiles,
 }: {
   restaurantId: string;
   locale: string;
   canManage: boolean;
+  tiles: MapTilesConfig;
 }) {
   const t = useT(locale);
   const base = `restaurants/${restaurantId}/dispatch`;
@@ -71,6 +75,41 @@ export function DispatchBoard({
 
   const fail = (err: unknown) =>
     setError(err instanceof ApiError ? t(`errors.${err.code}`) : t('common.error.network'));
+
+  // Everyone who shared a position and every routable stop of an active trip, redrawn as events arrive.
+  const markers = useMemo<MapMarker[]>(() => {
+    if (!board) return [];
+    const list: MapMarker[] = [];
+    for (const c of board.couriers) {
+      if (c.position) {
+        list.push({
+          id: `courier-${c.membershipId}`,
+          lat: c.position.lat,
+          lng: c.position.lng,
+          label: c.fullName,
+          kind: 'courier',
+        });
+      }
+    }
+    for (const trip of board.activeTrips) {
+      for (const stop of trip.stops) {
+        if (!stop.point || stop.status === 'REMOVED') continue;
+        list.push({
+          id: `stop-${stop.id}`,
+          lat: stop.point.lat,
+          lng: stop.point.lng,
+          label: t('dispatch.map.stop', { sequence: stop.sequence, code: stop.orderShortCode }),
+          kind:
+            stop.status === 'DELIVERED' || stop.status === 'FAILED'
+              ? 'stop-done'
+              : stop.status === 'ARRIVING' || stop.status === 'EN_ROUTE'
+                ? 'stop-active'
+                : 'stop',
+        });
+      }
+    }
+    return list;
+  }, [board, t]);
 
   const load = useCallback(async () => {
     try {
@@ -226,6 +265,15 @@ export function DispatchBoard({
           {error}
         </p>
       )}
+
+      <section className="flex flex-col gap-2" aria-label={t('dispatch.map')}>
+        <h2 className="ui-heading">{t('dispatch.map')}</h2>
+        {markers.length === 0 ? (
+          <p className="ui-caption">{t('dispatch.map.empty')}</p>
+        ) : (
+          <LiveMap tiles={tiles} markers={markers} label={t('dispatch.map')} height={320} />
+        )}
+      </section>
 
       <div className="grid gap-6 xl:grid-cols-3">
         <section className="flex flex-col gap-3" aria-label={t('dispatch.readyOrders')}>

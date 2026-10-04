@@ -14,11 +14,23 @@ import {
   trackingStepIndex,
 } from '@resget/shared';
 import type { OrderTrackingDTO } from '@resget/shared';
+import { LiveMap } from '@/components/LiveMap';
 import { Button, Card, LinkButton, TextAreaField } from '@/components/ui';
+import type { MapMarker, MapTilesConfig } from '@/lib/map';
 import { ApiError, bffJson } from '@/lib/client-api';
 import { cx } from '@/components/ui/types';
 
-export function TrackingLive({ token, initial, locale }: { token: string; initial: OrderTrackingDTO; locale: string }) {
+export function TrackingLive({
+  token,
+  initial,
+  locale,
+  tiles,
+}: {
+  token: string;
+  initial: OrderTrackingDTO;
+  locale: string;
+  tiles: MapTilesConfig;
+}) {
   const [tracking, setTracking] = useState(initial);
   const [connection, setConnection] = useState<'idle' | 'live' | 'reconnecting'>('idle');
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
@@ -89,6 +101,26 @@ export function TrackingLive({ token, initial, locale }: { token: string; initia
   const mapsUrl = courier?.position
     ? `https://www.google.com/maps?q=${courier.position.lat},${courier.position.lng}`
     : null;
+  // The map shows the courier and the door while the order is on the road; nothing else of anyone else.
+  const markers: MapMarker[] = [];
+  if (courier?.position) {
+    markers.push({
+      id: 'courier',
+      lat: courier.position.lat,
+      lng: courier.position.lng,
+      label: t('tracking.map.courier', { name: courier.firstName }),
+      kind: 'courier',
+    });
+  }
+  if (tracking.destination && courier && !isTrackingEnded(tracking.status)) {
+    markers.push({
+      id: 'destination',
+      lat: tracking.destination.lat,
+      lng: tracking.destination.lng,
+      label: t('tracking.map.destination'),
+      kind: 'destination',
+    });
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -140,6 +172,7 @@ export function TrackingLive({ token, initial, locale }: { token: string; initia
       {courier && (
         <Card title={t('tracking.courier', { name: courier.firstName })}>
           <div className="flex flex-col gap-2">
+            {markers.length > 0 && <LiveMap tiles={tiles} markers={markers} label={t('tracking.map')} />}
             {courier.stopsAhead > 0 && <p>{t('tracking.stopsAhead', { count: courier.stopsAhead })}</p>}
             {courier.distanceMeters !== null && (
               <p className="ui-heading">

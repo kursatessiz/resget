@@ -4,7 +4,7 @@ import type { OrderTrackingDTO } from '@resget/shared';
 import { ThemeRoot } from '@/components/ThemeRoot';
 import { TrackingLive } from '@/components/TrackingLive';
 import { getT } from '@/lib/i18n';
-import { apiInternalBaseUrl } from '@/lib/server-env';
+import { apiInternalBaseUrl, mapTilesConfig } from '@/lib/server-env';
 
 /**
  * The customer's live order page (docs/SIPARIS_VE_SEVK.md): the link in the
@@ -30,7 +30,7 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
           <h1 className="ui-title">{t('tracking.orderFrom', { restaurant: tracking.restaurant.name })}</h1>
           <p className="ui-text-muted">{t('orders.shortCode', { code: tracking.shortCode })}</p>
         </header>
-        <TrackingLive token={token} initial={tracking} locale={locale} />
+        <TrackingLive token={token} initial={tracking} locale={locale} tiles={mapTilesConfig()} />
         <footer className="ui-rule pt-4">
           <p className="ui-caption text-center">{t('qr.page.poweredBy')}</p>
         </footer>

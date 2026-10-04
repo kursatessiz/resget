@@ -110,6 +110,10 @@ services:
       # The platform host; any other host reaching the web app is a restaurant's custom domain (docs/VITRIN.md).
       WEB_DOMAIN: ${WEB_DOMAIN}
       APP_RELEASE: ${RELEASE_TAG:-dev}
+      # Map tiles (docs/SIPARIS_VE_SEVK.md): empty keeps the OpenStreetMap default; production sets a provider.
+      MAP_TILE_URL: ${MAP_TILE_URL:-}
+      MAP_ATTRIBUTION: ${MAP_ATTRIBUTION:-}
+      MAP_MAX_ZOOM: ${MAP_MAX_ZOOM:-}
     networks: [web_net, internal_net]
     read_only: true
     tmpfs: ['/tmp', '/app/apps/web/.next/cache:uid=1000,gid=1000']
