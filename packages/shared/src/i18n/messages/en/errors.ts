@@ -26,6 +26,14 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.MENU_ITEM_UNAVAILABLE': 'An item in the basket is not for sale right now.',
   'errors.PAYMENT_METHOD_NOT_ACCEPTED': 'The restaurant does not accept this payment method.',
   'errors.PAYMENT_STATE_INVALID': 'A payment cannot be made for this order at this stage.',
+  'errors.REFUND_NOT_ALLOWED':
+    'This order cannot be refunded: there is no payment to refund, the order is still open or it was already refunded.',
+  'errors.REFUND_IN_PROGRESS': 'A refund for this order is being processed.',
+  'errors.REFUND_DECLINED': 'The payment provider declined the refund. Check its dashboard and try again.',
+  'errors.REFUND_PROVIDER_ERROR':
+    'The payment provider could not be reached. The refund is retried automatically shortly; you can also try again now.',
+  'errors.REFUND_UNAVAILABLE':
+    'The connection that took this payment is no longer available; refund it from the payment provider dashboard.',
   'errors.MEAL_CARD_PROVIDER_UNAVAILABLE': 'Online payment for this meal card is not integrated yet.',
   'errors.WEBHOOK_INVALID': 'The payment notification could not be verified.',
   'errors.RATE_LIMITED': 'Too many requests. Please wait a moment.',

@@ -4,7 +4,10 @@ import type { GatewayWebhookEvent, HostedCheckoutSession, PaymentGatewayAdapter 
 /**
  * Deterministic gateway for development and tests. A credential set whose
  * merchantId starts with "bad" fails verification, so the connection flow's
- * failure path is testable; everything else is accepted.
+ * failure path is testable; everything else is accepted. A payment whose
+ * provider reference starts with "refund-decline" is refused a refund and
+ * one starting with "refund-error" makes the call throw, so both refund
+ * failure paths are testable too.
  */
 export class MockGatewayAdapter implements PaymentGatewayAdapter {
   readonly code = 'MOCK';
@@ -30,7 +33,12 @@ export class MockGatewayAdapter implements PaymentGatewayAdapter {
     };
   }
 
-  async refund(): Promise<{ ok: boolean; providerRef: string | null }> {
+  async refund(
+    _credentials: Record<string, string>,
+    providerRef: string,
+  ): Promise<{ ok: boolean; providerRef: string | null }> {
+    if (providerRef.startsWith('refund-error')) throw new Error('Mock gateway unreachable');
+    if (providerRef.startsWith('refund-decline')) return { ok: false, providerRef: null };
     return { ok: true, providerRef: `mock-refund-${randomUUID()}` };
   }
 

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { PaymentMethod, PaymentMode } from './enums';
 import type { PaymentModeValue } from './payments';
 import type { GatewayWebhookEvent, HostedCheckoutSession } from './payments';
+import type { RefundState } from './refunds';
 import { UuidSchema } from './validators';
 
 /**
@@ -235,6 +236,14 @@ export interface OrderPaymentDTO {
   /** What still has to be collected at the door, 0 for a paid order. */
   dueMinor: number;
   capturedAt: string | null;
+  /** Money already given back to the customer across the order's payments. */
+  refundedMinor: number;
+  /** NONE, PENDING (a gateway call is in flight), FAILED (the last attempt failed; it can be retried) or DONE. */
+  refundState: RefundState;
+  /** Machine code of the last failed attempt; screens translate errors.<code>. */
+  refundFailureCode: string | null;
+  /** Whether a refund may be started or retried now (staff also need orders.refund). */
+  refundable: boolean;
 }
 
 export interface CheckoutSessionDTO {

@@ -18,6 +18,7 @@ import { PaymentsRegistry } from './payments.registry';
 import { MealCardsService } from './meal-cards.service';
 import { MealCardsRegistry } from './meal-cards.registry';
 import { LedgerService } from '../ledger/ledger.service';
+import { OrderNotificationsService } from '../orders/order-notifications.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
 
 export type WebhookKind = 'meal-cards' | 'pos';
@@ -49,6 +50,7 @@ export class CheckoutService {
     private readonly issuers: MealCardsRegistry,
     private readonly config: ConfigService,
     private readonly ledger: LedgerService,
+    private readonly notifications: OrderNotificationsService,
   ) {
     this.orders.setPaymentIntentResolver((restaurantId, intent) => this.resolveIntent(restaurantId, intent));
   }
@@ -231,20 +233,26 @@ export class CheckoutService {
     });
     if (!payment) return reply('IGNORED');
     if (payment.status === 'CAPTURED' && event.status === 'CAPTURED') return reply('CAPTURED');
+    // A late capture notice never undoes a refund that already happened.
+    if (payment.status === 'REFUNDED' && event.status !== 'REFUNDED') return reply('IGNORED');
     if (event.status === 'CAPTURED' && event.amountMinor !== payment.amountMinor) {
       this.logger.warn(`Webhook amount ${event.amountMinor} differs from payment ${payment.amountMinor}`);
       throw badRequest('WEBHOOK_INVALID', 'Amount mismatch');
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    const refundedNow = event.status === 'REFUNDED' && payment.status !== 'REFUNDED';
+    const leftFrom = await this.prisma.$transaction(async (tx) => {
       await tx.payment.update({
         where: { id: payment.id },
         data: {
           status: event.status,
-          providerRef: event.providerRef,
-          pspFeeMinor: event.pspFeeMinor,
+          // A refund notice keeps the capture reference; a refund started on the platform already stored its own.
+          ...(event.status === 'REFUNDED' ? {} : { providerRef: event.providerRef, pspFeeMinor: event.pspFeeMinor }),
           capturedAt: event.status === 'CAPTURED' ? new Date(event.occurredAt) : payment.capturedAt,
           refundedMinor: event.status === 'REFUNDED' ? payment.amountMinor : payment.refundedMinor,
+          ...(refundedNow
+            ? { refundedAt: new Date(event.occurredAt), refundRequestedAt: null, refundFailureCode: null }
+            : {}),
         },
       });
       if (event.status === 'CAPTURED') {
@@ -253,10 +261,15 @@ export class CheckoutService {
           await this.orders.applyTransition(tx, order, 'PLACED', 'SYSTEM', null, { reason: 'payment captured' });
         }
       }
+      if (event.status !== 'REFUNDED') return null;
       // A refund of platform-collected money is a negative ledger line; the next payout carries it.
-      if (event.status === 'REFUNDED') await this.ledger.recordRefund(tx, payment.orderId, payment.amountMinor);
+      await this.ledger.recordRefund(tx, payment.orderId, payment.amountMinor);
+      // A refund made in the provider's own dashboard closes the order the same way (docs/ODEME.md, "İade").
+      return this.orders.closeAsRefunded(tx, payment.orderId, 'SYSTEM', null, 'refund reported by the provider');
     });
     this.realtime.publishMany(await this.orders.eventsForOrder(payment.orderId));
+    if (leftFrom === 'DELIVERED' || leftFrom === 'PICKED_UP')
+      await this.notifications.notify(payment.orderId, 'REFUNDED');
     return reply(event.status);
   }
 

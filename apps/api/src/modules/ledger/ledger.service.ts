@@ -63,7 +63,11 @@ export class LedgerService {
     return lines.length;
   }
 
-  /** A refund after completion: one negative line, so the next payout carries it. */
+  /**
+   * A refund after completion: one negative line, so the next payout carries
+   * it. An order refunded before it completed never credited the restaurant
+   * (its lines are written on completion), so nothing is taken back.
+   */
   async recordRefund(db: Db, orderId: string, amountMinor: number, now: Date = new Date()): Promise<void> {
     if (amountMinor <= 0) return;
     const order = await db.order.findUnique({
@@ -71,6 +75,8 @@ export class LedgerService {
       select: { id: true, restaurantId: true, currency: true, paymentMode: true },
     });
     if (!order || order.paymentMode !== 'PLATFORM_PSP') return;
+    const credited = await db.ledgerEntry.count({ where: { orderId, type: 'RESTAURANT_PAYABLE' } });
+    if (credited === 0) return;
     const booked = await db.ledgerEntry.count({ where: { orderId, type: 'REFUND' } });
     if (booked > 0) return;
     await db.ledgerEntry.create({

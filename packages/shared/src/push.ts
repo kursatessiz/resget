@@ -61,6 +61,7 @@ export const PUSH_TEMPLATE_KEYS = [
   'order.completed',
   'order.rejected',
   'order.cancelled',
+  'order.refunded',
   'trip.assigned',
   'order.placed',
 ] as const;
@@ -93,6 +94,8 @@ export function customerPushTemplate(
       return 'order.rejected';
     case 'CANCELLED_BY_RESTAURANT':
       return 'order.cancelled';
+    case 'REFUNDED':
+      return 'order.refunded';
     default:
       return null;
   }

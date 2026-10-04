@@ -6,6 +6,8 @@ import {
   createTranslator,
   customerPushTemplate,
   dispatchSettingsFrom,
+  isAutoRefundStatus,
+  isOnlinePayment,
   notificationSettingsFrom,
   orderNotificationTemplate,
   orderShortCode,
@@ -58,6 +60,7 @@ export class OrderNotificationsService {
         customerUserId: true,
         customer: { select: { phone: true, locale: true } },
         restaurant: { select: { name: true, defaultLocale: true, notificationSettings: true, dispatchSettings: true } },
+        payments: { select: { method: true, status: true, collectedByUserId: true } },
       },
     });
     if (!order) return;
@@ -79,6 +82,10 @@ export class OrderNotificationsService {
         : '',
       reason: order.rejectReason ? t('messaging.template.reasonSuffix', { reason: order.rejectReason }) : '',
     };
+    // A cancellation tells the customer about the online payment in the same message (docs/ODEME.md, "İade").
+    const refund = isAutoRefundStatus(status) ? refundNoteOf(order.payments) : null;
+    const pushParams = { ...params, refund: refund ? t(`messaging.push.refundSuffix.${refund}`) : '' };
+    const messageParams = { ...params, refund: refund ? t(`messaging.template.refundSuffix.${refund}`) : '' };
 
     // Push is free and reaches the app directly; a device that took it spares the restaurant the paid message.
     const pushKey = customerPushTemplate(order.fulfillment, status);
@@ -86,7 +93,7 @@ export class OrderNotificationsService {
       const outcome = await this.push.notifyUsers(
         [order.customerUserId],
         pushKey,
-        params,
+        pushParams,
         order.trackingToken ? { kind: 'tracking', token: order.trackingToken } : { kind: 'orders' },
         { restaurantId: order.restaurantId, localeFallback: order.restaurant.defaultLocale },
       );
@@ -102,12 +109,24 @@ export class OrderNotificationsService {
       channel: settings.channel,
       to: phone,
       templateKey,
-      params,
+      params: messageParams,
       locale,
       billable: true,
       fallbackToSms: settings.fallbackToSms,
     });
   }
+}
+
+/** "done" when every online payment went back, "pending" while one still waits, null when nothing was paid online. */
+function refundNoteOf(
+  payments: { method: string; status: string; collectedByUserId: string | null }[],
+): 'done' | 'pending' | null {
+  const online = payments.filter(
+    (p) =>
+      isOnlinePayment(p) && (p.status === 'CAPTURED' || p.status === 'PARTIALLY_REFUNDED' || p.status === 'REFUNDED'),
+  );
+  if (online.length === 0) return null;
+  return online.every((p) => p.status === 'REFUNDED') ? 'done' : 'pending';
 }
 
 function contactPhoneOf(snapshot: unknown): string | null {
