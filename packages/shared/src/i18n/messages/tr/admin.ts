@@ -220,5 +220,6 @@ export const trAdmin = {
   'admin.claims.declineConfirm': 'Bildirimi reddet',
   'admin.claims.done': 'Karar kaydedildi.',
   'admin.nav.partnerReferrals': 'Restoran tavsiyesi',
+  'admin.nav.restaurantHealth': 'Restoran sağlığı',
   'admin.nav.marketing': 'Pazarlama',
 } as const satisfies Record<string, string>;

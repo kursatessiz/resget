@@ -25,4 +25,5 @@ export const trNav = {
   'nav.pipeline': 'Satış hattı',
   'nav.attribution': 'Atıf',
   'nav.feedback': 'Geri bildirim',
+  'nav.churn': 'Kayıp riski',
 } as const satisfies Record<string, string>;

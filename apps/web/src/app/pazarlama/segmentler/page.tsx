@@ -16,6 +16,7 @@ export default async function MarketingSegmentsPage() {
       locale={locale}
       canManage={context.permissions.includes('platform.marketing.send')}
       withStages={context.features.includes('contacts_crm')}
+      withChurn={context.features.includes('churn_signals')}
     />
   );
 }

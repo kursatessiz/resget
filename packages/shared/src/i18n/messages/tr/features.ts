@@ -89,6 +89,12 @@ export const trFeatures = {
   'features.feedback.name': 'Geri bildirim ve NPS',
   'features.feedback.description':
     'Düşük puanlarda takip kaydı ve ekibe bildirim, puan veren herkese değerlendirme bağlantısı, takip sayfasında NPS sorusu ve özet; PRO analitik.',
+  'features.churn_signals.name': 'Müşteri kayıp riski',
+  'features.churn_signals.description':
+    'Her müşterinin kendi sipariş aralığına göre yeni, düzenli, dönmedi, riskte ve kayıp sınıfları; geri kazanılacak müşteri listesi ve segmentlerde kayıp riski alanı; PRO analitik.',
+  'features.restaurant_health.name': 'Restoran sağlığı (konsol)',
+  'features.restaurant_health.description':
+    'Konsolda sipariş düşüşü, sessizlik, ilk siparişin gelmemesi, gecikmiş fatura, askıdaki listeleme ve kartsız biten deneme belirtileriyle restoran listesi. Genel anahtarla açılır.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',

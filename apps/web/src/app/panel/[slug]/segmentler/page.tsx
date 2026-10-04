@@ -23,6 +23,7 @@ export default async function SegmentsPage({ params }: { params: Promise<{ slug:
       locale={locale}
       canManage={can('campaigns.manage')}
       withStages={membership.features.includes('contacts_crm') && can('customers.view')}
+      withChurn={membership.features.includes('churn_signals')}
     />
   );
 }

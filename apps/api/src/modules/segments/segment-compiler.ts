@@ -1,7 +1,7 @@
 import type { Prisma } from '@resget/database';
-import { OrderChannel } from '@resget/shared';
+import { CHURN_RISKS, OrderChannel } from '@resget/shared';
 import { isSegmentGroup } from '@resget/shared';
-import type { SegmentCondition, SegmentGroup } from '@resget/shared';
+import type { ChurnRisk, SegmentCondition, SegmentGroup } from '@resget/shared';
 
 type Where = Prisma.RestaurantCustomerWhereInput;
 
@@ -53,6 +53,12 @@ export function compileCondition(condition: SegmentCondition, now: Date): Where 
       return op === 'in'
         ? { consentChannels: { hasSome: channels } }
         : { NOT: { consentChannels: { hasSome: channels } } };
+    }
+    case 'churnRisk': {
+      const risks = asList(value).filter((v): v is ChurnRisk => (CHURN_RISKS as readonly string[]).includes(v));
+      return op === 'in'
+        ? { churnRisk: { in: risks } }
+        : { OR: [{ churnRisk: null }, { churnRisk: { notIn: risks } }] };
     }
     case 'city':
     case 'district':

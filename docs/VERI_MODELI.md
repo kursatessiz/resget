@@ -34,7 +34,7 @@
 | Tablo | Not |
 |---|---|
 | `customer_addresses` | Kullanıcının adresleri. |
-| `restaurant_customers` | Restoranın kendi müşteri listesi: ilk kanal, sipariş sayısı, ömür boyu ciro, etiketler, pazarlama izni. SaaS kilidinin veri karşılığı. |
+| `restaurant_customers` | Restoranın kendi müşteri listesi: ilk kanal, sipariş sayısı, ömür boyu ciro, etiketler, pazarlama izni, kayıp riski sınıfı (`churnRisk`, `docs/KAYIP_RISKI.md`). SaaS kilidinin veri karşılığı. |
 
 ## Sipariş ve para
 

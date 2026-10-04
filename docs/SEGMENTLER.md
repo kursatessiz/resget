@@ -15,7 +15,7 @@ Koşul `{ field, op, value }` biçimindedir. Alan sözlüğü ve izin verilen i�
 | Sayı | `orderCount`, `lifetimeGrossMinor`, `loyaltyPoints` | `gte`, `lte`, `eq` | Tam sayı; harcama minör birimde saklanır, ekranda kiracının para biriminin ana biriminde girilir |
 | Gün | `lastOrderAt`, `firstOrderAt`, `createdAt` | `within` (son N gün içinde), `notWithin` (son N gündür yok) | 1 ile 3650 arası gün |
 | Etiket | `tags` | `hasAny`, `hasAll`, `hasNone` | Etiket listesi |
-| Liste | `firstChannel` (sipariş kanalı), `consentChannel` (izinli kanal) | `in`, `notIn` | Sabit değerlerden liste |
+| Liste | `firstChannel` (sipariş kanalı), `consentChannel` (izinli kanal), `churnRisk` (kayıp riski sınıfı, yalnızca `churn_signals` açıkken; `docs/KAYIP_RISKI.md`) | `in`, `notIn` | Sabit değerlerden liste |
 | Metin | `city`, `district`, `source` | `eq` (büyük küçük harf duyarsız), `contains` | Metin |
 | Kimlik | `stageId` (CRM aşaması) | `eq`, `notEq` | Aşama kimliği |
 | Evet / hayır | `isBusiness`, `hasEmail` | `is` | `true` / `false` |

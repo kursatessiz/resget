@@ -222,5 +222,6 @@ export const enAdmin: Record<keyof typeof trAdmin, string> = {
   'admin.claims.declineConfirm': 'Decline the report',
   'admin.claims.done': 'Decision saved.',
   'admin.nav.partnerReferrals': 'Restaurant referrals',
+  'admin.nav.restaurantHealth': 'Restaurant health',
   'admin.nav.marketing': 'Marketing',
 };

@@ -10,7 +10,7 @@ import {
   isSegmentGroup,
   minorDigitsOf,
 } from '@resget/shared';
-import type { SegmentCondition, SegmentField, SegmentGroup } from '@resget/shared';
+import type { SegmentCondition, SegmentEnumField, SegmentField, SegmentGroup } from '@resget/shared';
 import { Button, SelectField, TextField } from '@/components/ui';
 import { useT } from '@/lib/use-t';
 
@@ -26,6 +26,8 @@ interface Props {
   stages: StageOption[];
   /** The tenant's currency: spend is typed in its major unit and kept in minor units. */
   currency: string;
+  /** Offer the stored churn class (docs/KAYIP_RISKI.md) while the churn_signals module is on. */
+  withChurn?: boolean;
   depth?: number;
 }
 
@@ -38,7 +40,7 @@ function defaultValue(field: SegmentField, stages: StageOption[]): SegmentCondit
     case 'tags':
       return [];
     case 'enum':
-      return [ENUM_FIELD_VALUES[field as 'firstChannel' | 'consentChannel'][0]];
+      return [ENUM_FIELD_VALUES[field as SegmentEnumField][0]];
     case 'boolean':
       return true;
     case 'id':
@@ -77,10 +79,12 @@ export function newCondition(field: SegmentField = 'orderCount', stages: StageOp
  * AND or OR; a rule is a condition or a nested group, up to three levels.
  * Values are typed by the field; lists are comma separated.
  */
-export function SegmentBuilder({ value, onChange, locale, stages, currency, depth = 1 }: Props) {
+export function SegmentBuilder({ value, onChange, locale, stages, currency, withChurn = false, depth = 1 }: Props) {
   const t = useT(locale);
   const scale = 10 ** minorDigitsOf(currency);
-  const fields = SEGMENT_FIELD_KEYS.filter((f) => f !== 'stageId' || stages.length > 0);
+  const fields = SEGMENT_FIELD_KEYS.filter(
+    (f) => (f !== 'stageId' || stages.length > 0) && (f !== 'churnRisk' || withChurn),
+  );
 
   const setRule = (index: number, rule: SegmentCondition | SegmentGroup) =>
     onChange({ ...value, rules: value.rules.map((r, i) => (i === index ? rule : r)) });
@@ -141,7 +145,7 @@ export function SegmentBuilder({ value, onChange, locale, stages, currency, dept
         );
       }
       if (type === 'enum') {
-        const options = ENUM_FIELD_VALUES[condition.field as 'firstChannel' | 'consentChannel'];
+        const options = ENUM_FIELD_VALUES[condition.field as SegmentEnumField];
         const chosen = Array.isArray(condition.value) ? condition.value : [];
         return (
           <fieldset className="flex flex-wrap gap-3">
@@ -237,6 +241,7 @@ export function SegmentBuilder({ value, onChange, locale, stages, currency, dept
               locale={locale}
               stages={stages}
               currency={currency}
+              withChurn={withChurn}
               depth={depth + 1}
             />
             <div>

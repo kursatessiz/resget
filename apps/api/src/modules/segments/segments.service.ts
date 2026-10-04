@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@resget/database';
-import { CONSENT_CHANNELS, SegmentRuleSchema, visibleContact } from '@resget/shared';
+import { CONSENT_CHANNELS, SegmentRuleSchema, segmentUsesField, visibleContact } from '@resget/shared';
 import type {
   CreateSegmentInput,
   SegmentDTO,
@@ -10,6 +10,7 @@ import type {
   SegmentPreviewDTO,
   UpdateSegmentInput,
 } from '@resget/shared';
+import { FeatureFlagsService } from '../features/feature-flags.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { conflict, notFound } from '../../common/api-error';
 import { segmentWhere } from './segment-compiler';
@@ -24,7 +25,15 @@ const SAMPLE_SIZE = 10;
  */
 @Injectable()
 export class SegmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly features: FeatureFlagsService,
+  ) {}
+
+  /** A new rule may read the churn class only while its module is on (docs/KAYIP_RISKI.md). */
+  private async assertFields(restaurantId: string, rule: SegmentGroup): Promise<void> {
+    if (segmentUsesField(rule, 'churnRisk')) await this.features.assertEnabled('churn_signals', restaurantId);
+  }
 
   private ruleOf(row: SegmentRow): SegmentGroup {
     const parsed = SegmentRuleSchema.safeParse(row.rule);
@@ -79,6 +88,7 @@ export class SegmentsService {
   }
 
   async create(restaurantId: string, userId: string, input: CreateSegmentInput): Promise<SegmentDTO> {
+    await this.assertFields(restaurantId, input.rule);
     const exists = await this.prisma.segment.findUnique({
       where: { restaurantId_name: { restaurantId, name: input.name } },
       select: { id: true },
@@ -99,6 +109,7 @@ export class SegmentsService {
 
   async update(restaurantId: string, segmentId: string, input: UpdateSegmentInput): Promise<SegmentDTO> {
     const row = await this.require(restaurantId, segmentId);
+    if (input.rule) await this.assertFields(restaurantId, input.rule);
     if (input.name && input.name !== row.name) {
       const exists = await this.prisma.segment.findUnique({
         where: { restaurantId_name: { restaurantId, name: input.name } },
@@ -156,6 +167,7 @@ export class SegmentsService {
 
   /** How many match, how many each channel can reach now, and a few of them. */
   async preview(restaurantId: string, rule: SegmentGroup, canSeeContacts: boolean): Promise<SegmentPreviewDTO> {
+    await this.assertFields(restaurantId, rule);
     const where = segmentWhere(restaurantId, rule, new Date());
     const [count, sample, ...perChannel] = await Promise.all([
       this.prisma.restaurantCustomer.count({ where }),
