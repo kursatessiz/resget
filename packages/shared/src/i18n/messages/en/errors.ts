@@ -90,6 +90,9 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.DOMAIN_NOT_SET': 'Save a domain first.',
   'errors.SEGMENT_NOT_FOUND': 'Saved segment not found.',
   'errors.SEGMENT_NAME_TAKEN': 'A segment with that name already exists.',
+  'errors.SEGMENT_NOT_STATIC': 'Only a static segment has a snapshot to refresh.',
+  'errors.SEGMENT_IN_USE':
+    'A campaign that has not been sent yet targets this segment; change or cancel that campaign first.',
   'errors.LOYALTY_NOT_ACTIVE': 'This restaurant has no active loyalty program.',
   'errors.LOYALTY_NOT_REDEEMABLE': 'Points cannot be used on this order: the balance or the order total is too low.',
   'errors.LOYALTY_SIGN_IN_REQUIRED': 'Sign in to use points.',

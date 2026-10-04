@@ -89,6 +89,9 @@ export const trErrors = {
   'errors.DOMAIN_NOT_SET': 'Önce bir alan adı kaydedin.',
   'errors.SEGMENT_NOT_FOUND': 'Kayıtlı segment bulunamadı.',
   'errors.SEGMENT_NAME_TAKEN': 'Bu adla kayıtlı bir segment zaten var.',
+  'errors.SEGMENT_NOT_STATIC': 'Yalnızca statik segmentin anlık görüntüsü yenilenebilir.',
+  'errors.SEGMENT_IN_USE':
+    'Bu segmenti hedefleyen ve henüz gönderilmemiş bir kampanya var; önce kampanyayı değiştirin veya iptal edin.',
   'errors.LOYALTY_NOT_ACTIVE': 'Bu restoranda sadakat programı etkin değil.',
   'errors.LOYALTY_NOT_REDEEMABLE': 'Bu siparişte puan kullanılamıyor: puanınız veya sipariş tutarı yeterli değil.',
   'errors.LOYALTY_SIGN_IN_REQUIRED': 'Puan kullanmak için giriş yapın.',

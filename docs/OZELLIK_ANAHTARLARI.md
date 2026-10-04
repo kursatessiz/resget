@@ -60,6 +60,7 @@ Anahtar, modülün işletme için var olup olmadığına karar verir. Plan (BASI
 | `attribution` | Pazarlama | kapalı (BETA) |
 | `consent_v2` | Pazarlama | kapalı (BETA) |
 | `email_channel` | Pazarlama | kapalı (BETA) |
+| `segments_v2` | Pazarlama | kapalı (BETA) |
 | `whatsapp_channel` | Pazarlama | açık |
 | `custom_domain` | Entegrasyon | açık |
 | `api_access` | Entegrasyon | açık |

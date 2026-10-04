@@ -23,6 +23,8 @@ Mesaj metni restoranın yazdığıdır; şablon `messaging.template.campaign.bod
 
 `CampaignSegmentSchema`: en az sipariş sayısı, son N gün içinde sipariş, en az N gündür sipariş yok (hiç sipariş vermemiş müşteri de dahil), etiketlerden herhangi biri (müşteri listesindeki etiketler, `docs/PANEL.md`), ilk kanal. Boş segment izinli herkestir. Alıcı sayısı önizlemede ve başlangıçta hesaplanır; aradaki fark izin değişikliğidir.
 
+**Segmentler v2** (`docs/SEGMENTLER.md`, anahtar `segments_v2`): modül açıkken kampanya `segmentId` ile VE / VEYA kurallı kayıtlı bir segmenti hedefleyebilir; o zaman alıcılar segmentten gelir, satır içi filtreler yok sayılır, izin denetimi aynen uygulanır. Bekleyen bir kampanyanın hedeflediği segment silinemez (`SEGMENT_IN_USE`).
+
 **Kayıtlı segmentler** (`campaign_segments`, `SaveSegmentSchema`): restoran bir filtre kümesine ad verir ve sonraki kampanyalarda seçerek kullanır; restoran başına ad tekildir (`SEGMENT_NAME_TAKEN`). Kayıt filtreyi saklar, müşteri listesini değil: her listelemede alıcı sayısı o anki izinli müşterilerden yeniden hesaplanır. Kampanya oluşturulurken segment her zaman kampanyaya kopyalanır; kayıtlı segmentin sonradan değişmesi veya silinmesi geçmiş ve zamanlanmış kampanyayı etkilemez.
 
 ## Uçlar (`restaurants/:id/campaigns`, hepsi `@RequirePlanFeature('campaigns')`)

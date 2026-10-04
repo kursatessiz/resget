@@ -48,6 +48,7 @@ export const FEATURES = {
   attribution: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   consent_v2: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   email_channel: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
+  segments_v2: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   whatsapp_channel: { group: 'marketing', defaultEnabled: true, stage: 'GA' },
   custom_domain: { group: 'integrations', defaultEnabled: true, stage: 'GA' },
   api_access: { group: 'integrations', defaultEnabled: true, stage: 'GA' },
