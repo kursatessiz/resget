@@ -93,6 +93,8 @@ export interface MarketingNavItem {
 export const MARKETING_NAV: readonly MarketingNavItem[] = [
   { key: 'overview', path: '', permission: 'platform.marketing.view' },
   { key: 'contacts', path: '/kisiler', permission: 'platform.marketing.view' },
+  { key: 'pipeline', path: '/satis-hatti', permission: 'platform.marketing.view', feature: 'contacts_crm' },
+  { key: 'tasks', path: '/gorevler', permission: 'platform.marketing.view', feature: 'contacts_crm' },
   { key: 'campaigns', path: '/kampanyalar', permission: 'platform.marketing.view', feature: 'campaigns' },
 ];
 

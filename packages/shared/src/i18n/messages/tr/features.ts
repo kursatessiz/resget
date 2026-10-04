@@ -51,4 +51,6 @@ export const trFeatures = {
   'features.marketing_platform.name': 'Platform pazarlaması',
   'features.marketing_platform.description':
     'Platformun kendi pazarlaması için platform kiracısı, pazarlama kullanıcıları ve Pazarlama alanı.',
+  'features.contacts_crm.name': 'CRM ve satış hattı',
+  'features.contacts_crm.description': 'Kişiler, aşamalı satış hattı, görüşme geçmişi, görevler ve CSV dışa aktarma.',
 } as const satisfies Record<string, string>;

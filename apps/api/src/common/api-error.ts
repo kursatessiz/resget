@@ -125,6 +125,7 @@ export type ApiErrorCode =
   | 'PLATFORM_NOT_SET_UP'
   | 'PLATFORM_ACCESS_DENIED'
   | 'PLANS_MISSING'
+  | 'CONTACT_EXISTS'
   | 'RATE_LIMITED';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {

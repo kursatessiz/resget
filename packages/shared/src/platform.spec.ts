@@ -30,6 +30,12 @@ describe('platform marketing access', () => {
   it('builds the menu from permissions and switched-on modules', () => {
     const keys = visibleMarketingNav(['platform.marketing.view'], ['campaigns']).map((i) => i.key);
     expect(keys).toEqual(['overview', 'contacts', 'campaigns']);
+    expect(visibleMarketingNav(['platform.marketing.view'], ['contacts_crm']).map((i) => i.key)).toEqual([
+      'overview',
+      'contacts',
+      'pipeline',
+      'tasks',
+    ]);
     expect(visibleMarketingNav(['platform.marketing.view'], []).map((i) => i.key)).toEqual(['overview', 'contacts']);
     expect(visibleMarketingNav([], ['campaigns'])).toEqual([]);
   });

@@ -51,4 +51,6 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.marketing_platform.name': 'Platform marketing',
   'features.marketing_platform.description':
     "The platform tenant, marketing users and the Marketing area for the platform's own marketing.",
+  'features.contacts_crm.name': 'CRM and pipeline',
+  'features.contacts_crm.description': 'Contacts, a staged pipeline, activity history, tasks and CSV export.',
 };

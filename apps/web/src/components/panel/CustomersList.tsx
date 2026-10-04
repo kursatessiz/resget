@@ -197,8 +197,10 @@ export function CustomersList({
                   {t('customers.orders', { count: customer.orderCount })}.{' '}
                   {t('customers.spend', { amount: money(customer.lifetimeGrossMinor, customer.currency) })}.{' '}
                   {customer.lastOrderAt && `${t('customers.lastOrder', { date: day(customer.lastOrderAt) })}. `}
-                  {t('customers.firstChannel', { channel: t(`orders.channel.${customer.firstChannel}`) })}.{' '}
-                  {t('loyalty.customer.points', { points: loyalty[customer.id]?.points ?? customer.loyaltyPoints })}
+                  {customer.firstChannel
+                    ? t('customers.firstChannel', { channel: t(`orders.channel.${customer.firstChannel}`) })
+                    : t('customers.prospect')}
+                  . {t('loyalty.customer.points', { points: loyalty[customer.id]?.points ?? customer.loyaltyPoints })}
                 </p>
                 {open === customer.id && (
                   <div className="flex flex-col gap-3">

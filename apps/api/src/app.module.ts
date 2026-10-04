@@ -30,6 +30,7 @@ import { AvailabilityModule } from './modules/availability/availability.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
 import { PosModule } from './modules/pos/pos.module';
 import { PlatformModule } from './modules/platform/platform.module';
+import { CrmModule } from './modules/crm/crm.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { DomainsModule } from './modules/domains/domains.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
@@ -70,6 +71,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
     CouponsModule,
     PosModule,
     PlatformModule,
+    CrmModule,
     BillingModule,
     CustomersModule,
     ReportsModule,

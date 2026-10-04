@@ -43,4 +43,6 @@ export const enMarketing: Record<keyof typeof trMarketing, string> = {
   'marketing.admin.users.deactivate': 'Deactivate',
   'marketing.admin.users.activate': 'Activate',
   'marketing.admin.users.hint': 'The person signs in with a phone code on this number and sees the Marketing area.',
+  'marketing.nav.pipeline': 'Pipeline',
+  'marketing.nav.tasks': 'Tasks',
 };

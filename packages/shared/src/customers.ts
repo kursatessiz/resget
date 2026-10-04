@@ -21,7 +21,8 @@ export interface CustomerDTO {
   userId: string;
   fullName: string;
   phone: string | null;
-  firstChannel: OrderChannelValue;
+  /** Null for a contact who never ordered (a CRM prospect, docs/CRM.md). */
+  firstChannel: OrderChannelValue | null;
   firstOrderAt: string | null;
   lastOrderAt: string | null;
   orderCount: number;
