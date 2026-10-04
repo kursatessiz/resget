@@ -23,6 +23,9 @@ function tracking(status: string): RealtimeEvent {
     destination: null,
     rating: null,
     canRate: false,
+    reviewUrl: null,
+    nps: null,
+    canAnswerNps: false,
     claim: null,
     canClaim: false,
   };

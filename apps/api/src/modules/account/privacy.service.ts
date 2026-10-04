@@ -245,6 +245,9 @@ export class PrivacyService {
         });
       }
       await tx.orderRating.updateMany({ where: { order: { customerUserId: userId } }, data: { comment: null } });
+      // Copies of the words in feedback cases and NPS answers go too (docs/GERI_BILDIRIM.md); the scores stay.
+      await tx.feedbackCase.updateMany({ where: { order: { customerUserId: userId } }, data: { comment: null } });
+      await tx.npsResponse.updateMany({ where: { order: { customerUserId: userId } }, data: { comment: null } });
 
       await tx.user.update({
         where: { id: userId },

@@ -49,6 +49,7 @@ import type {
   SettlementLine,
   DispatchSettings,
   RateOrderInput,
+  NpsAnswerInput,
   RefundItem,
 } from '@resget/shared';
 import { FeatureFlagsService } from '../features/feature-flags.service';
@@ -62,6 +63,7 @@ import { JourneysService } from '../journeys/journeys.service';
 import type { PreparedCoupon } from '../coupons/coupons.service';
 import { ReferralsService } from '../coupons/referrals.service';
 import { PartnerReferralsService } from '../partner-referrals/partner-referrals.service';
+import { FeedbackService } from '../feedback/feedback.service';
 import { GeocodingService } from '../geocoding/geocoding.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { PushService } from '../push/push.service';
@@ -86,6 +88,7 @@ const orderArgs = Prisma.validator<Prisma.OrderDefaultArgs>()({
     // The customer's missing-item claims, newest first (docs/ODEME.md, "Eksik ürün bildirimi").
     claims: { orderBy: { createdAt: 'desc' } },
     rating: true,
+    npsResponse: { select: { score: true } },
     deliveryStops: {
       where: { status: { in: [...ACTIVE_STOP_STATUSES] }, trip: { status: { in: [...ACTIVE_TRIP_STATUSES] } } },
       include: { trip: { select: { id: true, status: true, courierMembershipId: true } } },
@@ -158,6 +161,7 @@ export class OrdersService {
     private readonly coupons: CouponsService,
     private readonly referrals: ReferralsService,
     private readonly partnerReferrals: PartnerReferralsService,
+    private readonly feedback: FeedbackService,
     private readonly consent: ConsentService,
     private readonly campaignAttribution: CampaignAttributionService,
     private readonly journeys: JourneysService,
@@ -714,6 +718,10 @@ export class OrdersService {
         data: { ratingCount: { increment: 1 }, ratingSum: { increment: input.score } },
       });
     });
+    // A low rating opens a case for the staff (docs/GERI_BILDIRIM.md); never fails the rating itself.
+    await this.feedback
+      .onRating({ id: row.id, restaurantId: row.restaurantId }, input.score, input.comment ?? null)
+      .catch((error: unknown) => this.logger.warn(`feedback for order ${row.id} not recorded: ${String(error)}`));
     await this.webhooks.enqueue(row.restaurantId, 'rating.created', {
       orderId: row.id,
       shortCode: orderShortCode(row.id),
@@ -723,14 +731,23 @@ export class OrdersService {
     return this.trackingByToken(token);
   }
 
+  /** The customer's NPS answer from the tracking page (docs/GERI_BILDIRIM.md): once, while the rating window is open. */
+  async answerNpsByToken(token: string, input: NpsAnswerInput): Promise<OrderTrackingDTO> {
+    const row = await this.prisma.order.findUnique({ where: { trackingToken: token }, ...orderArgs });
+    if (!row) throw notFound('ORDER_NOT_FOUND', 'Order not found');
+    await this.feedback.recordNps(row, input);
+    return this.trackingByToken(token);
+  }
+
   async trackingOf(row: OrderRow): Promise<OrderTrackingDTO> {
-    const [restaurant, branch, switches] = await Promise.all([
+    const [restaurant, branch, switches, feedback] = await Promise.all([
       this.prisma.restaurant.findUnique({
         where: { id: row.restaurantId },
         select: { name: true, logoUrl: true, themePrimary: true },
       }),
       this.prisma.branch.findUnique({ where: { id: row.branchId }, select: { phone: true } }),
       this.features.switchesFor(row.restaurantId),
+      this.feedback.trackingExtras(row),
     ]);
     const address = this.addressOf(row);
     const destination = address?.point ?? null;
@@ -801,6 +818,7 @@ export class OrdersService {
         ? { score: row.rating.score, comment: row.rating.comment, createdAt: row.rating.createdAt.toISOString() }
         : null,
       canRate: isFeatureEnabled('ratings', switches) && canRateOrder(row.status, row.completedAt, row.rating !== null),
+      ...feedback,
       claim: row.claims[0] ? this.claimOf(row, row.claims[0]) : null,
       canClaim:
         isFeatureEnabled('missing_item_claims', switches) &&

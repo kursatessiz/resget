@@ -108,6 +108,9 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
   'messaging.push.order.claimDeclined.title': 'Your missing item report was not accepted',
   'messaging.push.order.claimDeclined.body':
     '{restaurant}: your missing item report for order {code} was not accepted.{reason}',
+  'messaging.push.feedback.lowRating.title': 'Low rating: order {code}',
+  'messaging.push.feedback.lowRating.body':
+    '{restaurant}: a customer rated an order {score}; follow up on the feedback page.',
   'messaging.push.order.claimFiled.title': 'Missing item report {code}',
   'messaging.push.order.claimFiled.body':
     '{restaurant}: a customer reported a missing item; it waits for your decision.',

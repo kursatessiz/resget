@@ -67,6 +67,7 @@ export const PUSH_TEMPLATE_KEYS = [
   'trip.assigned',
   'order.placed',
   'order.claimFiled',
+  'feedback.lowRating',
 ] as const;
 export type PushTemplateKey = (typeof PUSH_TEMPLATE_KEYS)[number];
 
@@ -105,7 +106,9 @@ export function customerPushTemplate(
 }
 
 /** What a tap on the notification opens in the app; carried as the notification's data. */
-export type PushData = { kind: 'tracking'; token: string } | { kind: 'trip'; tripId: string } | { kind: 'orders' };
+/** `feedback` has no app screen yet: the notification opens the app, the case is handled on the web panel. */
+export type PushData =
+  { kind: 'tracking'; token: string } | { kind: 'trip'; tripId: string } | { kind: 'orders' } | { kind: 'feedback' };
 
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

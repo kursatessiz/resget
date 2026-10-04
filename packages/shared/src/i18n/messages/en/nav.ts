@@ -25,4 +25,5 @@ export const enNav: Record<keyof typeof trNav, string> = {
   'nav.journeys': 'Flows',
   'nav.pipeline': 'Pipeline',
   'nav.attribution': 'Attribution',
+  'nav.feedback': 'Feedback',
 };

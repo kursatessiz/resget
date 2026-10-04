@@ -103,6 +103,9 @@ Sevk ayarları `restaurants.dispatchSettings` JSON alanındadır (`DispatchSetti
 | `referral_rewards` | Arkadaşın kişisel kodla tamamlanan ilk siparişi ve davet edenin karşılığı (`GRANTED` ödül kuponuyla veya `SKIPPED_CAP`). Sipariş başına tekil. `coupons` satırında `source`, `referrerCustomerId` (müşteri başına tek kişisel kod) ve `ownerCustomerId` (ödül kuponunun sahibi). |
 | `partner_referral_config` | Restorandan restorana tavsiyenin platform ayarları (tek satır): açık mı, davet edene ve yeni restorana PRO günü, ödül için sipariş eşiği, yıllık sınır. Ayrıntılar: `docs/RESTORAN_TAVSIYE.md`. |
 | `partner_referrals` | Davet koduyla kayıt olan restoran (tekil) ve davet eden; durum `PENDING` / `REWARDED` / `CAPPED`, kayıt bonusu, ödül günü ve zamanı. `restaurants.partnerCode` restoranın davet kodudur. |
+| `feedback_settings` | Restoranın değerlendirme sayfası bağlantısı, düşük puan eşiği ve NPS açık mı. Ayrıntılar: `docs/GERI_BILDIRIM.md`. |
+| `feedback_cases` | Düşük puanlı siparişin takip kaydı (sipariş başına bir): puan, yorum, durum `OPEN` / `RESOLVED`, not, çözen ve zaman. |
+| `nps_responses` | Siparişin müşterisinin NPS yanıtı (0 ile 10, sipariş başına bir) ve isteğe bağlı yorum. |
 | `marketing_settings` | Kiracının günlük ve haftalık sınırı, çift onay bölgeleri, tacir muafiyeti. |
 | `conversion_events` | İlk / tekrar sipariş, aday, restoran kaydı, ilk ödeme; `(restaurantId, sourceKind, sourceId)` tekil, tutar ve para birimi, atfedilen ziyaret. Ayrıntılar: `docs/ATIF.md`. |
 

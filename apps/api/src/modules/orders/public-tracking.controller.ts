@@ -1,7 +1,7 @@
 import { Controller, Get, Headers, HttpCode, Post, Sse, UseGuards } from '@nestjs/common';
 import type { MessageEvent } from '@nestjs/common';
 import type { Observable } from 'rxjs';
-import { RateOrderSchema, TrackingTokenSchema } from '@resget/shared';
+import { NpsAnswerSchema, RateOrderSchema, TrackingTokenSchema } from '@resget/shared';
 import type { OrderTrackingDTO } from '@resget/shared';
 import type { z } from 'zod';
 import { ZodBody, ZodParam } from '../../common/zod-body.pipe';
@@ -36,6 +36,18 @@ export class PublicTrackingController {
     @ZodBody(RateOrderSchema) body: z.infer<typeof RateOrderSchema>,
   ): Promise<OrderTrackingDTO> {
     return this.orders.rateByToken(token, body);
+  }
+
+  /** The NPS question on the tracking page (docs/GERI_BILDIRIM.md); once per order. */
+  @Post(':token/nps')
+  @HttpCode(201)
+  @UseGuards(PublicRateLimitGuard)
+  @RateLimit({ bucket: 'funnel', limit: 20, windowSeconds: 600 })
+  nps(
+    @ZodParam('token', TrackingTokenSchema) token: string,
+    @ZodBody(NpsAnswerSchema) body: z.infer<typeof NpsAnswerSchema>,
+  ): Promise<OrderTrackingDTO> {
+    return this.orders.answerNpsByToken(token, body);
   }
 
   /** SSE: the current state first, then every change (status, courier position, ETA). */

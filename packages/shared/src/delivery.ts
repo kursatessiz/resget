@@ -735,6 +735,11 @@ export interface OrderTrackingDTO {
   /** The customer's rating once given (docs/VITRIN.md); canRate says whether the page should still ask. */
   rating: OrderRatingDTO | null;
   canRate: boolean;
+  /** After a rating, the restaurant's public review page for every rater alike (docs/GERI_BILDIRIM.md); null when not set. */
+  reviewUrl: string | null;
+  /** The NPS question (0 to 10) once, while the rating window is open. */
+  nps: { score: number } | null;
+  canAnswerNps: boolean;
   /** The latest missing-item claim and whether a new one can be filed now. */
   claim: OrderClaimDTO | null;
   canClaim: boolean;

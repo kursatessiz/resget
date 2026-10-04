@@ -458,6 +458,9 @@ model Restaurant {
   coupons              Coupon[]
   referralProgram      ReferralProgram?
   referralRewards      ReferralReward[]
+  feedbackSettings     FeedbackSettings?
+  feedbackCases        FeedbackCase[]
+  npsResponses         NpsResponse[]
   partnerReferralsMade PartnerReferral[]          @relation("PartnerReferrer")
   partnerReferredBy    PartnerReferral?           @relation("PartnerReferee")
   posConnection        PosConnection?
@@ -1090,6 +1093,8 @@ model Order {
   loyaltyTransactions LoyaltyTransaction[]
   couponRedemption    CouponRedemption?
   referralReward      ReferralReward?
+  feedbackCase        FeedbackCase?
+  npsResponse         NpsResponse?
   posSync             PosOrderSync?
   rating              OrderRating?
   deliveryRequest     DeliveryRequest?
@@ -2447,4 +2452,55 @@ model PartnerReferral {
   @@index([referrerRestaurantId, createdAt])
   @@index([status])
   @@map("partner_referrals")
+}
+
+/// A restaurant's feedback routing (docs/GERI_BILDIRIM.md): its public review page, the low-rating threshold and NPS.
+model FeedbackSettings {
+  id            String   @id @default(uuid())
+  restaurantId  String   @unique
+  reviewUrl     String?
+  alertMaxScore Int      @default(2)
+  npsEnabled    Boolean  @default(false)
+  updatedAt     DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("feedback_settings")
+}
+
+/// A low rating the staff follow up on; one per order.
+model FeedbackCase {
+  id               String    @id @default(uuid())
+  restaurantId     String
+  orderId          String    @unique
+  score            Int
+  comment          String?
+  /// OPEN or RESOLVED (FEEDBACK_CASE_STATUSES in shared).
+  status           String    @default("OPEN")
+  note             String?
+  resolvedByUserId String?
+  resolvedAt       DateTime?
+  createdAt        DateTime  @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, status, createdAt])
+  @@map("feedback_cases")
+}
+
+/// The NPS answer of one order's customer (0 to 10), from the tracking page.
+model NpsResponse {
+  id           String   @id @default(uuid())
+  restaurantId String
+  orderId      String   @unique
+  score        Int
+  comment      String?
+  createdAt    DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, createdAt])
+  @@map("nps_responses")
 }

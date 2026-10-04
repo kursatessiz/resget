@@ -86,6 +86,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.partner_referrals.name': 'Restaurant referrals',
   'features.partner_referrals.description':
     "A restaurant's invite link; PRO time for the new restaurant at sign-up and for the inviter once the new restaurant's orders are completed. Rewards are set in the console; commission does not change.",
+  'features.feedback.name': 'Feedback and NPS',
+  'features.feedback.description':
+    'Follow-up cases and team alerts for low ratings, a review link for every rater, an NPS question on the tracking page and a summary; PRO analytics.',
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',
