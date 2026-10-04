@@ -147,7 +147,8 @@ describe('Staff and roles (e2e)', () => {
     expect(me.body.user.fullName).toBe('E2E Personel');
     const membership = me.body.memberships.find((m: { restaurantId: string }) => m.restaurantId === restaurantId);
     expect(membership.roleName).toBe('E2E Garson');
-    expect(membership.permissions).toEqual(['orders.view', 'menu.view']);
+    // The session lists permissions in catalogue order, whatever order the role stores them in.
+    expect(membership.permissions).toEqual(['menu.view', 'orders.view']);
     // The new member can open what the role allows and nothing else.
     await ctx.http().get(`/restaurants/${restaurantId}/menu`).set(bearer(tokens.body.accessToken)).expect(200);
     await ctx.http().get(`/restaurants/${restaurantId}/staff`).set(bearer(tokens.body.accessToken)).expect(403);
