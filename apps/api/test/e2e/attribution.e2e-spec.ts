@@ -367,5 +367,39 @@ describe('Attribution (e2e)', () => {
     );
     expect(media.social).toEqual({ lead: 1 });
     expect(media.cpc).toEqual({ restaurant_signup: 1 });
+
+    // The restaurant's first paid platform invoice is first_payment, once, on the owner's platform contact.
+    const invoice = (periodStart: Date) =>
+      ctx.prisma.commissionInvoice.create({
+        data: {
+          restaurantId: created.body.id as string,
+          periodStart,
+          periodEnd: new Date(periodStart.getTime() + 28 * 86_400_000),
+          currency: 'TRY',
+          orderCount: 1,
+          baseMinor: 10000,
+          commissionMinor: 100,
+          vatMinor: 20,
+          totalMinor: 120,
+          status: 'ISSUED',
+          issuedAt: new Date(),
+          dueAt: new Date(Date.now() + 86_400_000),
+        },
+        select: { id: true },
+      });
+    const firstInvoice = await invoice(new Date(Date.UTC(2026, 6, 1)));
+    const secondInvoice = await invoice(new Date(Date.UTC(2026, 7, 1)));
+    for (const inv of [firstInvoice, secondInvoice]) {
+      await ctx
+        .http()
+        .post(`/admin/billing/invoices/${inv.id}/mark-paid`)
+        .set(bearer(adminToken))
+        .send({ paymentRef: `atif-${inv.id.slice(0, 8)}` })
+        .expect(200);
+    }
+    const payments = await conversionsOf({ restaurantId: platformId, type: 'first_payment' });
+    expect(payments).toEqual([
+      expect.objectContaining({ customerId: owner.id, valueMinor: 120, currency: 'TRY', sourceId: created.body.id }),
+    ]);
   });
 });
