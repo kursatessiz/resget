@@ -34,6 +34,7 @@ import { badRequest, conflict, notFound } from '../../common/api-error';
 import { CONSENT_REGISTRY } from './consent-registry';
 import { ConsentService } from '../consent/consent.service';
 import { FeatureFlagsService } from '../features/feature-flags.service';
+import { SegmentsService } from '../segments/segments.service';
 
 type SegmentRow = Prisma.CampaignSegmentPresetGetPayload<Record<string, never>>;
 
@@ -45,6 +46,7 @@ const campaignSelect = Prisma.validator<Prisma.CampaignSelect>()({
   body: true,
   status: true,
   segment: true,
+  segmentId: true,
   scheduledAt: true,
   startedAt: true,
   finishedAt: true,
@@ -75,7 +77,32 @@ export class CampaignsService {
     @Inject(CONSENT_REGISTRY) private readonly registry: ConsentRegistryAdapter,
     private readonly consent: ConsentService,
     private readonly features: FeatureFlagsService,
+    private readonly savedSegments: SegmentsService,
   ) {}
+
+  /** A saved segment for a campaign must be the tenant's own and the module must be on. */
+  private async checkSegment(restaurantId: string, segmentId: string | null | undefined): Promise<void> {
+    if (!segmentId) return;
+    await this.features.assertEnabled('segments_v2', restaurantId);
+    await this.savedSegments.require(restaurantId, segmentId);
+  }
+
+  /** The campaign's audience on its channel: the saved segment when chosen, otherwise the inline filters. */
+  private async campaignAudienceWhere(
+    restaurantId: string,
+    row: { segment: Prisma.JsonValue; segmentId: string | null },
+    now: Date,
+    channel: NotificationChannel,
+  ): Promise<Prisma.RestaurantCustomerWhereInput> {
+    if (row.segmentId) {
+      const segment = await this.prisma.segment.findFirst({ where: { id: row.segmentId, restaurantId } });
+      // A segment that has gone reaches no one; it never falls back to the inline filters.
+      if (!segment) return { restaurantId, id: { in: [] } };
+      return { AND: [this.savedSegments.audienceWhere(segment, now), { consentChannels: { has: channel } }] };
+    }
+    const parsed = CampaignSegmentSchema.safeParse(row.segment ?? {});
+    return this.audienceWhere(restaurantId, parsed.success ? parsed.data : {}, now, channel);
+  }
 
   /**
    * The channel a campaign actually goes out on: with the WhatsApp module off
@@ -169,6 +196,7 @@ export class CampaignsService {
   // -- Campaigns ----------------------------------------------------------------------------
 
   async create(restaurantId: string, userId: string, input: CreateCampaignInput): Promise<CampaignDTO> {
+    await this.checkSegment(restaurantId, input.segmentId);
     const row = await this.prisma.campaign.create({
       data: {
         restaurantId,
@@ -176,6 +204,7 @@ export class CampaignsService {
         channel: input.channel,
         body: input.body,
         segment: input.segment,
+        segmentId: input.segmentId ?? null,
         createdByUserId: userId,
         ...(input.scheduledAt ? { status: CampaignStatus.SCHEDULED, scheduledAt: new Date(input.scheduledAt) } : {}),
       },
@@ -189,6 +218,7 @@ export class CampaignsService {
     if (row.status !== 'DRAFT' && row.status !== 'SCHEDULED') {
       throw conflict('CAMPAIGN_STATE_INVALID', 'Only a draft or scheduled campaign can be edited');
     }
+    await this.checkSegment(restaurantId, input.segmentId);
     const updated = await this.prisma.campaign.update({
       where: { id: row.id },
       data: {
@@ -196,6 +226,7 @@ export class CampaignsService {
         ...(input.channel !== undefined ? { channel: input.channel } : {}),
         ...(input.body !== undefined ? { body: input.body } : {}),
         ...(input.segment !== undefined ? { segment: input.segment } : {}),
+        ...(input.segmentId !== undefined ? { segmentId: input.segmentId } : {}),
       },
       select: campaignSelect,
     });
@@ -239,7 +270,7 @@ export class CampaignsService {
     });
     const channel = await this.effectiveChannel(restaurantId, row.channel as NotificationChannel);
     const audienceCount = await this.prisma.restaurantCustomer.count({
-      where: this.audienceWhere(restaurantId, this.segmentOf(row), now, channel),
+      where: await this.campaignAudienceWhere(restaurantId, row, now, channel),
     });
     const wallet = await this.prisma.messageWallet.findUnique({
       where: { restaurantId_channel: { restaurantId, channel: row.channel } },
@@ -310,7 +341,7 @@ export class CampaignsService {
   async runPass(now: Date = new Date()): Promise<number> {
     const due = await this.prisma.campaign.findMany({
       where: { status: CampaignStatus.SCHEDULED, scheduledAt: { lte: now } },
-      select: { id: true, restaurantId: true, segment: true, channel: true },
+      select: { id: true, restaurantId: true, segment: true, segmentId: true, channel: true },
       take: 20,
     });
     for (const campaign of due) await this.start(campaign, now);
@@ -332,7 +363,13 @@ export class CampaignsService {
   }
 
   private async start(
-    campaign: { id: string; restaurantId: string; segment: Prisma.JsonValue; channel: string },
+    campaign: {
+      id: string;
+      restaurantId: string;
+      segment: Prisma.JsonValue;
+      segmentId: string | null;
+      channel: string;
+    },
     now: Date,
   ): Promise<void> {
     const started = await this.prisma.campaign.updateMany({
@@ -340,10 +377,9 @@ export class CampaignsService {
       data: { status: CampaignStatus.SENDING, startedAt: now },
     });
     if (started.count === 0) return;
-    const segment = CampaignSegmentSchema.safeParse(campaign.segment ?? {});
     const channel = await this.effectiveChannel(campaign.restaurantId, campaign.channel as NotificationChannel);
     const audience = await this.prisma.restaurantCustomer.findMany({
-      where: this.audienceWhere(campaign.restaurantId, segment.success ? segment.data : {}, now, channel),
+      where: await this.campaignAudienceWhere(campaign.restaurantId, campaign, now, channel),
       select: { id: true },
     });
     if (audience.length > 0) {
@@ -526,6 +562,7 @@ export class CampaignsService {
       body: row.body,
       status: row.status,
       segment: this.segmentOf(row),
+      segmentId: row.segmentId,
       scheduledAt: row.scheduledAt?.toISOString() ?? null,
       startedAt: row.startedAt?.toISOString() ?? null,
       finishedAt: row.finishedAt?.toISOString() ?? null,

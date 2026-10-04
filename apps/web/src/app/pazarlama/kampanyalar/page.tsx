@@ -14,6 +14,7 @@ export default async function MarketingCampaignsPage() {
       restaurantId={access.context.restaurantId}
       locale={locale}
       canManage={access.context.permissions.includes('platform.marketing.send')}
+      segmentsV2={access.context.features.includes('segments_v2')}
     />
   );
 }

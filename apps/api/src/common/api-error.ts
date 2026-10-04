@@ -129,6 +129,8 @@ export type ApiErrorCode =
   | 'EMAIL_DOMAIN_RESERVED'
   | 'EMAIL_DOMAIN_TAKEN'
   | 'SUPPRESSION_LOCKED'
+  | 'SEGMENT_NOT_STATIC'
+  | 'SEGMENT_IN_USE'
   | 'RATE_LIMITED';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {

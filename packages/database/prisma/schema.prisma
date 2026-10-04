@@ -465,6 +465,7 @@ model Restaurant {
   marketingSettings    MarketingSettings?
   emailDomains         EmailDomain[]
   emailSuppressions    EmailSuppression[]
+  segments             Segment[]
   touchpoints          Touchpoint[]
   conversionEvents     ConversionEvent[]
   couponRedemptions    CouponRedemption[]
@@ -772,6 +773,7 @@ model RestaurantCustomer {
   conversionEvents     ConversionEvent[]
   consents             ContactConsent[]
   consentConfirmations ConsentConfirmation[]
+  segmentMembers       SegmentMember[]
 
   @@unique([restaurantId, userId])
   @@index([restaurantId, lastOrderAt])
@@ -789,6 +791,8 @@ model Campaign {
   status          CampaignStatus @default(DRAFT)
   /// CampaignSegmentSchema in shared: who receives it.
   segment         Json?
+  /// A saved segment (segments v2); when set it decides the audience instead of `segment`.
+  segmentId       String?
   scheduledAt     DateTime?
   startedAt       DateTime?
   finishedAt      DateTime?
@@ -804,6 +808,7 @@ model Campaign {
 
   restaurant Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   createdBy  User?               @relation("CampaignCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  segmentRef Segment?            @relation(fields: [segmentId], references: [id], onDelete: SetNull)
   recipients CampaignRecipient[]
 
   @@index([restaurantId, createdAt])
@@ -2099,4 +2104,43 @@ model EmailSuppression {
   @@index([email])
   @@index([restaurantId])
   @@map("email_suppressions")
+}
+
+// ---------------------------------------------------------------------------
+// Segments v2 (docs/SEGMENTLER.md)
+// ---------------------------------------------------------------------------
+
+/// A saved audience: a rule tree evaluated on use (DYNAMIC) or a snapshot of who matched (STATIC).
+model Segment {
+  id              String    @id @default(uuid())
+  restaurantId    String
+  name            String
+  kind            String
+  /// SegmentRuleSchema in shared.
+  rule            Json
+  memberCount     Int       @default(0)
+  snapshotAt      DateTime?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  restaurant Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  members    SegmentMember[]
+  campaigns  Campaign[]
+
+  @@unique([restaurantId, name])
+  @@map("segments")
+}
+
+/// A member of a static segment, taken when the snapshot was made.
+model SegmentMember {
+  segmentId  String
+  customerId String
+
+  segment  Segment            @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  customer RestaurantCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@id([segmentId, customerId])
+  @@index([customerId])
+  @@map("segment_members")
 }

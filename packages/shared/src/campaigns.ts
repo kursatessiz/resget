@@ -3,7 +3,7 @@ import { OrderChannel } from './enums';
 import type { CampaignRecipientStatus, CampaignStatus } from './enums';
 import { NOTIFICATION_CHANNELS } from './messaging';
 import type { NotificationChannel } from './messaging';
-import { PaginationSchema } from './validators';
+import { PaginationSchema, UuidSchema } from './validators';
 
 /**
  * Marketing campaigns (docs/KAMPANYALAR.md), the heart of the PRO plan: a
@@ -41,6 +41,8 @@ export const CreateCampaignSchema = z
     channel: z.enum(NOTIFICATION_CHANNELS),
     body: z.string().trim().min(5).max(CAMPAIGN_BODY_MAX),
     segment: CampaignSegmentSchema.default({}),
+    /** A saved segment (segments v2, docs/SEGMENTLER.md); when set it decides the audience instead of `segment`. */
+    segmentId: UuidSchema.optional(),
     /** When to send; omitted means it stays a draft until sent. */
     scheduledAt: z.string().datetime().optional(),
   })
@@ -53,6 +55,7 @@ export const UpdateCampaignSchema = z
     channel: z.enum(NOTIFICATION_CHANNELS).optional(),
     body: z.string().trim().min(5).max(CAMPAIGN_BODY_MAX).optional(),
     segment: CampaignSegmentSchema.optional(),
+    segmentId: UuidSchema.nullable().optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, { message: 'empty update' });
@@ -100,6 +103,8 @@ export interface CampaignDTO {
   body: string;
   status: `${CampaignStatus}`;
   segment: CampaignSegment;
+  /** The saved segment it targets, when one was chosen. */
+  segmentId: string | null;
   scheduledAt: string | null;
   startedAt: string | null;
   finishedAt: string | null;

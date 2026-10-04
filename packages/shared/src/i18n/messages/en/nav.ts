@@ -21,6 +21,7 @@ export const enNav: Record<keyof typeof trNav, string> = {
   'nav.switchRestaurant': 'Switch restaurant',
   'nav.signOut': 'Sign out',
   'nav.coupons': 'Coupons',
+  'nav.segments': 'Segments',
   'nav.pipeline': 'Pipeline',
   'nav.attribution': 'Attribution',
 };

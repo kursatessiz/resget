@@ -12,7 +12,12 @@ export default async function CampaignsPage({ params }: { params: Promise<{ slug
   if (membership.effectivePlan === 'PRO') {
     return (
       <div className="flex flex-col gap-6">
-        <CampaignsManager restaurantId={membership.restaurantId} locale={locale} canManage={can('campaigns.manage')} />
+        <CampaignsManager
+          restaurantId={membership.restaurantId}
+          locale={locale}
+          canManage={can('campaigns.manage')}
+          segmentsV2={membership.features.includes('segments_v2')}
+        />
         {membership.features.includes('consent_v2') && (
           <ConsentLimits restaurantId={membership.restaurantId} locale={locale} canManage={can('campaigns.manage')} />
         )}

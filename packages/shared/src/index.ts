@@ -52,3 +52,4 @@ export * from './crm';
 export * from './attribution';
 export * from './consent';
 export * from './email';
+export * from './segments';

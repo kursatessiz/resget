@@ -91,6 +91,8 @@ Sevk ayarları `restaurants.dispatchSettings` JSON alanındadır (`DispatchSetti
 | `consent_confirmations` | Çift onay bağlantısı; yalnızca belirteç özeti, 7 gün, tek kullanım. |
 | `email_domains` | Kiracının gönderici alan adı: DKIM belirteçleri, SPF / DKIM / DMARC durumu, doğrulama zamanı. Alan adı tekil. Ayrıntılar: `docs/EPOSTA.md`. |
 | `email_suppressions` | Gönderilmeyecek adresler: kalıcı geri dönme (genel), şikayet ve istemiyor (kiracı). |
+| `segments` | Kayıtlı segment: VE / VEYA kuralı (JSON), tür (dinamik / statik), statik için üye sayısı ve anlık görüntü zamanı. Kiracı başına ad tekil. Ayrıntılar: `docs/SEGMENTLER.md`. |
+| `segment_members` | Statik segmentin anlık görüntüsündeki müşteriler. `campaigns.segmentId` kampanyanın hedef segmentidir. |
 | `marketing_settings` | Kiracının günlük ve haftalık sınırı, çift onay bölgeleri, tacir muafiyeti. |
 | `conversion_events` | İlk / tekrar sipariş, aday, restoran kaydı, ilk ödeme; `(restaurantId, sourceKind, sourceId)` tekil, tutar ve para birimi, atfedilen ziyaret. Ayrıntılar: `docs/ATIF.md`. |
 

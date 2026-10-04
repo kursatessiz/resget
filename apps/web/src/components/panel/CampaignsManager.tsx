@@ -12,6 +12,7 @@ import type {
   CampaignSegment,
   NotificationChannel,
   SavedSegmentDTO,
+  SegmentListDTO,
 } from '@resget/shared';
 import { Badge, Button, Card, SelectField, TextAreaField, TextField } from '@/components/ui';
 import type { UiTone } from '@/components/ui/types';
@@ -32,10 +33,13 @@ export function CampaignsManager({
   restaurantId,
   locale,
   canManage,
+  segmentsV2 = false,
 }: {
   restaurantId: string;
   locale: string;
   canManage: boolean;
+  /** The segments_v2 module is on: a saved rule-based segment can be the audience (docs/SEGMENTLER.md). */
+  segmentsV2?: boolean;
 }) {
   const t = useT(locale);
   const base = `restaurants/${restaurantId}/campaigns`;
@@ -52,6 +56,8 @@ export function CampaignsManager({
   const [segments, setSegments] = useState<SavedSegmentDTO[]>([]);
   const [pickedSegment, setPickedSegment] = useState('');
   const [segmentName, setSegmentName] = useState('');
+  const [ruleSegments, setRuleSegments] = useState<SegmentListDTO['items']>([]);
+  const [ruleSegment, setRuleSegment] = useState('');
   const [estimate, setEstimate] = useState<number | null>(null);
   const [preview, setPreview] = useState<{ id: string; data: CampaignPreviewDTO } | null>(null);
   const [detail, setDetail] = useState<CampaignDetailDTO | null>(null);
@@ -75,7 +81,8 @@ export function CampaignsManager({
     setPage(list);
     setAudience(who);
     setSegments(saved);
-  }, [base]);
+    if (segmentsV2) setRuleSegments((await bffJson<SegmentListDTO>(`restaurants/${restaurantId}/segments`)).items);
+  }, [base, segmentsV2, restaurantId]);
 
   useEffect(() => {
     load().catch(fail);
@@ -152,7 +159,8 @@ export function CampaignsManager({
           name: name.trim(),
           channel,
           body: body.trim(),
-          segment: segment(),
+          segment: ruleSegment ? {} : segment(),
+          ...(ruleSegment ? { segmentId: ruleSegment } : {}),
           ...(scheduledAt ? { scheduledAt: new Date(scheduledAt).toISOString() } : {}),
         }),
       });
@@ -160,6 +168,7 @@ export function CampaignsManager({
       setName('');
       setBody('');
       setScheduledAt('');
+      setRuleSegment('');
       const data = await bffJson<CampaignPreviewDTO>(`${base}/${created.id}/preview`, { method: 'POST', body: '{}' });
       setPreview({ id: created.id, data });
     });
@@ -233,65 +242,84 @@ export function CampaignsManager({
               rows={4}
             />
           </div>
-          <fieldset className="grid gap-3 md:grid-cols-4">
-            <legend className="ui-heading">{t('campaigns.segment.title')}</legend>
-            <SelectField
-              className="md:col-span-4"
-              label={t('campaigns.segments.pick')}
-              value={pickedSegment}
-              onChange={(e) => applySegment(e.target.value)}
-            >
-              <option value="">{t('campaigns.segments.none')}</option>
-              {segments.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({t('campaigns.segments.count', { count: s.audienceCount })})
-                </option>
-              ))}
-            </SelectField>
-            <TextField
-              label={t('campaigns.segment.minOrders')}
-              value={minOrders}
-              onChange={(e) => setMinOrders(e.target.value)}
-              inputMode="numeric"
-            />
-            <TextField
-              label={t('campaigns.segment.lastOrderWithinDays')}
-              value={lastWithin}
-              onChange={(e) => setLastWithin(e.target.value)}
-              inputMode="numeric"
-            />
-            <TextField
-              label={t('campaigns.segment.inactiveForDays')}
-              value={inactiveFor}
-              onChange={(e) => setInactiveFor(e.target.value)}
-              inputMode="numeric"
-            />
-            <TextField label={t('campaigns.segment.tags')} value={tags} onChange={(e) => setTags(e.target.value)} />
-            <div className="flex flex-col gap-3 md:col-span-4 md:flex-row md:items-end">
-              <TextField
-                label={t('campaigns.segments.name')}
-                value={segmentName}
-                onChange={(e) => setSegmentName(e.target.value)}
-                maxLength={60}
-              />
-              <Button
-                variant="outline"
-                tone="muted"
-                onClick={saveSegment}
-                disabled={busy || segmentName.trim().length < 2}
+          {segmentsV2 && (
+            <div className="flex flex-col gap-1">
+              <SelectField
+                label={t('segments.campaign.pick')}
+                value={ruleSegment}
+                onChange={(e) => setRuleSegment(e.target.value)}
               >
-                {t('campaigns.segments.save')}
-              </Button>
-              <Button variant="outline" tone="muted" onClick={countNow} disabled={busy}>
-                {t('campaigns.segments.countNow')}
-              </Button>
+                <option value="">{t('segments.campaign.none')}</option>
+                {ruleSegments.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({t(`segments.kind.${s.kind}`)}, {t('segments.count', { count: s.count })})
+                  </option>
+                ))}
+              </SelectField>
+              <p className="ui-caption">{t('segments.campaign.help')}</p>
             </div>
-            {estimate !== null && (
-              <p role="status" className="ui-caption md:col-span-4">
-                {t('campaigns.segments.estimate', { count: estimate })}
-              </p>
-            )}
-          </fieldset>
+          )}
+          {ruleSegment === '' && (
+            <fieldset className="grid gap-3 md:grid-cols-4">
+              <legend className="ui-heading">{t('campaigns.segment.title')}</legend>
+              <SelectField
+                className="md:col-span-4"
+                label={t('campaigns.segments.pick')}
+                value={pickedSegment}
+                onChange={(e) => applySegment(e.target.value)}
+              >
+                <option value="">{t('campaigns.segments.none')}</option>
+                {segments.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({t('campaigns.segments.count', { count: s.audienceCount })})
+                  </option>
+                ))}
+              </SelectField>
+              <TextField
+                label={t('campaigns.segment.minOrders')}
+                value={minOrders}
+                onChange={(e) => setMinOrders(e.target.value)}
+                inputMode="numeric"
+              />
+              <TextField
+                label={t('campaigns.segment.lastOrderWithinDays')}
+                value={lastWithin}
+                onChange={(e) => setLastWithin(e.target.value)}
+                inputMode="numeric"
+              />
+              <TextField
+                label={t('campaigns.segment.inactiveForDays')}
+                value={inactiveFor}
+                onChange={(e) => setInactiveFor(e.target.value)}
+                inputMode="numeric"
+              />
+              <TextField label={t('campaigns.segment.tags')} value={tags} onChange={(e) => setTags(e.target.value)} />
+              <div className="flex flex-col gap-3 md:col-span-4 md:flex-row md:items-end">
+                <TextField
+                  label={t('campaigns.segments.name')}
+                  value={segmentName}
+                  onChange={(e) => setSegmentName(e.target.value)}
+                  maxLength={60}
+                />
+                <Button
+                  variant="outline"
+                  tone="muted"
+                  onClick={saveSegment}
+                  disabled={busy || segmentName.trim().length < 2}
+                >
+                  {t('campaigns.segments.save')}
+                </Button>
+                <Button variant="outline" tone="muted" onClick={countNow} disabled={busy}>
+                  {t('campaigns.segments.countNow')}
+                </Button>
+              </div>
+              {estimate !== null && (
+                <p role="status" className="ui-caption md:col-span-4">
+                  {t('campaigns.segments.estimate', { count: estimate })}
+                </p>
+              )}
+            </fieldset>
+          )}
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
             <TextField
               label={t('campaigns.scheduledAt')}
@@ -365,6 +393,13 @@ export function CampaignsManager({
                   <Badge tone={STATUS_TONE[c.status]}>{t(`campaigns.status.${c.status}`)}</Badge>
                 </div>
                 <p className="ui-caption">{c.body}</p>
+                {c.segmentId && (
+                  <p className="ui-caption">
+                    {t('segments.campaign.target', {
+                      name: ruleSegments.find((s) => s.id === c.segmentId)?.name ?? t('segments.campaign.unknown'),
+                    })}
+                  </p>
+                )}
                 <p className="ui-caption">
                   {t('campaigns.counts', {
                     sent: c.sentCount,
