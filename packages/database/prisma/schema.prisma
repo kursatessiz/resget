@@ -460,6 +460,9 @@ model Restaurant {
   contactActivities    ContactActivity[]
   contactTasks         ContactTask[]
   visitors             Visitor[]
+  contactConsents      ContactConsent[]
+  consentConfirmations ConsentConfirmation[]
+  marketingSettings    MarketingSettings?
   touchpoints          Touchpoint[]
   conversionEvents     ConversionEvent[]
   couponRedemptions    CouponRedemption[]
@@ -746,21 +749,27 @@ model RestaurantCustomer {
   stageId            String?
   ownerMembershipId  String?
   lastActivityAt     DateTime?
+  /// A business (merchant or tradesperson); only matters for the TR merchant exemption (docs/RIZA.md).
+  isBusiness         Boolean       @default(false)
+  /// Channels a campaign may reach now, derived from the consent history and the tenant's policy.
+  consentChannels    String[]      @default([])
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  restaurant          Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  campaignRecipients  CampaignRecipient[]
-  loyaltyTransactions LoyaltyTransaction[]
-  couponRedemptions   CouponRedemption[]
-  stage               PipelineStage?       @relation(fields: [stageId], references: [id], onDelete: SetNull)
-  owner               Membership?          @relation("ContactOwner", fields: [ownerMembershipId], references: [id], onDelete: SetNull)
-  activities          ContactActivity[]
-  tasks               ContactTask[]
-  visitors            Visitor[]
-  touchpoints         Touchpoint[]
-  conversionEvents    ConversionEvent[]
+  restaurant           Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignRecipients   CampaignRecipient[]
+  loyaltyTransactions  LoyaltyTransaction[]
+  couponRedemptions    CouponRedemption[]
+  stage                PipelineStage?        @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  owner                Membership?           @relation("ContactOwner", fields: [ownerMembershipId], references: [id], onDelete: SetNull)
+  activities           ContactActivity[]
+  tasks                ContactTask[]
+  visitors             Visitor[]
+  touchpoints          Touchpoint[]
+  conversionEvents     ConversionEvent[]
+  consents             ContactConsent[]
+  consentConfirmations ConsentConfirmation[]
 
   @@unique([restaurantId, userId])
   @@index([restaurantId, lastOrderAt])
@@ -912,6 +921,7 @@ model CampaignRecipient {
 
   @@unique([campaignId, customerId])
   @@index([campaignId, status])
+  @@index([customerId, sentAt])
   @@map("campaign_recipients")
 }
 
@@ -1980,4 +1990,66 @@ model ConversionEvent {
   @@index([restaurantId, occurredAt])
   @@index([customerId])
   @@map("conversion_events")
+}
+
+// ---------------------------------------------------------------------------
+// Commercial message consent (docs/RIZA.md)
+// ---------------------------------------------------------------------------
+
+/// One decision on one channel; append-only, the latest row per channel is the state.
+model ContactConsent {
+  id                      String    @id @default(uuid())
+  restaurantId            String
+  customerId              String
+  channel                 String
+  granted                 Boolean
+  legalBasis              String    @default("CONSENT")
+  source                  String
+  note                    String?
+  formVersion             String?
+  /// Set when the consent waits for its confirmation link (double opt-in); it counts only once confirmedAt is set.
+  confirmationRequestedAt DateTime?
+  confirmedAt             DateTime?
+  /// When the decision reached the regional registry (IYS); null until then, never for uncovered channels.
+  registrySyncedAt        DateTime?
+  actorUserId             String?
+  createdAt               DateTime  @default(now())
+
+  restaurant Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  customer   RestaurantCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, channel, createdAt])
+  @@index([restaurantId, registrySyncedAt])
+  @@map("contact_consents")
+}
+
+/// A double opt-in link; only the SHA-256 of the token is stored.
+model ConsentConfirmation {
+  id           String    @id @default(uuid())
+  restaurantId String
+  customerId   String
+  tokenHash    String    @unique
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  restaurant Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  customer   RestaurantCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("consent_confirmations")
+}
+
+/// A tenant's commercial message policy; without a row the defaults apply (DEFAULT_CONSENT_POLICY).
+model MarketingSettings {
+  restaurantId       String   @id
+  dailyCap           Int      @default(1)
+  weeklyCap          Int      @default(3)
+  doubleOptInRegions String[] @default(["EU_UK"])
+  merchantExemption  Boolean  @default(false)
+  updatedAt          DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("marketing_settings")
 }

@@ -50,3 +50,4 @@ export * from './pos';
 export * from './platform';
 export * from './crm';
 export * from './attribution';
+export * from './consent';

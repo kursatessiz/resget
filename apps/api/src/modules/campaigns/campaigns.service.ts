@@ -11,6 +11,7 @@ import {
   isWithinSendWindow,
   nextSendWindowStart,
   registryCovers,
+  CONSENT_CHANNELS,
 } from '@resget/shared';
 import type {
   CampaignAudienceDTO,
@@ -31,6 +32,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
 import { CONSENT_REGISTRY } from './consent-registry';
+import { ConsentService } from '../consent/consent.service';
+import { FeatureFlagsService } from '../features/feature-flags.service';
 
 type SegmentRow = Prisma.CampaignSegmentPresetGetPayload<Record<string, never>>;
 
@@ -70,7 +73,19 @@ export class CampaignsService {
     private readonly messaging: MessagingService,
     private readonly config: ConfigService,
     @Inject(CONSENT_REGISTRY) private readonly registry: ConsentRegistryAdapter,
+    private readonly consent: ConsentService,
+    private readonly features: FeatureFlagsService,
   ) {}
+
+  /**
+   * The channel a campaign actually goes out on: with the WhatsApp module off
+   * the engine sends SMS, so consent, audience and registry are checked for
+   * SMS too; a WhatsApp-only consent never turns into an SMS.
+   */
+  private async effectiveChannel(restaurantId: string, channel: NotificationChannel): Promise<NotificationChannel> {
+    if (channel === 'WHATSAPP' && !(await this.features.isEnabled('whatsapp_channel', restaurantId))) return 'SMS';
+    return channel;
+  }
 
   // -- Drafts --------------------------------------------------------------------------------
 
@@ -222,8 +237,9 @@ export class CampaignsService {
       where: { id: restaurantId },
       select: { name: true, timezone: true, defaultLocale: true },
     });
+    const channel = await this.effectiveChannel(restaurantId, row.channel as NotificationChannel);
     const audienceCount = await this.prisma.restaurantCustomer.count({
-      where: this.audienceWhere(restaurantId, this.segmentOf(row), now),
+      where: this.audienceWhere(restaurantId, this.segmentOf(row), now, channel),
     });
     const wallet = await this.prisma.messageWallet.findUnique({
       where: { restaurantId_channel: { restaurantId, channel: row.channel } },
@@ -279,10 +295,8 @@ export class CampaignsService {
       select: { id: true, restaurant: { select: { name: true } } },
     });
     if (!customer) throw notFound('NOT_FOUND', 'Unknown opt-out link');
-    await this.prisma.restaurantCustomer.update({
-      where: { id: customer.id },
-      data: { marketingOptIn: false, marketingOptOutAt: new Date() },
-    });
+    // The link refuses every channel, including those the customer never chose (docs/RIZA.md).
+    await this.consent.revoke(customer.id, CONSENT_CHANNELS, 'OPT_OUT_LINK');
     return { restaurantName: customer.restaurant.name };
   }
 
@@ -296,7 +310,7 @@ export class CampaignsService {
   async runPass(now: Date = new Date()): Promise<number> {
     const due = await this.prisma.campaign.findMany({
       where: { status: CampaignStatus.SCHEDULED, scheduledAt: { lte: now } },
-      select: { id: true, restaurantId: true, segment: true },
+      select: { id: true, restaurantId: true, segment: true, channel: true },
       take: 20,
     });
     for (const campaign of due) await this.start(campaign, now);
@@ -318,7 +332,7 @@ export class CampaignsService {
   }
 
   private async start(
-    campaign: { id: string; restaurantId: string; segment: Prisma.JsonValue },
+    campaign: { id: string; restaurantId: string; segment: Prisma.JsonValue; channel: string },
     now: Date,
   ): Promise<void> {
     const started = await this.prisma.campaign.updateMany({
@@ -327,8 +341,9 @@ export class CampaignsService {
     });
     if (started.count === 0) return;
     const segment = CampaignSegmentSchema.safeParse(campaign.segment ?? {});
+    const channel = await this.effectiveChannel(campaign.restaurantId, campaign.channel as NotificationChannel);
     const audience = await this.prisma.restaurantCustomer.findMany({
-      where: this.audienceWhere(campaign.restaurantId, segment.success ? segment.data : {}, now),
+      where: this.audienceWhere(campaign.restaurantId, segment.success ? segment.data : {}, now, channel),
       select: { id: true },
     });
     if (audience.length > 0) {
@@ -356,7 +371,6 @@ export class CampaignsService {
         customer: {
           select: {
             id: true,
-            marketingOptIn: true,
             marketingToken: true,
             user: { select: { phone: true, locale: true } },
           },
@@ -367,22 +381,25 @@ export class CampaignsService {
       await this.finish(campaign.id, now);
       return 0;
     }
-    const channel = campaign.channel as NotificationChannel;
-    const optedIn = pending.filter((r) => r.customer.marketingOptIn).map((r) => r.customer.user.phone);
+    const channel = await this.effectiveChannel(campaign.restaurantId, campaign.channel as NotificationChannel);
+    // Fresh consent per recipient on the channel that will be used, and the tenant's caps (docs/RIZA.md).
+    const checks = await this.consent.checkRecipients(
+      campaign.restaurantId,
+      channel,
+      pending.map((r) => r.customer.id),
+      now,
+    );
+    const eligible = pending.filter((r) => checks.get(r.customer.id) === null).map((r) => r.customer.user.phone);
     // Only channels the country's registry keeps are checked there (IYS: SMS, calls, e-mail; not WhatsApp yet).
     const allowed = registryCovers(campaign.restaurant.countryCode, channel)
-      ? await this.registry.allowed(campaign.restaurant.countryCode, channel, optedIn)
-      : new Set(optedIn);
+      ? await this.registry.allowed(campaign.restaurant.countryCode, channel, eligible)
+      : new Set(eligible);
     let sent = 0;
     for (const recipient of pending) {
       const customer = recipient.customer;
-      if (!customer.marketingOptIn || !allowed.has(customer.user.phone)) {
-        await this.markRecipient(
-          recipient.id,
-          campaign.id,
-          'SKIPPED',
-          customer.marketingOptIn ? 'CONSENT_REGISTRY' : 'OPTED_OUT',
-        );
+      const refusal = checks.get(customer.id) ?? null;
+      if (refusal !== null || !allowed.has(customer.user.phone)) {
+        await this.markRecipient(recipient.id, campaign.id, 'SKIPPED', refusal ?? 'CONSENT_REGISTRY');
         continue;
       }
       const token = customer.marketingToken ?? (await this.ensureToken(customer.id));
@@ -450,8 +467,12 @@ export class CampaignsService {
     restaurantId: string,
     segment: CampaignSegment,
     now: Date,
+    channel?: NotificationChannel,
   ): Prisma.RestaurantCustomerWhereInput {
-    const where: Prisma.RestaurantCustomerWhereInput = { restaurantId, marketingOptIn: true };
+    // With a channel: those reachable on it now (docs/RIZA.md); without one (saved segments): reachable on any.
+    const where: Prisma.RestaurantCustomerWhereInput = channel
+      ? { restaurantId, consentChannels: { has: channel } }
+      : { restaurantId, marketingOptIn: true };
     if (segment.minOrders !== undefined) where.orderCount = { gte: segment.minOrders };
     if (segment.lastOrderWithinDays !== undefined) {
       where.lastOrderAt = { gte: new Date(now.getTime() - segment.lastOrderWithinDays * DAY_MS) };

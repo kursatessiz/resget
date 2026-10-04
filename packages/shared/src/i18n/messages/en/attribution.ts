@@ -69,6 +69,7 @@ export const enAttribution: Record<keyof typeof trAttribution, string> = {
   'attribution.lead.district': 'District',
   'attribution.lead.privacy':
     'I have read the privacy notice on processing my details only to contact me about this request.',
+  'attribution.lead.marketing': 'I want to hear about offers and news by SMS (optional).',
   'attribution.lead.send': 'Send',
   'attribution.lead.sent': 'Thank you, we will call you shortly.',
 };

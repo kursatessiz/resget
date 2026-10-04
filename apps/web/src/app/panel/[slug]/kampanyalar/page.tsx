@@ -1,4 +1,5 @@
 import { CampaignsManager } from '@/components/panel/CampaignsManager';
+import { ConsentLimits } from '@/components/panel/ConsentLimits';
 import { Badge, Card, LinkButton } from '@/components/ui';
 import { getT } from '@/lib/i18n';
 import { requireMembership } from '@/lib/panel';
@@ -10,7 +11,12 @@ export default async function CampaignsPage({ params }: { params: Promise<{ slug
   const { t, locale } = await getT();
   if (membership.effectivePlan === 'PRO') {
     return (
-      <CampaignsManager restaurantId={membership.restaurantId} locale={locale} canManage={can('campaigns.manage')} />
+      <div className="flex flex-col gap-6">
+        <CampaignsManager restaurantId={membership.restaurantId} locale={locale} canManage={can('campaigns.manage')} />
+        {membership.features.includes('consent_v2') && (
+          <ConsentLimits restaurantId={membership.restaurantId} locale={locale} canManage={can('campaigns.manage')} />
+        )}
+      </div>
     );
   }
   return (

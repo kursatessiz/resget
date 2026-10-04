@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { ContactAttributionDTO } from './attribution';
+import type { ContactConsentDTO } from './consent';
 import { PhoneSchema } from './validators';
 
 /**
@@ -156,6 +157,8 @@ export interface ContactDetailDTO {
   tasks: ContactTaskDTO[];
   /** Visits and conversions of the contact; null while the attribution module is off. */
   attribution: ContactAttributionDTO | null;
+  /** Per-channel consent; null while the consent v2 module is off. */
+  consent: ContactConsentDTO | null;
 }
 
 /** CSV columns of the contact export, in order; values are tenant data, headers are the keys. */

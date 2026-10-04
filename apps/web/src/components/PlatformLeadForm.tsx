@@ -15,6 +15,7 @@ export function PlatformLeadForm({ locale }: { locale: string }) {
   const [city, setCity] = useState('');
   const [district, setDistrict] = useState('');
   const [privacy, setPrivacy] = useState(false);
+  const [marketing, setMarketing] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -35,6 +36,7 @@ export function PlatformLeadForm({ locale }: { locale: string }) {
           ...(city.trim() ? { city: city.trim() } : {}),
           ...(district.trim() ? { district: district.trim() } : {}),
           privacyAccepted: true,
+          ...(marketing ? { marketingConsent: true } : {}),
         }),
       });
       setSent(true);
@@ -102,6 +104,15 @@ export function PlatformLeadForm({ locale }: { locale: string }) {
               onChange={(e) => setPrivacy(e.target.checked)}
             />
             <span className="ui-caption">{t('attribution.lead.privacy')}</span>
+          </label>
+          <label className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              className="pui-checkbox"
+              checked={marketing}
+              onChange={(e) => setMarketing(e.target.checked)}
+            />
+            <span className="ui-caption">{t('attribution.lead.marketing')}</span>
           </label>
           <div>
             <Button type="submit" disabled={busy || !ready}>

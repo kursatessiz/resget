@@ -10,8 +10,9 @@ import type { MessageTemplateKey } from './messaging';
  * goes out as a template. Each entry names the template and lists the
  * message params in the order of the template's {{1}}, {{2}}... variables;
  * the text itself is registered in Meta Business Manager per language and
- * mirrors `messaging.template.<key>`. A key without an entry (the OTP code)
- * is sent as plain text, which only works inside the service window.
+ * mirrors `messaging.template.<key>`. A key without an entry is one of the
+ * SMS-only platform messages (SMS_ONLY_TEMPLATE_KEYS: the OTP code and the
+ * consent confirmation link).
  */
 
 /** Computed variable: reason, refund note and free note joined, since Meta refuses an empty or adjacent variable. */

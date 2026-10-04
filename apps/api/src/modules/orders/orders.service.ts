@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Prisma } from '@resget/database';
@@ -56,6 +56,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { COUPON_RELEASE_STATUSES, CouponsService } from '../coupons/coupons.service';
+import { ConsentService } from '../consent/consent.service';
 import type { PreparedCoupon } from '../coupons/coupons.service';
 import { GeocodingService } from '../geocoding/geocoding.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
@@ -133,6 +134,7 @@ export class OrdersService {
   /** Registered by the dispatch service so a cancelled order can refresh its trip without a circular import. */
   private tripEvents: ((tripId: string) => Promise<TopicEvent[]>) | null = null;
   private readonly orderListeners: OrderListener[] = [];
+  private readonly logger = new Logger(OrdersService.name);
   /** Registered by the checkout service: validates a payment intent against what the restaurant accepts. */
   private resolvePayment: PaymentIntentResolver | null = null;
   /** Registered by the refunds service: gives an online payment back after a cancellation (docs/ODEME.md, "İade"). */
@@ -150,6 +152,7 @@ export class OrdersService {
     private readonly push: PushService,
     private readonly features: FeatureFlagsService,
     private readonly coupons: CouponsService,
+    private readonly consent: ConsentService,
   ) {}
 
   /**
@@ -301,6 +304,7 @@ export class OrdersService {
 
     // One instant for the row and the acceptance window, so the deadline is exactly the setting away from placedAt.
     const placedAt = new Date();
+    let consentCustomerId: string | null = null;
     const orderId = await this.prisma.$transaction(async (tx) => {
       let customerUserId: string | null = null;
       let restaurantCustomerId: string | null = null;
@@ -319,10 +323,6 @@ export class OrdersService {
             orderCount: { increment: 1 },
             lastOrderAt: new Date(),
             lifetimeGrossMinor: { increment: settlement.itemsGrossMinor },
-            // Consent is only ever granted here; withdrawing it is the customer's own opt-out link.
-            ...(input.marketingOptIn
-              ? { marketingOptIn: true, marketingOptInAt: new Date(), marketingOptOutAt: null }
-              : {}),
           },
           create: {
             restaurantId,
@@ -333,10 +333,10 @@ export class OrdersService {
             orderCount: 1,
             lifetimeGrossMinor: settlement.itemsGrossMinor,
             marketingToken: randomUUID(),
-            ...(input.marketingOptIn ? { marketingOptIn: true, marketingOptInAt: new Date() } : {}),
           },
         });
         restaurantCustomerId = customer.id;
+        consentCustomerId = customer.id;
       }
       const created = await tx.order.create({
         data: {
@@ -429,6 +429,12 @@ export class OrdersService {
       return created.id;
     });
 
+    // Consent is only ever granted by the customer's own box (docs/RIZA.md); a failure costs a consent, never the order.
+    if (consentCustomerId && (input.marketingOptIn || (input.marketingChannels?.length ?? 0) > 0)) {
+      await this.consent
+        .grantFromCheckout(restaurantId, consentCustomerId, input.marketingOptIn, input.marketingChannels)
+        .catch((error: unknown) => this.logger.warn(`consent for order ${orderId} not recorded: ${String(error)}`));
+    }
     this.realtime.publishMany(await this.eventsForOrder(orderId));
     // Orders typed in by the staff need no alert; the others wake the phones of everyone who works the orders screen.
     if (input.channel !== 'PHONE') {

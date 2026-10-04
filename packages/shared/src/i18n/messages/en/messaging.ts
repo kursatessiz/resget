@@ -25,6 +25,7 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
     '{restaurant}: your marketplace listing is approved. Customers in your district can now find you.{note}',
   'messaging.template.listing.declined':
     '{restaurant}: your marketplace listing request could not be approved yet.{note} Adjust and request again from the panel.',
+  'messaging.template.consent.confirm': '{restaurant}: confirm that you want campaign messages: {url}',
   'messaging.template.campaign.body': '{restaurant}: {body} Opt out: {url}',
   'messaging.template.order.acceptOverdue':
     '{restaurant}: order {code} has been waiting {minutes} minutes for acceptance. Open the orders screen.',

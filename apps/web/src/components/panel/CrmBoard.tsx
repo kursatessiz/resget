@@ -6,6 +6,7 @@ import type { ContactCardDTO, ContactDetailDTO, PipelineDTO, PipelineStageDTO } 
 import { Badge, Button, Card, SelectField, TextField } from '@/components/ui';
 import { ApiError, bffJson } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
+import { ContactConsentPanel } from './ContactConsentPanel';
 
 type ManualType = (typeof MANUAL_ACTIVITY_TYPES)[number];
 
@@ -338,6 +339,16 @@ export function CrmBoard({
                   </li>
                 ))}
               </ul>
+              {open.consent && (
+                <ContactConsentPanel
+                  restaurantId={restaurantId}
+                  customerId={open.contact.id}
+                  consent={open.consent}
+                  canManage={canManage}
+                  locale={locale}
+                  onChanged={() => void openContact(open.contact.id)}
+                />
+              )}
               {open.attribution && (
                 <section className="flex flex-col gap-2" aria-label={t('attribution.card.title')}>
                   <h3 className="ui-heading">{t('attribution.card.title')}</h3>

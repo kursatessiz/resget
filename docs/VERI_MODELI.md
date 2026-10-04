@@ -87,6 +87,9 @@ Sevk ayarları `restaurants.dispatchSettings` JSON alanındadır (`DispatchSetti
 |---|---|
 | `visitors` | `(restaurantId, id)`; `id` ölçüm izniyle yazılan `rg_vid` çerezi. Sipariş, kayıt veya formla kişiye bağlanır. |
 | `touchpoints` | Bir ziyaretin kaynağı: host ve yol (sorgu dizesi yok), yönlendiren host, UTM, kendi kampanya kimlikleri, reklam platformu, tıklama kimlikleri (yalnızca reklam izniyle), cihaz türü, kaba ülke, masa, kişi. IP saklanmaz. |
+| `contact_consents` | Ticari ileti izni: kanal, izin veya ret, dayanak, kaynak, not, form sürümü, onay isteği ve onay zamanı, sicil kaydı zamanı. Yalnızca ekleme; kanalın son satırı durumdur. Ayrıntılar: `docs/RIZA.md`. |
+| `consent_confirmations` | Çift onay bağlantısı; yalnızca belirteç özeti, 7 gün, tek kullanım. |
+| `marketing_settings` | Kiracının günlük ve haftalık sınırı, çift onay bölgeleri, tacir muafiyeti. |
 | `conversion_events` | İlk / tekrar sipariş, aday, restoran kaydı, ilk ödeme; `(restaurantId, sourceKind, sourceId)` tekil, tutar ve para birimi, atfedilen ziyaret. Ayrıntılar: `docs/ATIF.md`. |
 
 ## Migration kuralları

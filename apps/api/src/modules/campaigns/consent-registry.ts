@@ -1,4 +1,4 @@
-import type { ConsentRegistryAdapter, RegistryChannel } from '@resget/shared';
+import type { ConsentRegistryAdapter, RegistryChannel, RegistryConsentRecord } from '@resget/shared';
 
 export const CONSENT_REGISTRY = Symbol('CONSENT_REGISTRY');
 
@@ -13,5 +13,10 @@ export class MockConsentRegistry implements ConsentRegistryAdapter {
 
   async allowed(_countryCode: string, _channel: RegistryChannel, phones: readonly string[]): Promise<Set<string>> {
     return new Set(phones);
+  }
+
+  /** Registration is a no-op until the real registry is contracted; the decision is still marked synced. */
+  async record(_entry: RegistryConsentRecord): Promise<void> {
+    return;
   }
 }

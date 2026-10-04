@@ -2,8 +2,16 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { couponDiscountMinor, customerDeliveryFee, pointsEarnedFor, redeemableFor, formatMoney } from '@resget/shared';
+import {
+  CHECKOUT_CONSENT_CHANNELS,
+  couponDiscountMinor,
+  customerDeliveryFee,
+  pointsEarnedFor,
+  redeemableFor,
+  formatMoney,
+} from '@resget/shared';
 import type {
+  CheckoutConsentChannel,
   CustomerAddressDTO,
   StorefrontViewerDTO,
   FulfillmentTypeValue,
@@ -66,6 +74,7 @@ export function Storefront({
   const [saveLabel, setSaveLabel] = useState('');
   const [note, setNote] = useState('');
   const [marketingOptIn, setMarketingOptIn] = useState(false);
+  const [marketingChannels, setMarketingChannels] = useState<CheckoutConsentChannel[]>([]);
   const [usePoints, setUsePoints] = useState(false);
   const [couponText, setCouponText] = useState('');
   const [coupon, setCoupon] = useState<PublicCouponDTO | null>(null);
@@ -220,7 +229,8 @@ export function Storefront({
         fulfillment,
         items,
         ...(contact ? { customer: contact } : {}),
-        ...(contact && marketingOptIn ? { marketingOptIn: true } : {}),
+        ...(contact && !storefront.consentV2 && marketingOptIn ? { marketingOptIn: true } : {}),
+        ...(contact && storefront.consentV2 && marketingChannels.length > 0 ? { marketingChannels } : {}),
         ...(pointsDiscount > 0 ? { useLoyaltyPoints: true } : {}),
         ...(coupon ? { couponCode: coupon.code } : {}),
         ...(fulfillment === 'DELIVERY'
@@ -579,10 +589,32 @@ export function Storefront({
               autoComplete="tel"
               required={needsContact}
             />
-            <label className="flex items-start gap-2 md:col-span-2">
-              <input type="checkbox" checked={marketingOptIn} onChange={(e) => setMarketingOptIn(e.target.checked)} />
-              <span className="ui-caption">{t('shop.customer.marketingOptIn')}</span>
-            </label>
+            {storefront.consentV2 ? (
+              // One unticked box per channel (docs/RIZA.md): consent is specific, never bundled.
+              <div className="flex flex-col gap-2 md:col-span-2" role="group" aria-label={t('consent.checkout.title')}>
+                <span className="ui-caption">{t('consent.checkout.title')}</span>
+                {CHECKOUT_CONSENT_CHANNELS.map((channel) => (
+                  <label key={channel} className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      className="pui-checkbox"
+                      checked={marketingChannels.includes(channel)}
+                      onChange={(e) =>
+                        setMarketingChannels((current) =>
+                          e.target.checked ? [...current, channel] : current.filter((c) => c !== channel),
+                        )
+                      }
+                    />
+                    <span className="ui-caption">{t(`consent.checkout.${channel}`)}</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <label className="flex items-start gap-2 md:col-span-2">
+                <input type="checkbox" checked={marketingOptIn} onChange={(e) => setMarketingOptIn(e.target.checked)} />
+                <span className="ui-caption">{t('shop.customer.marketingOptIn')}</span>
+              </label>
+            )}
           </fieldset>
 
           {fulfillment === 'DELIVERY' && (

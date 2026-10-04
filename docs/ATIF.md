@@ -56,7 +56,7 @@ Platform dönüşümleri yalnızca platform kiracısı kurulu ve onda `attributi
 
 ## Platform aday formu
 
-Açılış sayfasında "Restoranınız için bilgi alın" kartı, platform kiracısında `marketing_platform` ve `contacts_crm` açıkken görünür. `POST /public/platform/leads`: ad, telefon, restoran adı, isteğe bağlı il ve ilçe, aydınlatma metni onayı (zorunlu). Yeni veya bilinen telefon için yanıt aynıdır (204), form kişi sorgulamak için kullanılamaz. İstemci adresi başına 10 dakikada 5 istek. Her gönderim kişiye `FORM` etkinliği yazar; `lead` dönüşümü kişi başına bir kezdir.
+Açılış sayfasında "Restoranınız için bilgi alın" kartı, platform kiracısında `marketing_platform` ve `contacts_crm` açıkken görünür. `POST /public/platform/leads`: ad, telefon, restoran adı, isteğe bağlı il ve ilçe, aydınlatma metni onayı (zorunlu). Yeni veya bilinen telefon için yanıt aynıdır (204), form kişi sorgulamak için kullanılamaz. İstemci adresi başına 10 dakikada 5 istek. Her gönderim kişiye `FORM` etkinliği yazar; `lead` dönüşümü kişi başına bir kezdir. Formda ayrı ve işaretsiz bir SMS pazarlama izni kutusu vardır; işaretlenirse izin `SITE_FORM` kaynağıyla yazılır (`docs/RIZA.md`). Formdan ve kayıttan gelen kişiler işletme (tacir) olarak açılır.
 
 ## Rapor
 

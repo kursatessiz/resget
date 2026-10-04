@@ -5,6 +5,7 @@ import {
   COMPLETED_ORDER_STATUSES,
   PLATFORM_CONVERSION_TYPES,
   PLATFORM_DEFAULT_STAGES,
+  PLATFORM_LEAD_FORM_VERSION,
   RESTAURANT_CONVERSION_TYPES,
   VisitorIdSchema,
   aggregateAttribution,
@@ -26,6 +27,7 @@ import type {
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { FeatureFlagsService } from '../features/feature-flags.service';
+import { ConsentService } from '../consent/consent.service';
 
 /** Request facts the tracking endpoint passes in; the IP address is never among them. */
 export interface TouchpointMeta {
@@ -76,6 +78,7 @@ export class AttributionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly features: FeatureFlagsService,
+    private readonly consent: ConsentService,
   ) {}
 
   // -- Tenants -------------------------------------------------------------------------
@@ -367,6 +370,8 @@ export class AttributionService {
         district: data.district ?? null,
         source: data.source,
         stageId: stage?.id ?? null,
+        // Contacts of the platform are restaurant owners: merchants for the TR exemption (docs/RIZA.md).
+        isBusiness: true,
         lastActivityAt: new Date(),
       },
       select: { id: true },
@@ -468,6 +473,15 @@ export class AttributionService {
       }),
       this.prisma.restaurantCustomer.update({ where: { id: customerId }, data: { lastActivityAt: new Date() } }),
     ]);
+    if (input.marketingConsent) {
+      await this.consent.grant({
+        restaurantId: platformId,
+        customerId,
+        channels: ['SMS'],
+        source: 'SITE_FORM',
+        formVersion: PLATFORM_LEAD_FORM_VERSION,
+      });
+    }
     await this.identify(platformId, visitorId, customerId);
     await this.recordSafely({
       restaurantId: platformId,
