@@ -25,6 +25,7 @@ Silinenler (tek işlemde):
 - Kurye konumu ve konum izi; personel üyelikleri `PASSIVE` olur ve kişi personel listelerinden çıkar.
 - Her restorandaki müşteri kaydında pazarlama izni (vazgeçme zamanı yazılır, vazgeçme bağlantısı geçersiz olur), restoranın notu ve etiketleri, sadakat puanı (bakiye `ADJUSTMENT` satırıyla sıfırlanır). Sipariş sayısı ve ciro sayaçları restoranın raporları için kalır; kayıt müşteri listesinde artık görünmez.
 - Siparişlerdeki müşteri notu ve teslimat adresinin kişiyi tanımlayan kısmı (sokak, kişi adı, telefon, konum); il ve ilçe raporlar için kalır. Değerlendirmelerde puan kalır, yorum silinir.
+- Kişinin tavsiye kodu ve kullanılmamış ödül kuponları kapatılır (`docs/TAVSIYE.md`); kullanılmış kuponlar kayıt için kalır.
 - Kullanıcı satırında ad, e-posta ve dil; telefon `deleted:<kullanıcı kimliği>` biçiminde bir mezar taşıyla değiştirilir ve `deletedAt` damgalanır.
 
 Saklananlar ve gerekçesi:

@@ -223,6 +223,11 @@ export class PrivacyService {
           loyaltyPoints: 0,
         },
       });
+      // A deleted account shares no code and keeps no reward (docs/TAVSIYE.md); used coupons stay for the books.
+      await tx.coupon.updateMany({
+        where: { OR: [{ referrer: { userId } }, { owner: { userId } }] },
+        data: { isActive: false },
+      });
 
       // Kept orders lose what identifies the person; the area stays for reports.
       const orders = await tx.order.findMany({

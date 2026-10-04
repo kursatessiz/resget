@@ -80,6 +80,9 @@ export const trFeatures = {
   'features.blog.name': 'Blog',
   'features.blog.description':
     'Platform sitesinde blog yazıları (/blog), yazı başına yapılandırılmış veri ve site haritası; sayfa motoru açık olmalıdır.',
+  'features.referrals.name': 'Müşteri tavsiyesi',
+  'features.referrals.description':
+    'Müşterinin kişisel davet kodu, arkadaşa ilk siparişte indirim ve davet edene ödül kuponu; kuponlar modülü ve PRO plan gerekir.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',

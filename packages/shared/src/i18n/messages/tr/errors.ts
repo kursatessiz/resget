@@ -102,6 +102,8 @@ export const trErrors = {
   'errors.AD_CREDENTIALS_INVALID': 'Hesap bilgileri eksik veya tanınmayan bir alan var.',
   'errors.AD_CREDENTIALS_REFUSED': 'Reklam platformu bu bilgileri kabul etmedi. Kimlikleri ve jetonu kontrol edin.',
   'errors.AD_CONNECTION_NOT_FOUND': 'Bu platform için bağlı hesap yok.',
+  'errors.COUPON_OWN_REFERRAL': 'Kendi davet kodunuzu kullanamazsınız.',
+  'errors.REFERRAL_NOT_AVAILABLE': 'Bu restoranda sizin için bir tavsiye programı yok.',
   'errors.SITE_PAGE_NOT_FOUND': 'Sayfa bulunamadı.',
   'errors.SITE_PAGE_PATH_TAKEN': 'Bu dilde aynı adreste başka bir sayfa var.',
   'errors.PLATFORM_ONLY': 'Bu işlem yalnızca platform kiracısında yapılabilir.',

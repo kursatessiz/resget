@@ -46,6 +46,7 @@ export function Storefront({
   locale,
   source,
   viewer = null,
+  initialCouponCode = null,
 }: {
   storefront: StorefrontDTO;
   locale: string;
@@ -53,6 +54,8 @@ export function Storefront({
   source: { kind: 'qr'; token: string } | { kind: 'site' };
   /** The signed-in customer, when there is one: name, phone and saved addresses prefill the form. */
   viewer?: StorefrontViewerDTO | null;
+  /** A code from a shared invite link (?kod=, docs/TAVSIYE.md); it only fills the coupon field. */
+  initialCouponCode?: string | null;
 }) {
   const t = useT(locale);
   const router = useRouter();
@@ -76,7 +79,7 @@ export function Storefront({
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [marketingChannels, setMarketingChannels] = useState<CheckoutConsentChannel[]>([]);
   const [usePoints, setUsePoints] = useState(false);
-  const [couponText, setCouponText] = useState('');
+  const [couponText, setCouponText] = useState(initialCouponCode ?? '');
   const [coupon, setCoupon] = useState<PublicCouponDTO | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [startedSent, setStartedSent] = useState(false);
@@ -488,6 +491,9 @@ export function Storefront({
                   {t('shop.coupon.apply')}
                 </Button>
               </div>
+            )}
+            {!coupon && initialCouponCode && couponText === initialCouponCode && (
+              <p className="ui-caption">{t('referrals.shop.prefilled')}</p>
             )}
             {coupon && subtotal < coupon.minBasketMinor && (
               <p className="ui-caption">{t('shop.coupon.minimum', { amount: money(coupon.minBasketMinor) })}</p>

@@ -51,7 +51,8 @@ export class CouponsService {
 
   async list(restaurantId: string): Promise<CouponDTO[]> {
     const [rows, restaurant, given] = await Promise.all([
-      this.prisma.coupon.findMany({ where: { restaurantId }, orderBy: { createdAt: 'desc' } }),
+      // Personal referral codes and reward coupons live with the referral programme (docs/TAVSIYE.md).
+      this.prisma.coupon.findMany({ where: { restaurantId, source: 'MANUAL' }, orderBy: { createdAt: 'desc' } }),
       this.prisma.restaurant.findUniqueOrThrow({ where: { id: restaurantId }, select: { currency: true } }),
       this.prisma.couponRedemption.groupBy({
         by: ['couponId'],
@@ -97,7 +98,10 @@ export class CouponsService {
   }
 
   async setActive(restaurantId: string, actorUserId: string, couponId: string, isActive: boolean): Promise<CouponDTO> {
-    const updated = await this.prisma.coupon.updateMany({ where: { id: couponId, restaurantId }, data: { isActive } });
+    const updated = await this.prisma.coupon.updateMany({
+      where: { id: couponId, restaurantId, source: 'MANUAL' },
+      data: { isActive },
+    });
     if (updated.count === 0) throw notFound('COUPON_NOT_FOUND', 'Coupon not found');
     await this.audit(restaurantId, actorUserId, isActive ? 'coupon.resume' : 'coupon.pause', couponId, {});
     const coupon = (await this.list(restaurantId)).find((c) => c.id === couponId);
@@ -108,7 +112,7 @@ export class CouponsService {
   /** Only a coupon nobody used goes away; a used one stays for the books and is paused instead. */
   async remove(restaurantId: string, actorUserId: string, couponId: string): Promise<void> {
     const coupon = await this.prisma.coupon.findFirst({
-      where: { id: couponId, restaurantId },
+      where: { id: couponId, restaurantId, source: 'MANUAL' },
       select: { id: true, code: true, _count: { select: { redemptions: true } } },
     });
     if (!coupon) throw notFound('COUPON_NOT_FOUND', 'Coupon not found');
@@ -163,6 +167,9 @@ export class CouponsService {
           where: { couponId: coupon.id, customerId: customer.id, releasedAt: null },
         })
       : 0;
+    // A reward coupon is its owner's alone; to anyone else it does not exist (docs/TAVSIYE.md).
+    if (coupon.ownerCustomerId && coupon.ownerCustomerId !== customer?.id) this.refuse('COUPON_NOT_FOUND');
+    if (coupon.referrerCustomerId && coupon.referrerCustomerId === customer?.id) this.refuse('COUPON_OWN_REFERRAL');
     const refusal = couponRefusal(this.terms(coupon), {
       now: new Date(),
       itemsGrossMinor,
@@ -258,6 +265,13 @@ export class CouponsService {
     });
     const coupon = await db.coupon.findUnique({ where: { restaurantId_code: { restaurantId, code } } });
     if (!coupon) this.refuse('COUPON_NOT_FOUND');
+    // A personal code works only while the referral module and the programme are on; rewards already given stay usable.
+    if (coupon.source === 'REFERRAL') {
+      const program = await db.referralProgram.findUnique({ where: { restaurantId }, select: { isActive: true } });
+      if (!program?.isActive || !(await this.features.isEnabled('referrals', restaurantId))) {
+        this.refuse('COUPON_NOT_FOUND');
+      }
+    }
     return { coupon, currency: restaurant.currency };
   }
 

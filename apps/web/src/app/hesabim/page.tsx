@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { AccountPanel } from '@/components/AccountPanel';
+import { MyReferrals } from '@/components/MyReferrals';
 import { ThemeRoot } from '@/components/ThemeRoot';
 import { getLocale } from '@/lib/i18n';
 import { getMe } from '@/lib/api-server';
@@ -13,6 +14,7 @@ export default async function AccountPage() {
     <ThemeRoot tenantTheme={null}>
       <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-8">
         <AccountPanel locale={locale} />
+        <MyReferrals locale={locale} />
       </main>
     </ThemeRoot>
   );

@@ -454,6 +454,8 @@ model Restaurant {
   orderRatings         OrderRating[]
   loyaltyTransactions  LoyaltyTransaction[]
   coupons              Coupon[]
+  referralProgram      ReferralProgram?
+  referralRewards      ReferralReward[]
   posConnection        PosConnection?
   posOrderSyncs        PosOrderSync[]
   pipelineStages       PipelineStage[]
@@ -779,6 +781,10 @@ model RestaurantCustomer {
   consentConfirmations ConsentConfirmation[]
   segmentMembers       SegmentMember[]
   journeyRuns          JourneyRun[]
+  referralCode         Coupon?               @relation("ReferralCode")
+  rewardCoupons        Coupon[]              @relation("RewardCoupon")
+  referralsMade        ReferralReward[]      @relation("Referrer")
+  referredBy           ReferralReward[]      @relation("ReferredFriend")
 
   @@unique([restaurantId, userId])
   @@index([restaurantId, lastOrderAt])
@@ -1079,6 +1085,7 @@ model Order {
   ledgerEntries       LedgerEntry[]
   loyaltyTransactions LoyaltyTransaction[]
   couponRedemption    CouponRedemption?
+  referralReward      ReferralReward?
   posSync             PosOrderSync?
   rating              OrderRating?
   deliveryRequest     DeliveryRequest?
@@ -1756,32 +1763,43 @@ model AuditLog {
 
 /// A restaurant-funded discount code (docs/KUPONLAR.md). Rules are fixed once created; only isActive changes.
 model Coupon {
-  id               String    @id @default(uuid())
-  restaurantId     String
+  id                 String    @id @default(uuid())
+  restaurantId       String
   /// Upper case, unique per restaurant.
-  code             String
+  code               String
   /// PERCENT or AMOUNT (COUPON_KINDS in shared).
-  kind             String
-  percentBps       Int?
-  maxDiscountMinor Int?
-  amountMinor      Int?
-  minBasketMinor   Int       @default(0)
-  firstOrderOnly   Boolean   @default(false)
-  perCustomerLimit Int       @default(1)
-  maxRedemptions   Int?
+  kind               String
+  percentBps         Int?
+  maxDiscountMinor   Int?
+  amountMinor        Int?
+  minBasketMinor     Int       @default(0)
+  firstOrderOnly     Boolean   @default(false)
+  perCustomerLimit   Int       @default(1)
+  maxRedemptions     Int?
   /// Uses that still count; raised atomically with the order, lowered when the order is cancelled.
-  redemptionCount  Int       @default(0)
-  startsAt         DateTime?
-  endsAt           DateTime?
-  isActive         Boolean   @default(true)
-  createdByUserId  String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  redemptionCount    Int       @default(0)
+  startsAt           DateTime?
+  endsAt             DateTime?
+  isActive           Boolean   @default(true)
+  /// MANUAL, REFERRAL (a customer's personal code) or REFERRAL_REWARD (COUPON_SOURCES in shared, docs/TAVSIYE.md).
+  source             String    @default("MANUAL")
+  /// REFERRAL: the customer who shares this code; one personal code per customer.
+  referrerCustomerId String?   @unique
+  /// REFERRAL_REWARD: the only customer who may use it.
+  ownerCustomerId    String?
+  createdByUserId    String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  restaurant  Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  restaurant  Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  referrer    RestaurantCustomer? @relation("ReferralCode", fields: [referrerCustomerId], references: [id], onDelete: Cascade)
+  owner       RestaurantCustomer? @relation("RewardCoupon", fields: [ownerCustomerId], references: [id], onDelete: Cascade)
   redemptions CouponRedemption[]
+  reward      ReferralReward?
 
   @@unique([restaurantId, code])
+  @@index([restaurantId, source])
+  @@index([ownerCustomerId])
   @@map("coupons")
 }
 
@@ -2343,4 +2361,51 @@ model SitePage {
   @@index([restaurantId, translationKey])
   @@index([restaurantId, kind, status, publishedAt])
   @@map("site_pages")
+}
+
+/// A restaurant's customer referral programme (docs/TAVSIYE.md): the friend's first-order discount and the referrer's reward.
+model ReferralProgram {
+  id                     String   @id @default(uuid())
+  restaurantId           String   @unique
+  isActive               Boolean  @default(false)
+  /// PERCENT or AMOUNT; personal codes copy these terms.
+  friendKind             String
+  friendPercentBps       Int?
+  friendMaxDiscountMinor Int?
+  friendAmountMinor      Int?
+  friendMinBasketMinor   Int      @default(0)
+  rewardAmountMinor      Int
+  rewardValidDays        Int      @default(90)
+  monthlyCapPerReferrer  Int      @default(10)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("referral_programs")
+}
+
+/// A friend's completed first order with a personal code, and what the referrer got for it.
+model ReferralReward {
+  id                 String   @id @default(uuid())
+  restaurantId       String
+  referrerCustomerId String
+  friendCustomerId   String
+  orderId            String   @unique
+  /// GRANTED or SKIPPED_CAP (REFERRAL_REWARD_STATUSES in shared).
+  status             String
+  rewardCouponId     String?  @unique
+  valueMinor         Int      @default(0)
+  currency           String
+  createdAt          DateTime @default(now())
+
+  restaurant   Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  referrer     RestaurantCustomer @relation("Referrer", fields: [referrerCustomerId], references: [id], onDelete: Cascade)
+  friend       RestaurantCustomer @relation("ReferredFriend", fields: [friendCustomerId], references: [id], onDelete: Cascade)
+  order        Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  rewardCoupon Coupon?            @relation(fields: [rewardCouponId], references: [id], onDelete: SetNull)
+
+  @@index([referrerCustomerId, createdAt])
+  @@index([restaurantId, createdAt])
+  @@map("referral_rewards")
 }

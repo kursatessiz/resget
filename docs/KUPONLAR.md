@@ -39,6 +39,10 @@ Her oluşturma, durdurma, açma ve silme denetim kaydına yazılır.
 - `/panel/<slug>/kuponlar`: kupon listesi (durum, kurallar, kullanım ve toplam indirim), yeni kupon formu, durdur / aç / sil. Menü bağlantısı anahtar açıkken görünür.
 - Menü sayfası: sepette "Kupon kodu" kutusu; kod uygulanınca indirim satırı ve toplam güncellenir, alt sınır ve ilk sipariş notları gösterilir.
 
+## Tavsiye kuponları
+
+Müşteri tavsiyesi (`docs/TAVSIYE.md`) kuponların üzerine kuruludur: müşterinin kişisel kodu `source = REFERRAL`, davet edene verilen ödül `source = REFERRAL_REWARD` olan kuponlardır. İkisi de panelin kupon listesinde görünmez ve buradan durdurulamaz; kişisel kod kendi sahibince kullanılamaz (`COUPON_OWN_REFERRAL`), ödül kuponu yalnızca sahibinin telefonuyla kullanılır.
+
 ## Henüz yok
 
 Bir alana bir bedava, belirli ürüne bedava ürün ve ücretsiz teslimat kuponu; müşteriye özel tek kullanımlık kod üretimi (kampanya mesajıyla); otomatik sepet indirimi (kodsuz).
