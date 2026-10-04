@@ -124,7 +124,9 @@ export class SegmentsService {
     const inUse = await this.prisma.campaign.count({
       where: { restaurantId, segmentId: row.id, status: { in: ['DRAFT', 'SCHEDULED', 'SENDING'] } },
     });
-    if (inUse > 0) throw conflict('SEGMENT_IN_USE', 'A campaign still to send targets this segment');
+    // A flow would lose its filter and, worse, its SET NULL would widen it to everyone.
+    const flows = await this.prisma.journey.count({ where: { restaurantId, segmentId: row.id } });
+    if (inUse > 0 || flows > 0) throw conflict('SEGMENT_IN_USE', 'A campaign or flow targets this segment');
     await this.prisma.segment.delete({ where: { id: row.id } });
   }
 

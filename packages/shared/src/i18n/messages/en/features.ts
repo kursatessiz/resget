@@ -65,6 +65,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.campaigns_v2.name': 'Campaigns v2',
   'features.campaigns_v2.description':
     'Email campaigns, A/B tests, best send hour per recipient, conversions and attributed revenue.',
+  'features.journeys.name': 'Automated flows',
+  'features.journeys.description':
+    'Post-order thank you, first order, review request and win-back messages, under the consent, hour and credit rules.',
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',

@@ -466,6 +466,7 @@ model Restaurant {
   emailDomains         EmailDomain[]
   emailSuppressions    EmailSuppression[]
   segments             Segment[]
+  journeys             Journey[]
   touchpoints          Touchpoint[]
   conversionEvents     ConversionEvent[]
   couponRedemptions    CouponRedemption[]
@@ -774,6 +775,7 @@ model RestaurantCustomer {
   consents             ContactConsent[]
   consentConfirmations ConsentConfirmation[]
   segmentMembers       SegmentMember[]
+  journeyRuns          JourneyRun[]
 
   @@unique([restaurantId, userId])
   @@index([restaurantId, lastOrderAt])
@@ -1082,6 +1084,8 @@ model Order {
   claims              OrderClaim[]
 
   campaignConversion CampaignRecipient?
+  journeyRuns        JourneyRun[]       @relation("JourneyRunOrder")
+  journeyConversion  JourneyRun?        @relation("JourneyRunConversion")
 
   @@index([restaurantId, placedAt])
   @@index([restaurantId, status])
@@ -2148,6 +2152,7 @@ model Segment {
   restaurant Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   members    SegmentMember[]
   campaigns  Campaign[]
+  journeys   Journey[]
 
   @@unique([restaurantId, name])
   @@map("segments")
@@ -2164,4 +2169,70 @@ model SegmentMember {
   @@id([segmentId, customerId])
   @@index([customerId])
   @@map("segment_members")
+}
+
+// ---------------------------------------------------------------------------
+// Automated flows (docs/AKISLAR.md)
+// ---------------------------------------------------------------------------
+
+/// One automated message: a trigger (JOURNEY_TRIGGERS in shared) sends it to one customer after a delay.
+model Journey {
+  id              String         @id @default(uuid())
+  restaurantId    String
+  name            String
+  trigger         String
+  channel         MessageChannel
+  subject         String?
+  body            String
+  delayHours      Int            @default(0)
+  /// WIN_BACK only: days without an order.
+  inactiveDays    Int?
+  cooldownDays    Int            @default(30)
+  attributionDays Int            @default(3)
+  segmentId       String?
+  /// ACTIVE or PAUSED; a new flow starts paused.
+  status          String         @default("PAUSED")
+  lastError       String?
+  /// WIN_BACK: when the audience was last scanned.
+  lastScanAt      DateTime?
+  createdByUserId String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  restaurant Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  segmentRef Segment?     @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+  runs       JourneyRun[]
+
+  @@index([restaurantId, createdAt])
+  @@index([status, trigger])
+  @@map("journeys")
+}
+
+/// One customer in one flow: due at a moment, then sent, skipped, failed or cancelled; credited like a campaign message.
+model JourneyRun {
+  id               String    @id @default(uuid())
+  journeyId        String
+  customerId       String
+  /// The order that triggered it (order triggers); one run per flow and order.
+  orderId          String?
+  dueAt            DateTime
+  status           String    @default("PENDING")
+  errorCode        String?
+  messageLogId     String?
+  sentAt           DateTime?
+  convertedOrderId String?   @unique
+  convertedAt      DateTime?
+  revenueMinor     Int?
+  createdAt        DateTime  @default(now())
+
+  journey        Journey            @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  customer       RestaurantCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order          Order?             @relation("JourneyRunOrder", fields: [orderId], references: [id], onDelete: SetNull)
+  convertedOrder Order?             @relation("JourneyRunConversion", fields: [convertedOrderId], references: [id], onDelete: SetNull)
+
+  @@unique([journeyId, orderId])
+  @@index([status, dueAt])
+  @@index([journeyId, customerId, createdAt])
+  @@index([customerId, sentAt])
+  @@map("journey_runs")
 }

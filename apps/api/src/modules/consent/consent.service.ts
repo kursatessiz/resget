@@ -463,14 +463,17 @@ export class ConsentService {
     const sentDay = new Map<string, number>();
     const sentWeek = new Map<string, number>();
     if (enabled) {
-      const sent = await this.prisma.campaignRecipient.findMany({
-        where: {
-          customerId: { in: [...customerIds] },
-          status: 'SENT',
-          sentAt: { gte: new Date(now.getTime() - 7 * DAY_MS) },
-        },
-        select: { customerId: true, sentAt: true },
-      });
+      // Campaign and automated flow messages both count towards the caps (docs/AKISLAR.md).
+      const recent = {
+        customerId: { in: [...customerIds] },
+        status: 'SENT' as const,
+        sentAt: { gte: new Date(now.getTime() - 7 * DAY_MS) },
+      };
+      const [campaignSent, flowSent] = await Promise.all([
+        this.prisma.campaignRecipient.findMany({ where: recent, select: { customerId: true, sentAt: true } }),
+        this.prisma.journeyRun.findMany({ where: recent, select: { customerId: true, sentAt: true } }),
+      ]);
+      const sent = [...campaignSent, ...flowSent];
       for (const s of sent) {
         sentWeek.set(s.customerId, (sentWeek.get(s.customerId) ?? 0) + 1);
         if (s.sentAt && s.sentAt.getTime() >= now.getTime() - DAY_MS)

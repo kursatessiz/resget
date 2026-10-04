@@ -26,7 +26,7 @@ Kampanya gönderiminde her alıcı için sırayla:
 
 1. **Etkin kanal.** WhatsApp modülü kapalıyken WhatsApp kampanyası SMS olarak gider; izin, kitle ve sicil de SMS için denetlenir. Yalnızca WhatsApp izni veren müşteriye asla SMS gitmez.
 2. **İzin** (`evaluateCommercialEligibility`). Ret varsa `OPTED_OUT`; onay bekleyen izin `CONSENT_UNCONFIRMED`; kapatılmış muafiyet `EXEMPTION_DISABLED`; karar yoksa `NO_CONSENT`.
-3. **Gönderim sınırı** (modül açıkken). Son 24 saatte ve son 7 günde gönderilen kampanya mesajı sayısı restoranın sınırına ulaştıysa `FREQUENCY_CAP`. Varsayılan günde 1, haftada 3; restoran günde en fazla 3, haftada en fazla 10'a kadar ayarlar.
+3. **Gönderim sınırı** (modül açıkken). Son 24 saatte ve son 7 günde gönderilen kampanya ve otomatik akış mesajı sayısı (`docs/AKISLAR.md`) restoranın sınırına ulaştıysa `FREQUENCY_CAP`. Varsayılan günde 1, haftada 3; restoran günde en fazla 3, haftada en fazla 10'a kadar ayarlar.
 4. **Bölgesel sicil.** Yalnızca sicilin kapsadığı kanallarda sorulur (`docs/KAMPANYALAR.md`). İYS bugün SMS, arama ve e-posta tutar; WhatsApp İYS'de yoktur. Onaylamazsa `CONSENT_REGISTRY`.
 
 Atlanan alıcı `SKIPPED` ve gerekçe koduyla kampanya ayrıntısında görünür. Sessiz saat kuralı değişmedi.

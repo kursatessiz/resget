@@ -65,6 +65,9 @@ export const trFeatures = {
   'features.campaigns_v2.name': 'Kampanyalar v2',
   'features.campaigns_v2.description':
     'E-posta kampanyası, A/B testi, alıcı başına en iyi gönderim saati, dönüşüm ve atfedilen ciro.',
+  'features.journeys.name': 'Otomatik akışlar',
+  'features.journeys.description':
+    'Sipariş sonrası teşekkür, ilk sipariş, değerlendirme isteği ve geri kazanım mesajları; izin, saat ve kredi kurallarıyla.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',
