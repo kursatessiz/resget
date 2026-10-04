@@ -269,8 +269,13 @@ export function Storefront({
         : availability.busyExtraMinutes > 0
           ? t('shop.availability.busy', { minutes: ordering.defaultPrepMinutes + availability.busyExtraMinutes })
           : null;
+  // Delivery zone (docs/VITRIN.md): the minimum is checked here too; the radius only the API can check.
+  const zone = ordering.deliveryZone;
+  const belowMinimum =
+    fulfillment === 'DELIVERY' && zone !== null && zone.minBasketMinor > 0 && subtotal < zone.minBasketMinor;
   const canSubmit =
     availability.accepting &&
+    !belowMinimum &&
     cart.length > 0 &&
     selectedPayment !== null &&
     (!needsContact || (fullName.trim().length > 0 && phone.trim().length > 0)) &&
@@ -520,6 +525,14 @@ export function Storefront({
           {fulfillment === 'DELIVERY' && (
             <fieldset className="grid gap-3 md:grid-cols-2">
               <legend className="ui-heading">{t('shop.address.title')}</legend>
+              {zone && (
+                <p className="ui-caption md:col-span-2" data-delivery-zone>
+                  {t('shop.zone.radius', {
+                    km: new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(zone.radiusMeters / 1000),
+                  })}
+                  {zone.minBasketMinor > 0 && ` ${t('shop.zone.minimum', { amount: money(zone.minBasketMinor) })}`}
+                </p>
+              )}
               {viewer && viewer.addresses.length > 0 && (
                 <SelectField
                   id="sf-saved-address"

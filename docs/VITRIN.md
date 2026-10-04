@@ -58,6 +58,16 @@ Restoran, sipariş sayfasını kendi alan adında (örneğin `siparis.restoranim
 - Sertifika: Caddy `on_demand_tls` ile ilk ziyarette sertifika alır; önce `GET /public/domains/check?domain=` sorulur ve yalnızca 200 dönen host için istenir, böylece bize ait olmayan bir ad için hiçbir zaman sertifika istenmez. Sunucu tarafında ek bir işlem gerekmez; DNS A kaydı yerine CNAME önerilir.
 - Testte `DOMAIN_VERIFIER=MOCK`: `.verified.test` ile biten her host platforma işaret ediyor sayılır.
 
+## Teslimat bölgesi
+
+`delivery_zones` modül anahtarının arkasındadır (`docs/OZELLIK_ANAHTARLARI.md`), varsayılanı kapalıdır. Anahtar kapalıyken teslimat eskisi gibi çalışır: yarıçap ve alt sınır yoktur, ücreti ücret politikası belirler; kayıtlı bölge saklanır ama uygulanmaz.
+
+- **Yarıçap**: şubeden adrese düz çizgi mesafesi (`haversineMeters`). Adresin noktası yoksa önce geokodlanır (yukarıda "Adres geokodlama"); yarıçap dışındaki teslimat `409 DELIVERY_OUT_OF_ZONE` ile reddedilir.
+- **En az sepet**: ürünlerin toplamı (teslimat ücreti hariç) alt sınırın altındaysa teslimat `409 MIN_BASKET_NOT_MET` ile reddedilir; menü sayfası alt sınırı gösterir ve sepet yetmediğinde sipariş düğmesini kapatır. Gel al ve masaya sipariş bu kurallara takılmaz.
+- **Mesafe bantları**: yalnızca kendi kuryesiyle (`RESTAURANT_COURIER`) teslimatta; adresin düştüğü bandın ücreti alınır (içten dışa, en fazla 8 bant, sonuncusu yarıçapa ulaşır). Ücret politikası `FREE_ABOVE` ise eşiğin üstündeki sepet yine ücretsizdir. Bant yoksa ücret politikası geçerlidir; kurye ağıyla teslimatta ücret her zaman ağın teklifinden gelir.
+- **Kural yeri**: `packages/shared/src/delivery-zone.ts` (`DeliveryZoneSchema`, `deliveryZoneRefusal`, `zoneDeliveryFee`); API `DeliveryZoneService`. Personelin girdiği telefon ve kasa siparişleri kurallara takılmaz.
+- **Uçlar**: `GET` / `PUT /restaurants/:id/delivery-zone` (`restaurant.settings.view` / `restaurant.settings.manage`, anahtar gerekir; `{ zone: { radiusMeters, minBasketMinor, bands: [{ upToMeters, feeMinor }] } | null }`), her değişiklik denetim kaydına yazılır. Menü yanıtında `ordering.deliveryZone`, anahtar açıkken bölgeyi taşır. Panelde ayarlar sayfasında "Teslimat bölgesi" kartı anahtar açıkken görünür.
+
 ## Müşteri hesabı (`/hesabim`)
 
 Telefon numarası hesaptır; masa QR'ından veya restoran sayfasından giriş aynı OTP akışıdır (`/giris?kayit=1&next=...`). Giriş yapmış ziyaretçi için vitrin ad ve telefonu önceden doldurur, eve teslimde kayıtlı adresleri seçtirir (varsayılan adres hazır gelir, koordinatı varsa siparişe geçer) ve yeni adresi isteğe bağlı olarak hesaba kaydeder. `/hesabim`: ad, kayıtlı adresler (ekle, varsayılan yap, sil; liste hiçbir zaman varsayılansız kalmaz), sadakat puanları (restoran başına bakiye ve bugünkü değeri, `docs/SADAKAT.md`), son 50 sipariş ve takip bağlantıları, çıkış. Sadakat programı olan restoranda sepet özeti bakiyeyi, "puan kullan" kutusunu ve bu siparişle kazanılacak puanı gösterir; puan harcayan sipariş `useLoyaltyPoints` ile gider ve sipariş uçları giriş yapmış ziyaretçiyi isteğe bağlı kimlik doğrulamayla tanır.

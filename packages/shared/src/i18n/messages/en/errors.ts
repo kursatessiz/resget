@@ -109,4 +109,6 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.PLAN_NOT_FOUND': 'Plan not found.',
   'errors.RESTAURANT_NOT_FOUND': 'Restaurant not found.',
   'errors.RESTAURANT_NOT_ACCEPTING': 'The restaurant is not taking orders right now.',
+  'errors.DELIVERY_OUT_OF_ZONE': 'This address is outside the delivery zone of the restaurant.',
+  'errors.MIN_BASKET_NOT_MET': 'The basket is below the minimum for delivery.',
 };

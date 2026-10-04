@@ -68,4 +68,6 @@ export const enShop: Record<keyof typeof trShop, string> = {
   'shop.availability.closed': 'The restaurant is closed right now. It opens at {time}.',
   'shop.availability.closedNoTime': 'The restaurant is closed right now.',
   'shop.availability.busy': 'The restaurant is busy; preparation may take about {minutes} min.',
+  'shop.zone.minimum': 'Minimum basket for delivery: {amount}.',
+  'shop.zone.radius': 'Delivers up to {km} km from the branch.',
 };
