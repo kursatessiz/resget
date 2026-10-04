@@ -59,6 +59,19 @@ Müşteri uçları: `GET /me/payment-methods`, `POST /me/payment-methods/link`, 
 
 Yemek kartlarında üye işyeri her zaman restorandır; restoran kabul ettiği kartları seçer, çevrim içi ödeme için kuruluşun API bilgilerini bağlar (POS bağlantısıyla aynı şifreleme ve doğrulama), kapıda kabul için yalnızca işaretler. Yemek kartı, nakit ve kapıda kart ödemeleri restoranın `paymentMode`'undan bağımsız olarak `OWN_POS` gibi hesaplanır (komisyon faturalanır, PSP ve tevkifat sıfır). Ödeme adımı (hosted oturum, imzalı webhook, kapıda tahsilat) ve uçlar: `docs/YEMEK_KARTI.md`.
 
+## 3b. İade
+
+Para her zaman geldiği yoldan geri döner (`RefundsService`, kurallar `packages/shared/src/refunds.ts`):
+
+- **Çevrim içi ödeme** (kart veya çevrim içi yemek kartı) onu tahsil eden bağlantı üzerinden iade edilir: `OWN_POS`'ta restoranın kendi POS bağlantısının, yemek kartında kuruluş hesabının bilgileriyle (bağlantı sonradan pasife alınmış olsa bile bilgiler duruyorsa), `PLATFORM_PSP`'de platformun kendi üye işyeriyle. Adaptörün `refund(credentials, providerRef, amountMinor)` çağrısı kullanılır; iyzico'da `providerRef` ödeme işlem kimliği, PayTR'de `merchant_oid`'dir. Bağlantı yoksa `REFUND_UNAVAILABLE`: iade sağlayıcının panelinden yapılır.
+- **Kapıda alınan para** (nakit, kapıda kart, kapıda yemek kartı) restoranın kasasındadır; personel tutarı müşteriye elden verdikten sonra iadeyi onaylar, platform yalnızca kaydeder. Bu ödemeler asla kendiliğinden iade edilmez.
+- **İptalde otomatik iade**: `REJECTED`, `CANCELLED_BY_RESTAURANT` veya `CANCELLED_BY_CUSTOMER` geçişi işlendikten hemen sonra yakalanmış çevrim içi ödeme iade edilir. Başarısız deneme iptali geri almaz; ödeme `refundFailureCode` ile işaretlenir (`REFUND_DECLINED`, `REFUND_PROVIDER_ERROR`, `REFUND_UNAVAILABLE`), panelde görünür ve API içindeki tarama (dakikada bir, `REFUND_RETRY=off` ile kapanır) 5, 15, 60 ve 240 dakika arayla yeniden dener; son denemeden sonra karar personelindir. Müşteri iptal mesajının içinde ödemesinin iade edildiğini veya edileceğini okur; ayrı mesaj yoktur.
+- **Tamamlanmış siparişte iade** yalnızca personel isteğiyle olur: `POST /restaurants/:id/orders/:orderId/refund` (`orders.refund`, gövde `{ reason }`, gerekçe zorunlu). Müşteriye `order.refunded` mesajı gider.
+- **Tek seferde bir deneme**: her ödeme ağ geçidi çağrısından önce atomik olarak sahiplenilir (`refundRequestedAt`); iki ekran veya tarama aynı ödemeyi iki kez iade edemez. Yanıt vermeden kalan bir sahiplenme 5 dakika sonra bırakılır; sağlayıcılar zaten iade edilmiş işlemi reddeder.
+- İade her zaman ödemenin kalan tutarının tamamıdır; kısmi iade sonraki iştir. Siparişin yakalanmış parası kalmadığında sipariş `REFUNDED` olur; bu durum yalnızca iade ucu veya sağlayıcının iade bildirimiyle gelir, çıplak durum geçişiyle (`/transition`) gelmez (`REFUND_NOT_ALLOWED`).
+- Sağlayıcının kendi panelinden yapılan iade, imzalı `REFUNDED` bildirimiyle aynı şekilde kapanır; tekrarlanan bildirim etkisizdir, iadeden sonra gelen geç bir yakalama bildirimi yok sayılır.
+- Defter: `PLATFORM_PSP` ile tahsil edilmiş ve tamamlanmış siparişin iadesi bir sonraki hakedişten düşer (`docs/MUTABAKAT.md`); tamamlanmadan iade edilen sipariş restorana hiç alacak yazmadığı için defterde iz bırakmaz. `OWN_POS`'ta iade edilen sipariş tamamlanmış sayılmaz ve henüz kesilmemiş aylık faturaya girmez.
+
 ## 4. Komisyon faturası (`OWN_POS`)
 
 - Her tamamlanan siparişin üzerindeki `platformCommissionMinor` ve `commissionVatMinor` değerleri (yerleştirme anı anlık görüntüsü) ay sonunda tek faturaya toplanır (`buildCommissionStatement`, UTC takvim ayı). Oran sonradan değişse geçmiş ay değişmez.
@@ -77,7 +90,7 @@ Yemek kartlarında üye işyeri her zaman restorandır; restoran kabul ettiği k
 
 ## 6. Backlog
 
-- A4: iyzico ve PayTR gateway adaptörleri yazıldı (yukarıda); kalan: Param ve Sipay adaptörleri, sandbox hesabıyla canlı doğrulama, Masterpass ve bex kasa adaptörleri, yemek kartı kuruluşlarının gerçek adaptörleri. Ödeme adımının çekirdeği (niyet, hosted oturum, webhook, kapıda tahsilat) `docs/YEMEK_KARTI.md` ile kuruldu.
+- A4: iyzico ve PayTR gateway adaptörleri ve iade akışı (bölüm 3b) yazıldı; kalan: kısmi iade, Param ve Sipay adaptörleri, sandbox hesabıyla canlı doğrulama (iade dahil), Masterpass ve bex kasa adaptörleri, yemek kartı kuruluşlarının gerçek adaptörleri. Ödeme adımının çekirdeği (niyet, hosted oturum, webhook, kapıda tahsilat) `docs/YEMEK_KARTI.md` ile kuruldu.
 - A5 tamamlandı (`docs/FATURALAMA.md`); kalan: gerçek e-Arşiv entegratörü adaptörü.
 - B4: `PLATFORM_PSP` pazaryeri ürünü, PSP token kasası, tevkifat beyanı. Defter satırları ve haftalık hakediş planlaması hazır (`docs/MUTABAKAT.md`); kalan ödeme sağlayıcısı adaptörü.
 - Hukuk: `OWN_POS` modunda tevkifat yükümlülüğünün olmadığının vergi danışmanıyla teyidi; Masterpass ve bex üye işyeri sözleşmeleri.

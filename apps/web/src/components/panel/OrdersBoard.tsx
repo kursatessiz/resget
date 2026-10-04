@@ -62,10 +62,12 @@ export function OrdersBoard({
   restaurantId,
   locale,
   canManage,
+  canRefund = false,
 }: {
   restaurantId: string;
   locale: string;
   canManage: boolean;
+  canRefund?: boolean;
 }) {
   const t = useT(locale);
   const [orders, setOrders] = useState<Map<string, OrderSummaryDTO>>(new Map());
@@ -155,6 +157,22 @@ export function OrdersBoard({
     }
   };
 
+  const refund = async (order: OrderSummaryDTO, reason: string) => {
+    setBusyId(order.id);
+    setError(null);
+    try {
+      const updated = await bffJson<OrderDetailDTO>(`${base}/${order.id}/refund`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+      upsert(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? t(`errors.${err.code}`) : t('common.error.network'));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const list = [...orders.values()].sort((a, b) => b.placedAt.localeCompare(a.placedAt));
   const bySection = new Map<SectionKey, OrderSummaryDTO[]>(SECTIONS.map((key) => [key, []]));
   for (const order of list) bySection.get(SECTION_OF[order.status])!.push(order);
@@ -196,8 +214,10 @@ export function OrdersBoard({
                   locale={locale}
                   t={t}
                   canManage={canManage && !isTerminalOrderStatus(order.status)}
+                  canRefund={canRefund}
                   busy={busyId === order.id}
                   onTransition={(o, to, extra) => void transition(o, to, extra)}
+                  onRefund={(o, reason) => void refund(o, reason)}
                 />
               ))}
             </section>

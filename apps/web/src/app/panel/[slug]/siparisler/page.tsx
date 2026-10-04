@@ -6,5 +6,12 @@ export default async function OrdersPage({ params }: { params: Promise<{ slug: s
   const { slug } = await params;
   const { membership, can } = await requireMembership(slug, 'orders.view');
   const locale = await getLocale();
-  return <OrdersBoard restaurantId={membership.restaurantId} locale={locale} canManage={can('orders.manage')} />;
+  return (
+    <OrdersBoard
+      restaurantId={membership.restaurantId}
+      locale={locale}
+      canManage={can('orders.manage')}
+      canRefund={can('orders.refund')}
+    />
+  );
 }

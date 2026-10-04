@@ -98,6 +98,8 @@ export const EnvSchema = z
     ORDER_WATCHDOG: z.enum(['on', 'off']).default('on'),
     /** The in-process campaign queue (docs/KAMPANYALAR.md). */
     CAMPAIGN_RUNNER: z.enum(['on', 'off']).default('on'),
+    /** The retry sweep for refunds of cancelled online orders (docs/ODEME.md 3b). */
+    REFUND_RETRY: z.enum(['on', 'off']).default('on'),
     /** Outbound webhook deliveries (docs/API_ERISIMI.md); off when another process drains the queue. */
     WEBHOOK_RUNNER: z.enum(['on', 'off']).default('on'),
     /** Requests one API key may make per minute (docs/API_ERISIMI.md). */

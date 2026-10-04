@@ -1029,6 +1029,14 @@ model Payment {
   savedPaymentMethodId String?
   /// Staff member or courier who recorded a collection at the door or the counter.
   collectedByUserId    String?
+  /// A refund attempt holds this claim while its gateway call is in flight (docs/ODEME.md, "İade").
+  refundRequestedAt    DateTime?
+  refundLastAttemptAt  DateTime?
+  refundAttempts       Int           @default(0)
+  /// Machine code of the last failed refund attempt; cleared when a refund succeeds.
+  refundFailureCode    String?
+  refundedAt           DateTime?
+  refundProviderRef    String?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
@@ -1040,6 +1048,7 @@ model Payment {
   @@index([restaurantId, createdAt])
   @@index([orderId])
   @@index([providerRef])
+  @@index([status, refundFailureCode])
   @@map("payments")
 }
 

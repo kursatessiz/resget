@@ -8,9 +8,14 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
     '{restaurant}: your order {code} is accepted and will be ready in about {minutes} min. Track it: {url}',
   'messaging.template.order.readyForPickup': '{restaurant}: your order {code} is ready for pickup.',
   'messaging.template.order.outForDelivery': '{restaurant}: your order is on its way. Follow the courier live: {url}',
-  'messaging.template.order.rejected': '{restaurant}: unfortunately your order {code} could not be accepted.{reason}',
-  'messaging.template.order.cancelled': '{restaurant}: your order {code} was cancelled.{reason}',
+  'messaging.template.order.rejected':
+    '{restaurant}: unfortunately your order {code} could not be accepted.{reason}{refund}',
+  'messaging.template.order.cancelled': '{restaurant}: your order {code} was cancelled.{reason}{refund}',
+  'messaging.template.order.refunded':
+    '{restaurant}: the payment for your order {code} has been refunded. Your bank may take a few days to show it.',
   'messaging.template.reasonSuffix': ' Reason: {reason}',
+  'messaging.template.refundSuffix.done': ' Your payment has been refunded.',
+  'messaging.template.refundSuffix.pending': ' Your payment will be refunded.',
   'messaging.template.listing.approved':
     '{restaurant}: your marketplace listing is approved. Customers in your district can now find you.{note}',
   'messaging.template.listing.declined':
@@ -60,6 +65,7 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
   'messaging.log.template.order.outForDelivery': 'Order on its way',
   'messaging.log.template.order.rejected': 'Order rejected',
   'messaging.log.template.order.cancelled': 'Order cancelled',
+  'messaging.log.template.order.refunded': 'Order refunded',
   'messaging.log.error.INSUFFICIENT_CREDITS': 'Insufficient credits',
   'messaging.log.error.PROVIDER_REJECTED': 'Rejected by the provider',
   'messaging.log.error.PROVIDER_ERROR': 'Provider error',
@@ -81,9 +87,15 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
   'messaging.push.order.completed.title': 'Enjoy your meal',
   'messaging.push.order.completed.body': 'Your {restaurant} order is complete. You can rate it in a few seconds.',
   'messaging.push.order.rejected.title': 'Your order could not be accepted',
-  'messaging.push.order.rejected.body': '{restaurant}: unfortunately order {code} could not be accepted.{reason}',
+  'messaging.push.order.rejected.body':
+    '{restaurant}: unfortunately order {code} could not be accepted.{reason}{refund}',
   'messaging.push.order.cancelled.title': 'Your order was cancelled',
-  'messaging.push.order.cancelled.body': '{restaurant}: order {code} was cancelled.{reason}',
+  'messaging.push.order.cancelled.body': '{restaurant}: order {code} was cancelled.{reason}{refund}',
+  'messaging.push.order.refunded.title': 'Your payment has been refunded',
+  'messaging.push.order.refunded.body':
+    '{restaurant}: the payment for order {code} has been refunded. Your bank may take a few days to show it.',
+  'messaging.push.refundSuffix.done': ' Your payment has been refunded.',
+  'messaging.push.refundSuffix.pending': ' Your payment will be refunded.',
   'messaging.push.trip.assigned.title': 'New trip',
   'messaging.push.trip.assigned.body': '{restaurant}: a trip with {count} stops was assigned to you.',
   'messaging.push.order.placed.title': 'New order {code}',

@@ -26,6 +26,14 @@ export const trErrors = {
   'errors.MENU_ITEM_UNAVAILABLE': 'Sepetteki bir ürün şu anda satışta değil.',
   'errors.PAYMENT_METHOD_NOT_ACCEPTED': 'İşletme bu ödeme yöntemini kabul etmiyor.',
   'errors.PAYMENT_STATE_INVALID': 'Bu sipariş için ödeme işlemi bu aşamada yapılamaz.',
+  'errors.REFUND_NOT_ALLOWED':
+    'Bu sipariş için iade yapılamaz: iade edilecek ödeme yok, sipariş henüz kapanmadı veya zaten iade edildi.',
+  'errors.REFUND_IN_PROGRESS': 'Bu siparişin iadesi şu anda işleniyor.',
+  'errors.REFUND_DECLINED': 'Ödeme sağlayıcısı iadeyi reddetti. Sağlayıcının panelinden kontrol edip yeniden deneyin.',
+  'errors.REFUND_PROVIDER_ERROR':
+    'Ödeme sağlayıcısına ulaşılamadı. İade kısa süre sonra kendiliğinden yeniden denenir; şimdi tekrar da deneyebilirsiniz.',
+  'errors.REFUND_UNAVAILABLE':
+    'Bu ödemenin alındığı bağlantı artık kullanılamıyor; iadeyi ödeme sağlayıcısının panelinden yapın.',
   'errors.MEAL_CARD_PROVIDER_UNAVAILABLE': 'Bu yemek kartı için çevrim içi ödeme entegrasyonu henüz hazır değil.',
   'errors.WEBHOOK_INVALID': 'Ödeme bildirimi doğrulanamadı.',
   'errors.MENU_CATEGORY_NOT_FOUND': 'Kategori bulunamadı.',
