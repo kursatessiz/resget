@@ -87,6 +87,11 @@ export const enAdmin: Record<keyof typeof trAdmin, string> = {
   'admin.areas.readyToLaunch': 'Ready to launch',
   'admin.areas.target': 'Target restaurants',
   'admin.areas.saveTarget': 'Save target',
+  'admin.areas.neighbours': 'Neighbouring districts',
+  'admin.areas.neighboursHelp':
+    'List the neighbouring districts of the same city, separated by commas. Neighbours of a launched district come first among the candidates.',
+  'admin.areas.saveNeighbours': 'Save neighbours',
+  'admin.areas.candidates.nextToLaunched': 'Next to a launched district',
   'admin.areas.candidates.title': 'Candidate districts',
   'admin.areas.candidates.intro':
     'Districts with registered restaurants or marketplace interest but no service area yet. The next launch is picked here.',

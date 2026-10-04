@@ -195,6 +195,8 @@ export const UpdateServiceAreaSchema = z
     isLaunched: z.boolean().optional(),
     /** Restaurants with a sellable menu the district should have before it opens (docs/PLATFORM_YONETIMI.md). */
     launchTarget: z.number().int().min(1).max(500).optional(),
+    /** Districts of the same city that border this one: growth goes to them next (docs/YOL_HARITASI.md). */
+    neighbourDistricts: z.array(z.string().trim().min(2).max(80)).max(30).optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, { message: 'empty update' });
@@ -207,6 +209,8 @@ export interface AreaCandidateDTO {
   district: string;
   restaurants: number;
   interest: number;
+  /** Borders a launched district: the next step of neighbour-district growth. */
+  nextToLaunched: boolean;
 }
 
 export interface ServiceAreaDTO {
@@ -226,6 +230,7 @@ export interface ServiceAreaDTO {
   /** Marketplace visitors who asked for this district. */
   interest: number;
   readyToLaunch: boolean;
+  neighbourDistricts: string[];
 }
 
 export const UpdatePlanSchema = z

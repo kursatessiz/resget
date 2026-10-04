@@ -86,6 +86,11 @@ export const trAdmin = {
   'admin.areas.readyToLaunch': 'Lansmana hazır',
   'admin.areas.target': 'Hedef restoran',
   'admin.areas.saveTarget': 'Hedefi kaydet',
+  'admin.areas.neighbours': 'Komşu ilçeler',
+  'admin.areas.neighboursHelp':
+    'Aynı ildeki komşu ilçeleri virgülle ayırarak yazın. Lansmanlı ilçenin komşuları aday listesinde öne çıkar.',
+  'admin.areas.saveNeighbours': 'Komşuları kaydet',
+  'admin.areas.candidates.nextToLaunched': 'Lansmanlı ilçeye komşu',
   'admin.areas.candidates.title': 'Aday ilçeler',
   'admin.areas.candidates.intro':
     'Hizmet alanı olmadığı halde kayıtlı restoranı veya pazaryerinde talebi olan ilçeler. Sıradaki lansman buradan seçilir.',
