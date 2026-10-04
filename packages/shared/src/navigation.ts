@@ -30,6 +30,7 @@ export const PANEL_NAV: readonly PanelNavItem[] = [
   { key: 'loyalty', path: '/sadakat', permission: 'loyalty.view', feature: 'loyalty' },
   { key: 'coupons', path: '/kuponlar', permission: 'campaigns.view', feature: 'coupons' },
   { key: 'segments', path: '/segmentler', permission: 'campaigns.view', feature: 'segments_v2' },
+  { key: 'journeys', path: '/akislar', permission: 'campaigns.view', feature: 'journeys' },
   { key: 'reports', path: '/raporlar', permission: 'reports.view' },
   { key: 'attribution', path: '/atif', permission: 'reports.view', feature: 'attribution' },
   { key: 'subscription', path: '/plan', permission: 'subscription.manage' },

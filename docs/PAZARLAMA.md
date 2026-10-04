@@ -44,7 +44,7 @@ Her işlem denetim kaydına yazılır (`platform.setup`, `platform.user.*`).
 5. E-posta kanalı ve gönderici alan adları (SPF, DKIM, DMARC), geri dönen ve şikayet bastırma (tamamlandı, `docs/EPOSTA.md`, anahtar `email_channel`).
 6. Segmentler v2: kural dili (VE / VEYA), dinamik ve statik segment, önizleme (tamamlandı, `docs/SEGMENTLER.md`, anahtar `segments_v2`).
 7. Kampanyalar v2: e-posta, A/B, gönderim saati, dönüşüm ve atfedilen gelir (tamamlandı, `docs/KAMPANYALAR.md`, anahtar `campaigns_v2`; açılma ve tıklama ölçümü sonraki adım).
-8. Akışlar (otomasyon): sipariş sonrası teşekkür, geri kazanım, doğum günü, değerlendirme isteği, deneme bitişi (B2B).
+8. Akışlar (otomasyon): sipariş sonrası teşekkür, geri kazanım, doğum günü, değerlendirme isteği, deneme bitişi (B2B). Teşekkür, ilk sipariş, değerlendirme isteği ve geri kazanım tamamlandı (`docs/AKISLAR.md`, anahtar `journeys`); doğum günü (doğum tarihi toplama kararı bekliyor) ve deneme bitişi sonraki adım.
 9. Huniler ve platform KPI panosu: masa QR, pazaryeri ve B2B hunisi, ilçe kırılımı.
 10. Reklam entegrasyonları ve dönüşüm API'leri (Meta CAPI, Google Ads, TikTok), harcama eşitleme.
 11. Sayfa motoru ve SEO: platform sitesi, ilçe ve mutfak açılış sayfaları, site haritası, hreflang, yapılandırılmış veri.

@@ -133,6 +133,8 @@ export type ApiErrorCode =
   | 'SEGMENT_IN_USE'
   | 'CAMPAIGN_CONTENT_INVALID'
   | 'EMAIL_DOMAIN_NOT_VERIFIED'
+  | 'JOURNEY_NOT_FOUND'
+  | 'JOURNEY_CONTENT_INVALID'
   | 'RATE_LIMITED';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {

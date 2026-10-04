@@ -7,6 +7,7 @@ export const enMarketing: Record<keyof typeof trMarketing, string> = {
   'marketing.nav.contacts': 'Contacts',
   'marketing.nav.campaigns': 'Campaigns',
   'marketing.nav.segments': 'Segments',
+  'marketing.nav.journeys': 'Flows',
   'marketing.nav.backToConsole': 'Back to the console',
   'marketing.role.marketing_admin': 'Marketing admin',
   'marketing.role.marketing_editor': 'Marketing editor',

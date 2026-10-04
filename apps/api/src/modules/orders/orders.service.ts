@@ -58,6 +58,7 @@ import { LoyaltyService } from '../loyalty/loyalty.service';
 import { COUPON_RELEASE_STATUSES, CouponsService } from '../coupons/coupons.service';
 import { ConsentService } from '../consent/consent.service';
 import { CampaignAttributionService } from '../campaigns/campaign-attribution.service';
+import { JourneysService } from '../journeys/journeys.service';
 import type { PreparedCoupon } from '../coupons/coupons.service';
 import { GeocodingService } from '../geocoding/geocoding.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
@@ -155,6 +156,7 @@ export class OrdersService {
     private readonly coupons: CouponsService,
     private readonly consent: ConsentService,
     private readonly campaignAttribution: CampaignAttributionService,
+    private readonly journeys: JourneysService,
   ) {}
 
   /**
@@ -632,6 +634,8 @@ export class OrdersService {
     if (to === 'DELIVERED' || to === 'PICKED_UP') {
       await this.ledger.recordOrderCompletion(tx, order.id, now);
       await this.loyalty.recordCompletion(tx, order.id, now);
+      // Automated flows take the customer in (docs/AKISLAR.md); same transaction, so exactly once.
+      await this.journeys.recordCompletion(tx, order.id, now);
     }
     if (to === 'REJECTED' || to === 'CANCELLED_BY_RESTAURANT' || to === 'CANCELLED_BY_CUSTOMER' || to === 'REFUNDED') {
       await this.loyalty.recordReversal(tx, order.id, now);

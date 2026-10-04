@@ -28,6 +28,14 @@ export type CampaignVariant = (typeof CAMPAIGN_VARIANTS)[number];
 export const CAMPAIGN_VARIANT_SHARE = { min: 10, max: 90, default: 50 } as const;
 /** Days after a message within which the recipient's first order is credited to the campaign. */
 export const CAMPAIGN_ATTRIBUTION_DAYS = { min: 1, max: 14, default: 3 } as const;
+/** Orders that never became a sale do not count as conversions (campaigns and flows). */
+export const CONVERSION_EXCLUDED_ORDER_STATUSES = [
+  'PENDING_PAYMENT',
+  'CANCELLED_BY_CUSTOMER',
+  'CANCELLED_BY_RESTAURANT',
+  'REJECTED',
+  'REFUNDED',
+] as const;
 /** How far back the ordering hours are read for BEST_HOUR. */
 export const CAMPAIGN_BEST_HOUR_LOOKBACK_DAYS = 180;
 export const CAMPAIGN_BATCH_SIZE = 50;

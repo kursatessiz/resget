@@ -96,6 +96,9 @@ export const trErrors = {
     'Kampanya metni kanala uymuyor: SMS ve WhatsApp en çok 300 karakterdir ve konu almaz, e-posta konu ister.',
   'errors.EMAIL_DOMAIN_NOT_VERIFIED':
     'E-posta kampanyası için önce entegrasyon sayfasında bir gönderici alan adını doğrulayın.',
+  'errors.JOURNEY_NOT_FOUND': 'Akış bulunamadı.',
+  'errors.JOURNEY_CONTENT_INVALID':
+    'Akış metni kanala uymuyor: SMS ve WhatsApp en çok 300 karakterdir ve konu almaz, e-posta konu ister, geri kazanımda sipariş bağlantısı yoktur.',
   'errors.LOYALTY_NOT_ACTIVE': 'Bu restoranda sadakat programı etkin değil.',
   'errors.LOYALTY_NOT_REDEEMABLE': 'Bu siparişte puan kullanılamıyor: puanınız veya sipariş tutarı yeterli değil.',
   'errors.LOYALTY_SIGN_IN_REQUIRED': 'Puan kullanmak için giriş yapın.',

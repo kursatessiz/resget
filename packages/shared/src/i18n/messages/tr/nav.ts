@@ -21,6 +21,7 @@ export const trNav = {
   'nav.signOut': 'Çıkış yap',
   'nav.coupons': 'Kuponlar',
   'nav.segments': 'Segmentler',
+  'nav.journeys': 'Akışlar',
   'nav.pipeline': 'Satış hattı',
   'nav.attribution': 'Atıf',
 } as const satisfies Record<string, string>;

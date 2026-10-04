@@ -1,12 +1,11 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { randomUUID } from 'node:crypto';
+import { Injectable, Logger } from '@nestjs/common';
 import { CampaignStatus, Prisma } from '@resget/database';
 import {
   BASE_LOCALE,
   BUNDLED_MESSAGES,
   CAMPAIGN_BATCH_SIZE,
   CAMPAIGN_BEST_HOUR_LOOKBACK_DAYS,
+  CONVERSION_EXCLUDED_ORDER_STATUSES,
   CampaignSegmentSchema,
   abVariantFor,
   bestHourDueAt,
@@ -16,7 +15,6 @@ import {
   createTranslator,
   isWithinSendWindow,
   nextSendWindowStart,
-  registryCovers,
   CONSENT_CHANNELS,
 } from '@resget/shared';
 import type {
@@ -29,22 +27,18 @@ import type {
   CampaignPageDTO,
   CampaignPreviewDTO,
   CampaignSegment,
-  ConsentRegistryAdapter,
   CreateCampaignInput,
-  NotificationChannel,
   SendCampaignInput,
   UpdateCampaignInput,
   SavedSegmentDTO,
   SaveSegmentInput,
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
-import { MessagingService } from '../messaging/messaging.service';
 import { badRequest, conflict, forbidden, notFound } from '../../common/api-error';
-import { CONSENT_REGISTRY } from './consent-registry';
 import { ConsentService } from '../consent/consent.service';
 import { FeatureFlagsService } from '../features/feature-flags.service';
 import { SegmentsService } from '../segments/segments.service';
-import { EmailService } from '../email/email.service';
+import { CommercialSenderService } from './commercial-sender.service';
 
 type SegmentRow = Prisma.CampaignSegmentPresetGetPayload<Record<string, never>>;
 
@@ -76,14 +70,6 @@ const campaignSelect = Prisma.validator<Prisma.CampaignSelect>()({
 type CampaignRow = Prisma.CampaignGetPayload<{ select: typeof campaignSelect }>;
 
 const DAY_MS = 86_400_000;
-/** Orders that never became a sale do not count as conversions. */
-const NOT_A_SALE = [
-  'PENDING_PAYMENT',
-  'CANCELLED_BY_CUSTOMER',
-  'CANCELLED_BY_RESTAURANT',
-  'REJECTED',
-  'REFUNDED',
-] as const;
 /** Contacts with an address to mail: their own on the contact card or the one on their account. */
 const HAS_EMAIL: Prisma.RestaurantCustomerWhereInput = {
   OR: [{ email: { not: null } }, { user: { email: { not: null } } }],
@@ -100,13 +86,10 @@ export class CampaignsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly messaging: MessagingService,
-    private readonly config: ConfigService,
-    @Inject(CONSENT_REGISTRY) private readonly registry: ConsentRegistryAdapter,
     private readonly consent: ConsentService,
     private readonly features: FeatureFlagsService,
     private readonly savedSegments: SegmentsService,
-    private readonly email: EmailService,
+    private readonly sender: CommercialSenderService,
   ) {}
 
   /** Email, A/B, best hour and attribution belong to campaigns_v2; email also needs the email module. */
@@ -148,16 +131,6 @@ export class CampaignsService {
     }
     const parsed = CampaignSegmentSchema.safeParse(row.segment ?? {});
     return this.audienceWhere(restaurantId, parsed.success ? parsed.data : {}, now, channel);
-  }
-
-  /**
-   * The channel a campaign actually goes out on: with the WhatsApp module off
-   * the engine sends SMS, so consent, audience and registry are checked for
-   * SMS too; a WhatsApp-only consent never turns into an SMS.
-   */
-  private async effectiveChannel(restaurantId: string, channel: CampaignChannel): Promise<CampaignChannel> {
-    if (channel === 'WHATSAPP' && !(await this.features.isEnabled('whatsapp_channel', restaurantId))) return 'SMS';
-    return channel;
   }
 
   // -- Drafts --------------------------------------------------------------------------------
@@ -351,7 +324,7 @@ export class CampaignsService {
       where: { id: restaurantId },
       select: { name: true, timezone: true, defaultLocale: true },
     });
-    const channel = await this.effectiveChannel(restaurantId, row.channel as CampaignChannel);
+    const channel = await this.sender.effectiveChannel(restaurantId, row.channel as CampaignChannel);
     const audienceCount = await this.prisma.restaurantCustomer.count({
       where: await this.campaignAudienceWhere(restaurantId, row, now, channel),
     });
@@ -384,7 +357,7 @@ export class CampaignsService {
       throw conflict('CAMPAIGN_STATE_INVALID', 'Campaign was already sent or cancelled');
     }
     if (row.channel === 'EMAIL') {
-      const blocker = await this.emailBlocker(restaurantId);
+      const blocker = await this.sender.emailBlocker(restaurantId, ['campaigns_v2']);
       if (blocker === 'FEATURE_DISABLED') throw forbidden('FEATURE_DISABLED', 'Email campaigns are switched off');
       if (blocker) throw conflict(blocker, 'No verified sending domain');
     }
@@ -482,7 +455,7 @@ export class CampaignsService {
       data: { status: CampaignStatus.SENDING, startedAt: now },
     });
     if (started.count === 0) return;
-    const channel = await this.effectiveChannel(campaign.restaurantId, campaign.channel as CampaignChannel);
+    const channel = await this.sender.effectiveChannel(campaign.restaurantId, campaign.channel as CampaignChannel);
     const audience = await this.prisma.restaurantCustomer.findMany({
       where: await this.campaignAudienceWhere(campaign.restaurantId, campaign, now, channel),
       select: { id: true },
@@ -539,87 +512,54 @@ export class CampaignsService {
       await this.finish(campaign.id, now);
       return 0;
     }
-    const channel = await this.effectiveChannel(campaign.restaurantId, campaign.channel as CampaignChannel);
+    const channel = await this.sender.effectiveChannel(campaign.restaurantId, campaign.channel as CampaignChannel);
     // An email campaign pauses (and resumes by itself) while its modules are off or no domain is verified.
     if (channel === 'EMAIL') {
-      const blocker = await this.emailBlocker(campaign.restaurantId);
+      const blocker = await this.sender.emailBlocker(campaign.restaurantId, ['campaigns_v2']);
       if (blocker) {
         await this.prisma.campaign.update({ where: { id: campaign.id }, data: { lastError: blocker } });
         return 0;
       }
     }
-    // Fresh consent per recipient on the channel that will be used, and the tenant's caps (docs/RIZA.md).
-    const checks = await this.consent.checkRecipients(
+    const recipients = pending.map((r) => ({
+      id: r.id,
+      variant: r.variant,
+      contact: {
+        customerId: r.customer.id,
+        phone: r.customer.user.phone,
+        email: r.customer.email ?? r.customer.user.email ?? null,
+        locale: r.customer.user.locale,
+        marketingToken: r.customer.marketingToken,
+      },
+    }));
+    // Fresh consent, caps, registry and an address on the channel, per recipient (docs/RIZA.md).
+    const checks = await this.sender.check(
       campaign.restaurantId,
+      campaign.restaurant.countryCode,
       channel,
-      pending.map((r) => r.customer.id),
+      recipients.map((r) => r.contact),
       now,
     );
-    // The registry knows a contact by the address of the channel: the phone, or the e-mail address for EMAIL.
-    const addressOf = (r: (typeof pending)[number]): string | null =>
-      channel === 'EMAIL' ? (r.customer.email ?? r.customer.user.email ?? null) : r.customer.user.phone;
-    const eligible = pending
-      .filter((r) => checks.get(r.customer.id) === null)
-      .map(addressOf)
-      .filter((a): a is string => a !== null);
-    // Only channels the country's registry keeps are checked there (IYS: SMS, calls, e-mail; not WhatsApp yet).
-    const allowed = registryCovers(campaign.restaurant.countryCode, channel)
-      ? await this.registry.allowed(campaign.restaurant.countryCode, channel, eligible)
-      : new Set(eligible);
     let sent = 0;
-    for (const recipient of pending) {
-      const customer = recipient.customer;
-      const refusal = checks.get(customer.id) ?? null;
-      const address = addressOf(recipient);
-      if (address === null) {
-        await this.markRecipient(recipient.id, campaign.id, 'SKIPPED', 'NO_EMAIL');
+    for (const recipient of recipients) {
+      const refusal = checks.get(recipient.contact.customerId) ?? null;
+      if (refusal !== null) {
+        await this.markRecipient(recipient.id, campaign.id, 'SKIPPED', refusal);
         continue;
       }
-      if (refusal !== null || !allowed.has(address)) {
-        await this.markRecipient(recipient.id, campaign.id, 'SKIPPED', refusal ?? 'CONSENT_REGISTRY');
-        continue;
-      }
-      const token = customer.marketingToken ?? (await this.ensureToken(customer.id));
-      const locale = customer.user.locale ?? campaign.restaurant.defaultLocale;
       const content = this.contentFor(campaign, recipient.variant === 'B' ? 'B' : 'A');
-      if (channel === 'EMAIL') {
-        const mail = await this.email.send({
-          restaurantId: campaign.restaurantId,
-          to: address,
-          kind: 'COMMERCIAL',
-          templateKey: 'campaign',
-          params: { subject: content.subject ?? '', body: content.body },
-          locale,
-          customerId: customer.id,
-          unsubscribeUrl: this.unsubscribeUrl(token),
-        });
-        if (mail.status === 'SENT') {
-          sent += 1;
-          await this.markRecipient(recipient.id, campaign.id, 'SENT', null, mail.logId ?? undefined, now);
-        } else {
-          await this.markRecipient(
-            recipient.id,
-            campaign.id,
-            mail.status === 'SKIPPED' ? 'SKIPPED' : 'FAILED',
-            mail.errorCode ?? 'FAILED',
-            mail.logId ?? undefined,
-          );
-        }
-        continue;
-      }
-      const result = await this.messaging.send({
+      const result = await this.sender.deliver({
         restaurantId: campaign.restaurantId,
-        channel: channel as NotificationChannel,
-        to: customer.user.phone,
-        templateKey: 'campaign.body',
-        params: { restaurant: campaign.restaurant.name, body: content.body, url: this.optOutUrl(token) },
-        locale,
-        billable: true,
-        fallbackToSms: false,
+        restaurantName: campaign.restaurant.name,
+        defaultLocale: campaign.restaurant.defaultLocale,
+        channel,
+        recipient: recipient.contact,
+        body: content.body,
+        subject: content.subject,
       });
       if (result.status === 'SENT') {
         sent += 1;
-        await this.markRecipient(recipient.id, campaign.id, 'SENT', null, result.logId, now);
+        await this.markRecipient(recipient.id, campaign.id, 'SENT', null, result.logId ?? undefined, now);
         continue;
       }
       if (result.errorCode === 'INSUFFICIENT_CREDITS') {
@@ -627,7 +567,13 @@ export class CampaignsService {
         await this.prisma.campaign.update({ where: { id: campaign.id }, data: { lastError: 'INSUFFICIENT_CREDITS' } });
         return sent;
       }
-      await this.markRecipient(recipient.id, campaign.id, 'FAILED', result.errorCode ?? 'FAILED', result.logId);
+      await this.markRecipient(
+        recipient.id,
+        campaign.id,
+        result.status === 'SKIPPED' ? 'SKIPPED' : 'FAILED',
+        result.errorCode ?? 'FAILED',
+        result.logId ?? undefined,
+      );
     }
     if (pending.length < CAMPAIGN_BATCH_SIZE) await this.finish(campaign.id, now);
     return sent;
@@ -694,21 +640,6 @@ export class CampaignsService {
     return parsed.success ? parsed.data : {};
   }
 
-  private async ensureToken(customerId: string): Promise<string> {
-    const token = randomUUID();
-    await this.prisma.restaurantCustomer.update({ where: { id: customerId }, data: { marketingToken: token } });
-    return token;
-  }
-
-  private optOutUrl(token: string): string {
-    return `${this.config.getOrThrow<string>('PUBLIC_APP_URL').replace(/\/+$/, '')}/iptal/${token}`;
-  }
-
-  /** The List-Unsubscribe address: a one-click POST opts out (RFC 8058), opening it shows the opt-out page. */
-  private unsubscribeUrl(token: string): string {
-    return `${this.config.getOrThrow<string>('PUBLIC_APP_URL').replace(/\/+$/, '')}/api/iptal/${token}`;
-  }
-
   private contentFor(row: CampaignRow, variant: CampaignVariant): { body: string; subject: string | null } {
     if (variant === 'B' && row.variantBody)
       return { body: row.variantBody, subject: row.variantSubject ?? row.subject };
@@ -718,7 +649,7 @@ export class CampaignsService {
   private example(row: CampaignRow, variant: CampaignVariant, restaurant: string, locale: string): string {
     const content = this.contentFor(row, variant);
     if (row.channel === 'EMAIL') return `${content.subject ?? ''}\n\n${content.body}`;
-    return this.render(content.body, restaurant, this.optOutUrl('ornek'), locale);
+    return this.render(content.body, restaurant, this.sender.optOutUrl('ornek'), locale);
   }
 
   /**
@@ -753,17 +684,6 @@ export class CampaignsService {
     return due;
   }
 
-  /** Why an email campaign cannot go out now, or null when it can. */
-  private async emailBlocker(restaurantId: string): Promise<'FEATURE_DISABLED' | 'EMAIL_DOMAIN_NOT_VERIFIED' | null> {
-    const [v2, email] = await Promise.all([
-      this.features.isEnabled('campaigns_v2', restaurantId),
-      this.features.isEnabled('email_channel', restaurantId),
-    ]);
-    if (!v2 || !email) return 'FEATURE_DISABLED';
-    const verified = await this.prisma.emailDomain.count({ where: { restaurantId, status: 'VERIFIED' } });
-    return verified > 0 ? null : 'EMAIL_DOMAIN_NOT_VERIFIED';
-  }
-
   /** Per variant: delivery counts, credited first orders and their revenue (docs/KAMPANYALAR.md "Dönüşüm"). */
   async results(restaurantId: string, campaignId: string): Promise<CampaignResultsDTO> {
     await this.features.assertEnabled('campaigns_v2', restaurantId);
@@ -779,7 +699,7 @@ export class CampaignsService {
         where: {
           campaignId: row.id,
           convertedOrderId: { not: null },
-          convertedOrder: { status: { notIn: [...NOT_A_SALE] } },
+          convertedOrder: { status: { notIn: [...CONVERSION_EXCLUDED_ORDER_STATUSES] } },
         },
         select: { variant: true, revenueMinor: true },
       }),

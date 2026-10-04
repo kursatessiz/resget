@@ -97,6 +97,7 @@ export const MARKETING_NAV: readonly MarketingNavItem[] = [
   { key: 'tasks', path: '/gorevler', permission: 'platform.marketing.view', feature: 'contacts_crm' },
   { key: 'campaigns', path: '/kampanyalar', permission: 'platform.marketing.view', feature: 'campaigns' },
   { key: 'segments', path: '/segmentler', permission: 'platform.marketing.view', feature: 'segments_v2' },
+  { key: 'journeys', path: '/akislar', permission: 'platform.marketing.view', feature: 'journeys' },
   { key: 'attribution', path: '/atif', permission: 'platform.marketing.view', feature: 'attribution' },
 ];
 
