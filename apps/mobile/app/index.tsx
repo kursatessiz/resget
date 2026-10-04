@@ -3,7 +3,12 @@ import { ActivityIndicator, View } from 'react-native';
 import { tabsFor } from '@/lib/tabs';
 import { useSession } from '@/state/session';
 
-const TAB_ROUTES = { courier: '/(app)/kurye', orders: '/(app)/siparisler', account: '/(app)/hesap' } as const;
+const TAB_ROUTES = {
+  courier: '/(app)/kurye',
+  orders: '/(app)/siparisler',
+  myOrders: '/(app)/siparislerim',
+  account: '/(app)/hesap',
+} as const;
 
 /** Entry: wait for the stored session, then sign-in or the role tabs. */
 export default function Index() {

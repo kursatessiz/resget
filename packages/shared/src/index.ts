@@ -8,6 +8,7 @@ export * from './payments';
 export * from './meal-cards';
 export * from './courier';
 export * from './delivery';
+export * from './tracking-steps';
 export * from './table-qr';
 export * from './menu';
 export * from './restaurant';

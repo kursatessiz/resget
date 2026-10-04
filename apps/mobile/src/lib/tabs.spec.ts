@@ -16,10 +16,10 @@ const membership = (restaurantId: string, status: MembershipSummaryDTO['status']
 });
 
 describe('mobile navigation', () => {
-  it('builds tabs from permissions and always offers the account', () => {
-    expect(tabsFor(['courier.deliver', 'orders.view'])).toEqual(['courier', 'orders', 'account']);
-    expect(tabsFor(['orders.view'])).toEqual(['orders', 'account']);
-    expect(tabsFor([])).toEqual(['account']);
+  it('builds tabs from permissions and always offers own orders and the account', () => {
+    expect(tabsFor(['courier.deliver', 'orders.view'])).toEqual(['courier', 'orders', 'myOrders', 'account']);
+    expect(tabsFor(['orders.view'])).toEqual(['orders', 'myOrders', 'account']);
+    expect(tabsFor([])).toEqual(['myOrders', 'account']);
   });
 
   it('opens the last chosen active restaurant, else the first active one', () => {
