@@ -30,6 +30,7 @@ const tripArgs = Prisma.validator<Prisma.DeliveryTripDefaultArgs>()({
       include: { order: { select: { id: true, status: true, addressSnapshot: true } } },
     },
     courier: { include: { user: { select: { id: true, fullName: true, phone: true } }, courierLocation: true } },
+    branch: { select: { lat: true, lng: true } },
   },
 });
 type TripRow = Prisma.DeliveryTripGetPayload<typeof tripArgs>;
@@ -699,11 +700,12 @@ export class DispatchService {
     if (trip.status === 'IN_PROGRESS' && trip.courier?.courierLocation) {
       return { lat: trip.courier.courierLocation.lat, lng: trip.courier.courierLocation.lng };
     }
-    const branch = await this.prisma.branch.findUnique({
-      where: { id: trip.branchId },
-      select: { lat: true, lng: true },
-    });
-    return branch && branch.lat !== null && branch.lng !== null ? { lat: branch.lat, lng: branch.lng } : null;
+    return this.pickupPointOf(trip);
+  }
+
+  private pickupPointOf(trip: TripRow): GeoPoint | null {
+    const { lat, lng } = trip.branch;
+    return lat !== null && lng !== null ? { lat, lng } : null;
   }
 
   private routable(stop: StopRow): RoutableStop {
@@ -746,6 +748,7 @@ export class DispatchService {
       branchId: trip.branchId,
       status: trip.status,
       sequenceMode: trip.sequenceMode,
+      pickupPoint: this.pickupPointOf(trip),
       courier: trip.courier
         ? {
             membershipId: trip.courier.id,

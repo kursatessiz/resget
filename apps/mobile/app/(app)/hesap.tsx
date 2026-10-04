@@ -7,6 +7,7 @@ import { APP_VERSION } from '@/lib/config';
 import { useT } from '@/lib/i18n';
 import { stopTracking } from '@/lib/location-tracker';
 import { unregisterPushDevice } from '@/lib/push';
+import { useNavigationApp } from '@/lib/use-navigation-app';
 import { useSession } from '@/state/session';
 
 /** Who is signed in, which restaurant the app works in, and the switcher between memberships. */
@@ -16,7 +17,9 @@ export default function Account() {
   const { me, membership, chooseRestaurant, signOut, api } = useSession();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const navigation = useNavigationApp();
   if (!me) return null;
+  const courier = membership?.permissions.includes('courier.deliver') ?? false;
   const active = me.memberships.filter((m) => m.status === 'ACTIVE');
   const leave = () =>
     Promise.all([stopTracking(), unregisterPushDevice(api)]).finally(() =>
@@ -64,6 +67,20 @@ export default function Account() {
           />
         ))}
       </Card>
+      {courier && (
+        <Card title={t('mobile.courier.navApp.title')}>
+          <Body muted>{t('mobile.courier.navApp.intro')}</Body>
+          {navigation.options.map((app) => (
+            <Button
+              key={app}
+              label={t(`mobile.courier.navApp.${app}`)}
+              onPress={() => navigation.choose(app)}
+              variant={app === navigation.app ? 'solid' : 'outline'}
+              tone={app === navigation.app ? 'theme' : 'muted'}
+            />
+          ))}
+        </Card>
+      )}
       <Button label={t('mobile.switcher.signOut')} variant="outline" tone="warn" onPress={() => void leave()} />
       <Card title={t('account.privacy.title')}>
         <Body muted>{t('mobile.account.deleteIntro')}</Body>

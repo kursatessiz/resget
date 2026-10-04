@@ -2,10 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { DeliveryStopDTO, DeliveryTripDTO } from '@resget/shared';
+import { TripMap, useInAppMap } from '@/components/trip-map';
 import { Body, Button, Caption, Card, Field, Notice, Screen, Title } from '@/components/ui';
 import { ApiError } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { startTracking, stopTracking } from '@/lib/location-tracker';
+import { navigationUrl } from '@/lib/trip-map';
+import { useNavigationApp } from '@/lib/use-navigation-app';
 import { useSession } from '@/state/session';
 
 type Action =
@@ -28,7 +31,7 @@ function nextAction(trip: DeliveryTripDTO): Action {
   return { kind: 'done' };
 }
 
-/** Stops in order with the single action button (docs/SIPARIS_VE_SEVK.md, section 7). */
+/** Stops in order with the single action button and the trip map (docs/SIPARIS_VE_SEVK.md, section 7; docs/MOBIL.md). */
 export default function TripScreen() {
   const t = useT();
   const router = useRouter();
@@ -39,6 +42,8 @@ export default function TripScreen() {
   const [busy, setBusy] = useState(false);
   const [failing, setFailing] = useState<DeliveryStopDTO | null>(null);
   const [reason, setReason] = useState('');
+  const showMap = useInAppMap();
+  const navigation = useNavigationApp();
   const base = membership ? `restaurants/${membership.restaurantId}/courier/me/trips/${tripId}` : null;
 
   const load = useCallback(async () => {
@@ -142,6 +147,7 @@ export default function TripScreen() {
           />
         </Card>
       )}
+      {trip && showMap && <TripMap trip={trip} />}
       {stops.map((stop) => (
         <Card key={stop.id} title={t('mobile.courier.stop', { sequence: stop.sequence, code: stop.orderShortCode })}>
           <Body>{t(`mobile.courier.stopStatus.${stop.status}`)}</Body>
@@ -166,14 +172,10 @@ export default function TripScreen() {
           )}
           {stop.point ? (
             <Button
-              label={t('mobile.courier.navigate')}
+              label={t('mobile.courier.navigateWith', { app: t(`mobile.courier.navApp.${navigation.app}`) })}
               variant="outline"
               tone="muted"
-              onPress={() =>
-                void Linking.openURL(
-                  `https://www.google.com/maps/dir/?api=1&destination=${stop.point!.lat},${stop.point!.lng}`,
-                )
-              }
+              onPress={() => void Linking.openURL(navigationUrl(navigation.app, stop.point!))}
             />
           ) : (
             <Caption>{t('mobile.courier.noPoint')}</Caption>

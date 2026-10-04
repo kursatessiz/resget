@@ -25,6 +25,7 @@ const trip = (status: DeliveryTripDTO['status'], stops: DeliveryStopDTO[]): Deli
   branchId: 'b',
   status,
   sequenceMode: 'MANUAL',
+  pickupPoint: null,
   courier: null,
   stops,
   plannedDistanceMeters: null,

@@ -295,6 +295,8 @@ describe('Orders, dispatch, courier and tracking (e2e)', () => {
       .set(bearer(courierToken))
       .expect(200);
     expect(mine.body.map((t: { id: string }) => t.id)).toContain(tripId);
+    // The courier's map starts at the branch the orders are picked up from.
+    expect(mine.body.find((t: { id: string }) => t.id === tripId).pickupPoint).toEqual(BRANCH);
     const board = await ctx
       .http()
       .get(`/restaurants/${restaurantId}/dispatch/board`)
