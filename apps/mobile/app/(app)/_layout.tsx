@@ -26,6 +26,10 @@ export default function AppLayout() {
         options={{ title: t('mobile.tabs.courier'), href: tabs.includes('courier') ? undefined : null }}
       />
       <Tabs.Screen
+        name="sevk"
+        options={{ title: t('mobile.tabs.dispatch'), href: tabs.includes('dispatch') ? undefined : null }}
+      />
+      <Tabs.Screen
         name="siparisler"
         options={{ title: t('mobile.tabs.orders'), href: tabs.includes('orders') ? undefined : null }}
       />
