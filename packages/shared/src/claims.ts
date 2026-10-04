@@ -18,6 +18,30 @@ export type OrderClaimStatusValue = `${OrderClaimStatus}`;
 export const CLAIM_WINDOW_HOURS = 24;
 export const CLAIM_NOTE_MAX = 500;
 
+/**
+ * Escalation (docs/ODEME.md, "Eksik ürün bildirimi"; claim_escalation
+ * module): a claim the restaurant has not decided within this many hours
+ * moves to ESCALATED and the platform console can decide it. The restaurant
+ * can still decide it meanwhile.
+ */
+export const CLAIM_DECISION_HOURS = 24;
+/** Repeat-claimant warning: earlier claims of the customer at this restaurant within this window. */
+export const REPEAT_CLAIM_WINDOW_DAYS = 90;
+/** From this many earlier claims in the window, staff see the warning. */
+export const REPEAT_CLAIM_THRESHOLD = 3;
+
+/** Statuses in which a claim still waits for a decision. */
+export const CLAIM_WAITING_STATUSES = [OrderClaimStatus.OPEN, OrderClaimStatus.ESCALATED] as const;
+
+export function isClaimWaiting(status: string): boolean {
+  return (CLAIM_WAITING_STATUSES as readonly string[]).includes(status);
+}
+
+/** Whether an open claim filed at this instant is due for escalation. */
+export function claimEscalationDue(createdAt: Date | string, now: Date = new Date()): boolean {
+  return now.getTime() - new Date(createdAt).getTime() >= CLAIM_DECISION_HOURS * 3_600_000;
+}
+
 /** The customer's report from the tracking page: which items, how many, and an optional note. */
 export const FileClaimSchema = z
   .object({
@@ -52,6 +76,36 @@ export interface OrderClaimDTO {
   declineReason: string | null;
   createdAt: string;
   decidedAt: string | null;
+  /** When the claim moved to the platform console; null while the restaurant alone decides. */
+  escalatedAt: string | null;
+}
+
+/** The customer's earlier claims at this restaurant (repeat-claimant warning); shown to staff only. */
+export interface CustomerClaimHistoryDTO {
+  windowDays: number;
+  /** Earlier claims in the window, this one excluded. */
+  claims: number;
+  approved: number;
+  /** At or above REPEAT_CLAIM_THRESHOLD: the panel shows the warning. */
+  repeat: boolean;
+}
+
+/** An escalated claim in the platform console. */
+export interface AdminClaimDTO {
+  id: string;
+  orderId: string;
+  orderShortCode: string;
+  restaurantId: string;
+  restaurantName: string;
+  restaurantSlug: string;
+  items: { orderItemId: string; name: string; quantity: number }[];
+  requestedMinor: number;
+  currency: string;
+  note: string | null;
+  createdAt: string;
+  escalatedAt: string | null;
+  /** The same customer's claims across every restaurant in the window, this one excluded. */
+  platformHistory: { windowDays: number; claims: number; approved: number };
 }
 
 /**

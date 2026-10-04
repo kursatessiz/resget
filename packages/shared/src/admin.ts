@@ -113,6 +113,7 @@ export const ADMIN_NAV = [
   { key: 'restaurants', path: '/restoranlar' },
   { key: 'areas', path: '/bolgeler' },
   { key: 'plans', path: '/planlar' },
+  { key: 'claims', path: '/bildirimler' },
   { key: 'features', path: '/ozellikler' },
   { key: 'invoices', path: '/faturalar' },
   { key: 'payouts', path: '/hakedisler' },

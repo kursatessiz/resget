@@ -142,6 +142,7 @@ enum OrderClaimStatus {
   OPEN
   APPROVED
   DECLINED
+  ESCALATED
 }
 
 enum LedgerEntryType {
@@ -1150,6 +1151,8 @@ model OrderClaim {
   decidedByUserId String?
   decidedAt       DateTime?
   declineReason   String?
+  /// Set when an undecided claim moved to the platform console (claim_escalation module).
+  escalatedAt     DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -1160,6 +1163,7 @@ model OrderClaim {
 
   @@index([orderId, createdAt])
   @@index([restaurantId, status])
+  @@index([status, createdAt])
   @@map("order_claims")
 }
 

@@ -3,6 +3,7 @@ import { PaymentMode } from '@resget/database';
 import { normalizePhone } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
+import { ClaimsWatchdog } from '../../src/modules/payments/claims.watchdog';
 
 const COURIER_PHONE = normalizePhone('05320000004')!;
 const NOTE = 'e2e-claim';
@@ -239,5 +240,67 @@ describe('Missing-item claims (e2e)', () => {
     expect((await decide(order.id, filed.claim!.id, 'approve', {}, 409)).body.code).toBe('REFUND_DECLINED');
     const claim = await ctx.prisma.orderClaim.findUniqueOrThrow({ where: { id: filed.claim!.id } });
     expect(claim).toMatchObject({ status: 'OPEN', decidedAt: null });
+  });
+  it('moves a claim nobody decided to the console, which approves it, and warns about a repeat claimant', async () => {
+    const adminToken = await ctx.login(SEED.superAdminPhone);
+    const watchdog = ctx.app.get(ClaimsWatchdog);
+    const setSwitch = (enabled: boolean | null) =>
+      ctx
+        .http()
+        .put(`/admin/restaurants/${restaurantId}/features/claim_escalation`)
+        .set(bearer(adminToken))
+        .send({ enabled })
+        .expect(200);
+    const backdate = (claimId: string) =>
+      ctx.prisma.orderClaim.update({
+        where: { id: claimId },
+        data: { createdAt: new Date(Date.now() - 25 * 3_600_000) },
+      });
+
+    const order = await completedOrder('pos-claim-escalate');
+    const line = (await track(order.token)).items[0];
+    const filed = (await file(order.token, { items: [{ orderItemId: line.id, quantity: 1 }] }, 201)).body as Tracking;
+    const claimId = filed.claim!.id;
+    await backdate(claimId);
+
+    // Off by default: nothing moves and staff see no history.
+    expect(await watchdog.tick()).toBe(0);
+    let detail = (
+      await ctx.http().get(`/restaurants/${restaurantId}/orders/${order.id}`).set(bearer(ownerToken)).expect(200)
+    ).body as Detail & { customerClaimHistory: unknown };
+    expect(detail.customerClaimHistory).toBeNull();
+
+    await setSwitch(true);
+    expect(await watchdog.tick()).toBeGreaterThanOrEqual(1);
+    expect((await track(order.token)).claim).toMatchObject({ id: claimId, status: 'ESCALATED' });
+    detail = (
+      await ctx.http().get(`/restaurants/${restaurantId}/orders/${order.id}`).set(bearer(ownerToken)).expect(200)
+    ).body as Detail & { customerClaimHistory: { claims: number; repeat: boolean } };
+    // Still waiting for the restaurant too, and the same phone filed the earlier claims of this suite.
+    expect(detail.openClaimId).toBe(claimId);
+    expect(detail.customerClaimHistory).toMatchObject({ windowDays: 90 });
+    expect((detail.customerClaimHistory as { claims: number }).claims).toBeGreaterThanOrEqual(2);
+
+    await ctx.http().get('/admin/claims').set(bearer(ownerToken)).expect(403);
+    const queue = (await ctx.http().get('/admin/claims').set(bearer(adminToken)).expect(200)).body as {
+      id: string;
+      restaurantSlug: string;
+      platformHistory: { claims: number };
+    }[];
+    expect(queue.map((c) => c.id)).toContain(claimId);
+
+    const after = (
+      await ctx.http().post(`/admin/claims/${claimId}/approve`).set(bearer(adminToken)).send({}).expect(200)
+    ).body as { id: string }[];
+    expect(after.map((c) => c.id)).not.toContain(claimId);
+    const approved = await ctx.prisma.orderClaim.findUniqueOrThrow({ where: { id: claimId } });
+    expect(approved.status).toBe('APPROVED');
+    expect(await ctx.prisma.orderRefund.count({ where: { claimId, source: 'CLAIM' } })).toBe(1);
+    expect(await ctx.prisma.auditLog.count({ where: { action: 'claim.platform.approve', entityId: claimId } })).toBe(1);
+    // Only escalated claims are the console's to decide.
+    await ctx.http().post(`/admin/claims/${claimId}/decline`).set(bearer(adminToken)).send({ reason: 'x' }).expect(404);
+
+    await setSwitch(null);
+    await ctx.prisma.auditLog.deleteMany({ where: { action: { startsWith: 'claim.' } } });
   });
 });

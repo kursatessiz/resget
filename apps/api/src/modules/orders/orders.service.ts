@@ -23,6 +23,9 @@ import {
   isAutoRefundStatus,
   canStartRefund,
   canFileClaim,
+  isClaimWaiting,
+  REPEAT_CLAIM_THRESHOLD,
+  REPEAT_CLAIM_WINDOW_DAYS,
   isFeatureEnabled,
   refundableMinor,
   refundedQuantities,
@@ -463,7 +466,34 @@ export class OrdersService {
   async detail(restaurantId: string, orderId: string, canSeeContacts: boolean): Promise<OrderDetailDTO> {
     const row = await this.prisma.order.findFirst({ where: { id: orderId, restaurantId }, ...orderArgs });
     if (!row) throw notFound('ORDER_NOT_FOUND', 'Order not found');
-    return this.toDetail(row, canSeeContacts);
+    const detail = this.toDetail(row, canSeeContacts);
+    // Repeat-claimant warning (claim_escalation module): the customer's earlier claims here, while one waits.
+    const waiting = row.claims.find((c) => isClaimWaiting(c.status));
+    if (waiting && row.customerUserId && (await this.features.isEnabled('claim_escalation', restaurantId))) {
+      detail.customerClaimHistory = await this.claimHistory(row.customerUserId, waiting.id, restaurantId);
+    }
+    return detail;
+  }
+
+  /** Earlier claims of a customer in the repeat window, at one restaurant or (null) across the platform. */
+  async claimHistory(customerUserId: string, excludeClaimId: string, restaurantId: string | null) {
+    const since = new Date(Date.now() - REPEAT_CLAIM_WINDOW_DAYS * 24 * 3_600_000);
+    const claims = await this.prisma.orderClaim.findMany({
+      where: {
+        id: { not: excludeClaimId },
+        createdAt: { gte: since },
+        order: { customerUserId },
+        ...(restaurantId ? { restaurantId } : {}),
+      },
+      select: { status: true },
+    });
+    const approved = claims.filter((c) => c.status === 'APPROVED').length;
+    return {
+      windowDays: REPEAT_CLAIM_WINDOW_DAYS,
+      claims: claims.length,
+      approved,
+      repeat: claims.length >= REPEAT_CLAIM_THRESHOLD,
+    };
   }
 
   async loadRow(db: Db, orderId: string): Promise<OrderRow> {
@@ -736,7 +766,7 @@ export class OrdersService {
         isFeatureEnabled('missing_item_claims', switches) &&
         canFileClaim(
           row,
-          row.claims.some((c) => c.status === 'OPEN'),
+          row.claims.some((c) => isClaimWaiting(c.status)),
           row.payments.reduce((n, p) => n + refundableMinor(p), 0),
         ),
     };
@@ -795,7 +825,7 @@ export class OrdersService {
       activeTrip: stop
         ? { tripId: stop.tripId, stopId: stop.id, sequence: stop.sequence, tripStatus: stop.trip.status }
         : null,
-      openClaimId: row.claims.find((c) => c.status === 'OPEN')?.id ?? null,
+      openClaimId: row.claims.find((c) => isClaimWaiting(c.status))?.id ?? null,
       payment: this.paymentOf(row),
     };
   }
@@ -819,6 +849,7 @@ export class OrdersService {
       declineReason: claim.declineReason,
       createdAt: claim.createdAt.toISOString(),
       decidedAt: claim.decidedAt?.toISOString() ?? null,
+      escalatedAt: claim.escalatedAt?.toISOString() ?? null,
     };
   }
 
@@ -895,6 +926,7 @@ export class OrdersService {
         createdAt: r.createdAt.toISOString(),
       })),
       claims: row.claims.map((claim) => this.claimOf(row, claim)),
+      customerClaimHistory: null,
     };
   }
 }

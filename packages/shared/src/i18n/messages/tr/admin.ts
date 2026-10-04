@@ -205,4 +205,18 @@ export const trAdmin = {
   'admin.payouts.empty': 'Hakediş ödemesi yok.',
   'admin.payouts.updated': 'Ödeme güncellendi.',
   'admin.forbidden': 'Bu alan yalnızca platform sahibine açıktır.',
+  'admin.nav.claims': 'Bildirimler',
+  'admin.claims.title': 'Yükseltilen bildirimler',
+  'admin.claims.intro':
+    'İşletmenin 24 saat içinde karara bağlamadığı eksik ürün bildirimleri. Onay, işletmenin anlaşmasına göre kısmi iade olarak işletmeye yansır ve komisyonun iade payı geri döner; işletme de hâlâ karar verebilir.',
+  'admin.claims.empty': 'Bekleyen bildirim yok.',
+  'admin.claims.order': '{restaurant} / sipariş {code}',
+  'admin.claims.requested': 'İstenen: {amount}',
+  'admin.claims.filed': 'Bildirim: {time}',
+  'admin.claims.history': 'Bu müşterinin son {days} günde tüm işletmelerde {claims} bildirimi var ({approved} onaylı).',
+  'admin.claims.approve': 'Onayla ve iade et',
+  'admin.claims.decline': 'Reddet',
+  'admin.claims.reason': 'Ret nedeni (müşteriye gösterilir)',
+  'admin.claims.declineConfirm': 'Bildirimi reddet',
+  'admin.claims.done': 'Karar kaydedildi.',
 } as const satisfies Record<string, string>;

@@ -25,6 +25,9 @@ test.describe('Platform console', () => {
       );
       await expect(page.getByRole('region', { name: 'Aday ilçeler' })).toBeVisible();
 
+      await page.goto('/admin/bildirimler');
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText('Yükseltilen bildirimler');
+
       await page.goto('/admin/planlar');
       await expect(page.getByRole('region', { name: 'Pro' })).toBeVisible();
       await expect(page.locator('[data-package="sms-500"]')).toBeVisible();
