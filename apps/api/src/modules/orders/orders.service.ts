@@ -42,6 +42,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { GeocodingService } from '../geocoding/geocoding.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { OrderNotificationsService } from './order-notifications.service';
 import { RealtimeService, courierTopic, dispatchTopic, orderTopic } from '../realtime/realtime.service';
 import type { TopicEvent } from '../realtime/realtime.service';
@@ -116,6 +117,7 @@ export class OrdersService {
     private readonly ledger: LedgerService,
     private readonly loyalty: LoyaltyService,
     private readonly geocoding: GeocodingService,
+    private readonly webhooks: WebhooksService,
   ) {}
 
   setTripEventsProvider(provider: (tripId: string) => Promise<TopicEvent[]>): void {
@@ -499,6 +501,8 @@ export class OrdersService {
   async eventsForOrder(orderId: string): Promise<TopicEvent[]> {
     const row = await this.prisma.order.findUnique({ where: { id: orderId }, ...orderArgs });
     if (!row) return [];
+    // Every published change also goes to the restaurant's webhooks (docs/API_ERISIMI.md); queued, never awaited.
+    await this.webhooks.enqueue(row.restaurantId, 'order.updated', this.toSummary(row, true));
     const events: TopicEvent[] = [
       { topic: dispatchTopic(row.restaurantId), event: { type: 'order.updated', order: this.toSummary(row, true) } },
       { topic: orderTopic(row.id), event: { type: 'tracking.updated', tracking: await this.trackingOf(row) } },
@@ -536,6 +540,12 @@ export class OrdersService {
         where: { id: row.restaurantId },
         data: { ratingCount: { increment: 1 }, ratingSum: { increment: input.score } },
       });
+    });
+    await this.webhooks.enqueue(row.restaurantId, 'rating.created', {
+      orderId: row.id,
+      shortCode: orderShortCode(row.id),
+      score: input.score,
+      comment: input.comment ?? null,
     });
     return this.trackingByToken(token);
   }
