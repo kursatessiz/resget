@@ -27,6 +27,7 @@ import { trReports } from './tr/reports';
 import { trCampaigns } from './tr/campaigns';
 import { trAccount } from './tr/account';
 import { trFinance } from './tr/finance';
+import { trMobile } from './tr/mobile';
 import { trLoyalty } from './tr/loyalty';
 import { trIntegrations } from './tr/integrations';
 import { enCommon } from './en/common';
@@ -58,6 +59,7 @@ import { enReports } from './en/reports';
 import { enCampaigns } from './en/campaigns';
 import { enAccount } from './en/account';
 import { enFinance } from './en/finance';
+import { enMobile } from './en/mobile';
 import { enLoyalty } from './en/loyalty';
 import { enIntegrations } from './en/integrations';
 
@@ -102,6 +104,7 @@ export const TR_NAMESPACES = [
   trFinance,
   trLoyalty,
   trIntegrations,
+  trMobile,
 ] as const;
 
 export const EN_NAMESPACES = [
@@ -136,6 +139,7 @@ export const EN_NAMESPACES = [
   enFinance,
   enLoyalty,
   enIntegrations,
+  enMobile,
 ] as const;
 
 type UnionToIntersection<U> = (U extends unknown ? (arg: U) => void : never) extends (arg: infer I) => void ? I : never;

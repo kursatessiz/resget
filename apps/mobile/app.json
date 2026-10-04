@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "Resget",
+    "slug": "resget",
+    "version": "0.1.0",
+    "scheme": "resget",
+    "orientation": "default",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.resget.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "During a trip your location is shared with the restaurant and the customer.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "During a trip your location is shared even while the app is in the background.",
+        "UIBackgroundModes": ["location"]
+      }
+    },
+    "android": {
+      "package": "com.resget.app",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "During a trip your location is shared with the restaurant and the customer.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {}
+    },
+    "locales": {
+      "tr": "./locales/tr.json",
+      "en": "./locales/en.json"
+    }
+  }
+}

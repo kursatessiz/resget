@@ -19,7 +19,8 @@ Geliştirme kuralları `CLAUDE.md`, devir notları ve backlog `HANDOVER.md` dosy
 .
 ├── apps/
 │   ├── api/                 # NestJS 11 REST API (Prisma, Passport JWT, Swagger)
-│   └── web/                 # Next.js 15 (App Router): restoran paneli, herkese açık menü (/m/<token>), BFF proxy
+│   ├── web/                 # Next.js 15 (App Router): restoran paneli, herkese açık menü (/m/<token>), BFF proxy
+│   └── mobile/              # Expo (React Native, expo-router): tek uygulama, ilk sürüm kurye modu
 ├── packages/
 │   ├── shared/              # Tipler, Zod şemaları, enum'lar, izinler, hakediş motoru, planlar, kurye arayüzü, masa QR, tasarım, i18n
 │   └── database/            # Prisma şeması, ileri yönlü migration'lar, geliştirme seed'i
@@ -47,6 +48,7 @@ pnpm --filter @resget/database exec prisma migrate deploy
 pnpm --filter @resget/database db:seed
 pnpm --filter @resget/api dev        # http://localhost:4000, Swagger: /api/docs
 pnpm --filter @resget/web dev        # http://localhost:3000
+pnpm --filter @resget/mobile start   # Expo Go; API adresi EXPO_PUBLIC_API_URL ile verilir
 ```
 
 Seed, `demo-lokanta` adlı bir restoran, dört masa (QR adresleri `GET /restaurants/:id/tables` ile listelenir), sahip hesabı (`05320000002`) ve süper admin (`05320000001`) oluşturur. Geliştirmede SMS sağlayıcısı MOCK'tur; OTP kodu API logunda görünür.

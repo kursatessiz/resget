@@ -35,7 +35,7 @@ Tetikleyiciler: `pull_request`, `workflow_call` (release.yml çağırır), `work
 | `scripts` | `shellcheck -x deploy/scripts/*.sh` ve `actionlint` |
 | `images` | API ve web Dockerfile'larının derlenmesi (yalnızca PR'da; push edilmez) |
 
-Zafiyet denetimi istisnaları `package.json` içinde `pnpm.auditConfig.ignoreGhsas` listesindedir ve yalnızca yaması henüz yayımlanmamış, üretim bağımlılıklarına ulaşmayan duyurular için kullanılır (`pnpm audit --prod` temiz kalmalıdır). Mevcut istisna: `GHSA-vfj7-8cjw-p6xm` (`braces`, yalnızca jest üzerinden geliştirme bağımlılığı; `braces` düzeltme sürümü çıkınca kaldırılır).
+Zafiyet denetimi istisnaları `package.json` içinde `pnpm.auditConfig.ignoreGhsas` listesindedir ve yalnızca yaması henüz yayımlanmamış, üretim bağımlılıklarına ulaşmayan duyurular için kullanılır (`pnpm audit --prod` temiz kalmalıdır). Mevcut istisnalar: `GHSA-vfj7-8cjw-p6xm` (`braces`, yalnızca jest üzerinden geliştirme bağımlılığı; `braces` düzeltme sürümü çıkınca kaldırılır) ve `GHSA-86w9-cpqp-85rv` (`node-forge`, yalnızca `@expo/cli` üzerinden geliştirme komut satırı; uygulama paketine girmez, yama çıkınca kaldırılır). `uuid` ve `decode-uri-component` için `pnpm.overrides` ile yamalı sürüm zorlanır.
 
 ### e2e testleri yerelde
 

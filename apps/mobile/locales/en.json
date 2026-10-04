@@ -1,0 +1,4 @@
+{
+  "NSLocationWhenInUseUsageDescription": "During a trip your location is shared with the restaurant and the customer.",
+  "NSLocationAlwaysAndWhenInUseUsageDescription": "During a trip your location is shared even while the app is in the background."
+}

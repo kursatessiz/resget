@@ -18,13 +18,14 @@ Kardeş platform `kursatessiz/deneme` ayrı bir üründür: oradan tasarım toke
 apps/
   api/        NestJS 11, Prisma, Passport JWT, Swagger
   web/        Next.js 15 App Router: restoran paneli, herkese açık menü ve sipariş sayfaları, BFF proxy
+  mobile/     Expo (React Native), expo-router: her rol için TEK uygulama; ilk sürüm kurye modu
 packages/
   shared/     Tipler, Zod şemaları, enum'lar, izin kataloğu, hakediş motoru, plan kuralları, kurye arayüzü, masa QR, tasarım token'ları, i18n
   database/   Prisma şeması, yalnızca ileri yönlü migration'lar, geliştirme seed'i
 deploy/       Docker Compose, Caddy, Dockerfile'lar (Ubuntu 24.04, 6 GB RAM / 4 vCPU)
 docs/         Tüm modül ve işletim dokümanları (Türkçe)
 ```
-Workspace paketleri `@resget/*` kapsamını kullanır. `shared` ve `database`, `dist/` klasörüne build edilir; bağımlı paketlerin typecheck veya testlerinden önce `pnpm turbo run build` çalıştırın (turbo bunu otomatik yapar). Stack yalnızca TypeScript'tir; iş mantığı yalnızca `apps/api` içinde yaşar, Next.js route handler'ları en fazla BFF ihtiyaçları içindir. Tüketici mobil uygulaması Faz 1 işidir (`HANDOVER.md`); Faz 0'da tüketici yüzeyi web'dir.
+Workspace paketleri `@resget/*` kapsamını kullanır. `shared` ve `database`, `dist/` klasörüne build edilir; bağımlı paketlerin typecheck veya testlerinden önce `pnpm turbo run build` çalıştırın (turbo bunu otomatik yapar). Stack yalnızca TypeScript'tir; iş mantığı yalnızca `apps/api` içinde yaşar, Next.js route handler'ları en fazla BFF ihtiyaçları içindir. Mobil uygulama tek uygulamadır ve ekranlar üyeliğin izinlerinden kurulur (`docs/MOBIL.md`); müşteri modu Faz 1 işidir, Faz 0'da tüketici yüzeyi web'dir.
 
 ## Vazgeçilmez kurallar
 1. **Hiçbir yerde emoji yok**: kodda, yorumlarda, UI metinlerinde, commit mesajlarında, dokümanlarda, bildirimlerde veya seed verisinde.
