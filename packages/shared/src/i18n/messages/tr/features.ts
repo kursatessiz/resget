@@ -42,4 +42,7 @@ export const trFeatures = {
   'features.claim_escalation.name': 'Bildirim yükseltme',
   'features.claim_escalation.description':
     '24 saatte karara bağlanmayan eksik ürün bildirimi platform konsoluna düşer; tekrar eden bildirim uyarısı.',
+  'features.app_order_handling.name': 'Uygulamadan sipariş yönetimi',
+  'features.app_order_handling.description':
+    'Tablet ve telefonda siparişi kabul, ret, hazır ve teslim adımları; yeni siparişte titreşim ve bildirim.',
 } as const satisfies Record<string, string>;

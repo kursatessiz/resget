@@ -94,6 +94,14 @@ Navigasyon (sesli, adım adım yol tarifi) bilerek uygulamaya gömülmez: durakt
 
 iOS'ta Apple Haritalar anahtarsız çalışır. Android'de Google Maps SDK kullanılır ve anahtar gerekir: `GOOGLE_MAPS_ANDROID_API_KEY` EAS ortam değişkeni olarak tanımlanır (`eas env:create --name GOOGLE_MAPS_ANDROID_API_KEY --environment production --visibility sensitive`), `app.config.ts` onu `react-native-maps` eklentisine verir. Anahtar Google Cloud'da "Maps SDK for Android" ile sınırlandırılır ve "Android uygulamaları" kısıtıyla `com.resget.app` paket adına ve imza anahtarının SHA-1 parmak izine bağlanır. Anahtar verilmeden yapılan Android derlemesinde bütün haritalar gizlenir (`extra.androidMapsKeyConfigured`); listeler, yol tarifi ve "Haritada aç" düğmeleri çalışmaya devam eder, böylece anahtarsız bir derleme boş harita göstermez. Expo Go haritayı kendi anahtarıyla gösterir, geliştirmede ayrıca bir şey gerekmez. Google Maps SDK mobil harita gösterimi için ücretsiz kotadadır; kota ve fiyat Google'ın güncel tarifesine tabidir.
 
+## 3b. Sipariş yönetimi (tablet ve telefon)
+
+`app_order_handling` modül anahtarı (varsayılan kapalı) ve `orders.manage` izni olan personel için Siparişler sekmesi etkileşimlidir; aksi halde liste salt okunurdur ve panel önerilir.
+
+- **Eylemler**: web sipariş ekranıyla aynı tablo (`orderActionsFor`, `packages/shared/src/order-actions.ts`): kabul (hazırlık süresi seçilir, `ORDER_PREP_OPTIONS`), ret ve iptal (müşteriye gösterilen gerekçe zorunlu), hazırlanıyor, hazır, gel al / masaya servis / yolda / teslim. Durum makinesi API'dedir; uygulama yalnızca izin verilen geçişi ister. Sefere bağlı sipariş sevk panosundan veya kuryeden ilerler.
+- **Yeni sipariş uyarısı**: liste 8 saniyede bir yenilenir; ilk yükleme mevcut siparişleri öğrenir, sonraki yüklemelerde yeni gelen her `PLACED` sipariş için cihaz titrer ve yerel bildirim (sesli) çıkar (`freshPlacedOrderIds`). Ek yerel bağımlılık yoktur (`expo-notifications`, React Native `Vibration`). Kabul süresi geçen siparişte kırmızı uyarı görünür; sunucu tarafındaki zaman aşımı alarmı (`docs/SIPARIS_VE_SEVK.md`) aynen çalışır.
+- **Tablet**: tablet genişliğinde iki sütun (yeni / mutfakta ve hazır); telefonda tek liste, yeniler üstte.
+
 ## 4. Çalıştırma
 
 ```
