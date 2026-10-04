@@ -17,6 +17,8 @@ export default async function CampaignsPage({ params }: { params: Promise<{ slug
           locale={locale}
           canManage={can('campaigns.manage')}
           segmentsV2={membership.features.includes('segments_v2')}
+          campaignsV2={membership.features.includes('campaigns_v2')}
+          emailChannel={membership.features.includes('email_channel')}
         />
         {membership.features.includes('consent_v2') && (
           <ConsentLimits restaurantId={membership.restaurantId} locale={locale} canManage={can('campaigns.manage')} />

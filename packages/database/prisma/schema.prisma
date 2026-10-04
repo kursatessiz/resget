@@ -793,6 +793,15 @@ model Campaign {
   segment         Json?
   /// A saved segment (segments v2); when set it decides the audience instead of `segment`.
   segmentId       String?
+  /// Campaigns v2 (docs/KAMPANYALAR.md): email subject, the B side of an A/B test, send time and attribution window.
+  subject         String?
+  variantBody     String?
+  variantSubject  String?
+  /// Share of the audience that receives variant B, in percent; null means no test.
+  variantSharePct Int?
+  /// FIXED or BEST_HOUR (CAMPAIGN_SEND_TIME_MODES in shared).
+  sendTimeMode    String         @default("FIXED")
+  attributionDays Int            @default(3)
   scheduledAt     DateTime?
   startedAt       DateTime?
   finishedAt      DateTime?
@@ -914,17 +923,27 @@ model WebhookDelivery {
 }
 
 model CampaignRecipient {
-  id           String                  @id @default(uuid())
-  campaignId   String
-  customerId   String
-  status       CampaignRecipientStatus @default(PENDING)
-  messageLogId String?
-  errorCode    String?
-  sentAt       DateTime?
-  createdAt    DateTime                @default(now())
+  id               String                  @id @default(uuid())
+  campaignId       String
+  customerId       String
+  status           CampaignRecipientStatus @default(PENDING)
+  messageLogId     String?
+  errorCode        String?
+  sentAt           DateTime?
+  /// A or B (campaigns v2); A when the campaign has no test.
+  variant          String                  @default("A")
+  /// BEST_HOUR: the recipient is not sent before this moment.
+  dueAt            DateTime?
+  /// The recipient's first order within the attribution window, credited to this campaign (last message wins).
+  convertedOrderId String?                 @unique
+  convertedAt      DateTime?
+  /// Items gross of that order at placement, in the restaurant currency's minor unit.
+  revenueMinor     Int?
+  createdAt        DateTime                @default(now())
 
-  campaign Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  customer RestaurantCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  campaign       Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  customer       RestaurantCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  convertedOrder Order?             @relation(fields: [convertedOrderId], references: [id], onDelete: SetNull)
 
   @@unique([campaignId, customerId])
   @@index([campaignId, status])
@@ -1061,6 +1080,8 @@ model Order {
   deliveryStops       DeliveryStop[]
   refunds             OrderRefund[]
   claims              OrderClaim[]
+
+  campaignConversion CampaignRecipient?
 
   @@index([restaurantId, placedAt])
   @@index([restaurantId, status])

@@ -15,6 +15,8 @@ export default async function MarketingCampaignsPage() {
       locale={locale}
       canManage={access.context.permissions.includes('platform.marketing.send')}
       segmentsV2={access.context.features.includes('segments_v2')}
+      campaignsV2={access.context.features.includes('campaigns_v2')}
+      emailChannel={access.context.features.includes('email_channel')}
     />
   );
 }

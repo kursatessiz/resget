@@ -62,6 +62,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.segments_v2.name': 'Segments v2',
   'features.segments_v2.description':
     'Saved segments with an AND / OR rule language, dynamic and static segments, per-channel reach preview, target segment in campaigns.',
+  'features.campaigns_v2.name': 'Campaigns v2',
+  'features.campaigns_v2.description':
+    'Email campaigns, A/B tests, best send hour per recipient, conversions and attributed revenue.',
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',

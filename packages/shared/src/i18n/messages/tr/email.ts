@@ -43,6 +43,8 @@ export const trEmail = {
   'email.template.test.subject': '{restaurant}: deneme e-postası',
   'email.template.test.body':
     'Merhaba,\n\nBu, {restaurant} için gönderilen bir deneme e-postasıdır. Bu e-postayı aldıysanız gönderim çalışıyor.',
+  'email.template.campaign.subject': '{subject}',
+  'email.template.campaign.body': '{body}',
   'email.footer.transactional': 'Bu e-posta {restaurant} adına gönderildi.',
   'email.footer.commercial':
     '{restaurant}, {address}\nBu tür e-postaları almak istemiyorsanız aboneliğinizi buradan sonlandırabilirsiniz: {url}',

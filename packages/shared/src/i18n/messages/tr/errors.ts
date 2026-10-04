@@ -92,6 +92,10 @@ export const trErrors = {
   'errors.SEGMENT_NOT_STATIC': 'Yalnızca statik segmentin anlık görüntüsü yenilenebilir.',
   'errors.SEGMENT_IN_USE':
     'Bu segmenti hedefleyen ve henüz gönderilmemiş bir kampanya var; önce kampanyayı değiştirin veya iptal edin.',
+  'errors.CAMPAIGN_CONTENT_INVALID':
+    'Kampanya metni kanala uymuyor: SMS ve WhatsApp en çok 300 karakterdir ve konu almaz, e-posta konu ister.',
+  'errors.EMAIL_DOMAIN_NOT_VERIFIED':
+    'E-posta kampanyası için önce entegrasyon sayfasında bir gönderici alan adını doğrulayın.',
   'errors.LOYALTY_NOT_ACTIVE': 'Bu restoranda sadakat programı etkin değil.',
   'errors.LOYALTY_NOT_REDEEMABLE': 'Bu siparişte puan kullanılamıyor: puanınız veya sipariş tutarı yeterli değil.',
   'errors.LOYALTY_SIGN_IN_REQUIRED': 'Puan kullanmak için giriş yapın.',

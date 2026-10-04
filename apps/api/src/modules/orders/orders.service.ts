@@ -57,6 +57,7 @@ import { LedgerService } from '../ledger/ledger.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { COUPON_RELEASE_STATUSES, CouponsService } from '../coupons/coupons.service';
 import { ConsentService } from '../consent/consent.service';
+import { CampaignAttributionService } from '../campaigns/campaign-attribution.service';
 import type { PreparedCoupon } from '../coupons/coupons.service';
 import { GeocodingService } from '../geocoding/geocoding.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
@@ -153,6 +154,7 @@ export class OrdersService {
     private readonly features: FeatureFlagsService,
     private readonly coupons: CouponsService,
     private readonly consent: ConsentService,
+    private readonly campaignAttribution: CampaignAttributionService,
   ) {}
 
   /**
@@ -429,6 +431,12 @@ export class OrdersService {
       return created.id;
     });
 
+    // A campaign message that led here is credited (docs/KAMPANYALAR.md); a failure costs a statistic, never the order.
+    if (consentCustomerId) {
+      await this.campaignAttribution
+        .recordOrder(restaurantId, consentCustomerId, orderId, settlement.itemsGrossMinor, placedAt)
+        .catch((error: unknown) => this.logger.warn(`campaign credit for order ${orderId} failed: ${String(error)}`));
+    }
     // Consent is only ever granted by the customer's own box (docs/RIZA.md); a failure costs a consent, never the order.
     if (consentCustomerId && (input.marketingOptIn || (input.marketingChannels?.length ?? 0) > 0)) {
       await this.consent

@@ -93,6 +93,8 @@ Sevk ayarları `restaurants.dispatchSettings` JSON alanındadır (`DispatchSetti
 | `email_suppressions` | Gönderilmeyecek adresler: kalıcı geri dönme (genel), şikayet ve istemiyor (kiracı). |
 | `segments` | Kayıtlı segment: VE / VEYA kuralı (JSON), tür (dinamik / statik), statik için üye sayısı ve anlık görüntü zamanı. Kiracı başına ad tekil. Ayrıntılar: `docs/SEGMENTLER.md`. |
 | `segment_members` | Statik segmentin anlık görüntüsündeki müşteriler. `campaigns.segmentId` kampanyanın hedef segmentidir. |
+
+Kampanyalar v2 (`docs/KAMPANYALAR.md`): `campaigns` satırına `subject`, `variantBody`, `variantSubject`, `variantSharePct`, `sendTimeMode`, `attributionDays`; `campaign_recipients` satırına `variant`, `dueAt`, `convertedOrderId` (tekil, sipariş silinince boşalır), `convertedAt`, `revenueMinor` eklendi. Migration: `20261105000000_campaigns_v2`.
 | `marketing_settings` | Kiracının günlük ve haftalık sınırı, çift onay bölgeleri, tacir muafiyeti. |
 | `conversion_events` | İlk / tekrar sipariş, aday, restoran kaydı, ilk ödeme; `(restaurantId, sourceKind, sourceId)` tekil, tutar ve para birimi, atfedilen ziyaret. Ayrıntılar: `docs/ATIF.md`. |
 

@@ -35,6 +35,7 @@ import { AttributionModule } from './modules/attribution/attribution.module';
 import { ConsentModule } from './modules/consent/consent.module';
 import { EmailModule } from './modules/email/email.module';
 import { SegmentsModule } from './modules/segments/segments.module';
+import { CampaignAttributionModule } from './modules/campaigns/campaign-attribution.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { DomainsModule } from './modules/domains/domains.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
@@ -80,6 +81,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
     ConsentModule,
     EmailModule,
     SegmentsModule,
+    CampaignAttributionModule,
     BillingModule,
     CustomersModule,
     ReportsModule,
