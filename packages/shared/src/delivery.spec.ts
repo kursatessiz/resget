@@ -125,6 +125,29 @@ describe('geography and routing', () => {
     ]);
   });
 
+  it('follows a road matrix when one is given and ignores a malformed one', () => {
+    const origin = { lat: 41, lng: 29 };
+    const stops = [
+      { id: 'near', point: { lat: 41.001, lng: 29 } },
+      { id: 'far', point: { lat: 41.01, lng: 29 } },
+    ];
+    // Straight lines say near first; the roads say the near stop is only reachable after the far one.
+    const roads = [
+      [0, 5000, 1000],
+      [5000, 0, 400],
+      [1000, 400, 0],
+    ];
+    expect(optimizeStopOrder(origin, stops, roads).map((s) => s.id)).toEqual(['far', 'near']);
+    expect(optimizeStopOrder(origin, stops, [[0, 1]]).map((s) => s.id)).toEqual(['near', 'far']);
+    expect(
+      optimizeStopOrder(origin, stops, [
+        [0, 1, 2],
+        [1, 0, Number.NaN],
+        [2, 1, 0],
+      ]).map((s) => s.id),
+    ).toEqual(['near', 'far']);
+  });
+
   it('estimates cumulative ETAs with hand-over time between stops', () => {
     const settings = { ...DEFAULT_DISPATCH_SETTINGS, avgSpeedKmh: 36, detourFactor: 1, stopServiceMinutes: 2 };
     const stops = [
