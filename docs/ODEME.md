@@ -30,6 +30,12 @@ Hakediş motoru her iki modda aynıdır (`computeModeSettlement`): `OWN_POS` mod
 - Ödeme akışı: müşteri siparişi onaylar -> API restoranın POS'unda hosted ödeme sayfası veya iframe oturumu açar (`createHostedCheckout`) -> müşteri kartı sağlayıcının sayfasında girer, 3-D Secure orada tamamlanır -> sağlayıcının webhook'u imzası doğrulanarak işlenir (`parseWebhook`) -> sipariş `PLACED` olur ve komisyon tahakkuk eder.
 - Kart verisi platform sunucusuna hiçbir adımda değmez. PCI DSS kapsamı en hafif düzeyde (SAQ A) kalır. Bu, iki modda da değişmez bir kuraldır.
 
+### Gerçek adaptörler (`apps/api/src/modules/payments/gateways`)
+
+- **iyzico** (`IYZICO`; alanlar `apiKey`, `secretKey`, isteğe bağlı `baseUrl` ile sandbox): checkout form. İstekler IYZWSv2 imzasıyla gider (HMAC-SHA256, rastgele anahtar + yol + gövde). `createHostedCheckout` formu başlatır ve `paymentPageUrl` döner; `callbackUrl` bağlantının webhook adresidir (`PUBLIC_API_URL/webhooks/payments/pos/<connectionId>?return=<sipariş sayfası>`). Sonuç iki yoldan gelir: müşterinin tarayıcısı formun `token` değeriyle buraya POST eder (API ödemeyi iyzico'dan okur, sonra tarayıcıyı `return` adresine 303 ile yollar) ve iyzico'nun üye işyeri bildirimi (JSON, `x-iyz-signature-v3` başlığı; imza doğrulanır). İkisi de yalnızca tetikleyicidir: tutar, durum, `paymentTransactionId` ve iyzico komisyonu (`pspFeeMinor`) her zaman iyzico'dan geri okunur (`checkoutform/auth/ecom/detail` veya `payment/detail`). İade `payment/refund` ile işlem kimliği üzerinden yapılır. Kimlik doğrulaması `bin/check` çağrısıyladır. Üye işyeri bildirim adresi iyzico panelinde bağlantının webhook adresine ayarlanır.
+- **PayTR** (`PAYTR`; alanlar `merchantId`, `merchantKey`, `merchantSalt`): iframe API. `get-token` isteği belgelenen sırayla HMAC-SHA256 (base64) ile imzalanır; `merchant_oid` sipariş kimliğinin tiresiz halidir (PayTR yalnızca harf ve rakam kabul eder) ve geri dönüşte tireler yeniden takılır. Tutarlar kuruş cinsinden tam sayı, para birimi PayTR'nin kendi kodlarıyla (`TL`, `EUR`, `USD`, `GBP`, `RUB`); desteklenmeyen para birimi reddedilir. Bildirim adresi PayTR panelinde bağlantının webhook adresine ayarlanır; gelen çağrının `hash` değeri (`merchant_oid` + `merchant_salt` + `status` + `total_amount`) doğrulanır ve uç nokta PayTR'nin beklediği düz metin `OK` ile yanıt verir (başka her yanıtta PayTR tekrar dener). İade `odeme/iade` ile yapılır. Kimlik doğrulaması `test_mode=1` ile 1 TL'lik bir token isteğidir; PayTR'nin ayrı bir doğrulama ucu yoktur.
+- `MOCK` geliştirme ve testlerde kalır. Param ve Sipay aynı arayüzle eklenir. Webhook uç noktası adaptörün verdiği cevabı (`ack`) ve tarayıcı yönlendirmesini (`browserRedirectUrl`) uygular; tutar uyuşmazlığı her sağlayıcıda 400 ile reddedilir. İstek ve yanıt biçimleri `gateways.spec.ts` ile sabitlenmiştir; canlı doğrulama sağlayıcının sandbox hesabıyla yapılır.
+
 ## 3. Kart kasası (card vault)
 
 Hedef: müşteri kartını bir kez kaydeder, hangi restorandan sipariş verirse versin kullanır. Bunun için kartı saklayan taraf platform değil, bir kasa sağlayıcısıdır; platform yalnızca sağlayıcının token'ını şifreli tutar (`SavedPaymentMethod.encryptedToken`), kart markası ve son dört hane dışında hiçbir kart bilgisi yoktur.
@@ -71,7 +77,7 @@ Yemek kartlarında üye işyeri her zaman restorandır; restoran kabul ettiği k
 
 ## 6. Backlog
 
-- A4: `OWN_POS` için iyzico, PayTR, Param ve Sipay gateway adaptörleri (hosted sayfa + webhook); Masterpass ve bex kasa adaptörleri; yemek kartı kuruluşlarının gerçek adaptörleri. Ödeme adımının çekirdeği (niyet, hosted oturum, webhook, kapıda tahsilat) `docs/YEMEK_KARTI.md` ile kuruldu.
+- A4: iyzico ve PayTR gateway adaptörleri yazıldı (yukarıda); kalan: Param ve Sipay adaptörleri, sandbox hesabıyla canlı doğrulama, Masterpass ve bex kasa adaptörleri, yemek kartı kuruluşlarının gerçek adaptörleri. Ödeme adımının çekirdeği (niyet, hosted oturum, webhook, kapıda tahsilat) `docs/YEMEK_KARTI.md` ile kuruldu.
 - A5 tamamlandı (`docs/FATURALAMA.md`); kalan: gerçek e-Arşiv entegratörü adaptörü.
 - B4: `PLATFORM_PSP` pazaryeri ürünü, PSP token kasası, tevkifat beyanı. Defter satırları ve haftalık hakediş planlaması hazır (`docs/MUTABAKAT.md`); kalan ödeme sağlayıcısı adaptörü.
 - Hukuk: `OWN_POS` modunda tevkifat yükümlülüğünün olmadığının vergi danışmanıyla teyidi; Masterpass ve bex üye işyeri sözleşmeleri.

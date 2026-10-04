@@ -6,6 +6,7 @@ import type {
   CheckoutSessionDTO,
   CollectPaymentInput,
   GatewayWebhookEvent,
+  HostedCheckoutParams,
   OrderDetailDTO,
   OrderPaymentIntent,
 } from '@resget/shared';
@@ -20,6 +21,14 @@ import { LedgerService } from '../ledger/ledger.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
 
 export type WebhookKind = 'meal-cards' | 'pos';
+
+/** What the webhook endpoint answers: JSON by default, the provider's own acknowledgement or a browser redirect when the adapter asks. */
+export interface WebhookOutcome {
+  received: true;
+  status: GatewayWebhookEvent['status'] | 'IGNORED';
+  ack?: { contentType: string; body: string };
+  browserRedirectUrl?: string;
+}
 
 /**
  * The payment step of an order (docs/YEMEK_KARTI.md, docs/ODEME.md): which
@@ -79,25 +88,34 @@ export class CheckoutService {
   }
 
   /** Staff-side checkout: a hosted payment session for an order that waits for its online payment. */
-  async startCheckout(restaurantId: string, orderId: string, returnUrl: string): Promise<CheckoutSessionDTO> {
+  async startCheckout(
+    restaurantId: string,
+    orderId: string,
+    returnUrl: string,
+    customerIp?: string,
+  ): Promise<CheckoutSessionDTO> {
     const order = await this.prisma.order.findFirst({ where: { id: orderId, restaurantId } });
     if (!order) throw notFound('ORDER_NOT_FOUND', 'Order not found');
-    return this.checkoutFor(order.id, returnUrl);
+    return this.checkoutFor(order.id, returnUrl, customerIp);
   }
 
   /** Customer-side checkout, reached with the order's tracking token right after placement. */
-  async startPublicCheckout(trackingToken: string, returnUrl: string): Promise<CheckoutSessionDTO> {
+  async startPublicCheckout(
+    trackingToken: string,
+    returnUrl: string,
+    customerIp?: string,
+  ): Promise<CheckoutSessionDTO> {
     const order = await this.prisma.order.findUnique({ where: { trackingToken }, select: { id: true } });
     if (!order) throw notFound('ORDER_NOT_FOUND', 'Order not found');
-    return this.checkoutFor(order.id, returnUrl);
+    return this.checkoutFor(order.id, returnUrl, customerIp);
   }
 
-  private async checkoutFor(orderId: string, returnUrl: string): Promise<CheckoutSessionDTO> {
+  private async checkoutFor(orderId: string, returnUrl: string, customerIp?: string): Promise<CheckoutSessionDTO> {
     const order = await this.prisma.order.findUniqueOrThrow({
       where: { id: orderId },
       include: {
         payments: { where: { status: 'PENDING' }, orderBy: { createdAt: 'desc' }, take: 1 },
-        customer: { select: { phone: true } },
+        customer: { select: { phone: true, fullName: true } },
         restaurant: {
           select: {
             paymentMode: true,
@@ -110,12 +128,14 @@ export class CheckoutService {
     if (order.status !== 'PENDING_PAYMENT' || !payment) {
       throw conflict('PAYMENT_STATE_INVALID', 'Order is not waiting for an online payment');
     }
-    const params = {
+    const params: HostedCheckoutParams = {
       orderRef: order.id,
       amountMinor: payment.amountMinor,
       currency: payment.currency,
       returnUrl,
       customerPhone: order.customer?.phone ?? '',
+      ...(order.customer?.fullName ? { customerName: order.customer.fullName } : {}),
+      ...(customerIp ? { customerIp } : {}),
     };
 
     if (payment.method === 'MEAL_CARD') {
@@ -137,7 +157,11 @@ export class CheckoutService {
         const gateway = this.payments.gateway(pos.providerCode);
         if (!gateway) throw conflict('PAYMENT_METHOD_NOT_ACCEPTED', `No adapter for ${pos.providerCode}`);
         const credentials = this.payments.cipher.decryptJson(pos.encryptedCredentials);
-        const session = await gateway.createHostedCheckout(credentials, params);
+        // Providers that take the notification address per request get this connection's webhook URL.
+        const session = await gateway.createHostedCheckout(credentials, {
+          ...params,
+          notifyUrl: this.webhookUrl('pos', pos.id),
+        });
         await this.prisma.payment.update({ where: { id: payment.id }, data: { providerRef: session.sessionId } });
         return { paymentId: payment.id, session };
       }
@@ -145,7 +169,7 @@ export class CheckoutService {
       const gateway = this.payments.gateway(code);
       if (!gateway) throw conflict('PAYMENT_METHOD_NOT_ACCEPTED', `No adapter for ${code}`);
       // The platform's own merchant credentials come from the environment; the mock needs none.
-      const session = await gateway.createHostedCheckout({}, params);
+      const session = await gateway.createHostedCheckout(this.payments.platformCredentials(code), params);
       await this.prisma.payment.update({ where: { id: payment.id }, data: { providerRef: session.sessionId } });
       return { paymentId: payment.id, session };
     }
@@ -157,12 +181,18 @@ export class CheckoutService {
    * credentials that verify the signature; a bad signature is a 400 and
    * nothing is written. Repeated notifications are idempotent.
    */
+  private webhookUrl(kind: WebhookKind, connectionId: string): string {
+    const base = this.config.getOrThrow<string>('PUBLIC_API_URL').replace(/\/+$/, '');
+    return `${base}/webhooks/payments/${kind}/${connectionId}`;
+  }
+
   async handleWebhook(
     kind: WebhookKind,
     connectionId: string,
     rawBody: string,
     headers: Record<string, string | undefined>,
-  ): Promise<{ received: true; status: GatewayWebhookEvent['status'] | 'IGNORED' }> {
+    query: Record<string, string | undefined> = {},
+  ): Promise<WebhookOutcome> {
     let event: GatewayWebhookEvent;
     let restaurantId: string;
     try {
@@ -171,13 +201,18 @@ export class CheckoutService {
         const adapter = connection ? this.issuers.get(connection.providerCode) : null;
         if (!connection || !adapter) throw new Error('Unknown connection');
         restaurantId = connection.restaurantId;
-        event = adapter.parseWebhook(connection.credentials, rawBody, headers);
+        event = await adapter.parseWebhook(connection.credentials, rawBody, headers);
       } else {
         const pos = await this.prisma.paymentProviderConnection.findUnique({ where: { id: connectionId } });
         const gateway = pos ? this.payments.gateway(pos.providerCode) : null;
         if (!pos || !gateway) throw new Error('Unknown connection');
         restaurantId = pos.restaurantId;
-        event = gateway.parseWebhook(this.payments.cipher.decryptJson(pos.encryptedCredentials), rawBody, headers);
+        event = await gateway.parseWebhook(
+          this.payments.cipher.decryptJson(pos.encryptedCredentials),
+          rawBody,
+          headers,
+          query,
+        );
       }
     } catch (err) {
       this.logger.warn(`Webhook rejected (${kind}/${connectionId}): ${(err as Error).message}`);
@@ -188,8 +223,14 @@ export class CheckoutService {
       where: { orderId: event.orderRef, restaurantId },
       orderBy: { createdAt: 'desc' },
     });
-    if (!payment) return { received: true, status: 'IGNORED' };
-    if (payment.status === 'CAPTURED' && event.status === 'CAPTURED') return { received: true, status: 'CAPTURED' };
+    const reply = (status: WebhookOutcome['status']): WebhookOutcome => ({
+      received: true,
+      status,
+      ...(event.ack ? { ack: event.ack } : {}),
+      ...(event.browserRedirectUrl ? { browserRedirectUrl: event.browserRedirectUrl } : {}),
+    });
+    if (!payment) return reply('IGNORED');
+    if (payment.status === 'CAPTURED' && event.status === 'CAPTURED') return reply('CAPTURED');
     if (event.status === 'CAPTURED' && event.amountMinor !== payment.amountMinor) {
       this.logger.warn(`Webhook amount ${event.amountMinor} differs from payment ${payment.amountMinor}`);
       throw badRequest('WEBHOOK_INVALID', 'Amount mismatch');
@@ -216,7 +257,7 @@ export class CheckoutService {
       if (event.status === 'REFUNDED') await this.ledger.recordRefund(tx, payment.orderId, payment.amountMinor);
     });
     this.realtime.publishMany(await this.orders.eventsForOrder(payment.orderId));
-    return { received: true, status: event.status };
+    return reply(event.status);
   }
 
   /** Cash, card or a meal card taken at the door or the counter; the actual method may differ from the intent. */
