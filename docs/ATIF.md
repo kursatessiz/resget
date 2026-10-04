@@ -79,4 +79,4 @@ CRM kişi kartı (`docs/CRM.md`), modül açıkken son 20 dönüşümü (tür ve
 
 ## Sonraki adımlar
 
-Kiracı ayarı olarak atıf penceresi ve reklam platformlarına dönüşüm gönderimi (yol haritası 10. madde), huniler ve KPI panosu (9. madde), tavsiye kodlarının ödüle bağlanması (13. madde), rıza v2 ile kişi düzeyinde kanal izinleri (4. madde).
+Kiracı ayarı olarak atıf penceresi ve tavsiye kodlarının ödüle bağlanması (13. madde). Reklam platformlarına dönüşüm gönderimi `docs/REKLAM.md`, huniler ve KPI panosu `docs/HUNILER.md`, kişi düzeyinde kanal izinleri `docs/RIZA.md` ile geldi.

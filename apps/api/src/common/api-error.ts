@@ -135,6 +135,9 @@ export type ApiErrorCode =
   | 'EMAIL_DOMAIN_NOT_VERIFIED'
   | 'JOURNEY_NOT_FOUND'
   | 'JOURNEY_CONTENT_INVALID'
+  | 'AD_CREDENTIALS_INVALID'
+  | 'AD_CREDENTIALS_REFUSED'
+  | 'AD_CONNECTION_NOT_FOUND'
   | 'RATE_LIMITED';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {

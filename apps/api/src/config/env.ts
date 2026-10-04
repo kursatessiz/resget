@@ -36,6 +36,12 @@ export const EnvSchema = z
     SES_CONFIGURATION_SET: z.string().min(1).optional(),
     /** SNS topics whose bounce and complaint messages are accepted, comma separated. */
     SES_SNS_TOPIC_ARNS: z.string().optional(),
+    /** Ad platform conversion and spend APIs (docs/REKLAM.md): LIVE calls Meta, Google Ads and TikTok; MOCK accepts outside production and refuses in it. */
+    ADS_PROVIDER: z.enum(['MOCK', 'LIVE']).default('MOCK'),
+    /** Google Ads API app credentials; a tenant connects with its own refresh token. */
+    GOOGLE_ADS_CLIENT_ID: z.string().min(1).optional(),
+    GOOGLE_ADS_CLIENT_SECRET: z.string().min(1).optional(),
+    GOOGLE_ADS_DEVELOPER_TOKEN: z.string().min(1).optional(),
     /** Push delivery: EXPO sends through Expo's push service; MOCK accepts outside production and refuses in it. */
     PUSH_PROVIDER: z.enum(['MOCK', 'EXPO']).default('MOCK'),
     EXPO_ACCESS_TOKEN: z.string().min(1).optional(),

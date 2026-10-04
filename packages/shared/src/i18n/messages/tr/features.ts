@@ -71,6 +71,9 @@ export const trFeatures = {
   'features.kpi_dashboard.name': 'Huniler ve KPI panosu',
   'features.kpi_dashboard.description':
     'Pazarlama alanında restoran başına günlük sipariş, masa QR ve restoran hunileri, kanallar, ciro ve ilçe kırılımı.',
+  'features.ad_integrations.name': 'Reklam entegrasyonları',
+  'features.ad_integrations.description':
+    'Meta, Google Ads ve TikTok hesabı bağlama, sunucudan dönüşüm gönderimi (yalnızca reklam izniyle), günlük harcama ve reklam getirisi raporu.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',
