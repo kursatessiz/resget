@@ -668,6 +668,8 @@ export interface DeliveryTripDTO {
   branchId: string;
   status: DeliveryTripStatusValue;
   sequenceMode: StopSequenceModeValue;
+  /** Where the courier picks the orders up: the branch's coordinates, null until the branch has them. */
+  pickupPoint: GeoPoint | null;
   courier: CourierSummaryDTO | null;
   stops: DeliveryStopDTO[];
   plannedDistanceMeters: number | null;

@@ -107,7 +107,7 @@ Takip sayfası ve sevk panosu aynı bileşeni kullanır (`apps/web/src/component
 
 Tek uygulama; rol üyelikten gelir.
 
-- **Kurye modu** (`courier.deliver`): `GET courier/me/trips` ve `courier/me/events` ile sefer listesi; sefer ekranında sıralı duraklar, her durak için adres, telefon, mesafe ve ETA; büyük tek aksiyon düğmesi (Teslim aldım -> Yola çık -> Vardım -> Teslim ettim / Teslim edilemedi); arka plan konum servisi sefer sürerken 3-5 saniyede bir nokta toplar ve partiler halinde `courier/me/location` ucuna gönderir; uygulama kapanınca konum gönderimi durur (platform da aktif sefer yoksa reddeder).
+- **Kurye modu** (`courier.deliver`): `GET courier/me/trips` ve `courier/me/events` ile sefer listesi; sefer ekranında sıralı duraklar, her durak için adres, telefon, mesafe ve ETA; büyük tek aksiyon düğmesi (Teslim aldım -> Yola çık -> Vardım -> Teslim ettim / Teslim edilemedi); sefer haritası (teslim alma noktası olarak şube koordinatı `pickupPoint`, numaralı duraklar, kuryenin konumu, kalan duraklardan düz çizgi) ve yol tarifi için telefonun seçilen harita uygulaması (`docs/MOBIL.md`, "Kurye haritası"); arka plan konum servisi sefer sürerken 3-5 saniyede bir nokta toplar ve partiler halinde `courier/me/location` ucuna gönderir; uygulama kapanınca konum gönderimi durur (platform da aktif sefer yoksa reddeder).
 - **Müşteri modu**: aynı takip DTO'su (`OrderTrackingDTO`); uygulama anlık görüntüyü yeniler (`docs/MOBIL.md`). Uygulama içi harita henüz yok, web takip sayfası gösterir.
 - **Restoran modu** (tablet): sevk panosu, sürükleyerek sıralama, "en kısa rotayı bul", kurye atama.
 
