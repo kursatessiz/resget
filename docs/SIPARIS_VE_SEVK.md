@@ -103,6 +103,19 @@ Web'de akış BFF üzerinden geçer (`/api/bff/...`); BFF gövdeyi tamponlamadan
 
 Takip sayfası ve sevk panosu aynı bileşeni kullanır (`apps/web/src/components/MapView.tsx`, Leaflet; yalnızca tarayıcıda yüklenir). Döşeme (tile) sağlayıcısı dağıtım ayarıdır: web sunucusu `MAP_TILE_URL`, `MAP_ATTRIBUTION` ve `MAP_MAX_ZOOM` değerlerini istek anında okur ve bileşene prop olarak geçirir; imaja hiçbir şey gömülmez, sağlayıcı değiştirmek `.env` değişikliğidir. Varsayılan OpenStreetMap'in herkese açık döşemeleridir (geliştirme ve küçük dağıtımlar için; kullanım politikası geçerlidir), üretim ücretli bir sağlayıcıya yönlendirilir. İşaretler daire olarak çizilir ve renklerini kitin rollerinden alır (`globals.css`: kurye tema rengi, teslimat noktası başarı, sıradaki durak gri, aktif durak uyarı, biten durak çizgi rengi). Sevk panosundaki harita konum paylaşan kuryeleri ve aktif seferlerin koordinatlı duraklarını gösterir ve SSE olaylarıyla yeniden çizilir; takip sayfasındaki harita yalnızca o siparişin kuryesini ve kapısını gösterir.
 
+## 6b. Sipariş alma durumu
+
+İşletme müşteri siparişlerini geçici olarak durdurabilir, yoğun olduğunu bildirebilir ve çalışma saatleri dışında sipariş almayabilir. Bu davranış `order_availability` modül anahtarının arkasındadır (`docs/OZELLIK_ANAHTARLARI.md`), varsayılanı kapalıdır; anahtar kapalıyken her işletme eskisi gibi her an sipariş alır.
+
+- **Duraklatma**: sipariş ekranındaki "Sipariş alma" kartından 15, 30, 60 veya 120 dakika ya da "ben açana kadar". "Ben açana kadar" da en fazla bir gün sürer (`AVAILABILITY_MAX_MINUTES`); unutulan duraklatma işletmeyi kalıcı olarak gizlemez. Süre bitince sipariş alma kendiliğinden açılır. Alan: `restaurants.ordersPausedUntil`.
+- **Yoğun mod**: bir saat boyunca hazırlık süresine 10, 20, 30 veya 45 dakika eklenir; müşteri menü sayfasında "hazırlık yaklaşık N dk sürebilir" uyarısını görür. Sipariş reddedilmez. Alanlar: `busyExtraMinutes`, `busyUntil`.
+- **Çalışma saatleri**: ayarlar sayfasındaki editörle şube başına haftalık aralıklar (gün başına en fazla dört; gece yarısını geçen aralık kapanışı açılıştan küçük yazılarak girilir). Aynı saatler pazaryerindeki "şu an açık" bilgisini besler, bu yüzden anahtar kapalıyken de düzenlenebilir. Saat girilmemiş işletme hiçbir zaman kapalı sayılmaz.
+- **Kural** (`orderAvailability()`, `packages/shared/src/availability.ts`): önce duraklatma, sonra siparişin şubesinin saatleri. Masa QR'dan ve restoran sayfasından gelen sipariş durdurulmuşsa veya saat dışındaysa `409 RESTAURANT_NOT_ACCEPTING` ile reddedilir; menü yanıtındaki `availability` alanı durumu, duraklatmanın bitişini ve bir sonraki açılışı (işletmenin saat diliminde gösterilir) taşır, sayfa sipariş düğmesini kapatır. Personelin girdiği telefon ve kasa siparişleri hiçbir durumda reddedilmez: kararı tezgahtaki kişi verir.
+- **Pazaryeri**: anahtar açıkken duraklatılmış işletme "kapalı" görünür ve sıralamada açık olanların arkasına düşer.
+- **Uçlar**: `GET /restaurants/:id/availability` (`orders.view`; anahtar kapalıyken `enabled: false` döner ve kart görünmez), `PUT /restaurants/:id/availability` (`orders.manage`, anahtar gerekir; `{ pause: { minutes | null } | null, busy: { extraMinutes, minutes } | null }`, her değişiklik denetim kaydına yazılır), `GET` / `PUT /restaurants/:id/opening-hours` (`restaurant.settings.view` / `restaurant.settings.manage`).
+
+Bir sonraki açılış zamanı yerel dakikalarla hesaplanır; arada yaz saati değişimi varsa gösterilen saat bir saat kayabilir. Bu değer yalnızca gösterilir, kural her istekte yeniden değerlendirilir.
+
 ## 7. Mobil uygulama sözleşmesi (Faz 1, Expo)
 
 Tek uygulama; rol üyelikten gelir.

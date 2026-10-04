@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { OrderAvailabilityDTO } from './availability';
 import type { StorefrontLoyaltyDTO } from './loyalty';
 import type { RatingSummaryDTO } from './ratings';
 import type { DeliveryFeePolicy } from './courier';
@@ -62,6 +63,8 @@ export interface StorefrontDTO {
   categories: StorefrontCategoryDTO[];
   /** Loyalty rules when the restaurant runs an active program (docs/SADAKAT.md). */
   loyalty: StorefrontLoyaltyDTO | null;
+  /** Whether orders are taken right now: pause, busy mode, opening hours (docs/SIPARIS_VE_SEVK.md). */
+  availability: OrderAvailabilityDTO;
 }
 
 export const PublicOrderSchema = z

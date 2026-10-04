@@ -108,4 +108,5 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.SERVICE_AREA_EXISTS': 'This service area already exists.',
   'errors.PLAN_NOT_FOUND': 'Plan not found.',
   'errors.RESTAURANT_NOT_FOUND': 'Restaurant not found.',
+  'errors.RESTAURANT_NOT_ACCEPTING': 'The restaurant is not taking orders right now.',
 };

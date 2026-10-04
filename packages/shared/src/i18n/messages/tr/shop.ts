@@ -63,4 +63,8 @@ export const trShop = {
   'shop.marketplace.interest.sent': 'Talebinizi not ettik. Teşekkürler.',
   'shop.marketplace.interest.launched': 'Bu ilçe zaten açık; yukarıdan seçebilirsiniz.',
   'shop.marketplace.cta': 'Restoranları keşfet',
+  'shop.availability.paused': 'Restoran şu an sipariş almıyor. {time} saatinde tekrar deneyin.',
+  'shop.availability.closed': 'Restoran şu an kapalı. {time} saatinde açılıyor.',
+  'shop.availability.closedNoTime': 'Restoran şu an kapalı.',
+  'shop.availability.busy': 'Restoran yoğun; hazırlık yaklaşık {minutes} dk sürebilir.',
 } as const satisfies Record<string, string>;
