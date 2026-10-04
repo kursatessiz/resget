@@ -9,6 +9,7 @@ import {
   SlugSchema,
   StartedOrderSchema,
   TableQrTokenSchema,
+  VISITOR_HEADER,
 } from '@resget/shared';
 import type {
   MarketplaceAreaDTO,
@@ -80,8 +81,9 @@ export class StorefrontController {
     @ZodBody(PublicOrderSchema) body: z.infer<typeof PublicOrderSchema>,
     @OptionalUser() viewer: AuthUser | null,
     @Headers('x-qr-session') session?: string,
+    @Headers(VISITOR_HEADER) visitorId?: string,
   ): Promise<PublicOrderResultDTO> {
-    return this.storefront.placeByTableToken(token, body, sessionOf(session), viewer);
+    return this.storefront.placeByTableToken(token, body, sessionOf(session), viewer, visitorId ?? null);
   }
 
   /** The restaurant's own ordering page at /<slug>. */
@@ -98,8 +100,9 @@ export class StorefrontController {
     @ZodParam('slug', SlugSchema) slug: string,
     @ZodBody(PublicOrderSchema) body: z.infer<typeof PublicOrderSchema>,
     @OptionalUser() viewer: AuthUser | null,
+    @Headers(VISITOR_HEADER) visitorId?: string,
   ): Promise<PublicOrderResultDTO> {
-    return this.storefront.placeBySlug(slug, body, viewer);
+    return this.storefront.placeBySlug(slug, body, viewer, visitorId ?? null);
   }
 
   @Get('marketplace/areas')

@@ -24,6 +24,7 @@ Menü platform izinlerinden ve açık modüllerden kurulur (`MARKETING_NAV`):
 - **Kişiler**: platform kiracısının kişileri, restoranın müşteri ekranıyla.
 - **Satış hattı** ve **Görevler**: `contacts_crm` modülü açıkken (`docs/CRM.md`).
 - **Kampanyalar**: `campaigns` modülü açıkken, restoranın kampanya ekranıyla; gönderim `platform.marketing.send` ister.
+- **Atıf**: `attribution` modülü açıkken; aday, restoran kaydı ve ilk ödemenin kaynak, ortam ve kampanya kırılımı (`docs/ATIF.md`).
 
 ## Konsol uçları
 
@@ -38,7 +39,7 @@ Her işlem denetim kaydına yazılır (`platform.setup`, `platform.user.*`).
 
 1. Platform kiracısı, platform rolleri ve Pazarlama alanı (bu belge, tamamlandı).
 2. CRM çekirdeği: kişi, satış hattı aşamaları (platform için aday, iletişim, demo, kurulum, canlı, kayıp), görevler, etkinlikler, CSV dışa aktarma (tamamlandı, `docs/CRM.md`; birleştirme ve özel alanlar sonraki adım).
-3. Ziyaretçi ve atıf temeli: ziyaretçi ve temas noktası, UTM ve tıklama kimlikleri, rıza bandı (TR KVKK, AB açık rıza, diğerleri bilgi), dönüşüm olayları (aday, restoran kaydı, ilk ödeme, ilk sipariş, tekrar sipariş), masa QR taramasının temas noktasına bağlanması.
+3. Ziyaretçi ve atıf temeli: ziyaretçi ve temas noktası, UTM ve tıklama kimlikleri, rıza bandı (TR KVKK, AB açık rıza, diğerleri bilgi), dönüşüm olayları (aday, restoran kaydı, ilk ödeme, ilk sipariş, tekrar sipariş), masa QR taramasının temas noktasına bağlanması (tamamlandı, `docs/ATIF.md`, anahtar `attribution`; platform sitesinde aday formu dahil).
 4. Rıza v2: kanal başına rıza ve hukuki dayanak, AB için çift onay, TR tacir istisnası, sıklık sınırı, gönderim öncesi kontrol. İYS bugün yalnızca SMS, arama ve e-posta kanallarını tutar; WhatsApp izni platformda kanıtıyla saklanır ve İYS'ye gönderilmez (`CONSENT_REGISTRY_COVERAGE`, `docs/KAMPANYALAR.md`).
 5. E-posta kanalı ve gönderici alan adları (SPF, DKIM, DMARC), geri dönen ve şikayet bastırma.
 6. Segmentler v2: kural dili (VE / VEYA), dinamik ve statik segment, önizleme.

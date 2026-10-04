@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { TableQrTokenSchema } from '@resget/shared';
 import type { StorefrontDTO, StorefrontViewerDTO } from '@resget/shared';
+import { ConsentManager } from '@/components/ConsentManager';
 import { Storefront } from '@/components/Storefront';
 import { ThemeRoot } from '@/components/ThemeRoot';
 import { LinkButton } from '@/components/ui';
@@ -9,6 +10,7 @@ import { getT } from '@/lib/i18n';
 import { apiFetch, getMe } from '@/lib/api-server';
 import { apiInternalBaseUrl } from '@/lib/server-env';
 import { QR_SESSION_COOKIE } from '@/lib/session';
+import { consentRegime } from '@/lib/consent';
 
 /**
  * The page behind a table QR sticker (docs/MASA_QR.md, docs/VITRIN.md).
@@ -78,6 +80,16 @@ export default async function TableMenuPage({ params }: { params: Promise<{ toke
 
         <footer className="ui-rule pt-4">
           <p className="ui-caption text-center">{t('qr.page.poweredBy')}</p>
+          {storefront.tracking && (
+            <div className="flex justify-center">
+              <ConsentManager
+                target={storefront.restaurant.slug}
+                regime={await consentRegime()}
+                locale={locale}
+                tableToken={token}
+              />
+            </div>
+          )}
         </footer>
       </main>
     </ThemeRoot>

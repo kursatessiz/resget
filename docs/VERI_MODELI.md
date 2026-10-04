@@ -81,6 +81,14 @@ Sevk ayarları `restaurants.dispatchSettings` JSON alanındadır (`DispatchSetti
 
 `document_versions`, `consents`, `feature_flags` (GLOBAL veya RESTAURANT kapsamı), `audit_logs`.
 
+## Atıf
+
+| Tablo | Not |
+|---|---|
+| `visitors` | `(restaurantId, id)`; `id` ölçüm izniyle yazılan `rg_vid` çerezi. Sipariş, kayıt veya formla kişiye bağlanır. |
+| `touchpoints` | Bir ziyaretin kaynağı: host ve yol (sorgu dizesi yok), yönlendiren host, UTM, kendi kampanya kimlikleri, reklam platformu, tıklama kimlikleri (yalnızca reklam izniyle), cihaz türü, kaba ülke, masa, kişi. IP saklanmaz. |
+| `conversion_events` | İlk / tekrar sipariş, aday, restoran kaydı, ilk ödeme; `(restaurantId, sourceKind, sourceId)` tekil, tutar ve para birimi, atfedilen ziyaret. Ayrıntılar: `docs/ATIF.md`. |
+
 ## Migration kuralları
 
 Yalnızca ileri yönlü; deploy'dan önce çalışır; bir sürüm boyunca geriye dönük uyumlu (önce genişlet, sonra daralt). CI, boş Postgres'e uygulayıp şema ile sapma olmadığını denetler. Yeni migration: `pnpm --filter @resget/database db:migrate --name <ad>` (yerel Postgres gerekir).

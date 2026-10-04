@@ -26,6 +26,7 @@ import type {
   SavedPaymentMethodDTO,
   VaultChargeResult,
 } from '@resget/shared';
+import { AttributionService } from '../attribution/attribution.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from '../payments/payments.service';
 import { PayoutsService } from '../payouts/payouts.service';
@@ -93,6 +94,7 @@ export class BillingService {
     private readonly config: ConfigService,
     @Inject(INVOICE_PROVIDER) private readonly fiscal: InvoiceProviderAdapter,
     private readonly payouts: PayoutsService,
+    private readonly attribution: AttributionService,
   ) {}
 
   // -- The daily job -----------------------------------------------------------------------
@@ -551,6 +553,8 @@ export class BillingService {
       },
     });
     await this.reinstateIfClear(invoice.restaurantId, null);
+    // The restaurant's first paid invoice is the platform's first_payment conversion (docs/ATIF.md); recorded once.
+    await this.attribution.onInvoicePaidSafely(invoice.restaurantId, invoice.totalMinor, invoice.currency);
   }
 
   /** Lifts the marketplace suspension once no invoice of the restaurant is overdue any more. */

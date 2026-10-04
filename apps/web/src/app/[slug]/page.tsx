@@ -2,11 +2,13 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { SlugSchema } from '@resget/shared';
 import type { StorefrontDTO, StorefrontViewerDTO } from '@resget/shared';
+import { ConsentManager } from '@/components/ConsentManager';
 import { Storefront } from '@/components/Storefront';
 import { ThemeRoot } from '@/components/ThemeRoot';
 import { getT } from '@/lib/i18n';
 import { apiFetch, getMe } from '@/lib/api-server';
 import { apiInternalBaseUrl } from '@/lib/server-env';
+import { consentRegime } from '@/lib/consent';
 
 /** The restaurant's own ordering page (docs/VITRIN.md): delivery and pickup, in the restaurant's colors. */
 export default async function RestaurantPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -52,6 +54,11 @@ export default async function RestaurantPage({ params }: { params: Promise<{ slu
         <Storefront storefront={storefront} locale={locale} source={{ kind: 'site' }} viewer={viewer} />
         <footer className="ui-rule pt-4">
           <p className="ui-caption text-center">{t('qr.page.poweredBy')}</p>
+          {storefront.tracking && (
+            <div className="flex justify-center">
+              <ConsentManager target={storefront.restaurant.slug} regime={await consentRegime()} locale={locale} />
+            </div>
+          )}
         </footer>
       </main>
     </ThemeRoot>

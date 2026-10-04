@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ERROR_CODE_HEADER, REQUEST_ID_HEADER } from '@resget/shared';
+import {
+  CONSENT_COOKIE,
+  ERROR_CODE_HEADER,
+  REQUEST_ID_HEADER,
+  VISITOR_COOKIE,
+  VISITOR_HEADER,
+  decodeConsent,
+} from '@resget/shared';
 import { apiInternalBaseUrl } from '@/lib/server-env';
 import { ACCESS_TOKEN_COOKIE, QR_SESSION_COOKIE } from '@/lib/session';
 
@@ -44,6 +51,10 @@ async function handle(req: NextRequest, context: { params: Promise<{ path: strin
   // The anonymous table QR session (docs/MASA_QR.md) is an httpOnly cookie; the API reads it as a header.
   const qrSession = req.cookies.get(QR_SESSION_COOKIE)?.value;
   if (qrSession && !headers.has('x-qr-session')) headers.set('x-qr-session', qrSession);
+  // The measured visitor (docs/ATIF.md) comes only from its cookie and only with analytics consent, never from the page.
+  headers.delete(VISITOR_HEADER);
+  const visitor = req.cookies.get(VISITOR_COOKIE)?.value;
+  if (visitor && decodeConsent(req.cookies.get(CONSENT_COOKIE)?.value)?.analytics) headers.set(VISITOR_HEADER, visitor);
 
   const body = req.method === 'GET' || req.method === 'HEAD' ? undefined : await req.arrayBuffer();
   const upstream = await fetch(`${apiInternalBaseUrl()}/${apiPath}${req.nextUrl.search}`, {
