@@ -26,6 +26,8 @@ Tek bir motor her mesajı gönderir (`MessagingService`, `apps/api/src/modules/m
 
 `DELIVERED` mesajlanmaz: takip sayfası zaten gösterir ve müşterinin elindeki habere kredi harcanmaz. Alıcı numarası siparişin müşteri kaydından, yoksa adres anlık görüntüsündeki iletişim numarasından alınır; numara yoksa mesaj yoktur. Restoran `customerOrderUpdates` ayarıyla tümünü kapatabilir.
 
+E-posta ayrı bir yoldan gider (`EmailService`, `docs/EPOSTA.md`); aynı `message_logs` tablosuna `EMAIL` kanalıyla yazılır ve kredi düşmez.
+
 Bu mesajlar işlemsel (hizmet) mesajlarıdır: müşterinin kendi siparişi hakkındadır, ticari ileti sayılmaz ve İYS / sessiz saat kontrolüne tabi değildir. Kampanya ve pazarlama mesajları (PRO) ticari iletidir; izin kaydı, İYS sorgusu ve sessiz saat kontrolü kampanya modülündedir (`docs/KAMPANYALAR.md`) ve gönderim `campaign.body` şablonuyla aynı motordan, `billable: true` ve yedek kanalsız geçer.
 
 ## WhatsApp şablonları

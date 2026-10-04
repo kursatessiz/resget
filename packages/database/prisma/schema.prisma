@@ -463,6 +463,8 @@ model Restaurant {
   contactConsents      ContactConsent[]
   consentConfirmations ConsentConfirmation[]
   marketingSettings    MarketingSettings?
+  emailDomains         EmailDomain[]
+  emailSuppressions    EmailSuppression[]
   touchpoints          Touchpoint[]
   conversionEvents     ConversionEvent[]
   couponRedemptions    CouponRedemption[]
@@ -2052,4 +2054,49 @@ model MarketingSettings {
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@map("marketing_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Email channel (docs/EPOSTA.md)
+// ---------------------------------------------------------------------------
+
+/// A tenant's sending domain; verified once SPF, DKIM and DMARC are published. A domain belongs to one tenant.
+model EmailDomain {
+  id            String    @id @default(uuid())
+  restaurantId  String
+  domain        String    @unique
+  fromLocalPart String
+  fromName      String
+  dkimTokens    String[]  @default([])
+  status        String    @default("PENDING")
+  spfStatus     String    @default("PENDING")
+  dkimStatus    String    @default("PENDING")
+  dmarcStatus   String    @default("PENDING")
+  dmarcPolicy   String?
+  lastCheckedAt DateTime?
+  verifiedAt    DateTime?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+  @@map("email_domains")
+}
+
+/// An address that must not be mailed: a hard bounce for everyone (restaurantId null), a complaint or unsubscribe for one sender.
+model EmailSuppression {
+  id           String   @id @default(uuid())
+  restaurantId String?
+  email        String
+  reason       String
+  /// The provider's message or feedback id, for tracing.
+  detail       String?
+  createdAt    DateTime @default(now())
+
+  restaurant Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([restaurantId])
+  @@map("email_suppressions")
 }

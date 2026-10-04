@@ -1,0 +1,50 @@
+import type { trEmail } from '../tr/email';
+
+export const enEmail: Record<keyof typeof trEmail, string> = {
+  'email.title': 'Email sender',
+  'email.intro':
+    'To send email from your own domain, add the domain and publish the DNS records below. Until it is verified, only transactional email goes out, from the platform address under your business name.',
+  'email.providerNotReady': 'The email provider is not configured yet; sends will fail.',
+  'email.domain.add': 'Add domain',
+  'email.domain.domain': 'Domain (e.g. examplerestaurant.com)',
+  'email.domain.localPart': 'Sender address (before the @)',
+  'email.domain.fromName': 'Sender name',
+  'email.domain.from': 'Sender: {name} <{from}>',
+  'email.domain.records': 'DNS records to publish',
+  'email.domain.kind': 'Record',
+  'email.domain.type': 'Type',
+  'email.domain.name': 'Name',
+  'email.domain.value': 'Value',
+  'email.domain.state': 'State',
+  'email.domain.checked': 'Last checked: {at}',
+  'email.domain.verify': 'Check DNS records',
+  'email.domain.remove': 'Remove domain',
+  'email.domain.status.PENDING': 'Awaiting verification',
+  'email.domain.status.VERIFIED': 'Verified',
+  'email.domain.status.FAILED': 'Verification broken',
+  'email.dns.PENDING': 'Not checked',
+  'email.dns.VALID': 'Correct',
+  'email.dns.INVALID': 'Wrong',
+  'email.dns.MISSING': 'Not found',
+  'email.test.title': 'Test email',
+  'email.test.to': 'Address for the test email',
+  'email.test.send': 'Send test email',
+  'email.test.sent': 'Test email sent.',
+  'email.suppression.title': 'Addresses not to mail',
+  'email.suppression.intro':
+    'Bounced (non-existent) and complaining addresses are never mailed again. Add an address here when someone tells you they do not want email.',
+  'email.suppression.empty': 'The list is empty.',
+  'email.suppression.email': 'Email address',
+  'email.suppression.add': 'Add to list',
+  'email.suppression.lift': 'Remove from list',
+  'email.suppression.BOUNCE': 'Bounced',
+  'email.suppression.COMPLAINT': 'Complaint',
+  'email.suppression.UNSUBSCRIBE': 'Does not want',
+
+  'email.template.test.subject': '{restaurant}: test email',
+  'email.template.test.body':
+    'Hello,\n\nThis is a test email sent for {restaurant}. If you received it, sending works.',
+  'email.footer.transactional': 'This email was sent on behalf of {restaurant}.',
+  'email.footer.commercial':
+    '{restaurant}, {address}\nIf you no longer want emails like this, you can unsubscribe here: {url}',
+};

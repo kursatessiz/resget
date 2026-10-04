@@ -123,4 +123,12 @@ export const trErrors = {
   'errors.PLATFORM_ACCESS_DENIED': 'Platform pazarlamasına erişiminiz yok.',
   'errors.PLANS_MISSING': 'Önce planlar oluşturulmalı.',
   'errors.CONTACT_EXISTS': 'Bu telefon numarası zaten kişi listesinde.',
+  'errors.EMAIL_DOMAIN_RESERVED': 'Platformun alan adı gönderici alan adı olamaz.',
+  'errors.EMAIL_DOMAIN_TAKEN': 'Bu alan adı zaten kayıtlı.',
+  'errors.SUPPRESSED_BOUNCE': 'Bu adrese e-posta ulaşmıyor (geri döndü).',
+  'errors.SUPPRESSED_COMPLAINT': 'Bu adres e-postalarınızı istenmeyen olarak bildirdi.',
+  'errors.SUPPRESSED_UNSUBSCRIBE': 'Bu adres e-posta almak istemiyor.',
+  'errors.EMAIL_NOT_CONFIGURED': 'E-posta sağlayıcısı henüz yapılandırılmadı.',
+  'errors.INVALID_EMAIL': 'Geçerli bir e-posta adresi girin.',
+  'errors.SUPPRESSION_LOCKED': 'Geri dönen ve şikayet edilen adresler kaldırılamaz.',
 } as const satisfies Record<string, string>;

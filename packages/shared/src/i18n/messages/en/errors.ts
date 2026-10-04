@@ -125,4 +125,12 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.PLATFORM_ACCESS_DENIED': 'You have no access to platform marketing.',
   'errors.PLANS_MISSING': 'The plans must be created first.',
   'errors.CONTACT_EXISTS': 'This phone number is already a contact.',
+  'errors.EMAIL_DOMAIN_RESERVED': 'The platform domain cannot be a sender domain.',
+  'errors.EMAIL_DOMAIN_TAKEN': 'This domain is already registered.',
+  'errors.SUPPRESSED_BOUNCE': 'Mail does not reach this address (it bounced).',
+  'errors.SUPPRESSED_COMPLAINT': 'This address reported your mail as spam.',
+  'errors.SUPPRESSED_UNSUBSCRIBE': 'This address does not want email.',
+  'errors.EMAIL_NOT_CONFIGURED': 'The email provider is not configured yet.',
+  'errors.INVALID_EMAIL': 'Enter a valid email address.',
+  'errors.SUPPRESSION_LOCKED': 'Bounced and complained addresses cannot be removed.',
 };

@@ -47,6 +47,7 @@ export async function createTestApp(): Promise<TestContext> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({ rawBody: true });
   app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
+  app.useBodyParser('text', { type: 'text/plain', limit: JSON_BODY_LIMIT });
   app.useGlobalFilters(new ErrorCodeFilter());
   await app.init();
   const prisma = new PrismaClient();

@@ -56,6 +56,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.consent_v2.name': 'Consent v2: consent per channel',
   'features.consent_v2.description':
     'Per-channel consent boxes at checkout, consent history and legal basis, double opt-in for the EU, merchant exemption, sending limits and IYS registration.',
+  'features.email_channel.name': 'Email channel',
+  'features.email_channel.description':
+    'Email from your own domain (SPF, DKIM, DMARC checks), suppression of bounced and complaining addresses, test send.',
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',

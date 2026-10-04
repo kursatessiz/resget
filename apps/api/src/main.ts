@@ -16,6 +16,8 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
   // A menu import (docs/PANEL.md) carries a whole spreadsheet; every other body stays far below this.
   app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
+  // SNS posts its JSON as text/plain (docs/EPOSTA.md); the raw bytes are kept for the signature check.
+  app.useBodyParser('text', { type: 'text/plain', limit: JSON_BODY_LIMIT });
   // Caddy is the only proxy in front of the API; trust exactly one hop.
   app.set('trust proxy', 1);
   app.useGlobalFilters(new ErrorCodeFilter());

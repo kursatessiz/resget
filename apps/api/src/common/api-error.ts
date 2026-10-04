@@ -126,6 +126,9 @@ export type ApiErrorCode =
   | 'PLATFORM_ACCESS_DENIED'
   | 'PLANS_MISSING'
   | 'CONTACT_EXISTS'
+  | 'EMAIL_DOMAIN_RESERVED'
+  | 'EMAIL_DOMAIN_TAKEN'
+  | 'SUPPRESSION_LOCKED'
   | 'RATE_LIMITED';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {
