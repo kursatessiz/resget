@@ -22,5 +22,5 @@ export default function Index() {
     );
   }
   if (!me) return <Redirect href="/giris" />;
-  return <Redirect href={TAB_ROUTES[tabsFor(membership?.permissions ?? [])[0]]} />;
+  return <Redirect href={TAB_ROUTES[tabsFor(membership?.permissions ?? [], membership?.features ?? [])[0]]} />;
 }

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { CourierQuoteRequestSchema, MinorAmountSchema, SelectCourierProviderSchema } from '@resget/shared';
 import type { CourierOverviewDTO } from '@resget/shared';
 import { ZodBody } from '../../common/zod-body.pipe';
-import { RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
+import { RequireFeature, RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
 import { Tenant } from '../auth/decorators/current-user.decorator';
 import type { TenantContext } from '../auth/tenant-context';
 import { CourierOverviewQueries, CourierService } from './courier.service';
@@ -30,6 +30,7 @@ export class CourierController {
 
   @Put('provider')
   @RequirePermission('courier.manage')
+  @RequireFeature('courier_network')
   selectProvider(
     @Tenant() tenant: TenantContext,
     @ZodBody(SelectCourierProviderSchema) body: z.infer<typeof SelectCourierProviderSchema>,
@@ -40,6 +41,7 @@ export class CourierController {
   @Post('quote')
   @HttpCode(200)
   @RequirePermission('courier.manage')
+  @RequireFeature('courier_network')
   quote(
     @Tenant() tenant: TenantContext,
     @ZodBody(QuoteBodySchema) body: z.infer<typeof QuoteBodySchema>,

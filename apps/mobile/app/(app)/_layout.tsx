@@ -11,7 +11,7 @@ export default function AppLayout() {
   const { ready, me, membership } = useSession();
   if (!ready) return null;
   if (!me) return <Redirect href="/giris" />;
-  const tabs = tabsFor(membership?.permissions ?? []);
+  const tabs = tabsFor(membership?.permissions ?? [], membership?.features ?? []);
   return (
     <Tabs
       screenOptions={{

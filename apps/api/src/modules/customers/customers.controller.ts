@@ -4,6 +4,7 @@ import { CustomersQuerySchema, UpdateCustomerSchema, UuidSchema } from '@resget/
 import type { CustomerDTO, CustomerPageDTO, OrderSummaryDTO } from '@resget/shared';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/zod-body.pipe';
 import {
+  RequireFeature,
   RequirePermission,
   RequirePlanFeature,
   RestaurantScoped,
@@ -53,6 +54,7 @@ export class CustomersController {
   @Patch(':customerId')
   @RequirePermission('customers.manage')
   @RequirePlanFeature('crm')
+  @RequireFeature('crm')
   update(
     @Tenant() tenant: TenantContext,
     @ZodParam('customerId', UuidSchema) customerId: string,

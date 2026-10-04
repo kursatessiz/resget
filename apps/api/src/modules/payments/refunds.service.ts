@@ -21,6 +21,7 @@ import type {
   RefundItem,
   RefundOrderInput,
 } from '@resget/shared';
+import { FeatureFlagsService } from '../features/feature-flags.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { OrdersService } from '../orders/orders.service';
@@ -101,6 +102,7 @@ export class RefundsService implements OnModuleInit, OnModuleDestroy {
     private readonly issuers: MealCardsRegistry,
     private readonly ledger: LedgerService,
     private readonly config: ConfigService,
+    private readonly features: FeatureFlagsService,
   ) {
     this.orders.setRefundAfterCancel((orderId) => this.refundAfterCancel(orderId));
   }
@@ -128,6 +130,7 @@ export class RefundsService implements OnModuleInit, OnModuleDestroy {
     canSeeContacts: boolean,
   ): Promise<OrderDetailDTO> {
     if (input.items || input.amountMinor !== undefined) {
+      await this.features.assertEnabled('partial_refunds', restaurantId);
       await this.refundPart(restaurantId, orderId, input, actorUserId, 'STAFF');
       return this.orders.detail(restaurantId, orderId, canSeeContacts);
     }

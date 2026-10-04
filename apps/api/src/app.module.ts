@@ -25,6 +25,7 @@ import { UploadsModule } from './modules/uploads/uploads.module';
 import { CampaignsModule } from './modules/campaigns/campaigns.module';
 import { AccountModule } from './modules/account/account.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
+import { FeaturesModule } from './modules/features/features.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { DomainsModule } from './modules/domains/domains.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
@@ -39,6 +40,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
     PrismaModule,
     RedisModule,
     LedgerModule,
+    FeaturesModule,
     LoyaltyModule,
     GeocodingModule,
     WebhooksModule,

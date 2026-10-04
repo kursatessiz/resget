@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { MealCardProviderCodeSchema, UpsertMealCardConnectionSchema } from '@resget/shared';
 import type { MealCardProviderCode, MealCardSettingsDTO } from '@resget/shared';
 import { ZodBody, ZodParam } from '../../common/zod-body.pipe';
-import { RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
+import { RequireFeature, RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
 import { Tenant } from '../auth/decorators/current-user.decorator';
 import type { TenantContext } from '../auth/tenant-context';
 import { MealCardsService } from './meal-cards.service';
@@ -11,6 +11,7 @@ import { MealCardsService } from './meal-cards.service';
 /** Which meal cards the restaurant takes, at the door and online (docs/YEMEK_KARTI.md). */
 @Controller('restaurants/:restaurantId/payments/meal-cards')
 @RestaurantScoped()
+@RequireFeature('meal_cards')
 export class MealCardsController {
   constructor(private readonly mealCards: MealCardsService) {}
 

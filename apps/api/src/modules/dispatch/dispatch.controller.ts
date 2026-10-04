@@ -14,7 +14,7 @@ import {
 } from '@resget/shared';
 import type { DeliveryTripDTO, DispatchBoardDTO } from '@resget/shared';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/zod-body.pipe';
-import { RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
+import { RequireFeature, RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { RealtimeService, dispatchTopic } from '../realtime/realtime.service';
@@ -33,6 +33,7 @@ const staff = (user: AuthUser) => ({ userId: user.id, role: 'RESTAURANT' as cons
 /** The restaurant's dispatch board: ready orders, trips, couriers, and the live stream behind it. */
 @Controller('restaurants/:restaurantId/dispatch')
 @RestaurantScoped()
+@RequireFeature('own_courier_dispatch')
 export class DispatchController {
   constructor(
     private readonly dispatch: DispatchService,

@@ -20,6 +20,7 @@ import type {
 } from '@resget/shared';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/zod-body.pipe';
 import {
+  RequireFeature,
   RequirePermission,
   RequirePlanFeature,
   RestaurantScoped,
@@ -32,6 +33,7 @@ import { CampaignsService } from './campaigns.service';
 /** PRO campaigns of a restaurant (docs/KAMPANYALAR.md); every route needs the `campaigns` plan feature. */
 @Controller('restaurants/:restaurantId/campaigns')
 @RestaurantScoped()
+@RequireFeature('campaigns')
 @RequirePlanFeature('campaigns')
 export class CampaignsController {
   constructor(private readonly campaigns: CampaignsService) {}

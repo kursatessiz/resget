@@ -1,5 +1,6 @@
 export * from './enums';
 export * from './permissions';
+export * from './features';
 export * from './navigation';
 export * from './money';
 export * from './settlement';

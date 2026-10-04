@@ -1,3 +1,4 @@
+import type { FeatureKey } from './features';
 import type { MembershipStatus } from './enums';
 import type { PermissionKey } from './permissions';
 import type { PlanCode } from './plans';
@@ -29,6 +30,8 @@ export interface MembershipSummaryDTO {
   roleName: string;
   permissions: PermissionKey[];
   effectivePlan: PlanCode;
+  /** Modules switched on for this restaurant (docs/OZELLIK_ANAHTARLARI.md); screens and tabs hide the others. */
+  features: FeatureKey[];
   /** Brand of the restaurant, so the panel shell renders in its color without another call. */
   themePrimary: string;
   logoUrl: string | null;

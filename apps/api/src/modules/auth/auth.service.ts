@@ -8,6 +8,7 @@ import type {
   SubscriptionStatus as SharedSubscriptionStatus,
   TokenPairDTO,
 } from '@resget/shared';
+import { FeatureFlagsService } from '../features/feature-flags.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OtpService } from './otp.service';
 import { InviteAcceptanceService } from './invite-acceptance.service';
@@ -23,6 +24,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly otp: OtpService,
     private readonly invites: InviteAcceptanceService,
+    private readonly features: FeatureFlagsService,
   ) {}
 
   requestLoginCode(phone: string): Promise<{ expiresAt: Date }> {
@@ -115,9 +117,10 @@ export class AuthService {
       },
       orderBy: { createdAt: 'asc' },
     });
+    const features = await Promise.all(memberships.map((m) => this.features.enabledFor(m.restaurant.id)));
     return {
       user,
-      memberships: memberships.map((m) => ({
+      memberships: memberships.map((m, index) => ({
         membershipId: m.id,
         restaurantId: m.restaurant.id,
         restaurantName: m.restaurant.name,
@@ -143,6 +146,7 @@ export class AuthService {
               }
             : null,
         ),
+        features: features[index],
       })),
     };
   }

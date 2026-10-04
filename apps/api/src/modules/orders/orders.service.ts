@@ -23,6 +23,7 @@ import {
   isAutoRefundStatus,
   canStartRefund,
   canFileClaim,
+  isFeatureEnabled,
   refundableMinor,
   refundedQuantities,
   refundStateOf,
@@ -47,6 +48,7 @@ import type {
   RateOrderInput,
   RefundItem,
 } from '@resget/shared';
+import { FeatureFlagsService } from '../features/feature-flags.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
@@ -136,6 +138,7 @@ export class OrdersService {
     private readonly geocoding: GeocodingService,
     private readonly webhooks: WebhooksService,
     private readonly push: PushService,
+    private readonly features: FeatureFlagsService,
   ) {}
 
   setTripEventsProvider(provider: (tripId: string) => Promise<TopicEvent[]>): void {
@@ -593,6 +596,7 @@ export class OrdersService {
     const row = await this.prisma.order.findUnique({ where: { trackingToken: token }, ...orderArgs });
     if (!row) throw notFound('ORDER_NOT_FOUND', 'Order not found');
     if (row.rating) throw conflict('RATING_EXISTS', 'Order already rated');
+    await this.features.assertEnabled('ratings', row.restaurantId);
     if (!canRateOrder(row.status, row.completedAt, false))
       throw conflict('RATING_NOT_ALLOWED', 'Order cannot be rated');
     await this.prisma.$transaction(async (tx) => {
@@ -614,12 +618,13 @@ export class OrdersService {
   }
 
   async trackingOf(row: OrderRow): Promise<OrderTrackingDTO> {
-    const [restaurant, branch] = await Promise.all([
+    const [restaurant, branch, switches] = await Promise.all([
       this.prisma.restaurant.findUnique({
         where: { id: row.restaurantId },
         select: { name: true, logoUrl: true, themePrimary: true },
       }),
       this.prisma.branch.findUnique({ where: { id: row.branchId }, select: { phone: true } }),
+      this.features.switchesFor(row.restaurantId),
     ]);
     const address = this.addressOf(row);
     const destination = address?.point ?? null;
@@ -689,13 +694,15 @@ export class OrdersService {
       rating: row.rating
         ? { score: row.rating.score, comment: row.rating.comment, createdAt: row.rating.createdAt.toISOString() }
         : null,
-      canRate: canRateOrder(row.status, row.completedAt, row.rating !== null),
+      canRate: isFeatureEnabled('ratings', switches) && canRateOrder(row.status, row.completedAt, row.rating !== null),
       claim: row.claims[0] ? this.claimOf(row, row.claims[0]) : null,
-      canClaim: canFileClaim(
-        row,
-        row.claims.some((c) => c.status === 'OPEN'),
-        row.payments.reduce((n, p) => n + refundableMinor(p), 0),
-      ),
+      canClaim:
+        isFeatureEnabled('missing_item_claims', switches) &&
+        canFileClaim(
+          row,
+          row.claims.some((c) => c.status === 'OPEN'),
+          row.payments.reduce((n, p) => n + refundableMinor(p), 0),
+        ),
     };
   }
 

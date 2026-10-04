@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { CreateTableSchema, UpdateTableSchema, UuidSchema } from '@resget/shared';
 import type { QrFunnel, TableDTO } from '@resget/shared';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/zod-body.pipe';
-import { RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
+import { RequireFeature, RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
 import { Tenant } from '../auth/decorators/current-user.decorator';
 import type { TenantContext } from '../auth/tenant-context';
 import { TablesService } from './tables.service';
@@ -19,6 +19,7 @@ const FunnelQuerySchema = z
 
 @Controller('restaurants/:restaurantId/tables')
 @RestaurantScoped()
+@RequireFeature('table_qr')
 export class TablesController {
   constructor(private readonly tables: TablesService) {}
 

@@ -13,6 +13,7 @@ import { trLanding } from './tr/landing';
 import { trPayments } from './tr/payments';
 import { trDispatch } from './tr/dispatch';
 import { trTracking } from './tr/tracking';
+import { trFeatures } from './tr/features';
 import { trPanel } from './tr/panel';
 import { trTables } from './tr/tables';
 import { trSettings } from './tr/settings';
@@ -45,6 +46,7 @@ import { enLanding } from './en/landing';
 import { enPayments } from './en/payments';
 import { enDispatch } from './en/dispatch';
 import { enTracking } from './en/tracking';
+import { enFeatures } from './en/features';
 import { enPanel } from './en/panel';
 import { enTables } from './en/tables';
 import { enSettings } from './en/settings';
@@ -88,6 +90,7 @@ export const TR_NAMESPACES = [
   trPayments,
   trDispatch,
   trTracking,
+  trFeatures,
   trPanel,
   trTables,
   trSettings,
@@ -123,6 +126,7 @@ export const EN_NAMESPACES = [
   enPayments,
   enDispatch,
   enTracking,
+  enFeatures,
   enPanel,
   enTables,
   enSettings,
