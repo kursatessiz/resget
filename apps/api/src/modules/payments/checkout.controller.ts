@@ -1,6 +1,6 @@
-import { Controller, Get, Headers, HttpCode, Post, Req } from '@nestjs/common';
+import { Controller, Get, Headers, HttpCode, Post, Query, Req, Res } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { z } from 'zod';
 import {
   CheckoutRequestSchema,
@@ -17,6 +17,7 @@ import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { badRequest, notFound } from '../../common/api-error';
 import { CheckoutService } from './checkout.service';
+import type { WebhookOutcome } from './checkout.service';
 import { MealCardsService } from './meal-cards.service';
 
 const WebhookKindSchema = z.enum(['meal-cards', 'pos']);
@@ -35,8 +36,9 @@ export class OrderPaymentsController {
     @Tenant() tenant: TenantContext,
     @ZodParam('orderId', UuidSchema) orderId: string,
     @ZodBody(CheckoutRequestSchema) body: z.infer<typeof CheckoutRequestSchema>,
+    @Req() req: Request,
   ): Promise<CheckoutSessionDTO> {
-    return this.checkout.startCheckout(tenant.restaurantId, orderId, body.returnUrl);
+    return this.checkout.startCheckout(tenant.restaurantId, orderId, body.returnUrl, req.ip);
   }
 
   /** Cash, card or a meal card taken at the counter or the door. */
@@ -83,8 +85,9 @@ export class PublicPaymentsController {
   publicCheckout(
     @ZodParam('token', TrackingTokenSchema) token: string,
     @ZodBody(CheckoutRequestSchema) body: z.infer<typeof CheckoutRequestSchema>,
+    @Req() req: Request,
   ): Promise<CheckoutSessionDTO> {
-    return this.checkout.startPublicCheckout(token, body.returnUrl);
+    return this.checkout.startPublicCheckout(token, body.returnUrl, req.ip);
   }
 }
 
@@ -99,14 +102,27 @@ export class PaymentWebhooksController {
 
   @Post(':kind/:connectionId')
   @HttpCode(200)
-  receive(
+  async receive(
     @ZodParam('kind', WebhookKindSchema) kind: z.infer<typeof WebhookKindSchema>,
     @ZodParam('connectionId', UuidSchema) connectionId: string,
     @Req() req: RawBodyRequest<Request>,
     @Headers() headers: Record<string, string | undefined>,
-  ) {
+    @Query() query: Record<string, string | undefined>,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<WebhookOutcome | string | undefined> {
     const raw = req.rawBody?.toString('utf8');
     if (!raw) throw badRequest('WEBHOOK_INVALID', 'Empty body');
-    return this.checkout.handleWebhook(kind, connectionId, raw, headers);
+    const outcome = await this.checkout.handleWebhook(kind, connectionId, raw, headers, query);
+    // A provider callback that carried the customer's browser is sent on to the order page.
+    if (outcome.browserRedirectUrl) {
+      res.redirect(303, outcome.browserRedirectUrl);
+      return undefined;
+    }
+    // Some providers insist on their own acknowledgement text and retry on anything else.
+    if (outcome.ack) {
+      res.type(outcome.ack.contentType);
+      return outcome.ack.body;
+    }
+    return outcome;
   }
 }
