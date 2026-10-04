@@ -189,3 +189,45 @@
     gap: 1rem;
   }
 }
+
+/* Maps (docs/SIPARIS_VE_SEVK.md): the frame follows the card radius; markers take the kit's colour roles. */
+.map-frame {
+  overflow: hidden;
+  border: var(--pui-border-width) solid var(--pui-border);
+  border-radius: var(--radius-card);
+  background: var(--pui-bg-muted);
+}
+.map-marker {
+  stroke-width: 2;
+  fill-opacity: 0.85;
+}
+.map-marker-courier {
+  stroke: var(--pui-bg);
+  fill: var(--pui-theme);
+}
+.map-marker-destination {
+  stroke: var(--pui-bg);
+  fill: var(--pui-success);
+}
+.map-marker-stop {
+  stroke: var(--pui-bg);
+  fill: var(--pui-muted);
+}
+.map-marker-stop-active {
+  stroke: var(--pui-bg);
+  fill: var(--pui-warn);
+}
+.map-marker-stop-done {
+  stroke: var(--pui-bg);
+  fill: var(--pui-border);
+}
+.map-path {
+  stroke: var(--pui-theme);
+  stroke-width: 3;
+  stroke-opacity: 0.7;
+  fill: none;
+}
+.leaflet-container {
+  font-family: inherit;
+  font-size: var(--pui-font-size);
+}
