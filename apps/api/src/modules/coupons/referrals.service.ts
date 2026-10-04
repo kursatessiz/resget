@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomInt } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@resget/database';
 import { REFERRAL_CAP_WINDOW_DAYS, friendCouponTerms, referralCodeFrom } from '@resget/shared';
@@ -235,7 +235,7 @@ export class ReferralsService {
    */
   private async freshCode(db: Prisma.TransactionClient | PrismaService, restaurantId: string, prefix: 'R' | 'W') {
     for (let attempt = 0; attempt < CODE_ATTEMPTS; attempt++) {
-      const code = referralCodeFrom(randomBytes(7), prefix);
+      const code = referralCodeFrom((max) => randomInt(max), prefix);
       const taken = await db.coupon.findUnique({
         where: { restaurantId_code: { restaurantId, code } },
         select: { id: true },

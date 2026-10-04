@@ -58,9 +58,14 @@ describe('customer referrals', () => {
 
   it('makes eight-character codes from an unambiguous alphabet', () => {
     expect(REFERRAL_CODE_ALPHABET).not.toMatch(/[01ILO]/);
-    const code = referralCodeFrom(new Uint8Array([0, 1, 2, 3, 250, 251, 255]), 'R');
-    expect(code).toHaveLength(8);
-    expect(code).toMatch(/^R[2-9A-HJ-NP-Z]{7}$/);
-    expect(referralCodeFrom(new Uint8Array(7), 'W')).toBe('W2222222');
+    const picks = [0, 1, 2, 3, 28, 29, 30];
+    const seen: number[] = [];
+    const code = referralCodeFrom((max) => {
+      seen.push(max);
+      return picks[seen.length - 1];
+    }, 'R');
+    expect(seen).toEqual(Array(7).fill(REFERRAL_CODE_ALPHABET.length));
+    expect(code).toBe('R2345XYZ');
+    expect(referralCodeFrom(() => 0, 'W')).toBe('W2222222');
   });
 });

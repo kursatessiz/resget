@@ -75,10 +75,14 @@ export function friendCouponTerms(input: UpsertReferralProgramInput): {
 /** Letters and digits that cannot be misread (no 0/O, 1/I/L). */
 export const REFERRAL_CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
 
-/** A code from random bytes: a prefix letter and seven characters of the alphabet. */
-export function referralCodeFrom(bytes: Uint8Array, prefix: 'R' | 'W'): string {
+/**
+ * A code: a prefix letter and seven characters of the alphabet. `randomIndex`
+ * returns a uniform integer in [0, max) (node:crypto randomInt in the API),
+ * so every character is equally likely; no modulo over raw bytes.
+ */
+export function referralCodeFrom(randomIndex: (max: number) => number, prefix: 'R' | 'W'): string {
   let code = prefix;
-  for (let i = 0; i < 7; i++) code += REFERRAL_CODE_ALPHABET[bytes[i % bytes.length] % REFERRAL_CODE_ALPHABET.length];
+  for (let i = 0; i < 7; i++) code += REFERRAL_CODE_ALPHABET[randomIndex(REFERRAL_CODE_ALPHABET.length)];
   return code;
 }
 
