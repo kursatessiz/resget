@@ -4,6 +4,7 @@ import { CreateWebhookSchema, UpdateWebhookSchema, UuidSchema } from '@resget/sh
 import type { CreatedWebhookDTO, WebhookDTO, WebhookDeliveryDTO } from '@resget/shared';
 import { ZodBody, ZodParam } from '../../common/zod-body.pipe';
 import {
+  RequireFeature,
   RequirePermission,
   RequirePlanFeature,
   RestaurantScoped,
@@ -16,6 +17,7 @@ import { WebhooksService } from './webhooks.service';
 /** Webhook endpoints of a restaurant (docs/API_ERISIMI.md); managed from the panel by a person, never by a key. */
 @Controller('restaurants/:restaurantId/webhooks')
 @RestaurantScoped()
+@RequireFeature('api_access')
 @SessionOnly()
 @RequirePlanFeature('api_access')
 export class WebhooksController {

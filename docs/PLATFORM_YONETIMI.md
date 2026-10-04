@@ -21,6 +21,10 @@
 - **Sistem** (`/admin/sistem`, `GET /admin/system`): her açılışta canlı ölçülür; veritabanı gecikmesi ve Redis durumu, sürüm ve çalışma süresi, zamanlanmış işler (günlük fatura işi ve son çalışması `billing.run` denetim satırından, kabul zaman aşımı bekçisi), sağlayıcılar (SMS ve WhatsApp adaptör kodu ve bakiyesi, ödeme, kart kasası, kurye ağı, e-fatura, yol motoru; `MOCK` olanlar sarı rozetle), son 24 saat sayaçları (sipariş, kabul süresi geçen, gönderilen ve başarısız mesaj, açık ve vadesi geçmiş fatura, askıdaki listeleme, aktif restoran) ve restoranlardaki toplam kredi. `ProviderBalanceMonitor` saatte bir bakiyeleri okur; `PROVIDER_BALANCE_WARN` (500) altına düşen kanal için hata günlüğü ve günde bir `provider.balance_low` denetim satırı yazar (`docs/MESAJLASMA.md`).
 - Her yazma `audit_logs` tablosuna aktör, eylem, varlık ve değişiklikle kaydedilir.
 
+## Özellik anahtarları (`/admin/ozellikler`)
+
+Her modül genel olarak veya işletme bazında açılıp kapatılır; işletmenin kendi ayarı genel ayarın önüne geçer, yeni modüller kapalı gelir. Ayrıntılar: `docs/OZELLIK_ANAHTARLARI.md`.
+
 ## Erişim
 
 - API: `SuperAdminGuard` yalnızca `isSuperAdmin` kullanıcıyı geçirir; `RestaurantTenantGuard` süper admine üyeliksiz tam yetki verir, böylece konsoldan açılan bir restoranın uçları da süper admine açıktır.

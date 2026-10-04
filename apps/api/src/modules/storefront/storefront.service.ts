@@ -22,6 +22,7 @@ import type {
   StorefrontDTO,
   StorefrontOrderingDTO,
 } from '@resget/shared';
+import { FeatureFlagsService } from '../features/feature-flags.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MenuService } from '../menu/menu.service';
 import { MealCardsService } from '../payments/meal-cards.service';
@@ -67,6 +68,7 @@ export class StorefrontService {
     private readonly loyalty: LoyaltyService,
     private readonly geocoding: GeocodingService,
     private readonly config: ConfigService,
+    private readonly features: FeatureFlagsService,
   ) {}
 
   // -- Reads ---------------------------------------------------------------------------
@@ -77,6 +79,7 @@ export class StorefrontService {
       select: { id: true, label: true, isActive: true, restaurant: { select: restaurantSelect } },
     });
     if (!table || !table.isActive || !table.restaurant.isActive) throw notFound('TABLE_NOT_FOUND', 'Table not found');
+    await this.features.assertEnabled('table_qr', table.restaurant.id);
     if (sessionId) {
       await this.prisma.qrScanEvent.create({
         data: { restaurantId: table.restaurant.id, tableId: table.id, sessionId, outcome: QrScanOutcome.VIEWED_MENU },
@@ -99,6 +102,7 @@ export class StorefrontService {
       select: { id: true, restaurantId: true, isActive: true },
     });
     if (!table || !table.isActive) throw notFound('TABLE_NOT_FOUND', 'Table not found');
+    await this.features.assertEnabled('table_qr', table.restaurantId);
     await this.prisma.qrScanEvent.create({
       data: { restaurantId: table.restaurantId, tableId: table.id, sessionId, outcome: QrScanOutcome.STARTED_ORDER },
     });
@@ -146,7 +150,7 @@ export class StorefrontService {
       select: { id: true, countryCode: true, city: true, district: true },
     });
     if (!area) throw notFound('NOT_FOUND', 'Service area not found');
-    const rows = await this.prisma.restaurant.findMany({
+    const listed = await this.prisma.restaurant.findMany({
       where: {
         isActive: true,
         isListed: true,
@@ -177,6 +181,9 @@ export class StorefrontService {
         ratingSum: true,
       },
     });
+    // Only restaurants whose marketplace module is on are listed (docs/OZELLIK_ANAHTARLARI.md).
+    const shown = await Promise.all(listed.map((r) => this.features.isEnabled('marketplace', r.id)));
+    const rows = listed.filter((_, index) => shown[index]);
     // Ranking (docs/VITRIN.md): open now first, then a damped rating and recent completed orders, then the name.
     const now = new Date();
     const recent = await this.prisma.order.groupBy({
@@ -226,6 +233,7 @@ export class StorefrontService {
       select: { id: true, branchId: true, isActive: true, restaurant: { select: restaurantSelect } },
     });
     if (!table || !table.isActive || !table.restaurant.isActive) throw notFound('TABLE_NOT_FOUND', 'Table not found');
+    await this.features.assertEnabled('table_qr', table.restaurant.id);
     return this.place(table.restaurant, table.branchId, input, {
       channel: 'TABLE_QR',
       tableId: input.fulfillment === 'DINE_IN' ? table.id : undefined,

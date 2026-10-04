@@ -9,6 +9,7 @@ import type {
   ServiceAreaDTO,
 } from '@resget/shared';
 import { Badge, Button, Card, SelectField, TextField } from '@/components/ui';
+import { RestaurantFeatures } from '@/components/admin/AdminFeatures';
 import { ApiError, bffJson } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
 
@@ -197,6 +198,8 @@ export function AdminRestaurantDetail({ id, locale }: { id: string; locale: stri
           </Button>
         </div>
       </Card>
+
+      <RestaurantFeatures restaurantId={id} locale={locale} />
 
       <Card title={t('admin.restaurant.commission')} aria-label={t('admin.restaurant.commission')}>
         <div className="grid gap-3 md:grid-cols-2">

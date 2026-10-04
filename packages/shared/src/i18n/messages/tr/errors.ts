@@ -45,6 +45,7 @@ export const trErrors = {
     'Bu ödemenin alındığı bağlantı artık kullanılamıyor; iadeyi ödeme sağlayıcısının panelinden yapın.',
   'errors.REFUND_ITEMS_INVALID': 'Seçilen ürünler bu siparişte yok veya o kadarı zaten iade edildi.',
   'errors.REFUND_AMOUNT_TOO_HIGH': 'İade tutarı siparişte iade edilebilecek tutardan fazla.',
+  'errors.FEATURE_DISABLED': 'Bu özellik şu anda bu işletme için kullanıma açık değil.',
   'errors.CLAIM_NOT_ALLOWED':
     'Bu sipariş için şu anda eksik ürün bildirilemez: sipariş tamamlanmadı, süre doldu, bekleyen bir bildirim var veya iade edilecek tutar kalmadı.',
   'errors.CLAIM_NOT_FOUND': 'Eksik ürün bildirimi bulunamadı.',

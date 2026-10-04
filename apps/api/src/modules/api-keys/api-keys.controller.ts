@@ -4,6 +4,7 @@ import { CreateApiKeySchema, UuidSchema } from '@resget/shared';
 import type { ApiKeyDTO, CreatedApiKeyDTO } from '@resget/shared';
 import { ZodBody, ZodParam } from '../../common/zod-body.pipe';
 import {
+  RequireFeature,
   RequirePermission,
   RequirePlanFeature,
   RestaurantScoped,
@@ -16,6 +17,7 @@ import { ApiKeysService } from '../auth/api-keys.service';
 /** Minting and revoking keys needs a person at the panel: a key can never create another key. */
 @Controller('restaurants/:restaurantId/api-keys')
 @RestaurantScoped()
+@RequireFeature('api_access')
 @SessionOnly()
 @RequirePlanFeature('api_access')
 export class ApiKeysController {

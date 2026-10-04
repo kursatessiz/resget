@@ -21,6 +21,7 @@ import type {
   NotificationSettings,
   WhatsAppTemplateMessage,
 } from '@resget/shared';
+import { FeatureFlagsService } from '../features/feature-flags.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SMS_PROVIDER, maskPhone } from './sms.provider';
 import type { SmsProvider, SmsSendResult } from './sms.provider';
@@ -62,6 +63,7 @@ export class MessagingService {
     private readonly prisma: PrismaService,
     @Inject(SMS_PROVIDER) private readonly sms: SmsProvider,
     @Inject(WHATSAPP_PROVIDER) private readonly whatsapp: WhatsAppProvider,
+    private readonly features: FeatureFlagsService,
   ) {}
 
   render(templateKey: MessageTemplateKey, params: MessageParams | undefined, locale: string): string {
@@ -79,6 +81,10 @@ export class MessagingService {
 
   async send(request: SendMessageRequest): Promise<SendMessageResult> {
     const text = this.render(request.templateKey, request.params, request.locale);
+    // With the WhatsApp module switched off the message goes as SMS (docs/OZELLIK_ANAHTARLARI.md).
+    if (request.channel === 'WHATSAPP' && !(await this.features.isEnabled('whatsapp_channel', request.restaurantId))) {
+      return this.attempt(request, 'SMS', text);
+    }
     const first = await this.attempt(request, request.channel, text);
     if (first.status === 'SENT' || request.channel === 'SMS' || !request.fallbackToSms) return first;
     return this.attempt(request, 'SMS', text);

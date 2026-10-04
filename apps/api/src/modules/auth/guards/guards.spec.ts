@@ -4,7 +4,8 @@ import { ALL_PERMISSIONS } from '@resget/shared';
 import type { PermissionKey } from '@resget/shared';
 import { RestaurantTenantGuard } from './restaurant-tenant.guard';
 import { PermissionGuard } from './permission.guard';
-import { PERMISSIONS_KEY, PLAN_FEATURE_KEY } from '../decorators/require-permission.decorator';
+import { FEATURE_KEY, PERMISSIONS_KEY, PLAN_FEATURE_KEY } from '../decorators/require-permission.decorator';
+import type { FeatureFlagsService } from '../../features/feature-flags.service';
 import type { AuthUser, AuthenticatedRequest, TenantContext } from '../tenant-context';
 
 const RESTAURANT_A = '11111111-1111-4111-8111-111111111111';
@@ -13,7 +14,7 @@ const user: AuthUser = { id: 'u1', phone: '+905321112233', fullName: 'A B', isSu
 
 function ctx(
   request: Partial<AuthenticatedRequest>,
-  meta: { permissions?: PermissionKey[]; feature?: string } = {},
+  meta: { permissions?: PermissionKey[]; feature?: string; module?: string } = {},
 ): ExecutionContext {
   const req = Object.assign(request, {
     params: request.params ?? {},
@@ -23,6 +24,7 @@ function ctx(
   const handler = () => undefined;
   if (meta.permissions) Reflect.defineMetadata(PERMISSIONS_KEY, meta.permissions, handler);
   if (meta.feature) Reflect.defineMetadata(PLAN_FEATURE_KEY, meta.feature, handler);
+  if (meta.module) Reflect.defineMetadata(FEATURE_KEY, meta.module, handler);
   return {
     switchToHttp: () => ({ getRequest: () => req }),
     getHandler: () => handler,
@@ -134,7 +136,19 @@ describe('RestaurantTenantGuard', () => {
 });
 
 describe('PermissionGuard', () => {
-  const guard = new PermissionGuard(new Reflector());
+  const switchedOff = new Set<string>();
+  // A plain function: the suite above resets every jest mock before each test.
+  const assertEnabled = async (key: string): Promise<void> => {
+    if (switchedOff.has(key)) throw new ForbiddenException({ code: 'FEATURE_DISABLED' });
+  };
+  const calls: [string, string][] = [];
+  const features = {
+    assertEnabled: (key: string, restaurantId: string) => {
+      calls.push([key, restaurantId]);
+      return assertEnabled(key);
+    },
+  } as unknown as FeatureFlagsService;
+  const guard = new PermissionGuard(new Reflector(), features);
   const tenant = (overrides: Partial<TenantContext> = {}): TenantContext => ({
     restaurantId: RESTAURANT_A,
     membershipId: 'm1',
@@ -145,32 +159,41 @@ describe('PermissionGuard', () => {
     ...overrides,
   });
 
-  it('refuses a handler that declares no permission (deny by default)', () => {
-    expect(() => guard.canActivate(ctx({ user, tenant: tenant() }))).toThrow(ForbiddenException);
+  it('refuses a handler that declares no permission (deny by default)', async () => {
+    await expect(guard.canActivate(ctx({ user, tenant: tenant() }))).rejects.toThrow(ForbiddenException);
   });
 
-  it('checks every required permission', () => {
-    expect(guard.canActivate(ctx({ user, tenant: tenant() }, { permissions: ['orders.view'] }))).toBe(true);
-    expect(() =>
+  it('checks every required permission', async () => {
+    await expect(guard.canActivate(ctx({ user, tenant: tenant() }, { permissions: ['orders.view'] }))).resolves.toBe(
+      true,
+    );
+    await expect(
       guard.canActivate(ctx({ user, tenant: tenant() }, { permissions: ['orders.view', 'orders.manage'] })),
-    ).toThrow(ForbiddenException);
+    ).rejects.toThrow(ForbiddenException);
   });
 
-  it('gates PRO features by the effective plan with the PLAN_FEATURE_REQUIRED code', () => {
+  it('gates PRO features by the effective plan with the PLAN_FEATURE_REQUIRED code', async () => {
     const basic = ctx(
       { user, tenant: tenant({ permissions: new Set<PermissionKey>(['campaigns.view']) }) },
       { permissions: ['campaigns.view'], feature: 'campaigns' },
     );
-    try {
-      guard.canActivate(basic);
-      throw new Error('expected ForbiddenException');
-    } catch (err) {
-      expect((err as ForbiddenException).getResponse()).toMatchObject({ code: 'PLAN_FEATURE_REQUIRED' });
-    }
+    await expect(guard.canActivate(basic)).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'PLAN_FEATURE_REQUIRED' }),
+    });
     const pro = ctx(
       { user, tenant: tenant({ permissions: new Set<PermissionKey>(['campaigns.view']), effectivePlan: 'PRO' }) },
       { permissions: ['campaigns.view'], feature: 'campaigns' },
     );
-    expect(guard.canActivate(pro)).toBe(true);
+    await expect(guard.canActivate(pro)).resolves.toBe(true);
+  });
+
+  it('refuses a module switched off for the restaurant with FEATURE_DISABLED', async () => {
+    const request = () => ctx({ user, tenant: tenant() }, { permissions: ['orders.view'], module: 'loyalty' });
+    await expect(guard.canActivate(request())).resolves.toBe(true);
+    switchedOff.add('loyalty');
+    await expect(guard.canActivate(request())).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'FEATURE_DISABLED' }),
+    });
+    expect(calls.at(-1)).toEqual(['loyalty', RESTAURANT_A]);
   });
 });

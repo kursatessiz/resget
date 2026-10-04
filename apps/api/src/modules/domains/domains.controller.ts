@@ -6,6 +6,7 @@ import type { CustomDomainDTO, PublicDomainResolveDTO } from '@resget/shared';
 import { ZodBody } from '../../common/zod-body.pipe';
 import { notFound } from '../../common/api-error';
 import {
+  RequireFeature,
   RequirePermission,
   RequirePlanFeature,
   RestaurantScoped,
@@ -17,6 +18,7 @@ import { DomainsService } from './domains.service';
 /** The restaurant's custom domain (docs/VITRIN.md): reading is open so BASIC sees the rule, writing is PRO. */
 @Controller('restaurants/:restaurantId/domain')
 @RestaurantScoped()
+@RequireFeature('custom_domain')
 export class DomainsController {
   constructor(private readonly domains: DomainsService) {}
 

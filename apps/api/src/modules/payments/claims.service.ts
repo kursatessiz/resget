@@ -14,6 +14,7 @@ import type {
   OrderTrackingDTO,
   RefundItem,
 } from '@resget/shared';
+import { FeatureFlagsService } from '../features/feature-flags.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { OrdersService } from '../orders/orders.service';
@@ -38,6 +39,7 @@ export class ClaimsService {
     private readonly refunds: RefundsService,
     private readonly notifications: OrderNotificationsService,
     private readonly realtime: RealtimeService,
+    private readonly features: FeatureFlagsService,
   ) {}
 
   async fileByToken(token: string, input: FileClaimInput): Promise<OrderTrackingDTO> {
@@ -57,6 +59,7 @@ export class ClaimsService {
       },
     });
     if (!order) throw notFound('ORDER_NOT_FOUND', 'Order not found');
+    await this.features.assertEnabled('missing_item_claims', order.restaurantId);
     const left = order.payments.reduce((n, p) => n + refundableMinor(p), 0);
     if (!canFileClaim(order, order.claims.length > 0, left)) {
       throw conflict('CLAIM_NOT_ALLOWED', 'A missing item cannot be reported for this order now');

@@ -22,7 +22,7 @@ export function PanelShell({
   children: ReactNode;
 }) {
   const base = `/panel/${membership.restaurantSlug}`;
-  const items = visibleNav(membership.permissions);
+  const items = visibleNav(membership.permissions, membership.features);
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 md:flex-row">
       <aside className="flex flex-col gap-4 md:w-60 md:flex-none" aria-label={t('panel.title')}>

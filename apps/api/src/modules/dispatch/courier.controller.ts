@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { CollectPaymentSchema, LocationPingSchema, StopFailureSchema, UuidSchema } from '@resget/shared';
 import type { DeliveryTripDTO, OrderDetailDTO } from '@resget/shared';
 import { ZodBody, ZodParam } from '../../common/zod-body.pipe';
-import { RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
+import { RequireFeature, RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { RealtimeService, courierTopic } from '../realtime/realtime.service';
@@ -24,6 +24,7 @@ const courier = (user: AuthUser) => ({ userId: user.id, role: 'COURIER' as const
  */
 @Controller('restaurants/:restaurantId/courier/me')
 @RestaurantScoped()
+@RequireFeature('own_courier_dispatch')
 export class CourierController {
   constructor(
     private readonly dispatch: DispatchService,

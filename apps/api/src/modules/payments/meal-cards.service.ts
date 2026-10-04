@@ -8,6 +8,7 @@ import type {
   MealCardSettingsDTO,
   UpsertMealCardConnectionInput,
 } from '@resget/shared';
+import { FeatureFlagsService } from '../features/feature-flags.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsRegistry } from './payments.registry';
 import { MealCardsRegistry } from './meal-cards.registry';
@@ -26,6 +27,7 @@ export class MealCardsService {
     private readonly prisma: PrismaService,
     private readonly payments: PaymentsRegistry,
     private readonly registry: MealCardsRegistry,
+    private readonly features: FeatureFlagsService,
   ) {}
 
   async settings(restaurantId: string): Promise<MealCardSettingsDTO> {
@@ -112,15 +114,23 @@ export class MealCardsService {
       },
     });
     if (!restaurant) throw notFound('NOT_FOUND', 'Restaurant not found');
-    const cards = restaurant.mealCardConnections.filter((c) => isMealCardProviderCode(c.providerCode));
+    // Module switches (docs/OZELLIK_ANAHTARLARI.md): a switched-off method is simply not offered.
+    const [onlineOn, mealCardsOn] = await Promise.all([
+      this.features.isEnabled('online_payment', restaurantId),
+      this.features.isEnabled('meal_cards', restaurantId),
+    ]);
+    const cards = mealCardsOn
+      ? restaurant.mealCardConnections.filter((c) => isMealCardProviderCode(c.providerCode))
+      : [];
     const entry = (code: string) => ({
       providerCode: code as MealCardProviderCode,
       name: MEAL_CARD_PROVIDERS[code as MealCardProviderCode].name,
     });
     return {
       onlineCard:
-        restaurant.paymentMode === 'PLATFORM_PSP' ||
-        restaurant.paymentConnection?.status === PaymentConnectionStatus.ACTIVE,
+        onlineOn &&
+        (restaurant.paymentMode === 'PLATFORM_PSP' ||
+          restaurant.paymentConnection?.status === PaymentConnectionStatus.ACTIVE),
       mealCardsOnline: cards
         .filter((c) => c.acceptsOnline && c.status === PaymentConnectionStatus.ACTIVE)
         .map((c) => entry(c.providerCode)),

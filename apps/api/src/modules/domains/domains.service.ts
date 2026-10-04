@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@resget/database';
 import { hasFeature } from '@resget/shared';
 import type { CustomDomainDTO, SubscriptionStatus as SharedSubscriptionStatus } from '@resget/shared';
+import { FeatureFlagsService } from '../features/feature-flags.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
 import { DOMAIN_VERIFIER } from './domain-verifier';
@@ -37,6 +38,7 @@ export class DomainsService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     @Inject(DOMAIN_VERIFIER) private readonly verifier: DomainVerifierAdapter,
+    private readonly features: FeatureFlagsService,
   ) {
     this.target = new URL(this.config.getOrThrow<string>('PUBLIC_APP_URL')).hostname.toLowerCase();
   }
@@ -124,6 +126,8 @@ export class DomainsService {
       select: domainSelect,
     });
     if (!row) return null;
+    // A switched-off module stops serving the domain (docs/OZELLIK_ANAHTARLARI.md); the record stays.
+    if (!(await this.features.isEnabled('custom_domain', row.id))) return null;
     return this.isServing(row) ? row.slug : null;
   }
 

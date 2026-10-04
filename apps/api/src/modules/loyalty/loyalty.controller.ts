@@ -4,6 +4,7 @@ import { AdjustLoyaltySchema, UpdateLoyaltyProgramSchema, UuidSchema } from '@re
 import type { CustomerLoyaltyDTO, LoyaltyOverviewDTO, LoyaltyProgramDTO } from '@resget/shared';
 import { ZodBody, ZodParam } from '../../common/zod-body.pipe';
 import {
+  RequireFeature,
   RequirePermission,
   RequirePlanFeature,
   RestaurantScoped,
@@ -15,6 +16,7 @@ import { LoyaltyService } from './loyalty.service';
 /** The restaurant's loyalty program (docs/SADAKAT.md); reading is open so BASIC sees the rule, writing is PRO. */
 @Controller('restaurants/:restaurantId/loyalty')
 @RestaurantScoped()
+@RequireFeature('loyalty')
 export class LoyaltyController {
   constructor(private readonly loyalty: LoyaltyService) {}
 
