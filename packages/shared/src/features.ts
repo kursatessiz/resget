@@ -46,6 +46,7 @@ export const FEATURES = {
   whatsapp_channel: { group: 'marketing', defaultEnabled: true, stage: 'GA' },
   custom_domain: { group: 'integrations', defaultEnabled: true, stage: 'GA' },
   api_access: { group: 'integrations', defaultEnabled: true, stage: 'GA' },
+  pos_integration: { group: 'integrations', defaultEnabled: false, stage: 'BETA' },
 } as const satisfies Record<string, FeatureSpec>;
 
 export type FeatureKey = keyof typeof FEATURES;

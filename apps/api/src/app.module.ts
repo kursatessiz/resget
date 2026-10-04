@@ -28,6 +28,7 @@ import { LedgerModule } from './modules/ledger/ledger.module';
 import { FeaturesModule } from './modules/features/features.module';
 import { AvailabilityModule } from './modules/availability/availability.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
+import { PosModule } from './modules/pos/pos.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { DomainsModule } from './modules/domains/domains.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
@@ -66,6 +67,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
     StorefrontModule,
     AvailabilityModule,
     CouponsModule,
+    PosModule,
     BillingModule,
     CustomersModule,
     ReportsModule,

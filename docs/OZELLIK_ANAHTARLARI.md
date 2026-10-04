@@ -58,5 +58,6 @@ Anahtar, modülün işletme için var olup olmadığına karar verir. Plan (BASI
 | `whatsapp_channel` | Pazarlama | açık |
 | `custom_domain` | Entegrasyon | açık |
 | `api_access` | Entegrasyon | açık |
+| `pos_integration` | Entegrasyon | kapalı (BETA) |
 
 Menü, sipariş alma ve işletmenin kendi sipariş sayfası çekirdektir, anahtarı yoktur.
