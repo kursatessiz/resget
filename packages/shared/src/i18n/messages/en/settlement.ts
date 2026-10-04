@@ -11,6 +11,9 @@ export const enSettlement: Record<keyof typeof trSettlement, string> = {
   'settlement.line.PSP_FEE': 'Payment provider fee',
   'settlement.line.WITHHOLDING_TAX': 'E-commerce withholding tax',
   'settlement.line.REFUND': 'Refund',
+  'settlement.line.CHARGEBACK': 'Chargeback',
+  'settlement.line.COMMISSION_REVERSAL': 'Commission returned',
+  'settlement.line.COMMISSION_VAT_REVERSAL': 'Commission VAT returned',
   'settlement.line.ADJUSTMENT': 'Adjustment',
   'settlement.line.RESTAURANT_PAYABLE': 'Payable to you',
   'settlement.withholdingNote':

@@ -127,6 +127,8 @@ describe('Commission billing (e2e)', () => {
       ['COMMISSION_VAT', -200],
       ['PLATFORM_COMMISSION', -1000],
     ]);
+    // The invoice records which orders it billed, so a later refund can be credited on the next one.
+    expect(await ctx.prisma.order.count({ where: { commissionInvoiceId: invoice.id } })).toBe(2);
 
     const second = await ctx.http().post('/admin/billing/run').set(bearer(adminToken)).send({}).expect(200);
     expect(second.body.issued).toBe(0);

@@ -127,6 +127,7 @@ enum PaymentStatus {
   FAILED
   REFUNDED
   PARTIALLY_REFUNDED
+  CHARGED_BACK
 }
 
 enum LedgerEntryType {
@@ -139,6 +140,9 @@ enum LedgerEntryType {
   PSP_FEE
   WITHHOLDING_TAX
   REFUND
+  CHARGEBACK
+  COMMISSION_REVERSAL
+  COMMISSION_VAT_REVERSAL
   ADJUSTMENT
   RESTAURANT_PAYABLE
 }
@@ -935,26 +939,31 @@ model Order {
   paymentProvider         String?
 
   /// Delivery address at the time of the order (never a live reference).
-  addressSnapshot     Json?
-  customerNote        String?
-  rejectReason        String?
+  addressSnapshot           Json?
+  customerNote              String?
+  rejectReason              String?
   /// Unguessable handle of the public tracking page (/t/<token>); set for every new order.
-  trackingToken       String?   @unique
+  trackingToken             String?   @unique
   /// Kitchen promise given when the order was accepted (placedAt + prepMinutes).
-  promisedReadyAt     DateTime?
+  promisedReadyAt           DateTime?
   /// PLACED orders: placedAt + the restaurant's acceptTimeoutMinutes; the watchdog alarms past it (docs/SIPARIS_VE_SEVK.md).
-  acceptDeadlineAt    DateTime?
+  acceptDeadlineAt          DateTime?
   /// Set once the overdue alarm went out, so it goes out once.
-  acceptAlertSentAt   DateTime?
+  acceptAlertSentAt         DateTime?
   /// Latest delivery estimate, recomputed from the courier's position while on the way.
-  estimatedDeliveryAt DateTime?
-  placedAt            DateTime  @default(now())
-  acceptedAt          DateTime?
-  readyAt             DateTime?
-  completedAt         DateTime?
-  cancelledAt         DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  estimatedDeliveryAt       DateTime?
+  placedAt                  DateTime  @default(now())
+  acceptedAt                DateTime?
+  readyAt                   DateTime?
+  completedAt               DateTime?
+  cancelledAt               DateTime?
+  /// OWN_POS commission bookkeeping (docs/MUTABAKAT.md, "İade ve chargeback"): the invoice that billed the order,
+  /// when its commission was cancelled (refund or chargeback after completion) and the invoice that credited it back.
+  commissionInvoiceId       String?
+  commissionReversedAt      DateTime?
+  commissionCreditInvoiceId String?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
 
   restaurant          Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   branch              Branch               @relation(fields: [branchId], references: [id])
@@ -973,6 +982,8 @@ model Order {
   @@index([restaurantId, status])
   @@index([status, acceptDeadlineAt])
   @@index([customerUserId])
+  @@index([restaurantId, commissionInvoiceId])
+  @@index([restaurantId, commissionCreditInvoiceId])
   @@map("orders")
 }
 

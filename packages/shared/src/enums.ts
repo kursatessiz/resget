@@ -155,6 +155,8 @@ export enum PaymentStatus {
   FAILED = 'FAILED',
   REFUNDED = 'REFUNDED',
   PARTIALLY_REFUNDED = 'PARTIALLY_REFUNDED',
+  /** The cardholder's bank took the money back (a chargeback); the restaurant bears it by contract. */
+  CHARGED_BACK = 'CHARGED_BACK',
 }
 
 /**
@@ -171,6 +173,10 @@ export enum LedgerEntryType {
   PSP_FEE = 'PSP_FEE',
   WITHHOLDING_TAX = 'WITHHOLDING_TAX',
   REFUND = 'REFUND',
+  CHARGEBACK = 'CHARGEBACK',
+  /** Commission (and its VAT) given back when a completed order is refunded or charged back: no commission on those. */
+  COMMISSION_REVERSAL = 'COMMISSION_REVERSAL',
+  COMMISSION_VAT_REVERSAL = 'COMMISSION_VAT_REVERSAL',
   ADJUSTMENT = 'ADJUSTMENT',
   RESTAURANT_PAYABLE = 'RESTAURANT_PAYABLE',
 }

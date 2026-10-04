@@ -448,6 +448,10 @@ export class OrdersService {
     if (remaining || !refunded || !canTransitionOrder(row.fulfillment, row.status, 'REFUNDED', actor)) return null;
     const from = row.status;
     await this.applyTransition(tx, row, 'REFUNDED', actor, actorUserId, { reason });
+    // No commission on a refunded order (docs/MUTABAKAT.md): a completed one is taken off, or credited if already billed.
+    if (row.completedAt) {
+      await tx.order.update({ where: { id: row.id }, data: { commissionReversedAt: new Date() } });
+    }
     return from;
   }
 
@@ -739,12 +743,14 @@ export class OrdersService {
     const captured = latest?.status === 'CAPTURED' ? latest.amountMinor - latest.refundedMinor : 0;
     // A cancelled or refunded order owes nothing, whatever was or was not collected.
     const closedUnpaid = isTerminalOrderStatus(row.status) && row.status !== 'DELIVERED' && row.status !== 'PICKED_UP';
+    // A charged-back payment was paid and then taken back by the bank: nothing is due at the door.
+    const chargedBack = latest?.status === 'CHARGED_BACK';
     const failure = row.payments.find((p) => p.refundFailureCode !== null && p.status === 'CAPTURED');
     return {
       method: latest?.method ?? row.paymentMethod ?? null,
       providerCode: latest?.method === 'MEAL_CARD' ? latest.provider : row.paymentProvider,
       status: latest?.status ?? null,
-      dueMinor: closedUnpaid ? 0 : Math.max(0, row.chargedToCustomerMinor - captured),
+      dueMinor: closedUnpaid || chargedBack ? 0 : Math.max(0, row.chargedToCustomerMinor - captured),
       capturedAt: latest?.capturedAt?.toISOString() ?? null,
       refundedMinor: row.payments.reduce((sum, p) => sum + p.refundedMinor, 0),
       refundState: refundStateOf(row.payments, now),
