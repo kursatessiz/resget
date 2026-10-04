@@ -467,6 +467,8 @@ model Restaurant {
   emailSuppressions    EmailSuppression[]
   segments             Segment[]
   journeys             Journey[]
+  adConnections        AdConnection[]
+  adSpend              AdSpendDaily[]
   touchpoints          Touchpoint[]
   conversionEvents     ConversionEvent[]
   couponRedemptions    CouponRedemption[]
@@ -2018,6 +2020,8 @@ model ConversionEvent {
   customer             RestaurantCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   attributedTouchpoint Touchpoint?         @relation(fields: [attributedTouchpointId], references: [id], onDelete: SetNull)
 
+  adDeliveries AdConversionDelivery[]
+
   @@unique([restaurantId, sourceKind, sourceId])
   @@index([restaurantId, occurredAt])
   @@index([customerId])
@@ -2235,4 +2239,77 @@ model JourneyRun {
   @@index([journeyId, customerId, createdAt])
   @@index([customerId, sentAt])
   @@map("journey_runs")
+}
+
+// ---------------------------------------------------------------------------
+// Ad platform integrations (docs/REKLAM.md)
+// ---------------------------------------------------------------------------
+
+/// A tenant's ad account on one platform; credentials encrypted with CredentialCipher, never returned.
+model AdConnection {
+  id                   String    @id @default(uuid())
+  restaurantId         String
+  platform             String
+  /// ACTIVE, PAUSED or ERROR (the last check or delivery found the credentials refused).
+  status               String    @default("ACTIVE")
+  encryptedCredentials String
+  keyVersion           String
+  /// Non-secret fields (pixel id, customer id) for display and requests.
+  publicConfig         Json
+  sendTypes            String[]
+  enhancedMatching     Boolean   @default(false)
+  lastSentAt           DateTime?
+  lastSpendSyncAt      DateTime?
+  lastError            String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  restaurant Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  deliveries AdConversionDelivery[]
+  spend      AdSpendDaily[]
+
+  @@unique([restaurantId, platform])
+  @@map("ad_connections")
+}
+
+/// One conversion to one ad platform: queued, retried with backoff, then sent, skipped or failed.
+model AdConversionDelivery {
+  id                String    @id @default(uuid())
+  connectionId      String
+  conversionEventId String
+  status            String    @default("PENDING")
+  attempts          Int       @default(0)
+  nextAttemptAt     DateTime  @default(now())
+  errorCode         String?
+  sentAt            DateTime?
+  createdAt         DateTime  @default(now())
+
+  connection AdConnection    @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  conversion ConversionEvent @relation(fields: [conversionEventId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, conversionEventId])
+  @@index([status, nextAttemptAt])
+  @@map("ad_conversion_deliveries")
+}
+
+/// Daily spend of one platform campaign, as the platform reports it, in minor units of its currency.
+model AdSpendDaily {
+  id           String   @id @default(uuid())
+  connectionId String
+  restaurantId String
+  date         DateTime @db.Date
+  campaignRef  String
+  campaignName String?
+  spendMinor   Int
+  currency     String
+  impressions  Int      @default(0)
+  clicks       Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  connection AdConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  restaurant Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, date, campaignRef])
+  @@index([restaurantId, date])
+  @@map("ad_spend_daily")
 }

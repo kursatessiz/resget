@@ -71,6 +71,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.kpi_dashboard.name': 'Funnels and KPI board',
   'features.kpi_dashboard.description':
     'In the marketing area: orders per restaurant per day, table QR and restaurant funnels, channels, revenue and districts.',
+  'features.ad_integrations.name': 'Ad integrations',
+  'features.ad_integrations.description':
+    'Connect Meta, Google Ads and TikTok accounts, send conversions from the server (only with advertising consent), daily spend and return on ad spend report.',
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',

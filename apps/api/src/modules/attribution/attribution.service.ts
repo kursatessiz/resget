@@ -28,6 +28,7 @@ import type {
 import { PrismaService } from '../prisma/prisma.service';
 import { FeatureFlagsService } from '../features/feature-flags.service';
 import { ConsentService } from '../consent/consent.service';
+import { AdsService } from '../ads/ads.service';
 
 /** Request facts the tracking endpoint passes in; the IP address is never among them. */
 export interface TouchpointMeta {
@@ -79,6 +80,7 @@ export class AttributionService {
     private readonly prisma: PrismaService,
     private readonly features: FeatureFlagsService,
     private readonly consent: ConsentService,
+    private readonly ads: AdsService,
   ) {}
 
   // -- Tenants -------------------------------------------------------------------------
@@ -278,6 +280,12 @@ export class AttributionService {
       ],
       skipDuplicates: true,
     });
+    // The ad platforms hear about it too, if the business connected them (docs/REKLAM.md).
+    if (created.count > 0) {
+      await this.ads
+        .enqueueConversion(input.restaurantId, input.sourceKind, input.sourceId)
+        .catch((error: unknown) => this.logger.warn(`ad conversion queue failed: ${String(error)}`));
+    }
     if (created.count === 0 || !input.customerId) return created.count > 0;
     await this.prisma.$transaction([
       this.prisma.contactActivity.create({

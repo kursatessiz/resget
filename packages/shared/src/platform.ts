@@ -99,6 +99,7 @@ export const MARKETING_NAV: readonly MarketingNavItem[] = [
   { key: 'segments', path: '/segmentler', permission: 'platform.marketing.view', feature: 'segments_v2' },
   { key: 'journeys', path: '/akislar', permission: 'platform.marketing.view', feature: 'journeys' },
   { key: 'funnels', path: '/huniler', permission: 'platform.marketing.view', feature: 'kpi_dashboard' },
+  { key: 'ads', path: '/reklam', permission: 'platform.marketing.view', feature: 'ad_integrations' },
   { key: 'attribution', path: '/atif', permission: 'platform.marketing.view', feature: 'attribution' },
 ];
 

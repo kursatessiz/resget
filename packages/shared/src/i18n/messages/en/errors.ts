@@ -100,6 +100,9 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.JOURNEY_NOT_FOUND': 'Flow not found.',
   'errors.JOURNEY_CONTENT_INVALID':
     'The flow text does not fit the channel: SMS and WhatsApp take at most 300 characters and no subject, email needs a subject, and win-back has no order link.',
+  'errors.AD_CREDENTIALS_INVALID': 'The account details are incomplete or contain an unknown field.',
+  'errors.AD_CREDENTIALS_REFUSED': 'The ad platform did not accept these details. Check the ids and the token.',
+  'errors.AD_CONNECTION_NOT_FOUND': 'No account is connected for this platform.',
   'errors.LOYALTY_NOT_ACTIVE': 'This restaurant has no active loyalty program.',
   'errors.LOYALTY_NOT_REDEEMABLE': 'Points cannot be used on this order: the balance or the order total is too low.',
   'errors.LOYALTY_SIGN_IN_REQUIRED': 'Sign in to use points.',

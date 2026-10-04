@@ -2,6 +2,8 @@ import { ApiKeysManager } from '@/components/panel/ApiKeysManager';
 import { WebhooksManager } from '@/components/panel/WebhooksManager';
 import { PosManager } from '@/components/panel/PosManager';
 import { EmailManager } from '@/components/panel/EmailManager';
+import { AdsManager } from '@/components/panel/AdsManager';
+import { RESTAURANT_CONVERSION_TYPES } from '@resget/shared';
 import { getLocale } from '@/lib/i18n';
 import { requireMembership } from '@/lib/panel';
 
@@ -30,6 +32,13 @@ export default async function IntegrationsPage({ params }: { params: Promise<{ s
       )}
       {membership.features.includes('email_channel') && (
         <EmailManager restaurantId={membership.restaurantId} locale={locale} />
+      )}
+      {membership.features.includes('ad_integrations') && membership.effectivePlan === 'PRO' && (
+        <AdsManager
+          restaurantId={membership.restaurantId}
+          locale={locale}
+          conversionTypes={RESTAURANT_CONVERSION_TYPES}
+        />
       )}
     </div>
   );
