@@ -122,4 +122,5 @@ export const trErrors = {
   'errors.PLATFORM_NOT_SET_UP': 'Platform pazarlaması henüz kurulmadı.',
   'errors.PLATFORM_ACCESS_DENIED': 'Platform pazarlamasına erişiminiz yok.',
   'errors.PLANS_MISSING': 'Önce planlar oluşturulmalı.',
+  'errors.CONTACT_EXISTS': 'Bu telefon numarası zaten kişi listesinde.',
 } as const satisfies Record<string, string>;

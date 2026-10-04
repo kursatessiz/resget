@@ -44,6 +44,7 @@ export const FEATURES = {
   loyalty: { group: 'marketing', defaultEnabled: true, stage: 'GA' },
   coupons: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   marketing_platform: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
+  contacts_crm: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   whatsapp_channel: { group: 'marketing', defaultEnabled: true, stage: 'GA' },
   custom_domain: { group: 'integrations', defaultEnabled: true, stage: 'GA' },
   api_access: { group: 'integrations', defaultEnabled: true, stage: 'GA' },

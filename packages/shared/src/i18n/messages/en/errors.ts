@@ -124,4 +124,5 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.PLATFORM_NOT_SET_UP': 'Platform marketing is not set up yet.',
   'errors.PLATFORM_ACCESS_DENIED': 'You have no access to platform marketing.',
   'errors.PLANS_MISSING': 'The plans must be created first.',
+  'errors.CONTACT_EXISTS': 'This phone number is already a contact.',
 };

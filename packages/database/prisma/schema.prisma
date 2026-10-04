@@ -290,6 +290,7 @@ model User {
   paymentsCollected   Payment[]            @relation("PaymentCollectedBy")
   refundsCreated      OrderRefund[]        @relation("OrderRefundCreatedBy")
   claimsDecided       OrderClaim[]         @relation("OrderClaimDecidedBy")
+  contactActivities   ContactActivity[]    @relation("ContactActivityActor")
   auditLogs           AuditLog[]
   campaignsCreated    Campaign[]           @relation("CampaignCreatedBy")
   apiKeysCreated      RestaurantApiKey[]   @relation("ApiKeyCreatedBy")
@@ -455,6 +456,9 @@ model Restaurant {
   coupons              Coupon[]
   posConnection        PosConnection?
   posOrderSyncs        PosOrderSync[]
+  pipelineStages       PipelineStage[]
+  contactActivities    ContactActivity[]
+  contactTasks         ContactTask[]
   couponRedemptions    CouponRedemption[]
 
   @@index([serviceAreaId, isListed])
@@ -533,6 +537,8 @@ model Membership {
   courierTrips    DeliveryTrip[]
   courierLocation CourierLocation?
   locationSamples CourierLocationSample[]
+  ownedContacts   RestaurantCustomer[]    @relation("ContactOwner")
+  assignedTasks   ContactTask[]           @relation("TaskAssignee")
 
   @@unique([userId, restaurantId])
   @@index([restaurantId, status])
@@ -706,34 +712,48 @@ model CustomerAddress {
 
 /// The restaurant's own customer list: the lock-in of the SaaS layer. One row per (restaurant, user).
 model RestaurantCustomer {
-  id                 String       @id @default(uuid())
+  id                 String        @id @default(uuid())
   restaurantId       String
   userId             String
-  firstChannel       OrderChannel
+  /// Null for a contact who never ordered (a CRM prospect, docs/CRM.md).
+  firstChannel       OrderChannel?
   firstOrderAt       DateTime?
   lastOrderAt        DateTime?
-  orderCount         Int          @default(0)
-  lifetimeGrossMinor Int          @default(0)
-  tags               String[]     @default([])
+  orderCount         Int           @default(0)
+  lifetimeGrossMinor Int           @default(0)
+  tags               String[]      @default([])
   note               String?
-  marketingOptIn     Boolean      @default(false)
+  marketingOptIn     Boolean       @default(false)
   /// When the customer gave or withdrew marketing consent (docs/KAMPANYALAR.md); the flag is the current state.
   marketingOptInAt   DateTime?
   marketingOptOutAt  DateTime?
   /// Unguessable handle of the one-click opt-out link in every campaign message.
-  marketingToken     String?      @unique
+  marketingToken     String?       @unique
   /// Loyalty balance (docs/SADAKAT.md); every change is a loyalty_transactions row.
-  loyaltyPoints      Int          @default(0)
+  loyaltyPoints      Int           @default(0)
   /// First time the customer earned points here; the welcome bonus is paid once, at that moment.
   loyaltyJoinedAt    DateTime?
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  /// CRM fields (docs/CRM.md): tenant data about the contact; the phone stays on the user.
+  email              String?
+  company            String?
+  city               String?
+  district           String?
+  source             String?
+  stageId            String?
+  ownerMembershipId  String?
+  lastActivityAt     DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
   restaurant          Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   campaignRecipients  CampaignRecipient[]
   loyaltyTransactions LoyaltyTransaction[]
   couponRedemptions   CouponRedemption[]
+  stage               PipelineStage?       @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  owner               Membership?          @relation("ContactOwner", fields: [ownerMembershipId], references: [id], onDelete: SetNull)
+  activities          ContactActivity[]
+  tasks               ContactTask[]
 
   @@unique([restaurantId, userId])
   @@index([restaurantId, lastOrderAt])
@@ -1790,4 +1810,77 @@ model PosOrderSync {
   @@index([status, nextAttemptAt])
   @@index([connectionId, externalRef])
   @@map("pos_order_syncs")
+}
+
+enum StageKind {
+  OPEN
+  WON
+  LOST
+}
+
+enum ContactActivityType {
+  NOTE
+  CALL
+  MEETING
+  EMAIL
+  STAGE_CHANGE
+  TASK_DONE
+}
+
+/// A step of the tenant's pipeline (docs/CRM.md); defaults are created on first use, names are tenant data.
+model PipelineStage {
+  id           String    @id @default(uuid())
+  restaurantId String
+  /// Key of a default stage (labels crm.stage.<key>) or null for a custom one.
+  key          String?
+  name         String?
+  kind         StageKind @default(OPEN)
+  position     Int
+  createdAt    DateTime  @default(now())
+
+  restaurant Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  contacts   RestaurantCustomer[]
+
+  @@unique([restaurantId, key])
+  @@index([restaurantId, position])
+  @@map("pipeline_stages")
+}
+
+/// Append-only history of a contact: notes, calls, meetings, emails, stage changes, finished tasks.
+model ContactActivity {
+  id           String              @id @default(uuid())
+  restaurantId String
+  customerId   String
+  type         ContactActivityType
+  body         String?
+  actorUserId  String?
+  createdAt    DateTime            @default(now())
+
+  restaurant Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  customer   RestaurantCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  actor      User?              @relation("ContactActivityActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([customerId, createdAt])
+  @@map("contact_activities")
+}
+
+/// A follow-up on a contact, optionally assigned to a member and due at a time.
+model ContactTask {
+  id                   String    @id @default(uuid())
+  restaurantId         String
+  customerId           String
+  title                String
+  dueAt                DateTime?
+  assigneeMembershipId String?
+  doneAt               DateTime?
+  createdByUserId      String?
+  createdAt            DateTime  @default(now())
+
+  restaurant Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  customer   RestaurantCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignee   Membership?        @relation("TaskAssignee", fields: [assigneeMembershipId], references: [id], onDelete: SetNull)
+
+  @@index([restaurantId, doneAt, dueAt])
+  @@index([customerId])
+  @@map("contact_tasks")
 }

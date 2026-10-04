@@ -22,6 +22,7 @@ export const PANEL_NAV: readonly PanelNavItem[] = [
   { key: 'menu', path: '/menu', permission: 'menu.view' },
   { key: 'tables', path: '/masalar', permission: 'tables.manage', feature: 'table_qr' },
   { key: 'customers', path: '/musteriler', permission: 'customers.view' },
+  { key: 'pipeline', path: '/satis-hatti', permission: 'customers.view', feature: 'contacts_crm' },
   { key: 'finance', path: '/finans', permission: 'finance.view' },
   { key: 'payments', path: '/odeme', permission: 'payments.manage' },
   { key: 'courier', path: '/kurye', permission: 'courier.manage' },

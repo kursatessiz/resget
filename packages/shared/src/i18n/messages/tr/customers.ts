@@ -26,4 +26,5 @@ export const trCustomers = {
   'customers.noOrders': 'Bu müşterinin siparişi yok.',
   'customers.details': 'Detay',
   'customers.hide': 'Gizle',
+  'customers.prospect': 'Henüz sipariş vermedi.',
 } as const satisfies Record<string, string>;

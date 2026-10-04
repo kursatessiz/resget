@@ -27,4 +27,5 @@ export const enCustomers: Record<keyof typeof trCustomers, string> = {
   'customers.noOrders': 'This customer has no orders.',
   'customers.details': 'Details',
   'customers.hide': 'Hide',
+  'customers.prospect': 'Has not ordered yet.',
 };

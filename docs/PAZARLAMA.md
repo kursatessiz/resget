@@ -22,6 +22,7 @@ Platformun kendi pazarlaması ve restoranların pazarlama modülleri tek bir çe
 Menü platform izinlerinden ve açık modüllerden kurulur (`MARKETING_NAV`):
 - **Özet**: modüllere geçiş ve yol haritası.
 - **Kişiler**: platform kiracısının kişileri, restoranın müşteri ekranıyla.
+- **Satış hattı** ve **Görevler**: `contacts_crm` modülü açıkken (`docs/CRM.md`).
 - **Kampanyalar**: `campaigns` modülü açıkken, restoranın kampanya ekranıyla; gönderim `platform.marketing.send` ister.
 
 ## Konsol uçları
@@ -36,7 +37,7 @@ Her işlem denetim kaydına yazılır (`platform.setup`, `platform.user.*`).
 ## Yol haritası (her madde bir PR, her biri kendi anahtarıyla kapalı gelir)
 
 1. Platform kiracısı, platform rolleri ve Pazarlama alanı (bu belge, tamamlandı).
-2. CRM çekirdeği: kişi, yaşam döngüsü, satış hattı aşamaları (platform için aday, iletişim, demo, kurulum, canlı, kayıp), görevler, etkinlikler, birleştirme, CSV dışa aktarma.
+2. CRM çekirdeği: kişi, satış hattı aşamaları (platform için aday, iletişim, demo, kurulum, canlı, kayıp), görevler, etkinlikler, CSV dışa aktarma (tamamlandı, `docs/CRM.md`; birleştirme ve özel alanlar sonraki adım).
 3. Ziyaretçi ve atıf temeli: ziyaretçi ve temas noktası, UTM ve tıklama kimlikleri, rıza bandı (TR KVKK, AB açık rıza, diğerleri bilgi), dönüşüm olayları (aday, restoran kaydı, ilk ödeme, ilk sipariş, tekrar sipariş), masa QR taramasının temas noktasına bağlanması.
 4. Rıza v2: kanal başına rıza ve hukuki dayanak, AB için çift onay, TR tacir istisnası, sıklık sınırı, gönderim öncesi kontrol.
 5. E-posta kanalı ve gönderici alan adları (SPF, DKIM, DMARC), geri dönen ve şikayet bastırma.
