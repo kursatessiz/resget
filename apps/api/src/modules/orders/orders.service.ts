@@ -101,6 +101,8 @@ export interface ResolvedPaymentIntent {
   paidBefore: boolean;
 }
 
+export type OrderListener = (order: { id: string; restaurantId: string; status: string }) => Promise<void>;
+
 export interface CreateOrderOptions {
   /** Spend this signed-in customer's loyalty points on the order (docs/SADAKAT.md). */
   loyaltyUserId?: string;
@@ -130,6 +132,7 @@ export interface TransitionOptions {
 export class OrdersService {
   /** Registered by the dispatch service so a cancelled order can refresh its trip without a circular import. */
   private tripEvents: ((tripId: string) => Promise<TopicEvent[]>) | null = null;
+  private readonly orderListeners: OrderListener[] = [];
   /** Registered by the checkout service: validates a payment intent against what the restaurant accepts. */
   private resolvePayment: PaymentIntentResolver | null = null;
   /** Registered by the refunds service: gives an online payment back after a cancellation (docs/ODEME.md, "İade"). */
@@ -148,6 +151,14 @@ export class OrdersService {
     private readonly features: FeatureFlagsService,
     private readonly coupons: CouponsService,
   ) {}
+
+  /**
+   * Called with every order whose state was just published (POS push, docs/POS_ENTEGRASYONU.md).
+   * Listeners run in the background; a slow or failing one never holds up the order.
+   */
+  addOrderListener(listener: OrderListener): void {
+    this.orderListeners.push(listener);
+  }
 
   setTripEventsProvider(provider: (tripId: string) => Promise<TopicEvent[]>): void {
     this.tripEvents = provider;
@@ -635,6 +646,9 @@ export class OrdersService {
     if (!row) return [];
     // Every published change also goes to the restaurant's webhooks (docs/API_ERISIMI.md); queued, never awaited.
     await this.webhooks.enqueue(row.restaurantId, 'order.updated', this.toSummary(row, true));
+    for (const listener of this.orderListeners) {
+      void listener({ id: row.id, restaurantId: row.restaurantId, status: row.status }).catch(() => undefined);
+    }
     const events: TopicEvent[] = [
       { topic: dispatchTopic(row.restaurantId), event: { type: 'order.updated', order: this.toSummary(row, true) } },
       { topic: orderTopic(row.id), event: { type: 'tracking.updated', tracking: await this.trackingOf(row) } },

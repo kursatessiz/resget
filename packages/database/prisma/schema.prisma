@@ -451,6 +451,8 @@ model Restaurant {
   orderRatings         OrderRating[]
   loyaltyTransactions  LoyaltyTransaction[]
   coupons              Coupon[]
+  posConnection        PosConnection?
+  posOrderSyncs        PosOrderSync[]
   couponRedemptions    CouponRedemption[]
 
   @@index([serviceAreaId, isListed])
@@ -1005,6 +1007,7 @@ model Order {
   ledgerEntries       LedgerEntry[]
   loyaltyTransactions LoyaltyTransaction[]
   couponRedemption    CouponRedemption?
+  posSync             PosOrderSync?
   rating              OrderRating?
   deliveryRequest     DeliveryRequest?
   deliveryStops       DeliveryStop[]
@@ -1726,4 +1729,61 @@ model CouponRedemption {
   @@index([couponId, customerId])
   @@index([restaurantId, createdAt])
   @@map("coupon_redemptions")
+}
+
+enum PosConnectionStatus {
+  ACTIVE
+  FAILED
+}
+
+enum PosSyncStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+/// The restaurant's own point of sale (docs/POS_ENTEGRASYONU.md); credentials encrypted like the POS payment connection.
+model PosConnection {
+  id                   String              @id @default(uuid())
+  restaurantId         String              @unique
+  providerCode         String
+  encryptedCredentials String
+  keyVersion           String
+  label                String
+  status               PosConnectionStatus
+  failureReason        String?
+  /// Accept a new order as soon as the POS has it, with defaultPrepMinutes.
+  autoAccept           Boolean             @default(false)
+  defaultPrepMinutes   Int                 @default(20)
+  isActive             Boolean             @default(true)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  restaurant Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  syncs      PosOrderSync[]
+
+  @@map("pos_connections")
+}
+
+/// One order's delivery to the POS: pushed once, retried with backoff until POS_MAX_ATTEMPTS.
+model PosOrderSync {
+  id            String        @id @default(uuid())
+  restaurantId  String
+  connectionId  String
+  orderId       String        @unique
+  status        PosSyncStatus @default(PENDING)
+  externalRef   String?
+  attempts      Int           @default(0)
+  lastError     String?
+  nextAttemptAt DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  restaurant Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  connection PosConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  order      Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([connectionId, externalRef])
+  @@map("pos_order_syncs")
 }

@@ -45,4 +45,7 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.app_order_handling.name': 'Order handling in the app',
   'features.app_order_handling.description':
     'Accept, reject, ready and hand-over steps on the tablet and phone; vibration and a notification for new orders.',
+  'features.pos_integration.name': 'POS integration',
+  'features.pos_integration.description':
+    "New orders go to the business's own POS; automatic acceptance and status updates from the POS.",
 };

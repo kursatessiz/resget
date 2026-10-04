@@ -45,4 +45,7 @@ export const trFeatures = {
   'features.app_order_handling.name': 'Uygulamadan sipariş yönetimi',
   'features.app_order_handling.description':
     'Tablet ve telefonda siparişi kabul, ret, hazır ve teslim adımları; yeni siparişte titreşim ve bildirim.',
+  'features.pos_integration.name': 'POS entegrasyonu',
+  'features.pos_integration.description':
+    "Yeni sipariş işletmenin kendi POS sistemine gider; otomatik kabul ve POS'tan durum bildirimi.",
 } as const satisfies Record<string, string>;
