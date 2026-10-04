@@ -1,4 +1,6 @@
 import type { DeliveryStopDTO, DeliveryTripDTO, GeoPoint } from '@resget/shared';
+import { regionFor } from './maps';
+import type { MapRegion } from './maps';
 
 /**
  * The courier's in-app map (docs/MOBIL.md, "Kurye haritası"): the pickup
@@ -18,13 +20,6 @@ export interface StopMarker {
   state: StopMarkerState;
 }
 
-export interface MapRegion {
-  latitude: number;
-  longitude: number;
-  latitudeDelta: number;
-  longitudeDelta: number;
-}
-
 export interface TripMapModel {
   pickup: GeoPoint | null;
   courier: GeoPoint | null;
@@ -35,36 +30,10 @@ export interface TripMapModel {
   region: MapRegion | null;
 }
 
-/** A small area around a single point (about a kilometre across). */
-export const MIN_REGION_DELTA = 0.01;
-/** Room around the outermost points so markers are not cut at the edge. */
-export const REGION_PADDING = 1.4;
-
 const OPEN_STOP_STATUSES: ReadonlySet<DeliveryStopDTO['status']> = new Set(['PENDING', 'EN_ROUTE', 'ARRIVING']);
 
 function isActive(trip: DeliveryTripDTO): boolean {
   return trip.status === 'PLANNED' || trip.status === 'ASSIGNED' || trip.status === 'IN_PROGRESS';
-}
-
-/** The region that fits every point with some padding; never narrower than MIN_REGION_DELTA. */
-export function regionFor(points: readonly GeoPoint[]): MapRegion | null {
-  if (points.length === 0) return null;
-  let minLat = Infinity;
-  let maxLat = -Infinity;
-  let minLng = Infinity;
-  let maxLng = -Infinity;
-  for (const p of points) {
-    minLat = Math.min(minLat, p.lat);
-    maxLat = Math.max(maxLat, p.lat);
-    minLng = Math.min(minLng, p.lng);
-    maxLng = Math.max(maxLng, p.lng);
-  }
-  return {
-    latitude: (minLat + maxLat) / 2,
-    longitude: (minLng + maxLng) / 2,
-    latitudeDelta: Math.max((maxLat - minLat) * REGION_PADDING, MIN_REGION_DELTA),
-    longitudeDelta: Math.max((maxLng - minLng) * REGION_PADDING, MIN_REGION_DELTA),
-  };
 }
 
 export function tripMapModel(trip: DeliveryTripDTO): TripMapModel {
@@ -139,9 +108,4 @@ export function navigationUrl(app: NavigationApp, point: GeoPoint): string {
     default:
       return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
   }
-}
-
-/** Apple Maps draws on iOS without a key; Google Maps on Android needs the key the build was given. */
-export function inAppMapAvailable(os: string, androidKeyConfigured: boolean): boolean {
-  return os === 'ios' || (os === 'android' && androidKeyConfigured);
 }
