@@ -10,13 +10,14 @@
 - Üyelikler arası işletme değiştirici; son seçilen işletme cihazda saklanır ve uygulama orada açılır.
 - Kurye modu (`courier.deliver` izni): atanmış seferler, sefer ekranında tek "sıradaki adım" düğmesi (teslim al, yola çık, vardım, teslim ettim), teslim edilemedi ve sebebi, müşteriyi arama, navigasyon bağlantısı, durak başına mesafe ve tahmini varış.
 - Arka plan konum paylaşımı: sefer `IN_PROGRESS` olduğu sürece konum görevi çalışır, ekran kapalıyken de toplar; noktalar seyreltilir ve partiler halinde `POST /restaurants/:id/courier/me/location` adresine gider.
-- Sipariş listesi (`orders.view` izni): salt okunur, 15 saniyede bir yenilenir. Mutfak akışı web panelinde ve tablet panosunda kalır.
+- Sipariş listesi (`orders.view` izni): salt okunur, 15 saniyede bir yenilenir. Mutfak akışı web panelinde kalır.
+- Sevk panosu (`dispatch.view` izni; `sevk` sekmesi): sevk bekleyen siparişler, kuryeler (boşta olanlar önce, son konum saati) ve aktif seferler (durum, kurye, sıra modu, duraklar ve tahmini varış). `dispatch.manage` iznine sahip kişi siparişleri dokunma sırasıyla seçer, isterse kurye seçer ve en kısa rotayla sefer oluşturur; seferde kurye atar veya değiştirir, rotayı yeniden hesaplatır ve seferi iptal eder (yalnızca hâlâ yapılabilecek düğmeler görünür, `tripActions()`). Genişlik 768 pikselden büyükse iki panel yan yana (tablet), değilse alt alta (telefon). Pano 8 saniyede bir yeniden okunur; başka cihazda sefere alınan sipariş seçimden düşer.
 - Müşteri modu (herkes için): telefon numarasıyla verilen siparişler (`GET /me/orders`), uygulama içi canlı takip (`/t/<token>`: adım merdiveni, durum cümlesi, kurye mesafesi ve tahmini varış, harita bağlantısı, sipariş içeriği, işletmeyi arama, 1-5 puan ve yorum), tekrar sipariş (işletmenin sipariş sayfası tarayıcıda açılır).
 - Takip bağlantısı derin bağlantıdır: SMS veya WhatsApp ile gelen `https://<web>/t/<token>` ve `resget://t/<token>` doğrudan takip ekranını açar; giriş gerekmez, token yeterlidir.
 - Push bildirimleri (`expo-notifications`): girişten sonra cihaz jetonu `POST /me/devices` ile kaydedilir, çıkışta silinir; müşteri sipariş güncellemeleri, kuryeye sefer ataması ve personele yeni sipariş uyarısı aynı telefona rolüne göre gelir (`docs/MESAJLASMA.md`, push bölümü). Bildirime dokunmak ilgili ekranı açar (takip, sefer, siparişler); tanınmayan veri yok sayılır.
 - Hesap: kim giriş yapmış, işletme değiştirici, çıkış.
 
-Henüz olmayanlar: kurye ekranında harita, restoran tablet sevk panosu, EAS derleme ve mağaza yayını. Masa QR'ı (`/m/<token>`) bilerek web'de kalır: sipariş vermek uygulama kurulumu gerektirmez. Bunlar `HANDOVER.md` B1 maddesinde kalan iş olarak listelenir.
+Henüz olmayanlar: uygulama içi harita (web takip sayfası ve web sevk panosu haritayı gösterir), mağaza hesaplarıyla EAS derleme ve yayın. Masa QR'ı (`/m/<token>`) bilerek web'de kalır: sipariş vermek uygulama kurulumu gerektirmez. Bunlar `HANDOVER.md` B1 maddesinde kalan iş olarak listelenir.
 
 ## 2. Dizin yapısı
 
@@ -29,6 +30,7 @@ apps/mobile/
     (app)/_layout.tsx      sekmeler; görünürlük izinlerden (tabsFor)
     (app)/kurye/index.tsx  seferlerim
     (app)/kurye/[tripId]   sefer adımları ve duraklar
+    (app)/sevk.tsx         sevk panosu (tablette iki panel)
     (app)/siparisler.tsx   sipariş listesi (personel)
     (app)/siparislerim.tsx kendi siparişlerim (müşteri)
     (app)/hesap.tsx        hesap ve işletme değiştirici
@@ -37,6 +39,7 @@ apps/mobile/
     lib/api.ts             ApiClient: bearer, 401'de tek yenileme, x-restaurant-id
     lib/session.ts         expo-secure-store ile jeton ve son işletme
     lib/tabs.ts            tabsFor, pickMembership
+    lib/dispatch.ts        sevk panosu kuralları: seçim, sefer aksiyonları, kurye sırası, tablet eşiği
     lib/location-batch.ts  LocationQueue: seyreltme, doğruluk filtresi, kuyruk sınırı, parti
     lib/location-tracker.ts expo-task-manager görevi, başlat / durdur / gönder
     lib/i18n.ts            cihaz dili, paylaşılan çevirmen

@@ -18,6 +18,7 @@ export const enMobile: Record<keyof typeof trMobile, string> = {
   'mobile.tabs.orders': 'Orders',
   'mobile.tabs.account': 'Account',
   'mobile.tabs.myOrders': 'My orders',
+  'mobile.tabs.dispatch': 'Dispatch',
   'mobile.customer.intro': 'Orders placed with your phone number show up here.',
   'mobile.customer.empty': 'No orders yet. Scan the QR on the table or open a restaurant page.',
   'mobile.customer.order': '{restaurant}, order {code}',

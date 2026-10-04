@@ -20,6 +20,7 @@ describe('mobile navigation', () => {
     expect(tabsFor(['courier.deliver', 'orders.view'])).toEqual(['courier', 'orders', 'myOrders', 'account']);
     expect(tabsFor(['orders.view'])).toEqual(['orders', 'myOrders', 'account']);
     expect(tabsFor([])).toEqual(['myOrders', 'account']);
+    expect(tabsFor(['dispatch.view', 'orders.view'])).toEqual(['dispatch', 'orders', 'myOrders', 'account']);
   });
 
   it('opens the last chosen active restaurant, else the first active one', () => {
