@@ -54,3 +54,4 @@ export * from './consent';
 export * from './email';
 export * from './segments';
 export * from './journeys';
+export * from './kpi';

@@ -231,3 +231,28 @@
   font-family: inherit;
   font-size: var(--pui-font-size);
 }
+
+/* KPI board (docs/HUNILER.md): one series, the brand color, recessive axis. */
+.chart-bar {
+  fill: var(--pui-theme);
+}
+.chart-bar:hover,
+.chart-bar:focus {
+  fill-opacity: 0.75;
+  outline: none;
+}
+.chart-axis {
+  stroke: var(--pui-border);
+  stroke-width: 1;
+}
+.funnel-track {
+  height: 0.75rem;
+  border-radius: var(--radius-chip);
+  background: var(--pui-bg-muted);
+  overflow: hidden;
+}
+.funnel-fill {
+  height: 100%;
+  border-radius: var(--radius-chip);
+  background: var(--pui-theme);
+}

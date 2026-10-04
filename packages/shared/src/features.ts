@@ -51,6 +51,7 @@ export const FEATURES = {
   segments_v2: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   campaigns_v2: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   journeys: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
+  kpi_dashboard: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   whatsapp_channel: { group: 'marketing', defaultEnabled: true, stage: 'GA' },
   custom_domain: { group: 'integrations', defaultEnabled: true, stage: 'GA' },
   api_access: { group: 'integrations', defaultEnabled: true, stage: 'GA' },

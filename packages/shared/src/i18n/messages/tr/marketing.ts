@@ -7,6 +7,7 @@ export const trMarketing = {
   'marketing.nav.campaigns': 'Kampanyalar',
   'marketing.nav.segments': 'Segmentler',
   'marketing.nav.journeys': 'Akışlar',
+  'marketing.nav.funnels': 'Huniler ve KPI',
   'marketing.nav.backToConsole': 'Konsola dön',
   'marketing.role.marketing_admin': 'Pazarlama yöneticisi',
   'marketing.role.marketing_editor': 'Pazarlama editörü',

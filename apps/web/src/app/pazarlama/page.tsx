@@ -9,6 +9,7 @@ export default async function MarketingOverviewPage() {
   if (access.kind !== 'ok') return null;
   const { t } = await getT();
   const campaignsOn = access.context.features.includes('campaigns');
+  const kpiOn = access.context.features.includes('kpi_dashboard');
   return (
     <div className="flex flex-col gap-6">
       <h1 className="ui-title">{t('marketing.nav.overview')}</h1>
@@ -23,6 +24,13 @@ export default async function MarketingOverviewPage() {
           <Card title={t('marketing.overview.campaigns')}>
             <Link href="/pazarlama/kampanyalar" className="pui-btn pui-link pui-theme">
               {t('marketing.nav.campaigns')}
+            </Link>
+          </Card>
+        )}
+        {kpiOn && (
+          <Card title={t('kpi.title')}>
+            <Link href="/pazarlama/huniler" className="pui-btn pui-link pui-theme">
+              {t('marketing.nav.funnels')}
             </Link>
           </Card>
         )}

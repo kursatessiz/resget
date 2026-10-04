@@ -38,6 +38,7 @@ import { trConsent } from './tr/consent';
 import { trEmail } from './tr/email';
 import { trSegments } from './tr/segments';
 import { trJourneys } from './tr/journeys';
+import { trKpi } from './tr/kpi';
 import { trIntegrations } from './tr/integrations';
 import { enCommon } from './en/common';
 import { enNav } from './en/nav';
@@ -79,6 +80,7 @@ import { enConsent } from './en/consent';
 import { enEmail } from './en/email';
 import { enSegments } from './en/segments';
 import { enJourneys } from './en/journeys';
+import { enKpi } from './en/kpi';
 import { enIntegrations } from './en/integrations';
 
 /**
@@ -130,6 +132,7 @@ export const TR_NAMESPACES = [
   trEmail,
   trSegments,
   trJourneys,
+  trKpi,
   trIntegrations,
   trMobile,
 ] as const;
@@ -174,6 +177,7 @@ export const EN_NAMESPACES = [
   enEmail,
   enSegments,
   enJourneys,
+  enKpi,
   enIntegrations,
   enMobile,
 ] as const;
