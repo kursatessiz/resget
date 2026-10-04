@@ -58,4 +58,5 @@ export const trTracking = {
   'tracking.claim.open': 'Bildiriminiz işletmeye iletildi. Karar verildiğinde size haber verilir.',
   'tracking.claim.approved': 'Bildiriminiz onaylandı; {amount} iade edildi.',
   'tracking.claim.declined': 'Bildiriminiz kabul edilmedi. Neden: {reason}',
+  'tracking.claim.escalated': 'Bildiriminiz platform ekibine iletildi; en kısa sürede karar verilecek.',
 } as const satisfies Record<string, string>;

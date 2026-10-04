@@ -206,4 +206,19 @@ export const enAdmin: Record<keyof typeof trAdmin, string> = {
   'admin.payouts.empty': 'No payouts.',
   'admin.payouts.updated': 'Payout updated.',
   'admin.forbidden': 'This area is open to the platform owner only.',
+  'admin.nav.claims': 'Claims',
+  'admin.claims.title': 'Escalated claims',
+  'admin.claims.intro':
+    'Missing item reports the business did not decide within 24 hours. An approval is a partial refund charged to the business under its agreement, with the refunded share of the commission returned; the business can still decide too.',
+  'admin.claims.empty': 'No claims waiting.',
+  'admin.claims.order': '{restaurant} / order {code}',
+  'admin.claims.requested': 'Requested: {amount}',
+  'admin.claims.filed': 'Reported: {time}',
+  'admin.claims.history':
+    'This customer made {claims} reports across all businesses in the last {days} days ({approved} approved).',
+  'admin.claims.approve': 'Approve and refund',
+  'admin.claims.decline': 'Decline',
+  'admin.claims.reason': 'Reason (shown to the customer)',
+  'admin.claims.declineConfirm': 'Decline the report',
+  'admin.claims.done': 'Decision saved.',
 };

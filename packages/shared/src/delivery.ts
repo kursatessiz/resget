@@ -14,7 +14,7 @@ import { MinorAmountSchema } from './money';
 import { OrderPaymentIntentSchema } from './meal-cards';
 import type { OrderPaymentDTO } from './meal-cards';
 import type { OrderRefundDTO } from './refunds';
-import type { OrderClaimDTO } from './claims';
+import type { CustomerClaimHistoryDTO, OrderClaimDTO } from './claims';
 import { PhoneSchema, UuidSchema } from './validators';
 
 /**
@@ -633,6 +633,8 @@ export interface OrderDetailDTO extends OrderSummaryDTO {
   refunds: OrderRefundDTO[];
   /** The customer's missing-item claims, newest first (docs/ODEME.md, "Eksik ürün bildirimi"). */
   claims: OrderClaimDTO[];
+  /** While a claim waits and the claim_escalation module is on: the customer's earlier claims here. */
+  customerClaimHistory: CustomerClaimHistoryDTO | null;
 }
 
 export interface CourierPositionDTO {

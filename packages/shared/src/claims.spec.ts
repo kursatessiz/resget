@@ -1,4 +1,12 @@
-import { CLAIM_WINDOW_HOURS, FileClaimSchema, approvedClaimItems, canFileClaim } from './claims';
+import {
+  CLAIM_DECISION_HOURS,
+  CLAIM_WINDOW_HOURS,
+  FileClaimSchema,
+  approvedClaimItems,
+  canFileClaim,
+  claimEscalationDue,
+  isClaimWaiting,
+} from './claims';
 
 const now = new Date('2026-10-04T12:00:00Z');
 const hoursAgo = (hours: number) => new Date(now.getTime() - hours * 3_600_000);
@@ -42,5 +50,14 @@ describe('missing-item claims', () => {
     expect(
       FileClaimSchema.safeParse({ items: [{ orderItemId: ITEM, quantity: 1 }], note: 'x'.repeat(501) }).success,
     ).toBe(false);
+  });
+
+  it('treats escalated claims as waiting and escalates after the decision window', () => {
+    expect(isClaimWaiting('OPEN')).toBe(true);
+    expect(isClaimWaiting('ESCALATED')).toBe(true);
+    expect(isClaimWaiting('APPROVED')).toBe(false);
+    expect(isClaimWaiting('DECLINED')).toBe(false);
+    expect(claimEscalationDue(hoursAgo(CLAIM_DECISION_HOURS - 1), now)).toBe(false);
+    expect(claimEscalationDue(hoursAgo(CLAIM_DECISION_HOURS), now)).toBe(true);
   });
 });

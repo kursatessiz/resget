@@ -133,4 +133,8 @@ export const trOrders = {
   'orders.availability.busyFor': '+{minutes} dk',
   'orders.availability.busyOff': 'Yoğun modu kapat',
   'orders.availability.staffNote': 'Telefon ve kasa siparişleri her durumda girilebilir.',
+  'orders.claim.escalated':
+    '24 saat içinde karar verilmediği için bildirim platform ekibine de iletildi; siz hâlâ karar verebilirsiniz.',
+  'orders.claim.repeat':
+    'Dikkat: bu müşterinin son {days} günde işletmenizde {claims} bildirimi daha var ({approved} onaylı).',
 } as const satisfies Record<string, string>;

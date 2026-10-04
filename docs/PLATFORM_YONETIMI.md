@@ -25,6 +25,10 @@
 
 Her modül genel olarak veya işletme bazında açılıp kapatılır; işletmenin kendi ayarı genel ayarın önüne geçer, yeni modüller kapalı gelir. Ayrıntılar: `docs/OZELLIK_ANAHTARLARI.md`.
 
+## Yükseltilen bildirimler (`/admin/bildirimler`)
+
+Restoranın 24 saat içinde karara bağlamadığı eksik ürün bildirimleri (`claim_escalation` anahtarı açık restoranlarda). Her kartta restoran, sipariş kodu, bildirilen ürünler, istenen tutar, müşterinin notu ve aynı müşterinin son 90 gündeki tüm bildirimleri görünür. Konsol onaylar (kısmi iade restorana yansır, komisyonun iade payı döner) veya müşteriye gösterilen bir nedenle reddeder. Ayrıntı: `docs/ODEME.md`, "Eksik ürün bildirimi".
+
 ## Erişim
 
 - API: `SuperAdminGuard` yalnızca `isSuperAdmin` kullanıcıyı geçirir; `RestaurantTenantGuard` süper admine üyeliksiz tam yetki verir, böylece konsoldan açılan bir restoranın uçları da süper admine açıktır.

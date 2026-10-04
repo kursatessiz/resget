@@ -135,4 +135,8 @@ export const enOrders: Record<keyof typeof trOrders, string> = {
   'orders.availability.busyFor': '+{minutes} min',
   'orders.availability.busyOff': 'Turn off busy mode',
   'orders.availability.staffNote': 'Phone and counter orders can always be entered.',
+  'orders.claim.escalated':
+    'No decision within 24 hours, so the report went to the platform team as well; you can still decide.',
+  'orders.claim.repeat':
+    'Note: this customer made {claims} more reports at your business in the last {days} days ({approved} approved).',
 };

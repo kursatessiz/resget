@@ -200,6 +200,8 @@ export enum OrderClaimStatus {
   OPEN = 'OPEN',
   APPROVED = 'APPROVED',
   DECLINED = 'DECLINED',
+  /** No decision within CLAIM_DECISION_HOURS: the platform console can decide (claim_escalation module). */
+  ESCALATED = 'ESCALATED',
 }
 
 export enum PayoutStatus {

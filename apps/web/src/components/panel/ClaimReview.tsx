@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { formatMoney, itemsRefundMinor } from '@resget/shared';
+import { formatMoney, isClaimWaiting, itemsRefundMinor } from '@resget/shared';
 import type { OrderClaimDTO, OrderDetailDTO, OrderSummaryDTO, RefundItem, Translate } from '@resget/shared';
 import { Button, SelectField, TextField } from '@/components/ui';
 
@@ -43,7 +43,7 @@ export function ClaimReview({
       .then((loaded) => {
         if (!live) return;
         setDetail(loaded);
-        const claim = loaded.claims.find((c) => c.status === 'OPEN');
+        const claim = loaded.claims.find((c) => isClaimWaiting(c.status));
         if (claim) setQuantities(Object.fromEntries(claim.items.map((i) => [i.orderItemId, i.quantity])));
       })
       .catch(() => live && setFailed(true));
@@ -54,7 +54,7 @@ export function ClaimReview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order.id]);
 
-  const claim: OrderClaimDTO | undefined = detail?.claims.find((c) => c.status === 'OPEN');
+  const claim: OrderClaimDTO | undefined = detail?.claims.find((c) => isClaimWaiting(c.status));
   if (!detail || !claim) {
     return <p className="ui-caption">{failed ? t('common.error.network') : t('orders.refundLoading')}</p>;
   }
@@ -70,6 +70,20 @@ export function ClaimReview({
       <p className="ui-heading">{t('orders.claim.title')}</p>
       <p className="ui-caption">{t('orders.claim.requested', { amount: money(claim.requestedMinor) })}</p>
       {claim.note && <p>{claim.note}</p>}
+      {claim.status === 'ESCALATED' && (
+        <p role="status" className="ui-caption" data-claim-escalated>
+          {t('orders.claim.escalated')}
+        </p>
+      )}
+      {detail.customerClaimHistory?.repeat && (
+        <p role="status" data-claim-repeat>
+          {t('orders.claim.repeat', {
+            days: detail.customerClaimHistory.windowDays,
+            claims: detail.customerClaimHistory.claims,
+            approved: detail.customerClaimHistory.approved,
+          })}
+        </p>
+      )}
       {declining ? (
         <>
           <TextField

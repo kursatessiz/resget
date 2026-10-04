@@ -30,6 +30,7 @@ export const FEATURES = {
   table_qr: { group: 'ordering', defaultEnabled: true, stage: 'GA' },
   ratings: { group: 'ordering', defaultEnabled: true, stage: 'GA' },
   missing_item_claims: { group: 'ordering', defaultEnabled: true, stage: 'GA' },
+  claim_escalation: { group: 'ordering', defaultEnabled: false, stage: 'BETA' },
   order_availability: { group: 'ordering', defaultEnabled: false, stage: 'BETA' },
   online_payment: { group: 'payments', defaultEnabled: true, stage: 'GA' },
   meal_cards: { group: 'payments', defaultEnabled: true, stage: 'GA' },

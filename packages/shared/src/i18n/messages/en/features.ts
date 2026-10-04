@@ -39,4 +39,7 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.coupons.name': 'Coupons',
   'features.coupons.description':
     'Discount codes funded by the business: percent or amount, first order, usage limits.',
+  'features.claim_escalation.name': 'Claim escalation',
+  'features.claim_escalation.description':
+    'A missing item report undecided for 24 hours moves to the platform console; repeat-claimant warning.',
 };

@@ -39,4 +39,7 @@ export const trFeatures = {
   'features.coupons.name': 'Kuponlar',
   'features.coupons.description':
     'İşletmenin karşıladığı indirim kodları: yüzde veya tutar, ilk sipariş, kullanım sınırları.',
+  'features.claim_escalation.name': 'Bildirim yükseltme',
+  'features.claim_escalation.description':
+    '24 saatte karara bağlanmayan eksik ürün bildirimi platform konsoluna düşer; tekrar eden bildirim uyarısı.',
 } as const satisfies Record<string, string>;

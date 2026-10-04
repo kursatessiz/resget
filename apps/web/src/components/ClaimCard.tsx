@@ -62,11 +62,13 @@ export function ClaimCard({
           <p role="status">
             {claim.status === 'OPEN'
               ? t('tracking.claim.open')
-              : claim.status === 'APPROVED'
-                ? t('tracking.claim.approved', {
-                    amount: formatMoney({ amountMinor: claim.refundedMinor, currency: claim.currency }, locale),
-                  })
-                : t('tracking.claim.declined', { reason: claim.declineReason ?? '' })}
+              : claim.status === 'ESCALATED'
+                ? t('tracking.claim.escalated')
+                : claim.status === 'APPROVED'
+                  ? t('tracking.claim.approved', {
+                      amount: formatMoney({ amountMinor: claim.refundedMinor, currency: claim.currency }, locale),
+                    })
+                  : t('tracking.claim.declined', { reason: claim.declineReason ?? '' })}
           </p>
         )}
         {tracking.canClaim &&
