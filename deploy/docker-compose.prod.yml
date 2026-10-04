@@ -114,6 +114,10 @@ services:
       MAP_TILE_URL: ${MAP_TILE_URL:-}
       MAP_ATTRIBUTION: ${MAP_ATTRIBUTION:-}
       MAP_MAX_ZOOM: ${MAP_MAX_ZOOM:-}
+      # Universal link files for the app (docs/MOBIL.md); empty keeps them unserved.
+      IOS_APP_IDENTIFIER: ${IOS_APP_IDENTIFIER:-}
+      ANDROID_PACKAGE_NAME: ${ANDROID_PACKAGE_NAME:-}
+      ANDROID_CERT_FINGERPRINTS: ${ANDROID_CERT_FINGERPRINTS:-}
     networks: [web_net, internal_net]
     read_only: true
     tmpfs: ['/tmp', '/app/apps/web/.next/cache:uid=1000,gid=1000']
