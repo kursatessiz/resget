@@ -4,6 +4,14 @@ export const trStaff = {
   'staff.intro':
     'Ekibinizi telefon numarasıyla davet edin. Davet bağlantısı 72 saat geçerlidir; kişi kendi numarasıyla giriş yaptığında ekibe katılır.',
   'staff.members.title': 'Ekip',
+  'staff.ownership.start': 'Sahipliği devret',
+  'staff.ownership.title': 'İşletme sahipliğini devret',
+  'staff.ownership.explain':
+    '{name} işletmenin sahibi olur ve tüm yetkileri alır. Siz aşağıda seçtiğiniz rolle çalışmaya devam edersiniz; bu işlemi yalnızca yeni sahip geri alabilir.',
+  'staff.ownership.billing':
+    'Komisyon faturaları için kayıtlı tahsilat kartınız işletmeden ayrılır; yeni sahip kendi kartını ekler.',
+  'staff.ownership.yourRole': 'Devirden sonraki rolünüz',
+  'staff.ownership.confirm': 'Sahipliği devret',
   'staff.members.empty': 'Henüz personel yok.',
   'staff.members.joinedAt': 'Katıldı: {date}',
   'staff.members.owner': 'Sahip',

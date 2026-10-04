@@ -5,6 +5,14 @@ export const enStaff: Record<keyof typeof trStaff, string> = {
   'staff.intro':
     'Invite your team by phone number. An invite link is valid for 72 hours; the person joins when they sign in with their own number.',
   'staff.members.title': 'Team',
+  'staff.ownership.start': 'Hand over ownership',
+  'staff.ownership.title': 'Hand over the business',
+  'staff.ownership.explain':
+    '{name} becomes the owner of the business with every permission. You keep working under the role you choose below; only the new owner can undo this.',
+  'staff.ownership.billing':
+    'Your saved billing card for commission invoices is detached from the business; the new owner adds their own.',
+  'staff.ownership.yourRole': 'Your role after the handover',
+  'staff.ownership.confirm': 'Hand over ownership',
   'staff.members.empty': 'No staff yet.',
   'staff.members.joinedAt': 'Joined: {date}',
   'staff.members.owner': 'Owner',

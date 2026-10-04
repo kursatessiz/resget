@@ -47,6 +47,16 @@ export const UpdateMembershipSchema = z
   .refine(nonEmpty, { message: 'empty update' });
 export type UpdateMembershipInput = z.infer<typeof UpdateMembershipSchema>;
 
+/**
+ * Handing the business over (docs/PERSONEL.md, "Sahipliğin devri"): an
+ * active member becomes the owner and the previous owner keeps working
+ * under the role given here (never the owner role).
+ */
+export const TransferOwnershipSchema = z
+  .object({ toMembershipId: UuidSchema, previousOwnerRoleId: UuidSchema })
+  .strict();
+export type TransferOwnershipInput = z.infer<typeof TransferOwnershipSchema>;
+
 export const RoleNameSchema = z.string().trim().min(2).max(40);
 export const CreateRoleSchema = z
   .object({ name: RoleNameSchema, permissions: z.array(PermissionKeySchema).max(100) })

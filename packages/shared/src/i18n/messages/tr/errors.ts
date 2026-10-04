@@ -28,6 +28,8 @@ export const trErrors = {
   'errors.PAYMENT_STATE_INVALID': 'Bu sipariş için ödeme işlemi bu aşamada yapılamaz.',
   'errors.REFUND_NOT_ALLOWED':
     'Bu sipariş için iade yapılamaz: iade edilecek ödeme yok, sipariş henüz kapanmadı veya zaten iade edildi.',
+  'errors.OWNERSHIP_TRANSFER_FORBIDDEN': 'İşletmeyi yalnızca sahibi devredebilir.',
+  'errors.OWNERSHIP_TARGET_INVALID': 'Yeni sahip, işletmede etkin çalışan bir ekip üyesi olmalıdır.',
   'errors.ACCOUNT_DELETE_OWNER':
     'İşletme sahibi olduğunuz bir hesap silinemez. Önce işletmeyi devredin veya kapatmak için platform ekibine yazın.',
   'errors.ACCOUNT_DELETE_SUPER_ADMIN': 'Platform yöneticisi hesabı buradan silinemez.',

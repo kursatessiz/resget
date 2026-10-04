@@ -19,6 +19,7 @@ import type {
   RoleTemplateDTO,
   StaffMemberDTO,
   StaffOverviewDTO,
+  TransferOwnershipInput,
   UpdateMembershipInput,
   UpdateRoleInput,
 } from '@resget/shared';
@@ -27,7 +28,7 @@ import { maskPhone } from '../messaging/sms.provider';
 import { MessagingService } from '../messaging/messaging.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { renderQrPng } from '../tables/qr-label';
-import { badRequest, conflict, notFound } from '../../common/api-error';
+import { badRequest, conflict, forbidden, notFound } from '../../common/api-error';
 
 const roleSelect = Prisma.validator<Prisma.RoleTemplateSelect>()({
   id: true,
@@ -181,6 +182,81 @@ export class StaffService {
       select: memberSelect,
     });
     return this.toMember(updated);
+  }
+
+  /**
+   * Hands the business over (docs/PERSONEL.md, "Sahipliğin devri"). Only the
+   * owner or the platform administrator may do it. The target becomes the
+   * owner; every previous owner moves to the chosen non-owner role. A billing
+   * card that belonged to a previous owner is detached so their card is never
+   * charged for the business again; the new owner adds their own.
+   */
+  async transferOwnership(
+    tenant: TenantContext,
+    actorUserId: string,
+    input: TransferOwnershipInput,
+  ): Promise<StaffOverviewDTO> {
+    if (!tenant.isOwner && !tenant.isSuperAdmin) {
+      throw forbidden('OWNERSHIP_TRANSFER_FORBIDDEN', 'Only the owner can hand the business over');
+    }
+    const [target, ownerRole, previousRole] = await Promise.all([
+      this.prisma.membership.findFirst({
+        where: { id: input.toMembershipId, restaurantId: tenant.restaurantId },
+        select: {
+          id: true,
+          userId: true,
+          status: true,
+          roleTemplate: { select: { isOwner: true } },
+          user: { select: { deletedAt: true } },
+        },
+      }),
+      this.prisma.roleTemplate.findFirst({
+        where: { restaurantId: tenant.restaurantId, isOwner: true },
+        select: { id: true },
+      }),
+      this.requireRole(tenant.restaurantId, input.previousOwnerRoleId),
+    ]);
+    if (!target || target.status !== 'ACTIVE' || target.roleTemplate.isOwner || target.user.deletedAt) {
+      throw conflict('OWNERSHIP_TARGET_INVALID', 'The new owner must be an active member who is not the owner yet');
+    }
+    if (previousRole.isOwner) throw conflict('ROLE_PROTECTED', 'The previous owner needs a non-owner role');
+    if (!ownerRole) throw conflict('ROLE_PROTECTED', 'The restaurant has no owner role');
+
+    await this.prisma.$transaction(async (tx) => {
+      const previous = await tx.membership.findMany({
+        where: { restaurantId: tenant.restaurantId, roleTemplate: { isOwner: true } },
+        select: { id: true, userId: true },
+      });
+      await tx.membership.updateMany({
+        where: { id: { in: previous.map((m) => m.id) } },
+        data: { roleTemplateId: previousRole.id },
+      });
+      await tx.membership.update({ where: { id: target.id }, data: { roleTemplateId: ownerRole.id } });
+      const restaurant = await tx.restaurant.findUniqueOrThrow({
+        where: { id: tenant.restaurantId },
+        select: { billingPaymentMethod: { select: { userId: true } } },
+      });
+      const cardOwner = restaurant.billingPaymentMethod?.userId ?? null;
+      const detachCard = cardOwner !== null && cardOwner !== target.userId;
+      if (detachCard) {
+        await tx.restaurant.update({ where: { id: tenant.restaurantId }, data: { billingPaymentMethodId: null } });
+      }
+      await tx.auditLog.create({
+        data: {
+          restaurantId: tenant.restaurantId,
+          actorUserId,
+          action: 'ownership.transferred',
+          entity: 'Membership',
+          entityId: target.id,
+          meta: {
+            fromMembershipIds: previous.map((m) => m.id),
+            previousOwnerRoleId: previousRole.id,
+            billingCardDetached: detachCard,
+          },
+        },
+      });
+    });
+    return this.overview(tenant.restaurantId);
   }
 
   // -- Invites (staff.manage) ----------------------------------------------------------

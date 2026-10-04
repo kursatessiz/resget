@@ -66,4 +66,18 @@ test.describe('Staff invites and roles', () => {
     await role.getByRole('button', { name: 'Kaydet' }).click();
     await expect(role.getByText('Kaydedildi.')).toBeVisible();
   });
+  test('the owner can open the handover of the business for an active member and back out', async ({ page }) => {
+    await page.goto(`/panel/${SEED.restaurantSlug}/personel`);
+    const members = page.getByRole('region', { name: 'Ekip' });
+    const row = members.locator('li[data-member-phone]').filter({ hasText: 'Demo Kurye' });
+    await row.getByRole('button', { name: 'Sahipliği devret' }).click();
+    const panel = row.getByRole('group', { name: 'İşletme sahipliğini devret' });
+    await expect(panel).toBeVisible();
+    await expect(panel.getByText(/tahsilat kartınız işletmeden ayrılır/)).toBeVisible();
+    await expect(panel.getByLabel('Devirden sonraki rolünüz')).toBeVisible();
+    // Backing out changes nothing; the handover itself is covered by the API scenario.
+    await panel.getByRole('button', { name: 'Vazgeç' }).click();
+    await expect(panel).toHaveCount(0);
+    await expect(row.getByText('Sahip', { exact: true })).toHaveCount(0);
+  });
 });

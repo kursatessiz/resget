@@ -38,6 +38,8 @@ export function StaffManager({
   const [roleId, setRoleId] = useState('');
   const [channel, setChannel] = useState<InviteChannelInput>('SHOWN');
   const [qrOpen, setQrOpen] = useState<string | null>(null);
+  /** The member the owner is handing the business to, and the role the owner keeps afterwards. */
+  const [handover, setHandover] = useState<{ membershipId: string; roleId: string } | null>(null);
 
   const fail = useCallback(
     (err: unknown) => setError(err instanceof ApiError ? t(`errors.${err.code}`) : t('common.error.network')),
@@ -130,6 +132,16 @@ export function StaffManager({
 
   const dateFormat = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' });
   const assignableRoles = data.roles.filter((r) => !r.isOwner);
+  const viewerIsOwner = data.members.some((m) => m.membershipId === ownMembershipId && m.isOwner);
+  const transferOwnership = (membershipId: string, previousOwnerRoleId: string) =>
+    run(async () => {
+      await bffJson<StaffOverviewDTO>(`${base}/ownership`, {
+        method: 'POST',
+        body: JSON.stringify({ toMembershipId: membershipId, previousOwnerRoleId }),
+      });
+      // The viewer's own rights changed; the server decides what the page shows now.
+      window.location.reload();
+    });
 
   return (
     <>
@@ -297,9 +309,55 @@ export function StaffManager({
                       >
                         {member.status === 'ACTIVE' ? t('staff.members.deactivate') : t('staff.members.activate')}
                       </Button>
+                      {viewerIsOwner &&
+                        member.status === 'ACTIVE' &&
+                        handover?.membershipId !== member.membershipId && (
+                          <Button
+                            variant="link"
+                            tone="error"
+                            disabled={busy}
+                            onClick={() =>
+                              setHandover({ membershipId: member.membershipId, roleId: assignableRoles[0]?.id ?? '' })
+                            }
+                          >
+                            {t('staff.ownership.start')}
+                          </Button>
+                        )}
                     </>
                   )}
                 </div>
+                {handover?.membershipId === member.membershipId && (
+                  <div className="flex flex-col gap-3" role="group" aria-label={t('staff.ownership.title')}>
+                    <p className="ui-heading">{t('staff.ownership.title')}</p>
+                    <p>{t('staff.ownership.explain', { name: member.fullName })}</p>
+                    <p className="ui-text-muted">{t('staff.ownership.billing')}</p>
+                    <SelectField
+                      id={`handover-role-${member.membershipId}`}
+                      label={t('staff.ownership.yourRole')}
+                      value={handover.roleId}
+                      disabled={busy}
+                      onChange={(e) => setHandover({ ...handover, roleId: e.target.value })}
+                    >
+                      {assignableRoles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {roleLabel(t, role.templateKey, role.name)}
+                        </option>
+                      ))}
+                    </SelectField>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        tone="error"
+                        disabled={busy || !handover.roleId}
+                        onClick={() => void transferOwnership(member.membershipId, handover.roleId)}
+                      >
+                        {t('staff.ownership.confirm')}
+                      </Button>
+                      <Button variant="outline" tone="muted" disabled={busy} onClick={() => setHandover(null)}>
+                        {t('common.cancel')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </li>
             );
           })}
