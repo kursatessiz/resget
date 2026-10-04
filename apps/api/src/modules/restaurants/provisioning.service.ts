@@ -5,6 +5,7 @@ import type { RestaurantCreatedDTO, RestaurantSignupInput } from '@resget/shared
 import { PrismaService } from '../prisma/prisma.service';
 import { GeocodingService } from '../geocoding/geocoding.service';
 import { conflict } from '../../common/api-error';
+import { AttributionService } from '../attribution/attribution.service';
 
 /**
  * Creates a restaurant the way the seed does, for the owner signing up at
@@ -18,9 +19,16 @@ export class RestaurantProvisioningService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly geocoding: GeocodingService,
+    private readonly attribution: AttributionService,
   ) {}
 
-  async create(ownerUserId: string, input: RestaurantSignupInput, actorUserId: string): Promise<RestaurantCreatedDTO> {
+  async create(
+    ownerUserId: string,
+    input: RestaurantSignupInput,
+    actorUserId: string,
+    /** The measured browser of a self sign-up (docs/ATIF.md); null from the console. */
+    visitorId: string | null = null,
+  ): Promise<RestaurantCreatedDTO> {
     const slug = await this.uniqueSlug(input.slug ?? slugify(input.name), Boolean(input.slug));
     // The branch needs a point for courier quotes and routing; typed coordinates win over the geocoder.
     const branchPoint =
@@ -41,7 +49,7 @@ export class RestaurantProvisioningService {
     });
     const basic = pro ? null : await this.prisma.plan.findFirst({ where: { code: 'BASIC' }, select: { id: true } });
 
-    return this.prisma.$transaction(async (tx) => {
+    const created = await this.prisma.$transaction(async (tx) => {
       const restaurant = await tx.restaurant.create({
         data: {
           slug,
@@ -134,6 +142,9 @@ export class RestaurantProvisioningService {
       });
       return restaurant;
     });
+    // The platform's own pipeline learns about the sign-up; never fails the sign-up itself.
+    await this.attribution.onRestaurantCreatedSafely(created.id, ownerUserId, visitorId);
+    return created;
   }
 
   /** A chosen slug must be free; a derived one gets a numeric suffix until it is. */

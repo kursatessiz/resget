@@ -1,6 +1,6 @@
-import { Controller, Post, UseGuards } from '@nestjs/common';
+import { Controller, Headers, Post, UseGuards } from '@nestjs/common';
 import type { z } from 'zod';
-import { RestaurantSignupSchema } from '@resget/shared';
+import { RestaurantSignupSchema, VISITOR_HEADER } from '@resget/shared';
 import type { RestaurantCreatedDTO } from '@resget/shared';
 import { ZodBody } from '../../common/zod-body.pipe';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -18,7 +18,8 @@ export class RestaurantSignupController {
   create(
     @CurrentUser() user: AuthUser,
     @ZodBody(RestaurantSignupSchema) body: z.infer<typeof RestaurantSignupSchema>,
+    @Headers(VISITOR_HEADER) visitorId?: string,
   ): Promise<RestaurantCreatedDTO> {
-    return this.provisioning.create(user.id, body, user.id);
+    return this.provisioning.create(user.id, body, user.id, visitorId ?? null);
   }
 }

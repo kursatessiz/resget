@@ -19,6 +19,7 @@ import type {
   PipelineStageDTO,
   UpdateContactInput,
 } from '@resget/shared';
+import { AttributionService } from '../attribution/attribution.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
 
@@ -62,7 +63,10 @@ type TaskRow = Prisma.ContactTaskGetPayload<{ select: typeof taskSelect }>;
  */
 @Injectable()
 export class CrmService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly attribution: AttributionService,
+  ) {}
 
   // -- Stages --------------------------------------------------------------------------
 
@@ -191,7 +195,7 @@ export class CrmService {
 
   async detail(restaurantId: string, customerId: string, canSeeContacts: boolean): Promise<ContactDetailDTO> {
     await this.requireContact(restaurantId, customerId);
-    const [row, activities, tasks] = await Promise.all([
+    const [row, activities, tasks, attribution] = await Promise.all([
       this.prisma.restaurantCustomer.findUniqueOrThrow({ where: { id: customerId }, select: contactSelect }),
       this.prisma.contactActivity.findMany({
         where: { customerId },
@@ -200,6 +204,7 @@ export class CrmService {
         select: { id: true, type: true, body: true, createdAt: true, actor: { select: { fullName: true } } },
       }),
       this.prisma.contactTask.findMany({ where: { customerId }, orderBy: { createdAt: 'desc' }, select: taskSelect }),
+      this.attribution.contactAttribution(restaurantId, customerId),
     ]);
     return {
       contact: this.toCard(row, canSeeContacts),
@@ -211,6 +216,7 @@ export class CrmService {
         createdAt: a.createdAt.toISOString(),
       })),
       tasks: tasks.map((t) => this.toTask(t)),
+      attribution,
     };
   }
 

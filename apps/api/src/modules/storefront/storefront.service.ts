@@ -27,6 +27,7 @@ import type {
 import { AvailabilityService, availabilitySelect } from '../availability/availability.service';
 import { FeatureFlagsService } from '../features/feature-flags.service';
 import { DeliveryZoneService } from '../restaurants/delivery-zone.service';
+import { AttributionService } from '../attribution/attribution.service';
 import { CouponsService } from '../coupons/coupons.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MenuService } from '../menu/menu.service';
@@ -79,6 +80,7 @@ export class StorefrontService {
     private readonly availability: AvailabilityService,
     private readonly zones: DeliveryZoneService,
     private readonly coupons: CouponsService,
+    private readonly attribution: AttributionService,
   ) {}
 
   // -- Reads ---------------------------------------------------------------------------
@@ -244,6 +246,7 @@ export class StorefrontService {
     input: PublicOrderInput,
     sessionId: string | null,
     viewer: AuthUser | null = null,
+    visitorId: string | null = null,
   ): Promise<PublicOrderResultDTO> {
     const table = await this.prisma.diningTable.findUnique({
       where: { qrToken: token },
@@ -256,6 +259,7 @@ export class StorefrontService {
       tableId: input.fulfillment === 'DINE_IN' ? table.id : undefined,
       sessionId,
       viewer,
+      visitorId,
     });
   }
 
@@ -263,6 +267,7 @@ export class StorefrontService {
     slug: string,
     input: PublicOrderInput,
     viewer: AuthUser | null = null,
+    visitorId: string | null = null,
   ): Promise<PublicOrderResultDTO> {
     const restaurant = await this.prisma.restaurant.findUnique({ where: { slug }, select: restaurantSelect });
     if (!restaurant || !restaurant.isActive || restaurant.isPlatform)
@@ -275,6 +280,7 @@ export class StorefrontService {
       tableId: undefined,
       sessionId: null,
       viewer,
+      visitorId,
     });
   }
 
@@ -287,6 +293,8 @@ export class StorefrontService {
       tableId: string | undefined;
       sessionId: string | null;
       viewer: AuthUser | null;
+      /** The measured browser that placed the order (docs/ATIF.md); links its visits to the customer. */
+      visitorId: string | null;
     },
   ): Promise<PublicOrderResultDTO> {
     // Paused or outside the hours: consumer orders wait (docs/SIPARIS_VE_SEVK.md, "Sipariş alma durumu").
@@ -341,6 +349,7 @@ export class StorefrontService {
       loyaltyUserId,
       couponCode: input.couponCode,
     });
+    await this.attribution.identifyOrderSafely(order.id, context.visitorId);
     const loyaltyPointsRedeemed = loyaltyUserId ? await this.loyalty.redeemedPointsOf(order.id) : 0;
     const token = order.trackingUrl.split('/t/')[1] ?? '';
     let checkoutUrl: string | null = null;
@@ -436,13 +445,14 @@ export class StorefrontService {
     table: { id: string; label: string } | null,
     branchId: string | null,
   ): Promise<StorefrontDTO> {
-    const [categories, payment, loyalty, availability, zone, coupons] = await Promise.all([
+    const [categories, payment, loyalty, availability, zone, coupons, tracking] = await Promise.all([
       this.menu.menuOf(restaurant.id),
       this.mealCards.acceptedMethods(restaurant.id),
       this.loyalty.storefrontRules(restaurant.id),
       this.availability.of(restaurant, branchId),
       this.zones.activeZone(restaurant),
       this.coupons.accepts(restaurant.id),
+      this.attribution.enabled(restaurant.id),
     ]);
     return {
       restaurant: {
@@ -469,6 +479,7 @@ export class StorefrontService {
           }
         : null,
       availability,
+      tracking,
     };
   }
 

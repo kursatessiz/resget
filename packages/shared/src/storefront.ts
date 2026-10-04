@@ -71,6 +71,8 @@ export interface StorefrontDTO {
   loyalty: StorefrontLoyaltyDTO | null;
   /** Whether orders are taken right now: pause, busy mode, opening hours (docs/SIPARIS_VE_SEVK.md). */
   availability: OrderAvailabilityDTO;
+  /** The restaurant measures visits (docs/ATIF.md): the page shows the consent banner and the beacon. */
+  tracking: boolean;
 }
 
 export const PublicOrderSchema = z

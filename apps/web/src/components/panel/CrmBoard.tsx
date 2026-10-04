@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { MANUAL_ACTIVITY_TYPES } from '@resget/shared';
+import { DIRECT_KEY, MANUAL_ACTIVITY_TYPES, NONE_KEY } from '@resget/shared';
 import type { ContactCardDTO, ContactDetailDTO, PipelineDTO, PipelineStageDTO } from '@resget/shared';
 import { Badge, Button, Card, SelectField, TextField } from '@/components/ui';
 import { ApiError, bffJson } from '@/lib/client-api';
@@ -81,6 +81,8 @@ export function CrmBoard({
     ...((pipeline.contacts.none ?? []).length > 0 ? [{ id: 'none', label: t('crm.pipeline.none') }] : []),
   ];
   const time = new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' });
+  const sourceLabel = (key: string) =>
+    key === DIRECT_KEY ? t('attribution.key.direct') : key === NONE_KEY ? t('attribution.key.none') : key;
 
   const card = (contact: ContactCardDTO) => (
     <li key={contact.id} className="flex flex-col gap-1 py-2" data-contact={contact.fullName}>
@@ -328,10 +330,49 @@ export function CrmBoard({
                       {t(`crm.activity.${activity.type}`)} / {time.format(new Date(activity.createdAt))}
                       {activity.actorName ? ` / ${activity.actorName}` : ''}
                     </span>
-                    {activity.body && <span>{activity.body}</span>}
+                    {activity.body && (
+                      <span>
+                        {activity.type === 'CONVERSION' ? t(`attribution.conversion.${activity.body}`) : activity.body}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
+              {open.attribution && (
+                <section className="flex flex-col gap-2" aria-label={t('attribution.card.title')}>
+                  <h3 className="ui-heading">{t('attribution.card.title')}</h3>
+                  {open.attribution.touchpoints.length === 0 && open.attribution.conversions.length === 0 ? (
+                    <p className="ui-text-muted">{t('attribution.card.empty')}</p>
+                  ) : (
+                    <ul className="ui-divide">
+                      {open.attribution.conversions.map((c) => (
+                        <li key={c.id} className="flex flex-col gap-1 py-2" data-conversion={c.type}>
+                          <span className="ui-caption">{time.format(new Date(c.occurredAt))}</span>
+                          <span>
+                            {t('attribution.card.conversion', {
+                              type: t(`attribution.conversion.${c.type}`),
+                              source: sourceLabel(c.source),
+                            })}
+                          </span>
+                        </li>
+                      ))}
+                      {open.attribution.touchpoints.map((tp) => (
+                        <li key={tp.id} className="flex flex-col gap-1 py-2" data-touchpoint={tp.source}>
+                          <span className="ui-caption">{time.format(new Date(tp.occurredAt))}</span>
+                          <span>
+                            {t('attribution.card.visit', {
+                              source: sourceLabel(tp.source),
+                              medium: sourceLabel(tp.medium),
+                              path: tp.landingPath,
+                            })}
+                            {tp.tableLabel ? ` / ${t('attribution.card.table', { label: tp.tableLabel })}` : ''}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              )}
             </section>
           </div>
         </Card>

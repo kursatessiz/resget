@@ -50,6 +50,8 @@ export const trCrm = {
   'crm.activity.EMAIL': 'E-posta',
   'crm.activity.STAGE_CHANGE': 'Aşama değişti',
   'crm.activity.TASK_DONE': 'Görev tamamlandı',
+  'crm.activity.FORM': 'Site formu',
+  'crm.activity.CONVERSION': 'Dönüşüm',
   'crm.tasks.title': 'Görevler',
   'crm.tasks.mine': 'Yalnızca bana atananlar',
   'crm.tasks.empty': 'Açık görev yok.',
