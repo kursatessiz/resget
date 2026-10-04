@@ -6,6 +6,7 @@ import {
   createTranslator,
   customerPushTemplate,
   dispatchSettingsFrom,
+  formatMoney,
   isAutoRefundStatus,
   isDeletedUserPhone,
   isOnlinePayment,
@@ -14,7 +15,10 @@ import {
   orderShortCode,
   trackingUrl,
 } from '@resget/shared';
-import type { OrderStatusValue } from '@resget/shared';
+import type { MessageTemplateKey, OrderStatusValue, PushTemplateKey } from '@resget/shared';
+
+/** What happened: a status change, or part of the order's money went back (docs/ODEME.md, "Kısmi iade"). */
+type OrderUpdate = { status: OrderStatusValue } | { partialRefundMinor: number };
 import { PrismaService } from '../prisma/prisma.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { PushService } from '../push/push.service';
@@ -38,22 +42,33 @@ export class OrderNotificationsService {
   ) {}
 
   async notify(orderId: string, status: OrderStatusValue): Promise<void> {
+    await this.safely(orderId, { status });
+  }
+
+  /** A partial refund went back to the customer: the amount, in their language and the order's currency. */
+  async notifyPartialRefund(orderId: string, amountMinor: number): Promise<void> {
+    await this.safely(orderId, { partialRefundMinor: amountMinor });
+  }
+
+  private async safely(orderId: string, update: OrderUpdate): Promise<void> {
     try {
-      await this.send(orderId, status);
+      await this.send(orderId, update);
     } catch (error) {
+      const what = 'status' in update ? update.status : 'partial refund';
       this.logger.warn(
-        `Order ${orderId} ${status} notification skipped: ${error instanceof Error ? error.message : 'error'}`,
+        `Order ${orderId} ${what} notification skipped: ${error instanceof Error ? error.message : 'error'}`,
       );
     }
   }
 
-  private async send(orderId: string, status: OrderStatusValue): Promise<void> {
+  private async send(orderId: string, update: OrderUpdate): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       select: {
         id: true,
         fulfillment: true,
         restaurantId: true,
+        currency: true,
         trackingToken: true,
         promisedReadyAt: true,
         rejectReason: true,
@@ -82,14 +97,23 @@ export class OrderNotificationsService {
         ? trackingUrl(this.config.getOrThrow<string>('PUBLIC_APP_URL'), order.trackingToken)
         : '',
       reason: order.rejectReason ? t('messaging.template.reasonSuffix', { reason: order.rejectReason }) : '',
+      amount:
+        'partialRefundMinor' in update
+          ? formatMoney({ amountMinor: update.partialRefundMinor, currency: order.currency }, locale)
+          : '',
     };
+    const status = 'status' in update ? update.status : null;
     // A cancellation tells the customer about the online payment in the same message (docs/ODEME.md, "İade").
-    const refund = isAutoRefundStatus(status) ? refundNoteOf(order.payments) : null;
+    const refund = status && isAutoRefundStatus(status) ? refundNoteOf(order.payments) : null;
     const pushParams = { ...params, refund: refund ? t(`messaging.push.refundSuffix.${refund}`) : '' };
     const messageParams = { ...params, refund: refund ? t(`messaging.template.refundSuffix.${refund}`) : '' };
 
     // Push is free and reaches the app directly; a device that took it spares the restaurant the paid message.
-    const pushKey = customerPushTemplate(order.fulfillment, status);
+    const pushKey: PushTemplateKey | null = status
+      ? customerPushTemplate(order.fulfillment, status)
+      : order.fulfillment === 'DINE_IN'
+        ? null
+        : 'order.partiallyRefunded';
     if (pushKey && order.customerUserId) {
       const outcome = await this.push.notifyUsers(
         [order.customerUserId],
@@ -101,7 +125,11 @@ export class OrderNotificationsService {
       if (outcome.sent > 0) return;
     }
 
-    const templateKey = orderNotificationTemplate(order.fulfillment, status);
+    const templateKey: MessageTemplateKey | null = status
+      ? orderNotificationTemplate(order.fulfillment, status)
+      : order.fulfillment === 'DINE_IN'
+        ? null
+        : 'order.partiallyRefunded';
     if (!templateKey) return;
     // A deleted account has no number to write to (docs/KISISEL_VERI.md).
     const phone = isDeletedUserPhone(order.customer?.phone)

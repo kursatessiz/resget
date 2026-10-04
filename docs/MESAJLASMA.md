@@ -21,6 +21,7 @@ Tek bir motor her mesajı gönderir (`MessagingService`, `apps/api/src/modules/m
 | `OUT_FOR_DELIVERY` (canlı takip bağlantısı ile) | evet | hayır | hayır |
 | `REJECTED`, `CANCELLED_BY_RESTAURANT` (neden varsa eklenir; çevrim içi ödeme varsa "iade edildi" veya "iade edilecek" notu da) | evet | evet | hayır |
 | `REFUNDED`, yalnızca tamamlanmış siparişin iadesinde (`order.refunded`; iptalin iadesi iptal mesajında söylenir) | evet | evet | hayır |
+| Kısmi iade, sipariş tamamlanmış kalırken (`order.partiallyRefunded`, iade tutarıyla; `docs/ODEME.md`, "Kısmi iade") | evet | evet | hayır |
 
 `DELIVERED` mesajlanmaz: takip sayfası zaten gösterir ve müşterinin elindeki habere kredi harcanmaz. Alıcı numarası siparişin müşteri kaydından, yoksa adres anlık görüntüsündeki iletişim numarasından alınır; numara yoksa mesaj yoktur. Restoran `customerOrderUpdates` ayarıyla tümünü kapatabilir.
 
@@ -45,6 +46,7 @@ Hesaba kaydedilecek şablonlar (Türkçe; İngilizce metinler `en` dilinde aynı
 | `resget_order_rejected` | UTILITY | Merhaba, {{1}} siparişinizi ({{2}}) maalesef kabul edemedi. {{3}} Anlayışınız için teşekkürler. |
 | `resget_order_cancelled` | UTILITY | Merhaba, {{1}} siparişinizi ({{2}}) iptal etti. {{3}} Anlayışınız için teşekkürler. |
 | `resget_order_refunded` | UTILITY | Merhaba, {{1}} siparişinizin ({{2}}) ödemesi iade edildi. Tutarın hesabınıza geçmesi bankanıza göre birkaç gün sürebilir. |
+| `resget_order_partially_refunded` | UTILITY | Merhaba, {{1}} siparişiniz ({{2}}) için {{3}} iade edildi. Anlayışınız için teşekkürler. |
 | `resget_order_accept_overdue` | UTILITY | Dikkat: {{1}} için {{2}} numaralı sipariş {{3}} dakikadır kabul bekliyor. Sipariş ekranını açın. |
 | `resget_invoice_issued` | UTILITY | Merhaba, {{1}} için {{2}} dönemi komisyon faturası {{3}}, son ödeme {{4}}. Kayıtlı kartınızdan otomatik tahsil edilir; ayrıntılar panelde. |
 | `resget_invoice_overdue` | UTILITY | Merhaba, {{1}} için {{2}} dönemi komisyon faturasının ({{3}}) vadesi geçti. Pazaryeri listelemesi ödeme alınana kadar askıda; masa QR ve sipariş sayfası çalışmaya devam eder. |

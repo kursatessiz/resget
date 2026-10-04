@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { formatMoney } from '@resget/shared';
-import type { OrderStatusValue, OrderSummaryDTO, Translate } from '@resget/shared';
+import type { OrderDetailDTO, OrderStatusValue, OrderSummaryDTO, Translate } from '@resget/shared';
 import { Badge, Button, SelectField, TextField } from '@/components/ui';
 import type { UiTone } from '@/components/ui/types';
+import { RefundPanel } from './RefundPanel';
+import type { RefundRequest } from './RefundPanel';
 
 export interface OrderAction {
   to: OrderStatusValue;
@@ -80,6 +82,7 @@ export function OrderCard({
   busy,
   onTransition,
   onRefund,
+  loadDetail,
 }: {
   order: OrderSummaryDTO;
   locale: string;
@@ -93,12 +96,13 @@ export function OrderCard({
     to: OrderStatusValue,
     extra: { prepMinutes?: number; reason?: string },
   ) => void;
-  onRefund?: (order: OrderSummaryDTO, reason: string) => void;
+  onRefund?: (order: OrderSummaryDTO, request: RefundRequest) => void;
+  /** The full order (items and earlier refunds) for the refund form. */
+  loadDetail?: (order: OrderSummaryDTO) => Promise<OrderDetailDTO>;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<OrderAction | null>(null);
   const [refunding, setRefunding] = useState(false);
-  const [refundReason, setRefundReason] = useState('');
   const [prepMinutes, setPrepMinutes] = useState(20);
   const [reason, setReason] = useState('');
   const minutesAgo = Math.max(0, Math.round((Date.now() - new Date(order.placedAt).getTime()) / 60_000));
@@ -109,14 +113,8 @@ export function OrderCard({
   const time = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' });
   const actions = canManage ? actionsFor(order, t) : [];
   const { refundState, refundFailureCode, refundable } = order.payment;
-  const offerRefund = canRefund && Boolean(onRefund) && refundable;
-  const confirmRefund = () => {
-    const reason = refundReason.trim();
-    if (!reason || !onRefund) return;
-    onRefund(order, reason);
-    setRefunding(false);
-    setRefundReason('');
-  };
+  const offerRefund = canRefund && Boolean(onRefund) && Boolean(loadDetail) && refundable;
+  const partlyRefunded = refundState === 'NONE' && order.payment.refundedMinor > 0;
 
   const run = (action: OrderAction) => {
     if (action.needsPrep || action.needsReason) {
@@ -192,6 +190,15 @@ export function OrderCard({
                 : t('orders.paid')}
           </p>
         )}
+        {partlyRefunded && (
+          <p className="flex flex-wrap items-center gap-2">
+            <Badge tone="warn">
+              {t('orders.refundState.PARTIAL', {
+                amount: formatMoney({ amountMinor: order.payment.refundedMinor, currency: order.currency }, locale),
+              })}
+            </Badge>
+          </p>
+        )}
         {refundState !== 'NONE' && (
           <p className="flex flex-wrap items-center gap-2">
             <Badge tone={refundState === 'DONE' ? 'muted' : refundState === 'FAILED' ? 'error' : 'warn'}>
@@ -212,25 +219,19 @@ export function OrderCard({
           </p>
         )}
 
-        {refunding ? (
-          <div className="flex flex-col gap-3">
-            <p className="ui-caption">{t('orders.refundHint')}</p>
-            <TextField
-              id={`refund-reason-${order.id}`}
-              label={t('orders.refundReason')}
-              value={refundReason}
-              onChange={(event) => setRefundReason(event.target.value)}
-              maxLength={300}
-            />
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={confirmRefund} disabled={busy || refundReason.trim() === ''} tone="error">
-                {t('orders.refundConfirm')}
-              </Button>
-              <Button variant="outline" tone="muted" onClick={() => setRefunding(false)} disabled={busy}>
-                {t('common.cancel')}
-              </Button>
-            </div>
-          </div>
+        {refunding && onRefund && loadDetail ? (
+          <RefundPanel
+            order={order}
+            locale={locale}
+            t={t}
+            busy={busy}
+            loadDetail={() => loadDetail(order)}
+            onSubmit={(request) => {
+              onRefund(order, request);
+              setRefunding(false);
+            }}
+            onCancel={() => setRefunding(false)}
+          />
         ) : pending ? (
           <div className="flex flex-col gap-3">
             {pending.needsPrep && (

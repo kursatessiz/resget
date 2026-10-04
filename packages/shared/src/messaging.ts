@@ -47,6 +47,7 @@ export const MESSAGE_TEMPLATE_KEYS = [
   'order.rejected',
   'order.cancelled',
   'order.refunded',
+  'order.partiallyRefunded',
   'invoice.issued',
   'invoice.overdue',
   'order.acceptOverdue',

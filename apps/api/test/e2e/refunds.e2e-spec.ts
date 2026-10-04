@@ -25,7 +25,7 @@ describe('Refunds (e2e)', () => {
   const invoiceIds: string[] = [];
   let originalMode: PaymentMode;
 
-  const createOrder = async (payment: Record<string, unknown>) => {
+  const createOrder = async (payment: Record<string, unknown>, quantity = 1) => {
     const res = await ctx
       .http()
       .post(`/restaurants/${restaurantId}/orders`)
@@ -34,7 +34,7 @@ describe('Refunds (e2e)', () => {
         branchId,
         channel: 'PHONE',
         fulfillment: 'PICKUP',
-        items: [{ menuItemId, quantity: 1 }],
+        items: [{ menuItemId, quantity }],
         customer: { fullName: 'Iade Musteri', phone: '0532 999 07 41' },
         note: NOTE,
         payment,
@@ -69,8 +69,8 @@ describe('Refunds (e2e)', () => {
       .expect(200);
   };
   /** An online card order captured on the restaurant's own POS with the given provider reference. */
-  const paidOrder = async (providerRef: string) => {
-    const order = await createOrder({ method: 'ONLINE_CARD' });
+  const paidOrder = async (providerRef: string, quantity = 1) => {
+    const order = await createOrder({ method: 'ONLINE_CARD' }, quantity);
     expect(order.status).toBe('PENDING_PAYMENT');
     await ctx
       .http()
@@ -408,5 +408,168 @@ describe('Refunds (e2e)', () => {
     } finally {
       await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { paymentMode: 'OWN_POS' } });
     }
+  });
+
+  describe('partial refunds', () => {
+    type Detail = {
+      status: string;
+      items: { id: string; quantity: number; refundedQuantity: number; lineTotalMinor: number }[];
+      payment: { refundedMinor: number; refundable: boolean };
+      refunds: {
+        source: string;
+        amountMinor: number;
+        commissionMinor: number;
+        commissionVatMinor: number;
+        items: { orderItemId: string; quantity: number }[];
+      }[];
+    };
+    const snapshotOf = (orderId: string) =>
+      ctx.prisma.order.findUniqueOrThrow({
+        where: { id: orderId },
+        select: { platformCommissionMinor: true, commissionVatMinor: true, commissionReversedAt: true },
+      });
+
+    it('gives back chosen items or an amount, keeps the order completed and returns the commission share', async () => {
+      const order = await paidOrder('pos-partial-1', 2);
+      await complete(order.id);
+      const before = (await getOrder(order.id)) as Detail;
+      const line = before.items[0];
+      expect(line).toMatchObject({ quantity: 2, refundedQuantity: 0 });
+
+      // Neither on a line the order does not have nor more than was ordered.
+      const wrong = await refund(
+        order.id,
+        { reason: 'Eksik', items: [{ orderItemId: '6f1c2a7e-3b7c-4d9e-9a51-6b0f4f7d2c11', quantity: 1 }] },
+        409,
+      );
+      expect(wrong.body.code).toBe('REFUND_ITEMS_INVALID');
+      await refund(order.id, { reason: 'Eksik', items: [{ orderItemId: line.id, quantity: 1 }], amountMinor: 1 }, 400);
+      await refund(order.id, { reason: 'Eksik', amountMinor: 100 }, 403, courierToken);
+
+      const messages = await smsCount('order.partiallyRefunded');
+      const res = await refund(
+        order.id,
+        { reason: 'Bir porsiyon eksik', items: [{ orderItemId: line.id, quantity: 1 }] },
+        200,
+      );
+      const first = res.body as Detail;
+      const half = line.lineTotalMinor / 2;
+      expect(first.status).toBe('PICKED_UP');
+      expect(first.payment).toMatchObject({ refundedMinor: half, refundable: true });
+      expect(first.items[0].refundedQuantity).toBe(1);
+      expect(first.refunds).toHaveLength(1);
+      const snapshot = await snapshotOf(order.id);
+      expect(first.refunds[0]).toMatchObject({
+        source: 'STAFF',
+        amountMinor: half,
+        items: [{ orderItemId: line.id, quantity: 1 }],
+        commissionMinor: Math.round((snapshot.platformCommissionMinor * half) / order.chargedToCustomerMinor),
+      });
+      expect(snapshot.commissionReversedAt).toBeNull();
+      const payment = await ctx.prisma.payment.findFirstOrThrow({ where: { orderId: order.id } });
+      expect(payment).toMatchObject({ status: 'PARTIALLY_REFUNDED', refundedMinor: half });
+      expect(await smsCount('order.partiallyRefunded')).toBe(messages + 1);
+
+      // The same portion cannot go back twice, nor more money than is left.
+      expect(
+        (await refund(order.id, { reason: 'Eksik', items: [{ orderItemId: line.id, quantity: 2 }] }, 409)).body.code,
+      ).toBe('REFUND_ITEMS_INVALID');
+      const left = order.chargedToCustomerMinor - half;
+      expect((await refund(order.id, { reason: 'Fazla', amountMinor: left + 1 }, 409)).body.code).toBe(
+        'REFUND_AMOUNT_TOO_HIGH',
+      );
+
+      // An amount for the rest closes the order and gives back exactly what was left of the commission.
+      const refundedBefore = await smsCount('order.refunded');
+      const rest = (await refund(order.id, { reason: 'Kalan', amountMinor: left }, 200)).body as Detail;
+      expect(rest.status).toBe('REFUNDED');
+      expect(rest.refunds).toHaveLength(2);
+      expect(rest.refunds.reduce((n, r) => n + r.commissionMinor, 0)).toBe(snapshot.platformCommissionMinor);
+      expect(rest.refunds.reduce((n, r) => n + r.commissionVatMinor, 0)).toBe(snapshot.commissionVatMinor);
+      expect((await snapshotOf(order.id)).commissionReversedAt).not.toBeNull();
+      expect(await smsCount('order.refunded')).toBe(refundedBefore + 1);
+    });
+
+    it('refuses a partial refund before completion and records money given back from the till', async () => {
+      const open = await paidOrder('pos-partial-2');
+      expect((await refund(open.id, { reason: 'Erken', amountMinor: 100 }, 409)).body.code).toBe('REFUND_NOT_ALLOWED');
+      await transition(open.id, 'REJECTED');
+
+      const cash = await createOrder({ method: 'CASH_ON_DELIVERY' });
+      await complete(cash.id);
+      await ctx
+        .http()
+        .post(`/restaurants/${restaurantId}/orders/${cash.id}/collect`)
+        .set(bearer(ownerToken))
+        .send({ method: 'CASH_ON_DELIVERY' })
+        .expect(200);
+      const res = (await refund(cash.id, { reason: 'Elden iade', amountMinor: 500 }, 200)).body as Detail;
+      expect(res.status).toBe('PICKED_UP');
+      expect(res.payment.refundedMinor).toBe(500);
+      const payment = await ctx.prisma.payment.findFirstOrThrow({ where: { orderId: cash.id } });
+      expect(payment).toMatchObject({ status: 'PARTIALLY_REFUNDED', refundProviderRef: null });
+    });
+
+    it('credits a partial refund share on the month the order is billed in', async () => {
+      const now = new Date();
+      const statement = async () =>
+        (
+          await ctx
+            .http()
+            .get(`/restaurants/${restaurantId}/payments/commission`)
+            .query({ year: now.getUTCFullYear(), month: now.getUTCMonth() + 1 })
+            .set(bearer(ownerToken))
+            .expect(200)
+        ).body as {
+          lines: { orderId: string; commissionMinor: number }[];
+          credits: { orderId: string; refundId: string; commissionMinor: number; commissionVatMinor: number }[];
+          commissionMinor: number;
+          creditCommissionMinor: number;
+          totalMinor: number;
+        };
+      const order = await paidOrder('pos-partial-3', 2);
+      await complete(order.id);
+      const detail = (await getOrder(order.id)) as Detail;
+      await refund(order.id, { reason: 'Eksik', items: [{ orderItemId: detail.items[0].id, quantity: 1 }] }, 200);
+      const row = await ctx.prisma.orderRefund.findFirstOrThrow({ where: { orderId: order.id } });
+
+      const open = await statement();
+      // Billed in full this month, its refund's share credited on the same invoice.
+      expect(open.lines.map((l) => l.orderId)).toContain(order.id);
+      const credit = open.credits.find((c) => c.refundId === row.id);
+      expect(credit).toMatchObject({ orderId: order.id, commissionMinor: row.commissionMinor });
+      expect(row.commissionMinor).toBeGreaterThan(0);
+      const charged = open.lines.reduce((n, l) => n + l.commissionMinor, 0);
+      expect(open.commissionMinor).toBe(charged - open.creditCommissionMinor);
+    });
+
+    it('takes a PLATFORM_PSP partial refund out of the payout with its commission share', async () => {
+      await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { paymentMode: 'PLATFORM_PSP' } });
+      try {
+        const order = await createOrder({ method: 'ONLINE_CARD' }, 2);
+        await ctx.prisma.payment.updateMany({
+          where: { orderId: order.id },
+          data: { status: 'CAPTURED', providerRef: 'psp-partial-1', capturedAt: new Date() },
+        });
+        await ctx.prisma.order.update({ where: { id: order.id }, data: { status: 'PLACED' } });
+        await complete(order.id);
+        const detail = (await getOrder(order.id)) as Detail;
+        const res = (
+          await refund(order.id, { reason: 'Eksik', items: [{ orderItemId: detail.items[0].id, quantity: 1 }] }, 200)
+        ).body as Detail;
+        const share = res.refunds[0];
+        const lines = await ctx.prisma.ledgerEntry.findMany({
+          where: { orderId: order.id, type: { in: ['REFUND', 'COMMISSION_REVERSAL', 'COMMISSION_VAT_REVERSAL'] } },
+          orderBy: { type: 'asc' },
+        });
+        expect(lines.map((l) => [l.type, l.amountMinor])).toEqual([
+          ['REFUND', -share.amountMinor],
+          ['COMMISSION_REVERSAL', share.commissionMinor],
+          ['COMMISSION_VAT_REVERSAL', share.commissionVatMinor],
+        ]);
+      } finally {
+        await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { paymentMode: 'OWN_POS' } });
+      }
+    });
   });
 });

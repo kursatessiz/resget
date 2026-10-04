@@ -43,6 +43,8 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
     'The payment provider could not be reached. The refund is retried automatically shortly; you can also try again now.',
   'errors.REFUND_UNAVAILABLE':
     'The connection that took this payment is no longer available; refund it from the payment provider dashboard.',
+  'errors.REFUND_ITEMS_INVALID': 'The chosen items are not on this order, or that many were already refunded.',
+  'errors.REFUND_AMOUNT_TOO_HIGH': 'The amount is more than what is left to refund on this order.',
   'errors.MEAL_CARD_PROVIDER_UNAVAILABLE': 'Online payment for this meal card is not integrated yet.',
   'errors.WEBHOOK_INVALID': 'The payment notification could not be verified.',
   'errors.RATE_LIMITED': 'Too many requests. Please wait a moment.',

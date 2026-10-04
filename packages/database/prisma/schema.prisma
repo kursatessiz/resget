@@ -130,6 +130,14 @@ enum PaymentStatus {
   CHARGED_BACK
 }
 
+enum OrderRefundSource {
+  CANCELLATION
+  STAFF
+  CLAIM
+  PROVIDER
+  CHARGEBACK
+}
+
 enum LedgerEntryType {
   GROSS_SALE
   DISCOUNT
@@ -273,6 +281,7 @@ model User {
   statusChanges       OrderStatusHistory[]
   tripsCreated        DeliveryTrip[]
   paymentsCollected   Payment[]            @relation("PaymentCollectedBy")
+  refundsCreated      OrderRefund[]        @relation("OrderRefundCreatedBy")
   auditLogs           AuditLog[]
   campaignsCreated    Campaign[]           @relation("CampaignCreatedBy")
   apiKeysCreated      RestaurantApiKey[]   @relation("ApiKeyCreatedBy")
@@ -403,6 +412,7 @@ model Restaurant {
   customers            RestaurantCustomer[]
   orders               Order[]
   payments             Payment[]
+  orderRefunds         OrderRefund[]
   ledgerEntries        LedgerEntry[]
   payouts              Payout[]
   paymentConnection    PaymentProviderConnection?
@@ -957,8 +967,9 @@ model Order {
   readyAt                   DateTime?
   completedAt               DateTime?
   cancelledAt               DateTime?
-  /// OWN_POS commission bookkeeping (docs/MUTABAKAT.md, "İade ve chargeback"): the invoice that billed the order,
-  /// when its commission was cancelled (refund or chargeback after completion) and the invoice that credited it back.
+  /// OWN_POS commission bookkeeping (docs/MUTABAKAT.md, "İade ve chargeback"): the invoice that billed the order and
+  /// when its whole commission was cancelled (fully refunded or charged back after completion). Credits are per refund
+  /// (OrderRefund.creditInvoiceId); commissionCreditInvoiceId is no longer written and goes in a later release.
   commissionInvoiceId       String?
   commissionReversedAt      DateTime?
   commissionCreditInvoiceId String?
@@ -977,6 +988,7 @@ model Order {
   rating              OrderRating?
   deliveryRequest     DeliveryRequest?
   deliveryStops       DeliveryStop[]
+  refunds             OrderRefund[]
 
   @@index([restaurantId, placedAt])
   @@index([restaurantId, status])
@@ -1059,12 +1071,45 @@ model Payment {
   order              Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
   savedPaymentMethod SavedPaymentMethod? @relation(fields: [savedPaymentMethodId], references: [id], onDelete: SetNull)
   collectedBy        User?               @relation("PaymentCollectedBy", fields: [collectedByUserId], references: [id], onDelete: SetNull)
+  refunds            OrderRefund[]
 
   @@index([restaurantId, createdAt])
   @@index([orderId])
   @@index([providerRef])
   @@index([status, refundFailureCode])
   @@map("payments")
+}
+
+/// One refund of one payment (docs/ODEME.md "İade", docs/MUTABAKAT.md "Kısmi iade"): what went back to the customer,
+/// why, and the share of the order's commission the platform gave back with it. Written in the same transaction as
+/// the payment's refunded amount, so the rows of an order add up to what its payments gave back.
+model OrderRefund {
+  id                 String            @id @default(uuid())
+  restaurantId       String
+  orderId            String
+  paymentId          String?
+  source             OrderRefundSource
+  amountMinor        Int
+  currency           String
+  /// Commission and VAT given back with this refund; 0 for an order that never completed.
+  commissionMinor    Int               @default(0)
+  commissionVatMinor Int               @default(0)
+  /// Items given back, [{ orderItemId, quantity }], when the refund was for items.
+  items              Json?
+  reason             String?
+  createdByUserId    String?
+  /// OWN_POS: the commission invoice that credited this refund's commission back.
+  creditInvoiceId    String?
+  createdAt          DateTime          @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  payment    Payment?   @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  createdBy  User?      @relation("OrderRefundCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, createdAt])
+  @@index([restaurantId, creditInvoiceId])
+  @@map("order_refunds")
 }
 
 /// A restaurant's own virtual POS (docs/ODEME.md). Credentials are encrypted

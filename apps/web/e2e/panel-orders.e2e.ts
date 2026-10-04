@@ -118,6 +118,51 @@ test.describe('Orders screen and dispatch board', () => {
     await expect(card.getByText(/İade edildi: /)).toBeVisible();
     await expect(card.getByRole('button', { name: 'İade et' })).toHaveCount(0);
   });
+  test('a completed order is refunded in part by choosing items, and its refunds are listed', async ({ page }) => {
+    const me = await bff<Me>(page.request, 'auth/me');
+    const restaurantId = me.memberships.find((m) => m.restaurantSlug === SEED.restaurantSlug)!.restaurantId;
+    const restaurant = await bff<Restaurant>(page.request, `restaurants/${restaurantId}`);
+    const menu = await bff<Category[]>(page.request, `restaurants/${restaurantId}/menu`);
+    const item = menu.flatMap((c) => c.items).find((i) => i.name === SEED.firstMenuItem)!;
+    const base = `restaurants/${restaurantId}/orders`;
+    const order = await bff<{ id: string; shortCode: string }>(page.request, base, {
+      method: 'POST',
+      data: {
+        branchId: restaurant.branches[0].id,
+        channel: 'PHONE',
+        fulfillment: 'PICKUP',
+        items: [{ menuItemId: item.id, quantity: 2 }],
+        customer: { fullName: 'Playwright Kismi', phone: '0532 999 03 03' },
+        payment: { method: 'CASH_ON_DELIVERY' },
+        note: 'pw-partial-refund',
+      },
+    });
+    for (const step of [{ to: 'ACCEPTED', prepMinutes: 10 }, { to: 'READY' }, { to: 'PICKED_UP' }]) {
+      await bff(page.request, `${base}/${order.id}/transition`, { method: 'POST', data: step });
+    }
+    await bff(page.request, `${base}/${order.id}/collect`, { method: 'POST', data: { method: 'CASH_ON_DELIVERY' } });
+    const card = page.locator(`[data-order-code="${order.shortCode}"]`);
+
+    await page.goto(`/panel/${SEED.restaurantSlug}/siparisler`);
+    await expect(card).toBeVisible();
+    await card.getByRole('button', { name: 'İade et' }).click();
+    await card.getByRole('button', { name: 'Ürün seç' }).click();
+    const confirm = card.getByRole('button', { name: 'İadeyi onayla' });
+    await card.getByLabel(`${item.name} (en fazla 2 adet)`).selectOption('1');
+    await expect(confirm).toBeDisabled();
+    await card.getByLabel('İade nedeni').fill('Bir porsiyon eksik gitti');
+    await expect(card.getByText(/Müşteriye iade edilecek: /)).toBeVisible();
+    await confirm.click();
+    await expect(card.getByText(/Kısmi iade: /)).toBeVisible();
+
+    // The order stays completed: one portion can still go back, and the first refund is listed.
+    await card.getByRole('button', { name: 'İade et' }).click();
+    await card.getByRole('button', { name: 'Ürün seç' }).click();
+    await expect(card.getByLabel(`${item.name} (en fazla 1 adet)`)).toBeVisible();
+    await expect(card.getByText('İadeler')).toBeVisible();
+    await expect(card.getByText(`1 x ${item.name}`)).toBeVisible();
+    await expect(card.getByText('Bir porsiyon eksik gitti')).toBeVisible();
+  });
   test('the dispatcher drags a stop onto another to change the order of a trip', async ({ page }) => {
     const me = await bff<Me>(page.request, 'auth/me');
     const restaurantId = me.memberships.find((m) => m.restaurantSlug === SEED.restaurantSlug)!.restaurantId;
