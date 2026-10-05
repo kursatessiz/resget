@@ -137,4 +137,7 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.menu_stock.name': 'Menu stock',
   'features.menu_stock.description':
     'Portions per item: taken on order, the item shows as not available at zero, given back on cancellation or rejection; last portions notice on the ordering page.',
+  'features.accounting_export.name': 'Accounting export',
+  'features.accounting_export.description':
+    "A month of orders and their lines as CSV for the accountant: each order's recorded settlement, VAT rates, refunds, commission and deductions.",
 };

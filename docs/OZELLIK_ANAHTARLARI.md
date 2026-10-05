@@ -54,6 +54,7 @@ Anahtar, modülün işletme için var olup olmadığına karar verir. Plan (BASI
 | `online_payment` | Ödeme | açık |
 | `meal_cards` | Ödeme | açık |
 | `partial_refunds` | Ödeme | açık |
+| `accounting_export` | Ödeme | kapalı (BETA) |
 | `own_courier_dispatch` | Teslimat | açık |
 | `courier_network` | Teslimat | açık |
 | `delivery_zones` | Teslimat | kapalı (BETA) |

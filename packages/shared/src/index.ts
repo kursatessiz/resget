@@ -47,6 +47,7 @@ export * from './scheduling';
 export * from './allergens';
 export * from './ordering-links';
 export * from './kitchen';
+export * from './accounting';
 export * from './delivery-zone';
 export * from './coupons';
 export * from './order-actions';

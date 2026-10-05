@@ -137,4 +137,7 @@ export const trFeatures = {
   'features.menu_stock.name': 'Menü stok takibi',
   'features.menu_stock.description':
     'Ürün başına porsiyon sayısı: siparişte düşer, sıfırda ürün satışta değil görünür, iptal ve retle geri gelir; sipariş sayfasında son porsiyonlar uyarısı.',
+  'features.accounting_export.name': 'Muhasebe dökümü',
+  'features.accounting_export.description':
+    'Bir ayın siparişleri ve kalemleri muhasebeci için CSV olarak: kayıtlı hakediş dökümü, KDV oranları, iadeler, komisyon ve kesintiler.',
 } as const satisfies Record<string, string>;
