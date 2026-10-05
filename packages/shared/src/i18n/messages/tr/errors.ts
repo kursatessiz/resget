@@ -24,6 +24,10 @@ export const trErrors = {
   'errors.COURIER_NOT_ASSIGNED': 'Bu sefer size atanmamış.',
   'errors.COURIER_INVALID': 'Seçilen kişi bu işletmede kurye değil.',
   'errors.MENU_ITEM_UNAVAILABLE': 'Sepetteki bir ürün şu anda satışta değil.',
+  'errors.MODIFIER_INVALID':
+    'Seçilen ürün seçenekleri artık menüde yok veya eksik. Ürünü sepetten çıkarıp yeniden ekleyin.',
+  'errors.MODIFIER_PRICE_CHANGED':
+    'Bir ürün seçeneğinin fiyatı değişti. Ürünü sepetten çıkarıp güncel fiyatla yeniden ekleyin.',
   'errors.PAYMENT_METHOD_NOT_ACCEPTED': 'İşletme bu ödeme yöntemini kabul etmiyor.',
   'errors.PAYMENT_STATE_INVALID': 'Bu sipariş için ödeme işlemi bu aşamada yapılamaz.',
   'errors.REFUND_NOT_ALLOWED':

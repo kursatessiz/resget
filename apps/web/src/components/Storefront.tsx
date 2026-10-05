@@ -36,7 +36,7 @@ interface CartLine {
   key: string;
   item: StorefrontItemDTO;
   quantity: number;
-  modifiers: { name: string; priceDeltaMinor: number }[];
+  modifiers: { id: string; name: string; priceDeltaMinor: number }[];
 }
 
 type PaymentChoice =
@@ -242,7 +242,11 @@ export function Storefront({
       for (const id of chosen) {
         const modifier = group.modifiers.find((m) => m.id === id);
         if (modifier)
-          modifiers.push({ name: `${group.name}: ${modifier.name}`, priceDeltaMinor: modifier.priceDeltaMinor });
+          modifiers.push({
+            id: modifier.id,
+            name: `${group.name}: ${modifier.name}`,
+            priceDeltaMinor: modifier.priceDeltaMinor,
+          });
       }
     }
     setError(null);

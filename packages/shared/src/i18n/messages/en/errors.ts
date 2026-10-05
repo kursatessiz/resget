@@ -24,6 +24,10 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.COURIER_NOT_ASSIGNED': 'This trip is not assigned to you.',
   'errors.COURIER_INVALID': 'The selected person is not a courier of this restaurant.',
   'errors.MENU_ITEM_UNAVAILABLE': 'An item in the basket is not for sale right now.',
+  'errors.MODIFIER_INVALID':
+    'The chosen options are no longer on the menu or incomplete. Remove the item and add it again.',
+  'errors.MODIFIER_PRICE_CHANGED':
+    'The price of an option has changed. Remove the item and add it again at the current price.',
   'errors.PAYMENT_METHOD_NOT_ACCEPTED': 'The restaurant does not accept this payment method.',
   'errors.PAYMENT_STATE_INVALID': 'A payment cannot be made for this order at this stage.',
   'errors.REFUND_NOT_ALLOWED':
