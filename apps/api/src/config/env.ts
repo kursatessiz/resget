@@ -57,6 +57,14 @@ export const EnvSchema = z
       .string()
       .regex(/^[a-z0-9.-]{3,64}$/)
       .default('claude-opus-5-5'),
+    /** Meta OAuth for the integration hub (docs/ENTEGRASYON_MERKEZI.md): LIVE talks to Meta, MOCK fakes the consent round trip outside production, NONE switches it off. */
+    META_PROVIDER: z.enum(['NONE', 'MOCK', 'LIVE']).default('NONE'),
+    META_APP_ID: z.string().min(1).optional(),
+    META_APP_SECRET: z.string().min(1).optional(),
+    META_GRAPH_VERSION: z
+      .string()
+      .regex(/^v\d{1,2}\.\d$/)
+      .default('v21.0'),
     /** Monthly token budget of a tenant the console has not set one for. */
     AI_DEFAULT_MONTHLY_TOKENS: z.coerce.number().int().min(0).default(200_000),
     /** Push delivery: EXPO sends through Expo's push service; MOCK accepts outside production and refuses in it. */
@@ -211,6 +219,13 @@ export const EnvSchema = z
         message: 'required when INDEXNOW_PROVIDER=LIVE',
       });
     }
+    if (env.META_PROVIDER === 'LIVE') {
+      for (const key of ['META_APP_ID', 'META_APP_SECRET'] as const) {
+        if (!env[key]) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: 'required when META_PROVIDER=LIVE' });
+        }
+      }
+    }
     if (env.AI_PROVIDER === 'ANTHROPIC' && !env.ANTHROPIC_API_KEY) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -226,6 +241,13 @@ export const EnvSchema = z
       });
     }
     if (env.NODE_ENV !== 'production') return;
+    if (env.META_PROVIDER === 'MOCK') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['META_PROVIDER'],
+        message: 'MOCK is not allowed in production',
+      });
+    }
     if (env.AI_PROVIDER === 'MOCK') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

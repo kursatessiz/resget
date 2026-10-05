@@ -63,6 +63,7 @@ Anahtar, modülün işletme için var olup olmadığına karar verir. Plan (BASI
 | `marketing_approvals` | Pazarlama | kapalı (BETA) |
 | `audit_viewer` | Entegrasyonlar | kapalı (BETA, yalnızca genel anahtar anlamlıdır) |
 | `ai_studio` | Pazarlama | kapalı (BETA) |
+| `integration_hub` | Entegrasyonlar | kapalı (BETA) |
 | `marketing_platform` | Pazarlama | kapalı (BETA) |
 | `contacts_crm` | Pazarlama | kapalı (BETA) |
 | `attribution` | Pazarlama | kapalı (BETA) |

@@ -115,6 +115,8 @@ Gönderim onayı ve sınırları (`docs/ONAYLAR.md`): `campaigns` satırına `ap
 
 Yapay zeka stüdyosu (`docs/YAPAY_ZEKA.md`): kiracı başına aylık token sınırı `ai_budgets` (`monthlyTokenLimit`) ve istek başına içeriksiz kullanım kaydı `ai_usage` (tür, model, girdi ve çıktı token, çıkarılan öge sayısı, isteyen kullanıcı). Migration: `20261115000000_ai_studio`.
 
+Entegrasyon merkezi (`docs/ENTEGRASYON_MERKEZI.md`): onay turları `oauth_states` (rastgele state, kiracı, kullanıcı, geri dönüş ekranı, son kullanma, kullanım zamanı) ve bağlı hesaplar `social_accounts` (sağlayıcı, tür, dış kimlik, ad, şifreli sayfa anahtarı, izinler, kullanılsın işareti, durum; kiracı, sağlayıcı ve dış kimlik başına tek satır). Migration: `20261116000000_social_accounts`.
+
 ## Migration kuralları
 
 Yalnızca ileri yönlü; deploy'dan önce çalışır; bir sürüm boyunca geriye dönük uyumlu (önce genişlet, sonra daralt). CI, boş Postgres'e uygulayıp şema ile sapma olmadığını denetler. Yeni migration: `pnpm --filter @resget/database db:migrate --name <ad>` (yerel Postgres gerekir).

@@ -105,6 +105,12 @@ export const MARKETING_NAV: readonly MarketingNavItem[] = [
   { key: 'ads', path: '/reklam', permission: 'platform.marketing.view', feature: 'ad_integrations' },
   { key: 'pages', path: '/sayfalar', permission: 'platform.marketing.view', feature: 'page_engine' },
   { key: 'attribution', path: '/atif', permission: 'platform.marketing.view', feature: 'attribution' },
+  {
+    key: 'integrations',
+    path: '/entegrasyonlar',
+    permission: 'platform.integrations.manage',
+    feature: 'integration_hub',
+  },
 ];
 
 export function visibleMarketingNav(

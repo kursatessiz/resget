@@ -104,6 +104,9 @@ export const trFeatures = {
   'features.ai_studio.name': 'Yapay zeka stüdyosu',
   'features.ai_studio.description':
     'Kampanya metni ve menü açıklaması taslakları; yalnızca taslak, kişisel veri modele gitmez, mesaj kredilerinden ayrı aylık token bütçesi. PRO.',
+  'features.integration_hub.name': 'Entegrasyon merkezi',
+  'features.integration_hub.description':
+    'Facebook sayfaları ve Instagram işletme hesaplarının Meta onay ekranıyla (OAuth) bağlanması; erişim anahtarları şifreli saklanır. Lead Ads ve sosyal yayın bu bağlantıları kullanır.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',

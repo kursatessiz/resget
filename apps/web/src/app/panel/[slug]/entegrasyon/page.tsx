@@ -3,19 +3,35 @@ import { WebhooksManager } from '@/components/panel/WebhooksManager';
 import { PosManager } from '@/components/panel/PosManager';
 import { EmailManager } from '@/components/panel/EmailManager';
 import { AdsManager } from '@/components/panel/AdsManager';
+import { SocialAccountsManager } from '@/components/panel/SocialAccountsManager';
 import { RESTAURANT_CONVERSION_TYPES } from '@resget/shared';
 import { getLocale } from '@/lib/i18n';
 import { requireMembership } from '@/lib/panel';
 
 /** PRO: API keys for the restaurant's own systems (docs/API_ERISIMI.md). */
-export default async function IntegrationsPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function IntegrationsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ meta?: string }>;
+}) {
   const { slug } = await params;
+  const { meta } = await searchParams;
   const { membership } = await requireMembership(slug, 'integrations.manage');
   const locale = await getLocale();
   // The public API address is what a restaurant's own system calls; the BFF address is only for this browser.
   const apiBaseUrl = (process.env.PUBLIC_API_URL || 'http://localhost:4000').replace(/\/+$/, '');
   return (
     <div className="flex flex-col gap-6">
+      {membership.features.includes('integration_hub') && (
+        <SocialAccountsManager
+          restaurantId={membership.restaurantId}
+          locale={locale}
+          returnPath={`/panel/${slug}/entegrasyon`}
+          result={meta ?? null}
+        />
+      )}
       <ApiKeysManager
         restaurantId={membership.restaurantId}
         locale={locale}
