@@ -138,3 +138,5 @@ Sipariş bağlantıları (`docs/SIPARIS_BAGLANTILARI.md`): `orders.source` sipar
 Mutfak ekranı (`docs/MUTFAK_EKRANI.md`): `menu_categories.kitchenStation` bölümün ürünlerinin gittiği mutfak istasyonudur (kiracı verisi, boş ise yalnızca tüm istasyonlar görünümü); `order_items.preparedAt` satırın mutfakta hazır işaretlendiği andır. Migration: `20261124000000_kitchen_display`.
 
 Menü stok takibi (`docs/STOK.md`): `menu_items.stockQuantity` ürünün kalan porsiyonudur (boş ise sayılmaz); `order_items.stockTaken` satırın stoktan düştüğü adettir, iptal ve retle bir kez geri verilir. Migration: `20261125000000_menu_stock`.
+
+Grup siparişi (`docs/GRUP_SIPARISI.md`): `group_carts` paylaşılan sepettir (takip anahtarı, `OPEN` / `LOCKED` / `PLACED`, verilen sipariş, 6 saatlik bitiş); `group_cart_participants` katılımcılardır (ad, sahip bayrağı, anahtarın SHA-256 özeti, satırlar JSON). Migration: `20261126000000_group_orders`.

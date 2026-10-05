@@ -471,7 +471,7 @@ export class StorefrontService {
     table: { id: string; label: string } | null,
     branchId: string | null,
   ): Promise<StorefrontDTO> {
-    const [categories, payment, loyalty, availability, zone, coupons, tracking, consentV2, scheduling] =
+    const [categories, payment, loyalty, availability, zone, coupons, tracking, consentV2, scheduling, groupOrders] =
       await Promise.all([
         this.menu.menuOf(restaurant.id),
         this.mealCards.acceptedMethods(restaurant.id),
@@ -483,6 +483,8 @@ export class StorefrontService {
         this.features.isEnabled('consent_v2', restaurant.id),
         // A table orders for now; slots are for the restaurant's own ordering page.
         table ? Promise.resolve(null) : this.availability.scheduling(restaurant, branchId),
+        // A shared basket lives on the restaurant's own page, not at a table (docs/GRUP_SIPARISI.md).
+        table ? Promise.resolve(false) : this.features.isEnabled('group_orders', restaurant.id),
       ]);
     return {
       restaurant: {
@@ -512,6 +514,7 @@ export class StorefrontService {
       tracking,
       consentV2,
       scheduling,
+      groupOrders,
     };
   }
 

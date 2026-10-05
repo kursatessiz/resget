@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { CouponCodeSchema, SlugSchema, orderSourceFromParam, restaurantJsonLd } from '@resget/shared';
 import type { StorefrontDTO, StorefrontViewerDTO } from '@resget/shared';
 import { ConsentManager } from '@/components/ConsentManager';
+import { StartGroupOrder } from '@/components/GroupOrder';
 import { JsonLdScript } from '@/components/site/JsonLdScript';
 import { Storefront } from '@/components/Storefront';
 import { ThemeRoot } from '@/components/ThemeRoot';
@@ -73,6 +74,7 @@ export default async function RestaurantPage({
             </p>
           )}
         </header>
+        {storefront.groupOrders && <StartGroupOrder slug={storefront.restaurant.slug} locale={locale} />}
         <Storefront
           storefront={storefront}
           locale={locale}

@@ -513,6 +513,7 @@ model Restaurant {
   touchpoints          Touchpoint[]
   conversionEvents     ConversionEvent[]
   couponRedemptions    CouponRedemption[]
+  groupCarts           GroupCart[]
 
   @@index([serviceAreaId, isListed])
   @@map("restaurants")
@@ -1333,6 +1334,7 @@ model Order {
   ledgerEntries       LedgerEntry[]
   loyaltyTransactions LoyaltyTransaction[]
   couponRedemption    CouponRedemption?
+  groupCart           GroupCart?
   referralReward      ReferralReward?
   feedbackCase        FeedbackCase?
   npsResponse         NpsResponse?
@@ -2754,4 +2756,50 @@ model NpsResponse {
 
   @@index([restaurantId, createdAt])
   @@map("nps_responses")
+}
+
+/// Group order (docs/GRUP_SIPARISI.md): a shared basket on the restaurant's page. Everyone adds their own lines; the
+/// host places one order for all and pays for it.
+enum GroupCartStatus {
+  OPEN
+  LOCKED
+  PLACED
+}
+
+model GroupCart {
+  id           String          @id @default(uuid())
+  restaurantId String
+  /// Unguessable handle in the shared link (/<slug>/grup/<token>).
+  token        String          @unique
+  status       GroupCartStatus @default(OPEN)
+  /// The order the host placed; set once the basket is PLACED.
+  orderId      String?         @unique
+  expiresAt    DateTime
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  restaurant   Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  order        Order?                 @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  participants GroupCartParticipant[]
+
+  @@index([restaurantId, createdAt])
+  @@map("group_carts")
+}
+
+model GroupCartParticipant {
+  id        String   @id @default(uuid())
+  cartId    String
+  name      String
+  isHost    Boolean  @default(false)
+  /// SHA-256 of the participant's key; the key itself lives only in that browser.
+  keyHash   String
+  /// The participant's lines as OrderLineInput[], checked against the menu on every write.
+  lines     Json     @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cart GroupCart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  @@index([cartId])
+  @@map("group_cart_participants")
 }

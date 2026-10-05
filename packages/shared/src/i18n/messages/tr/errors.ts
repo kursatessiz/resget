@@ -25,6 +25,11 @@ export const trErrors = {
   'errors.COURIER_INVALID': 'Seçilen kişi bu işletmede kurye değil.',
   'errors.MENU_ITEM_UNAVAILABLE': 'Sepetteki bir ürün şu anda satışta değil.',
   'errors.MENU_ITEM_SOLD_OUT': 'Sepetteki bir ürünün stoğu yetmiyor. Adedi azaltın veya ürünü çıkarın.',
+  'errors.GROUP_CART_NOT_FOUND': 'Bu grup sepeti bulunamadı. Bağlantıyı kontrol edin.',
+  'errors.GROUP_CART_CLOSED': 'Bu grup sepeti artık değişikliğe kapalı.',
+  'errors.GROUP_CART_FULL': 'Bu grup sepetine katılabilecek kişi sayısı doldu.',
+  'errors.GROUP_CART_EMPTY': 'Sepette henüz ürün yok.',
+  'errors.GROUP_CART_FORBIDDEN': 'Bu işlemi yalnızca sepetin sahibi yapabilir.',
   'errors.MODIFIER_INVALID':
     'Seçilen ürün seçenekleri artık menüde yok veya eksik. Ürünü sepetten çıkarıp yeniden ekleyin.',
   'errors.MODIFIER_PRICE_CHANGED':
