@@ -38,6 +38,7 @@ export const FEATURES = {
   menu_dayparts: { group: 'ordering', defaultEnabled: false, stage: 'BETA' },
   ordering_links: { group: 'ordering', defaultEnabled: false, stage: 'BETA' },
   kitchen_display: { group: 'ordering', defaultEnabled: false, stage: 'BETA' },
+  menu_stock: { group: 'ordering', defaultEnabled: false, stage: 'BETA' },
   online_payment: { group: 'payments', defaultEnabled: true, stage: 'GA' },
   meal_cards: { group: 'payments', defaultEnabled: true, stage: 'GA' },
   partial_refunds: { group: 'payments', defaultEnabled: true, stage: 'GA' },

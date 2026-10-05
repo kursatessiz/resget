@@ -37,6 +37,8 @@ export interface StorefrontItemDTO {
   allergens: Allergen[];
   dietaryTags: DietaryTag[];
   modifierGroups: MenuModifierGroupDTO[];
+  /** Portions left while the menu_stock module counts this item (docs/STOK.md); null otherwise. */
+  stockLeft: number | null;
 }
 
 export interface StorefrontCategoryDTO {

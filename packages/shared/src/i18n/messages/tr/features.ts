@@ -134,6 +134,9 @@ export const trFeatures = {
   'features.kitchen_display.name': 'Mutfak ekranı',
   'features.kitchen_display.description':
     'Kabul edilen siparişler mutfak tabletinde fiş olarak, söz verilen saate göre sıralı; satır satır hazır işaretleme, menü bölümüne göre istasyon (ızgara, bar) ekranları, gecikme uyarısı.',
+  'features.menu_stock.name': 'Menü stok takibi',
+  'features.menu_stock.description':
+    'Ürün başına porsiyon sayısı: siparişte düşer, sıfırda ürün satışta değil görünür, iptal ve retle geri gelir; sipariş sayfasında son porsiyonlar uyarısı.',
   'features.accounting_export.name': 'Muhasebe dökümü',
   'features.accounting_export.description':
     'Bir ayın siparişleri ve kalemleri muhasebeci için CSV olarak: kayıtlı hakediş dökümü, KDV oranları, iadeler, komisyon ve kesintiler.',

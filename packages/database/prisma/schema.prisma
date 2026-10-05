@@ -643,23 +643,25 @@ model MenuCategory {
 }
 
 model MenuItem {
-  id           String   @id @default(uuid())
-  restaurantId String
-  categoryId   String
-  name         String
-  description  String?
+  id            String   @id @default(uuid())
+  restaurantId  String
+  categoryId    String
+  name          String
+  description   String?
   /// Gross price in the restaurant currency's minor unit, VAT included.
-  priceMinor   Int
-  currency     String
-  vatRateBps   Int
-  imageUrl     String?
-  isAvailable  Boolean  @default(true)
-  sortOrder    Int      @default(0)
+  priceMinor    Int
+  currency      String
+  vatRateBps    Int
+  imageUrl      String?
+  isAvailable   Boolean  @default(true)
+  sortOrder     Int      @default(0)
   /// Declared allergens and dietary tags (ALLERGENS, DIETARY_TAGS in shared; docs/ALERJENLER.md).
-  allergens    String[] @default([])
-  dietaryTags  String[] @default([])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  allergens     String[] @default([])
+  dietaryTags   String[] @default([])
+  /// Portions left while menu_stock is on (docs/STOK.md); null means not counted.
+  stockQuantity Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   restaurant     Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   category       MenuCategory    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -1370,6 +1372,8 @@ model OrderItem {
   position          Int       @default(0)
   /// When the kitchen marked the line done on the kitchen display (docs/MUTFAK_EKRANI.md).
   preparedAt        DateTime?
+  /// Portions this line took from the item's stock (docs/STOK.md); given back once if the order is cancelled.
+  stockTaken        Int       @default(0)
 
   order    Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
   menuItem MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)

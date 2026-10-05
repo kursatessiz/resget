@@ -24,6 +24,7 @@ export const trErrors = {
   'errors.COURIER_NOT_ASSIGNED': 'Bu sefer size atanmamış.',
   'errors.COURIER_INVALID': 'Seçilen kişi bu işletmede kurye değil.',
   'errors.MENU_ITEM_UNAVAILABLE': 'Sepetteki bir ürün şu anda satışta değil.',
+  'errors.MENU_ITEM_SOLD_OUT': 'Sepetteki bir ürünün stoğu yetmiyor. Adedi azaltın veya ürünü çıkarın.',
   'errors.MODIFIER_INVALID':
     'Seçilen ürün seçenekleri artık menüde yok veya eksik. Ürünü sepetten çıkarıp yeniden ekleyin.',
   'errors.MODIFIER_PRICE_CHANGED':

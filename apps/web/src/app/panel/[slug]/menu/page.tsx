@@ -15,6 +15,7 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
       allergens={membership.features.includes('allergens')}
       dayparts={membership.features.includes('menu_dayparts')}
       stations={membership.features.includes('kitchen_display')}
+      stock={membership.features.includes('menu_stock')}
     />
   );
 }

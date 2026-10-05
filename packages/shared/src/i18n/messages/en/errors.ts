@@ -24,6 +24,8 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.COURIER_NOT_ASSIGNED': 'This trip is not assigned to you.',
   'errors.COURIER_INVALID': 'The selected person is not a courier of this restaurant.',
   'errors.MENU_ITEM_UNAVAILABLE': 'An item in the basket is not for sale right now.',
+  'errors.MENU_ITEM_SOLD_OUT':
+    'There is not enough stock left of an item in the basket. Lower the quantity or remove it.',
   'errors.MODIFIER_INVALID':
     'The chosen options are no longer on the menu or incomplete. Remove the item and add it again.',
   'errors.MODIFIER_PRICE_CHANGED':

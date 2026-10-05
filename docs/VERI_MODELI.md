@@ -136,3 +136,5 @@ Teslimat kodu (`docs/TESLIMAT_KODU.md`): `orders.deliveryCode` eve teslim sipari
 Sipariş bağlantıları (`docs/SIPARIS_BAGLANTILARI.md`): `orders.source` siparişin geldiği kanal bağlantısıdır (`ORDER_SOURCES` anahtarı: Instagram, Facebook, WhatsApp, Google, TikTok; yalnızca restoran sayfasından gelen siparişte ve modül açıkken; diğerlerinde boş). Migration: `20261123000000_order_source`.
 
 Mutfak ekranı (`docs/MUTFAK_EKRANI.md`): `menu_categories.kitchenStation` bölümün ürünlerinin gittiği mutfak istasyonudur (kiracı verisi, boş ise yalnızca tüm istasyonlar görünümü); `order_items.preparedAt` satırın mutfakta hazır işaretlendiği andır. Migration: `20261124000000_kitchen_display`.
+
+Menü stok takibi (`docs/STOK.md`): `menu_items.stockQuantity` ürünün kalan porsiyonudur (boş ise sayılmaz); `order_items.stockTaken` satırın stoktan düştüğü adettir, iptal ve retle bir kez geri verilir. Migration: `20261125000000_menu_stock`.

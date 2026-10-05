@@ -39,6 +39,7 @@ const adminItemSelect = Prisma.validator<Prisma.MenuItemSelect>()({
   sortOrder: true,
   allergens: true,
   dietaryTags: true,
+  stockQuantity: true,
   modifierGroups: {
     orderBy: { sortOrder: 'asc' },
     select: {
@@ -117,6 +118,7 @@ export class MenuService {
             imageUrl: true,
             allergens: true,
             dietaryTags: true,
+            stockQuantity: true,
             modifierGroups: {
               orderBy: { sortOrder: 'asc' },
               select: {
@@ -137,19 +139,26 @@ export class MenuService {
       },
     });
     // Allergens and tags reach guests only while the module is on (docs/ALERJENLER.md).
-    const [withTags, withDayparts] = await Promise.all([
+    const [withTags, withDayparts, withStock] = await Promise.all([
       this.features.isEnabled('allergens', restaurantId),
       this.features.isEnabled('menu_dayparts', restaurantId),
+      this.features.isEnabled('menu_stock', restaurantId),
     ]);
     return categories.map((category) => ({
       ...category,
       // Ordering windows reach guests only while the module is on (docs/OGUN_SAATLERI.md).
       availableHours: withDayparts ? hoursOf(category.availableHours) : null,
-      items: category.items.map((item) => ({
-        ...item,
-        allergens: withTags ? allergensFrom(item.allergens) : [],
-        dietaryTags: withTags ? dietaryTagsFrom(item.dietaryTags) : [],
-      })),
+      items: category.items.map(({ stockQuantity, ...item }) => {
+        // A counted item at zero is sold out until the restaurant restocks it (docs/STOK.md).
+        const counted = withStock && stockQuantity !== null;
+        return {
+          ...item,
+          isAvailable: item.isAvailable && !(counted && stockQuantity <= 0),
+          allergens: withTags ? allergensFrom(item.allergens) : [],
+          dietaryTags: withTags ? dietaryTagsFrom(item.dietaryTags) : [],
+          stockLeft: counted ? stockQuantity : null,
+        };
+      }),
     }));
   }
 
@@ -241,6 +250,7 @@ export class MenuService {
           sortOrder,
           allergens: input.allergens ?? [],
           dietaryTags: input.dietaryTags ?? [],
+          stockQuantity: input.stockQuantity ?? null,
         },
         select: adminItemSelect,
       }),
