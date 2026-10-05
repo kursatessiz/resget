@@ -2,7 +2,8 @@ import { PrismaClient, MessageChannel, SubscriptionStatus, MembershipStatus } fr
 import { randomBytes } from 'node:crypto';
 import {
   DEFAULT_ROLE_TEMPLATES,
-  PLAN_CODES,
+  BUILT_IN_PLAN_CODES,
+  DEFAULT_PLAN_EXCLUSIONS,
   PRO_TRIAL_DAYS_DEFAULT,
   TABLE_QR_TOKEN_BYTES,
   WELCOME_MESSAGE_CREDITS_DEFAULT,
@@ -46,7 +47,7 @@ async function main(): Promise<void> {
 
   // Platform data: plans, credit packages, a mock courier network, one launched district.
   const [basic, pro] = await Promise.all(
-    PLAN_CODES.map((code) =>
+    BUILT_IN_PLAN_CODES.map((code) =>
       prisma.plan.create({
         data: {
           code,
@@ -55,6 +56,7 @@ async function main(): Promise<void> {
           currency: 'TRY',
           isFree: code === 'BASIC',
           trialDays: code === 'PRO' ? PRO_TRIAL_DAYS_DEFAULT : 0,
+          excludedFeatures: [...DEFAULT_PLAN_EXCLUSIONS[code]],
         },
       }),
     ),

@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 import type { AdminCreditPackageDTO, CreditChannel, PlanDTO } from '@resget/shared';
 import { Badge, Button, Card, SelectField, TextField } from '@/components/ui';
 import { ApiError, bffJson } from '@/lib/client-api';
+import { planLabel } from '@/lib/plans';
 import { useT } from '@/lib/use-t';
+import { AdminPlanMatrix } from './AdminPlanMatrix';
 
 interface PackageDraft {
   code: string;
@@ -14,6 +16,16 @@ interface PackageDraft {
   currency: string;
   isActive: boolean;
 }
+
+interface PlanDraft {
+  code: string;
+  name: string;
+  monthlyPriceMinor: string;
+  currency: string;
+  trialDays: string;
+}
+
+const EMPTY_PLAN: PlanDraft = { code: '', name: '', monthlyPriceMinor: '0', currency: '', trialDays: '0' };
 
 const EMPTY_PACKAGE: PackageDraft = {
   code: '',
@@ -33,6 +45,7 @@ export function AdminPlans({ locale }: { locale: string }) {
     Record<string, { name: string; monthlyPriceMinor: string; currency: string; trialDays: string; isActive: boolean }>
   >({});
   const [pkg, setPkg] = useState<PackageDraft>(EMPTY_PACKAGE);
+  const [newPlan, setNewPlan] = useState<PlanDraft>(EMPTY_PLAN);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -99,6 +112,25 @@ export function AdminPlans({ locale }: { locale: string }) {
       loadPlans((plans ?? []).map((p) => (p.id === updated.id ? updated : p)));
     });
 
+  // A new plan starts with what the fallback plan carries; the matrix below changes it.
+  const createPlan = () =>
+    run(async () => {
+      const fallback = (plans ?? []).find((p) => p.isFallback);
+      await bffJson<PlanDTO>('admin/plans', {
+        method: 'POST',
+        body: JSON.stringify({
+          code: newPlan.code.trim().toUpperCase(),
+          name: newPlan.name.trim(),
+          monthlyPriceMinor: Number(newPlan.monthlyPriceMinor),
+          currency: newPlan.currency.trim().toUpperCase(),
+          trialDays: Number(newPlan.trialDays),
+          features: fallback?.features ?? [],
+        }),
+      });
+      loadPlans(await bffJson<PlanDTO[]>('admin/plans'));
+      setNewPlan(EMPTY_PLAN);
+    });
+
   const savePackage = () =>
     run(async () => {
       const saved = await bffJson<AdminCreditPackageDTO>('admin/credit-packages', {
@@ -137,11 +169,12 @@ export function AdminPlans({ locale }: { locale: string }) {
         return (
           <Card
             key={plan.id}
-            aria-label={t(`plans.${plan.code}.name`)}
+            aria-label={planLabel(t, plan.code, plan.name)}
             title={
               <span className="flex flex-wrap items-center gap-2">
-                {t(`plans.${plan.code}.name`)}
+                {planLabel(t, plan.code, plan.name)}
                 <Badge>{plan.code}</Badge>
+                {plan.isFallback && <Badge tone="muted">{t('admin.plans.fallback')}</Badge>}
                 <span className="ui-caption">
                   {t('admin.plans.subscriptions', { count: count.format(plan.subscriptions) })}
                 </span>
@@ -198,6 +231,69 @@ export function AdminPlans({ locale }: { locale: string }) {
           </Card>
         );
       })}
+
+      <Card title={t('admin.plans.new')} aria-label={t('admin.plans.new')}>
+        <form
+          className="grid gap-3 md:grid-cols-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void createPlan();
+          }}
+        >
+          <TextField
+            id="new-plan-code"
+            label={t('admin.plans.code')}
+            help={t('admin.plans.codeHint')}
+            value={newPlan.code}
+            onChange={(e) => setNewPlan({ ...newPlan, code: e.target.value })}
+            pattern="[A-Za-z][A-Za-z0-9_]{1,23}"
+            required
+          />
+          <TextField
+            id="new-plan-name"
+            label={t('admin.plans.name')}
+            value={newPlan.name}
+            onChange={(e) => setNewPlan({ ...newPlan, name: e.target.value })}
+            minLength={2}
+            required
+          />
+          <TextField
+            id="new-plan-price"
+            label={t('admin.plans.price')}
+            type="number"
+            min={0}
+            value={newPlan.monthlyPriceMinor}
+            onChange={(e) => setNewPlan({ ...newPlan, monthlyPriceMinor: e.target.value })}
+            required
+          />
+          <TextField
+            id="new-plan-currency"
+            label={t('admin.plans.currency')}
+            value={newPlan.currency}
+            maxLength={3}
+            onChange={(e) => setNewPlan({ ...newPlan, currency: e.target.value })}
+            required
+          />
+          <TextField
+            id="new-plan-trial"
+            label={t('admin.plans.trialDays')}
+            type="number"
+            min={0}
+            max={365}
+            value={newPlan.trialDays}
+            onChange={(e) => setNewPlan({ ...newPlan, trialDays: e.target.value })}
+          />
+          <div className="md:col-span-3">
+            <Button type="submit" disabled={busy}>
+              {t('admin.plans.create')}
+            </Button>
+          </div>
+        </form>
+      </Card>
+
+      {plans && plans.length > 0 && (
+        <AdminPlanMatrix key={plans.map((p) => p.id).join(',')} locale={locale} plans={plans} onSaved={loadPlans} />
+      )}
 
       <Card title={t('admin.packages.title')} aria-label={t('admin.packages.title')}>
         {!packages ? (

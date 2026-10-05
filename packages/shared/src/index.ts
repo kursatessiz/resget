@@ -5,6 +5,7 @@ export * from './navigation';
 export * from './money';
 export * from './settlement';
 export * from './plans';
+export * from './entitlements';
 export * from './payments';
 export * from './meal-cards';
 export * from './refunds';

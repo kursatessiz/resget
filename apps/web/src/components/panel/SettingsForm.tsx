@@ -7,6 +7,7 @@ import type { CustomDomainDTO, DeliveryFeePolicy, DispatchSettings, RestaurantSe
 import { Badge, Button, Card, SelectField, TextField } from '@/components/ui';
 import { ApiError, bffJson, bffUpload } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
+import { panelPlanLabel } from '@/lib/plans';
 
 type Section = 'business' | 'brand' | 'delivery' | 'dispatch' | 'platform' | 'domain';
 type FeeMode = 'NONE' | DeliveryFeePolicy['mode'];
@@ -498,7 +499,9 @@ export function SettingsForm({
         }
       >
         <p className="ui-text-muted">{t('settings.domain.intro')}</p>
-        {data.effectivePlan !== 'PRO' && <p className="ui-caption">{t('settings.domain.proRequired')}</p>}
+        {!data.entitlements.includes('custom_domain') && (
+          <p className="ui-caption">{t('settings.domain.proRequired')}</p>
+        )}
         {domainStatus && (
           <div className="flex flex-col gap-3">
             <p>
@@ -529,11 +532,11 @@ export function SettingsForm({
                   onChange={(e) => setDomainDraft(e.target.value)}
                   placeholder="siparis.restoranim.com"
                   autoComplete="off"
-                  disabled={data.effectivePlan !== 'PRO'}
+                  disabled={!data.entitlements.includes('custom_domain')}
                 />
                 <Button
                   onClick={() => void saveDomain()}
-                  disabled={busy || data.effectivePlan !== 'PRO' || domainDraft.trim().length < 4}
+                  disabled={busy || !data.entitlements.includes('custom_domain') || domainDraft.trim().length < 4}
                 >
                   {t('settings.domain.save')}
                 </Button>
@@ -541,7 +544,7 @@ export function SettingsForm({
                   <Button
                     variant="outline"
                     onClick={() => void verifyDomain()}
-                    disabled={busy || data.effectivePlan !== 'PRO'}
+                    disabled={busy || !data.entitlements.includes('custom_domain')}
                   >
                     {t('settings.domain.verify')}
                   </Button>
@@ -551,7 +554,7 @@ export function SettingsForm({
                     variant="outline"
                     tone="muted"
                     onClick={() => void removeDomain()}
-                    disabled={busy || data.effectivePlan !== 'PRO'}
+                    disabled={busy || !data.entitlements.includes('custom_domain')}
                   >
                     {t('settings.domain.remove')}
                   </Button>
@@ -572,7 +575,9 @@ export function SettingsForm({
           <li className="py-2">{t('settings.platform.commission', { percent: data.commissionBps / 100 })}</li>
           <li className="py-2">{t('settings.platform.currency', { currency })}</li>
           <li className="py-2">{t('settings.platform.country', { country: data.countryCode })}</li>
-          <li className="py-2">{t('settings.platform.plan', { plan: t(`panel.plan.${data.effectivePlan}`) })}</li>
+          <li className="py-2">
+            {t('settings.platform.plan', { plan: panelPlanLabel(t, data.effectivePlan, data.planName) })}
+          </li>
           <li className="py-2">{data.isListed ? t('settings.platform.listed') : t('settings.platform.notListed')}</li>
           {!data.isListed && data.listingRequestedAt && !data.listingReviewedAt && (
             <li className="py-2">

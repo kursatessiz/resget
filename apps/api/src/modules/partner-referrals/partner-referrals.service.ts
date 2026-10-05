@@ -274,7 +274,7 @@ export class PartnerReferralsService {
     });
     const state: SubscriptionState | null = sub
       ? {
-          planCode: sub.plan.code === 'PRO' ? 'PRO' : 'BASIC',
+          planCode: sub.plan.code,
           status: sub.status as SubscriptionState['status'],
           trialEndsAt: sub.trialEndsAt,
           currentPeriodEnd: sub.currentPeriodEnd,

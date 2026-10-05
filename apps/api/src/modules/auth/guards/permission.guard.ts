@@ -1,6 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PLAN_FEATURE_SETS } from '@resget/shared';
 import type { FeatureKey, PermissionKey, PlanFeature } from '@resget/shared';
 import { forbidden } from '../../../common/api-error';
 import { FeatureFlagsService } from '../../features/feature-flags.service';
@@ -12,7 +11,8 @@ import type { AuthenticatedRequest } from '../tenant-context';
  * is a mistake and is refused. Then every listed permission must be in the
  * caller's effective set, the restaurant's plan must include the
  * handler's plan feature when one is declared, and the handler's module
- * must be switched on for the restaurant (docs/OZELLIK_ANAHTARLARI.md).
+ * must be switched on for the restaurant (docs/OZELLIK_ANAHTARLARI.md) and
+ * carried by its plan (docs/PLAN_MATRISI.md).
  */
 @Injectable()
 export class PermissionGuard implements CanActivate {
@@ -34,16 +34,17 @@ export class PermissionGuard implements CanActivate {
     }
 
     const feature = this.reflector.getAllAndOverride<PlanFeature | undefined>(PLAN_FEATURE_KEY, targets);
-    if (feature && !PLAN_FEATURE_SETS[tenant.effectivePlan].includes(feature)) {
+    if (feature && !tenant.entitlements.has(feature)) {
       throw forbidden('PLAN_FEATURE_REQUIRED', `Feature ${feature} needs a higher plan`);
     }
 
     // The platform tenant exists only while platform marketing is switched on.
-    if (tenant.isPlatform) await this.features.assertEnabled('marketing_platform', tenant.restaurantId);
+    if (tenant.isPlatform)
+      await this.features.assertEnabled('marketing_platform', tenant.restaurantId, tenant.entitlements);
     const module = this.reflector.getAllAndOverride<FeatureKey | undefined>(FEATURE_KEY, targets);
-    if (module) await this.features.assertEnabled(module, tenant.restaurantId);
+    if (module) await this.features.assertEnabled(module, tenant.restaurantId, tenant.entitlements);
     // A restaurant API key works only while API access is switched on for its restaurant.
-    if (request.apiKey) await this.features.assertEnabled('api_access', tenant.restaurantId);
+    if (request.apiKey) await this.features.assertEnabled('api_access', tenant.restaurantId, tenant.entitlements);
     return true;
   }
 }

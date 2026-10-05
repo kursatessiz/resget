@@ -10,7 +10,7 @@ export default async function JourneysPage({ params }: { params: Promise<{ slug:
   const { membership, can } = await requireMembership(slug, 'campaigns.view');
   if (!membership.features.includes('journeys')) notFound();
   const { t, locale } = await getT();
-  if (membership.effectivePlan !== 'PRO') {
+  if (!membership.entitlements.includes('campaigns')) {
     return (
       <Card title={t('journeys.title')}>
         <p>{t('journeys.proRequired')}</p>

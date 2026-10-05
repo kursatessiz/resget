@@ -13,7 +13,7 @@ export default async function CustomersPage({ params }: { params: Promise<{ slug
       canManage={can('customers.manage')}
       canSeeOrders={can('orders.view')}
       canManageLoyalty={can('loyalty.manage')}
-      isPro={membership.effectivePlan === 'PRO'}
+      isPro={membership.entitlements.includes('crm')}
     />
   );
 }

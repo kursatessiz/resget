@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@resget/database';
-import { PLAN_CODES, PRO_TRIAL_DAYS_DEFAULT } from '@resget/shared';
+import { BUILT_IN_PLAN_CODES, DEFAULT_PLAN_EXCLUSIONS, PRO_TRIAL_DAYS_DEFAULT } from '@resget/shared';
 import { maskPhone } from '../modules/messaging/sms.provider';
 
 /**
@@ -42,11 +42,11 @@ export async function runBootstrap(prisma: PrismaClient, options: BootstrapOptio
   };
 
   const existingPlans = new Set((await prisma.plan.findMany({ select: { code: true } })).map((p) => p.code));
-  const missing = PLAN_CODES.filter((code) => !existingPlans.has(code));
+  const missing = BUILT_IN_PLAN_CODES.filter((code) => !existingPlans.has(code));
   if (missing.length > 0 && !options.currency) {
     report.notices.push('plans missing but no currency given; pass --currency=<ISO 4217> to create them');
   }
-  for (const code of PLAN_CODES) {
+  for (const code of BUILT_IN_PLAN_CODES) {
     if (existingPlans.has(code)) {
       report.plansSkipped.push(code);
       continue;
@@ -60,6 +60,7 @@ export async function runBootstrap(prisma: PrismaClient, options: BootstrapOptio
         currency: options.currency,
         isFree: code === 'BASIC',
         trialDays: code === 'PRO' ? PRO_TRIAL_DAYS_DEFAULT : 0,
+        excludedFeatures: [...DEFAULT_PLAN_EXCLUSIONS[code]],
       },
     });
     report.plansCreated.push(code);

@@ -11,7 +11,9 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
       restaurantId={membership.restaurantId}
       locale={locale}
       canManage={can('menu.manage')}
-      aiStudio={membership.features.includes('ai_studio') && membership.effectivePlan === 'PRO' && can('menu.manage')}
+      aiStudio={
+        membership.features.includes('ai_studio') && membership.entitlements.includes('campaigns') && can('menu.manage')
+      }
       allergens={membership.features.includes('allergens')}
       dayparts={membership.features.includes('menu_dayparts')}
       stations={membership.features.includes('kitchen_display')}

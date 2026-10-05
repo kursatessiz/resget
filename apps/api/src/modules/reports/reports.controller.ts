@@ -24,7 +24,7 @@ export class ReportsController {
     @Tenant() tenant: TenantContext,
     @ZodQuery(ReportsQuerySchema) query: z.infer<typeof ReportsQuerySchema>,
   ): Promise<ReportSummaryDTO> {
-    return this.reports.summary(tenant.restaurantId, query.days, tenant.effectivePlan === 'PRO');
+    return this.reports.summary(tenant.restaurantId, query.days, tenant.entitlements.has('analytics'));
   }
 
   @Get('orders.csv')

@@ -1,8 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { FEATURES, FEATURE_KEYS, enabledFeatures, isFeatureEnabled } from '@resget/shared';
-import type { AdminFeatureDTO, FeatureKey, FeatureSwitches, RestaurantFeatureDTO } from '@resget/shared';
+import { FEATURES, FEATURE_KEYS, enabledFeatures, isFeatureEnabled, moduleNeedsPlan } from '@resget/shared';
+import type {
+  AdminFeatureDTO,
+  EntitlementKey,
+  FeatureKey,
+  FeatureSwitches,
+  RestaurantFeatureDTO,
+} from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { forbidden } from '../../common/api-error';
+import { EntitlementsService } from './entitlements.service';
 
 /** How long a process trusts its copy of the switches; writes in this process refresh it at once. */
 const CACHE_TTL_MS = 15_000;
@@ -19,13 +26,21 @@ interface Snapshot {
  * catalogue (restaurant, then global, then default). The table is small, so
  * every process keeps the whole of it and reloads it every few seconds;
  * another API process sees a change within that window.
+ *
+ * A module the restaurant's plan does not carry (docs/PLAN_MATRISI.md) is
+ * closed as well, refused with PLAN_FEATURE_REQUIRED instead of
+ * FEATURE_DISABLED. Plan features (crm, campaigns, ...) keep their own
+ * checks, which decide what a restaurant without them still sees.
  */
 @Injectable()
 export class FeatureFlagsService {
   private snapshot: Snapshot | null = null;
   private loading: Promise<Snapshot> | null = null;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly plans: EntitlementsService,
+  ) {}
 
   async switchesFor(restaurantId: string | null): Promise<FeatureSwitches> {
     const snapshot = await this.current();
@@ -35,7 +50,20 @@ export class FeatureFlagsService {
     };
   }
 
-  async isEnabled(key: FeatureKey, restaurantId: string | null): Promise<boolean> {
+  /**
+   * Switched on and carried by the restaurant's plan. Callers that already
+   * resolved the restaurant's entitlements (the tenant guard) pass them in.
+   */
+  async isEnabled(
+    key: FeatureKey,
+    restaurantId: string | null,
+    entitlements?: ReadonlySet<EntitlementKey>,
+  ): Promise<boolean> {
+    return (await this.refusal(key, restaurantId, entitlements)) === null;
+  }
+
+  /** Switched on, whatever the plan says: what the panel's switch list and tabs show. */
+  async isSwitchedOn(key: FeatureKey, restaurantId: string | null): Promise<boolean> {
     return isFeatureEnabled(key, await this.switchesFor(restaurantId));
   }
 
@@ -44,11 +72,27 @@ export class FeatureFlagsService {
     return enabledFeatures(await this.switchesFor(restaurantId));
   }
 
-  /** Refuses with FEATURE_DISABLED when the module is off for the restaurant. */
-  async assertEnabled(key: FeatureKey, restaurantId: string | null): Promise<void> {
-    if (!(await this.isEnabled(key, restaurantId))) {
-      throw forbidden('FEATURE_DISABLED', `Feature ${key} is switched off`);
-    }
+  /** Refuses with FEATURE_DISABLED when the module is off, PLAN_FEATURE_REQUIRED when the plan lacks it. */
+  async assertEnabled(
+    key: FeatureKey,
+    restaurantId: string | null,
+    entitlements?: ReadonlySet<EntitlementKey>,
+  ): Promise<void> {
+    const refusal = await this.refusal(key, restaurantId, entitlements);
+    if (refusal === 'FEATURE_DISABLED') throw forbidden('FEATURE_DISABLED', `Feature ${key} is switched off`);
+    if (refusal === 'PLAN_FEATURE_REQUIRED')
+      throw forbidden('PLAN_FEATURE_REQUIRED', `Feature ${key} is not in the restaurant's plan`);
+  }
+
+  private async refusal(
+    key: FeatureKey,
+    restaurantId: string | null,
+    entitlements?: ReadonlySet<EntitlementKey>,
+  ): Promise<'FEATURE_DISABLED' | 'PLAN_FEATURE_REQUIRED' | null> {
+    if (!(await this.isSwitchedOn(key, restaurantId))) return 'FEATURE_DISABLED';
+    if (!restaurantId || !moduleNeedsPlan(key)) return null;
+    const held = entitlements ?? (await this.plans.forRestaurant(restaurantId)).entitlements;
+    return held.has(key) ? null : 'PLAN_FEATURE_REQUIRED';
   }
 
   // -- Console ------------------------------------------------------------------

@@ -10,7 +10,7 @@ export default async function SegmentsPage({ params }: { params: Promise<{ slug:
   const { membership, can } = await requireMembership(slug, 'campaigns.view');
   if (!membership.features.includes('segments_v2')) notFound();
   const { t, locale } = await getT();
-  if (membership.effectivePlan !== 'PRO') {
+  if (!membership.entitlements.includes('campaigns')) {
     return (
       <Card title={t('segments.title')}>
         <p>{t('segments.proRequired')}</p>

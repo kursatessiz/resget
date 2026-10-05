@@ -13,7 +13,7 @@ export default async function FeedbackPage({ params }: { params: Promise<{ slug:
     <FeedbackManager
       restaurantId={membership.restaurantId}
       locale={locale}
-      isPro={membership.effectivePlan === 'PRO'}
+      isPro={membership.entitlements.includes('analytics')}
       canManageSettings={can('restaurant.settings.manage')}
       canManageCases={can('customers.manage')}
       canSeeReports={can('reports.view')}

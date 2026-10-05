@@ -13,6 +13,8 @@ import { RestaurantFeatures } from '@/components/admin/AdminFeatures';
 import { ApiError, bffJson } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
 import { AdminAiBudget } from './AdminAiBudget';
+import { AdminRestaurantEntitlements } from './AdminRestaurantEntitlements';
+import { planLabel } from '@/lib/plans';
 
 /** One restaurant in the console: listing, activity, commission and fees, service area and manual credit grants. */
 export function AdminRestaurantDetail({ id, locale }: { id: string; locale: string }) {
@@ -122,7 +124,10 @@ export function AdminRestaurantDetail({ id, locale }: { id: string; locale: stri
           </Badge>
           {data.plan && (
             <Badge>
-              {t('admin.restaurant.plan', { plan: t(`plans.${data.plan.code}.name`), status: data.plan.status })}
+              {t('admin.restaurant.plan', {
+                plan: planLabel(t, data.plan.code, data.plan.code),
+                status: data.plan.status,
+              })}
             </Badge>
           )}
         </div>
@@ -200,6 +205,7 @@ export function AdminRestaurantDetail({ id, locale }: { id: string; locale: stri
         </div>
       </Card>
 
+      <AdminRestaurantEntitlements restaurantId={id} locale={locale} />
       <RestaurantFeatures restaurantId={id} locale={locale} />
       <AdminAiBudget restaurantId={id} locale={locale} />
 

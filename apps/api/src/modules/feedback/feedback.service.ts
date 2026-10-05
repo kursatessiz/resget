@@ -4,7 +4,6 @@ import {
   RATING_MAX,
   RATING_MIN,
   canRateOrder,
-  hasFeature,
   isLowRating,
   npsCategory,
   npsScore,
@@ -18,12 +17,11 @@ import type {
   FeedbackSettingsDTO,
   NpsAnswerInput,
   OrderStatusValue,
-  PlanCode,
-  SubscriptionStatus as SharedSubscriptionStatus,
   UpdateFeedbackCaseInput,
   UpdateFeedbackSettingsInput,
 } from '@resget/shared';
 import { FeatureFlagsService } from '../features/feature-flags.service';
+import { EntitlementsService } from '../features/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
 import { conflict, notFound } from '../../common/api-error';
@@ -53,6 +51,7 @@ export class FeedbackService {
     private readonly prisma: PrismaService,
     private readonly features: FeatureFlagsService,
     private readonly push: PushService,
+    private readonly plans: EntitlementsService,
   ) {}
 
   // -- Settings ------------------------------------------------------------------------
@@ -250,26 +249,7 @@ export class FeedbackService {
 
   private async active(restaurantId: string): Promise<boolean> {
     if (!(await this.features.isEnabled('feedback', restaurantId))) return false;
-    const row = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
-      select: {
-        subscription: {
-          select: { plan: { select: { code: true } }, status: true, trialEndsAt: true, currentPeriodEnd: true },
-        },
-      },
-    });
-    const sub = row?.subscription;
-    return hasFeature(
-      sub
-        ? {
-            planCode: (sub.plan.code === 'PRO' ? 'PRO' : 'BASIC') as PlanCode,
-            status: sub.status as unknown as SharedSubscriptionStatus,
-            trialEndsAt: sub.trialEndsAt,
-            currentPeriodEnd: sub.currentPeriodEnd,
-          }
-        : null,
-      'analytics',
-    );
+    return this.plans.has(restaurantId, 'analytics');
   }
 
   private toCase(

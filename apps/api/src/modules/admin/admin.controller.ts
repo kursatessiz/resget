@@ -7,7 +7,6 @@ import {
   CreateServiceAreaSchema,
   DensityQuerySchema,
   GrantCreditsSchema,
-  UpdatePlanSchema,
   UpdateServiceAreaSchema,
   UpsertCreditPackageSchema,
   UuidSchema,
@@ -18,7 +17,6 @@ import type {
   AdminRestaurantDTO,
   AdminRestaurantPageDTO,
   GrantCreditsResultDTO,
-  PlanDTO,
   RestaurantCreatedDTO,
   ServiceAreaDTO,
   SystemHealthDTO,
@@ -115,20 +113,6 @@ export class AdminController {
     @ZodBody(UpdateServiceAreaSchema) body: z.infer<typeof UpdateServiceAreaSchema>,
   ): Promise<ServiceAreaDTO> {
     return this.admin.updateServiceArea(user.id, id, body);
-  }
-
-  @Get('plans')
-  plans(): Promise<PlanDTO[]> {
-    return this.admin.listPlans();
-  }
-
-  @Patch('plans/:id')
-  updatePlan(
-    @CurrentUser() user: AuthUser,
-    @ZodParam('id', UuidSchema) id: string,
-    @ZodBody(UpdatePlanSchema) body: z.infer<typeof UpdatePlanSchema>,
-  ): Promise<PlanDTO> {
-    return this.admin.updatePlan(user.id, id, body);
   }
 
   @Get('credit-packages')

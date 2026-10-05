@@ -6,6 +6,7 @@ import { BasisPointsSchema, CurrencyCodeSchema, MinorAmountSchema } from './mone
 import { PhoneSchema, RESERVED_SLUGS } from './validators';
 import { CREDIT_CHANNELS, PlanCodeSchema } from './plans';
 import type { CreditChannel, PlanCode } from './plans';
+import type { EntitlementKey } from './entitlements';
 import { CountryCodeSchema, SlugSchema, UuidSchema } from './validators';
 
 /**
@@ -265,6 +266,10 @@ export interface PlanDTO {
   trialDays: number;
   isActive: boolean;
   subscriptions: number;
+  /** The plan matrix row (docs/PLAN_MATRISI.md), core keys included. */
+  features: EntitlementKey[];
+  /** The free plan every restaurant falls back to; it cannot be switched off. */
+  isFallback: boolean;
 }
 
 export const UpsertCreditPackageSchema = z

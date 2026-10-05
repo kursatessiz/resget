@@ -1,9 +1,9 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@resget/database';
-import { hasFeature } from '@resget/shared';
-import type { CustomDomainDTO, SubscriptionStatus as SharedSubscriptionStatus } from '@resget/shared';
+import type { CustomDomainDTO } from '@resget/shared';
 import { FeatureFlagsService } from '../features/feature-flags.service';
+import { EntitlementsService } from '../features/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
 import { DOMAIN_VERIFIER } from './domain-verifier';
@@ -15,9 +15,6 @@ const domainSelect = {
   isActive: true,
   customDomain: true,
   customDomainVerifiedAt: true,
-  subscription: {
-    select: { plan: { select: { code: true } }, status: true, trialEndsAt: true, currentPeriodEnd: true },
-  },
 } as const;
 type DomainRow = Prisma.RestaurantGetPayload<{ select: typeof domainSelect }>;
 
@@ -39,6 +36,7 @@ export class DomainsService {
     private readonly config: ConfigService,
     @Inject(DOMAIN_VERIFIER) private readonly verifier: DomainVerifierAdapter,
     private readonly features: FeatureFlagsService,
+    private readonly plans: EntitlementsService,
   ) {
     this.target = new URL(this.config.getOrThrow<string>('PUBLIC_APP_URL')).hostname.toLowerCase();
   }
@@ -128,31 +126,19 @@ export class DomainsService {
     if (!row) return null;
     // A switched-off module stops serving the domain (docs/OZELLIK_ANAHTARLARI.md); the record stays.
     if (!(await this.features.isEnabled('custom_domain', row.id))) return null;
-    return this.isServing(row) ? row.slug : null;
+    return (await this.isServing(row)) ? row.slug : null;
   }
 
-  private isServing(row: DomainRow): boolean {
-    return row.isActive && row.customDomainVerifiedAt !== null && hasFeature(this.planOf(row), 'custom_domain');
+  private async isServing(row: DomainRow): Promise<boolean> {
+    return row.isActive && row.customDomainVerifiedAt !== null && (await this.plans.has(row.id, 'custom_domain'));
   }
 
-  private planOf(row: DomainRow) {
-    const subscription = row.subscription;
-    if (!subscription) return null;
-    // The same shape the tenant guard feeds to effectivePlan, so both sides agree on the plan.
-    return {
-      planCode: subscription.plan.code === 'PRO' ? ('PRO' as const) : ('BASIC' as const),
-      status: subscription.status as unknown as SharedSubscriptionStatus,
-      trialEndsAt: subscription.trialEndsAt,
-      currentPeriodEnd: subscription.currentPeriodEnd,
-    };
-  }
-
-  private toDto(row: DomainRow): CustomDomainDTO {
+  private async toDto(row: DomainRow): Promise<CustomDomainDTO> {
     return {
       domain: row.customDomain,
       verifiedAt: row.customDomainVerifiedAt?.toISOString() ?? null,
       target: this.target,
-      active: this.isServing(row),
+      active: await this.isServing(row),
       lastCheck: this.lastChecks.get(row.id) ?? null,
     };
   }

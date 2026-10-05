@@ -11,7 +11,9 @@ Karar: bedava dönem süreyle değil katmanla çözülür. "6 ay bedava, sonra �
 
 Yeni restoran `PRO`'yu deneme süresiyle başlar (`PRO_TRIAL_DAYS_DEFAULT = 90`; platform ayarı). Deneme bitince `BASIC`'e düşer: siparişleri almaya devam eder, yalnızca gelişmiş araçlar kapanır. Churn anı yoktur.
 
-Kural kodu `packages/shared/src/plans.ts`: `effectivePlan()` deneme, ödeme gecikmesi ve iptal durumlarını çözer; `PAST_DUE` ve `CANCELLED` ödenmiş dönem bitene kadar PRO kalır. API'de `@RequirePlanFeature('campaigns')` gibi beyanlar `PermissionGuard` tarafından `PLAN_FEATURE_REQUIRED` koduyla reddedilir; UI aynı kodla yükseltme ekranına yönlendirir.
+Kural kodu `packages/shared/src/plans.ts`: `effectivePlan()` deneme, ödeme gecikmesi ve iptal durumlarını çözer; `PAST_DUE` ve `CANCELLED` ödenmiş dönem bitene kadar planda kalır. API'de `@RequirePlanFeature('campaigns')` gibi beyanlar `PermissionGuard` tarafından `PLAN_FEATURE_REQUIRED` koduyla reddedilir; UI aynı kodla yükseltme ekranına yönlendirir.
+
+Tablodaki içerik başlangıç dağılımıdır. Planlar veridir: hangi özelliğin hangi planda olduğunu süper admin plan matrisinden seçer, yeni plan konsoldan eklenir, plandan çıkarılan özellik dönem sonuna kadar korunur ve tek bir restorana "plan dışı açık" verilebilir. Ayrıntı: `docs/PLAN_MATRISI.md`.
 
 ## Tavsiyeyle kazanılan PRO süresi
 

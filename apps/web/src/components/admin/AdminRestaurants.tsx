@@ -7,6 +7,7 @@ import type { AdminRestaurantPageDTO, RestaurantCreatedDTO, SignupCountryCode } 
 import { Badge, Button, Card, SelectField, TextField } from '@/components/ui';
 import { ApiError, bffJson } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
+import { planLabel } from '@/lib/plans';
 
 /** Restaurant list of the console with search, listing filter and a create form for onboarding by phone. */
 export function AdminRestaurants({ locale }: { locale: string }) {
@@ -230,7 +231,7 @@ export function AdminRestaurants({ locale }: { locale: string }) {
                       })}
                     </Badge>
                   )}
-                  {r.plan && <Badge>{t(`plans.${r.plan.code}.name`)}</Badge>}
+                  {r.plan && <Badge>{planLabel(t, r.plan.code, r.plan.code)}</Badge>}
                   <span className="ui-caption">
                     {t('admin.restaurant.orders7d', { count: count.format(r.ordersLast7Days) })}
                   </span>

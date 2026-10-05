@@ -10,7 +10,7 @@ export default async function PipelinePage({ params }: { params: Promise<{ slug:
   const { membership, can } = await requireMembership(slug, 'customers.view');
   if (!membership.features.includes('contacts_crm')) notFound();
   const locale = await getLocale();
-  const canManage = can('customers.manage') && membership.effectivePlan === 'PRO';
+  const canManage = can('customers.manage') && membership.entitlements.includes('crm');
   return (
     <div className="flex flex-col gap-6">
       <CrmBoard

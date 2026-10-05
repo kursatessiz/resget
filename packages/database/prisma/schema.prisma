@@ -464,6 +464,7 @@ model Restaurant {
   mealCardConnections  MealCardConnection[]
   commissionInvoices   CommissionInvoice[]
   subscription         RestaurantSubscription?
+  entitlements         RestaurantEntitlement[]
   messageWallets       MessageWallet[]
   messageLogs          MessageLog[]
   deliveryRequests     DeliveryRequest[]
@@ -1679,7 +1680,7 @@ model Payout {
 
 model Plan {
   id                String   @id @default(uuid())
-  /// BASIC or PRO (PLAN_CODES in shared); prices are data, the vocabulary is code.
+  /// Plans are data (docs/PLAN_MATRISI.md); BASIC (the free fallback) and PRO (the trial plan) are built in.
   code              String   @unique
   name              String
   monthlyPriceMinor Int
@@ -1687,6 +1688,9 @@ model Plan {
   isFree            Boolean  @default(false)
   trialDays         Int      @default(0)
   isActive          Boolean  @default(true)
+  /// Entitlement keys the plan leaves out (ENTITLEMENT_KEYS in shared). Stored as exclusions so a module added
+  /// to the catalogue later is in every plan, and its switch alone decides; the console shows the positive list.
+  excludedFeatures  String[] @default([])
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -1710,6 +1714,31 @@ model RestaurantSubscription {
   plan       Plan       @relation(fields: [planId], references: [id])
 
   @@map("restaurant_subscriptions")
+}
+
+enum EntitlementSource {
+  GRACE
+  EXCEPTION
+}
+
+/// A key a restaurant holds beyond its plan (docs/PLAN_MATRISI.md): GRACE when the key left the plan, until
+/// the period ends; EXCEPTION when the platform owner opened it for this restaurant.
+model RestaurantEntitlement {
+  id              String            @id @default(uuid())
+  restaurantId    String
+  key             String
+  source          EntitlementSource
+  /// Null means open ended (exceptions only; grace always ends).
+  until           DateTime?
+  note            String?
+  createdByUserId String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, key, source])
+  @@map("restaurant_entitlements")
 }
 
 model MessageCreditPackage {

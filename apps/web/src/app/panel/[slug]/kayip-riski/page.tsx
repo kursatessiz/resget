@@ -10,7 +10,7 @@ export default async function ChurnPage({ params }: { params: Promise<{ slug: st
   const { membership, can } = await requireMembership(slug, 'customers.view');
   if (!membership.features.includes('churn_signals')) notFound();
   const { t, locale } = await getT();
-  if (membership.effectivePlan !== 'PRO') {
+  if (!membership.entitlements.includes('analytics')) {
     return (
       <Card title={t('churn.title')}>
         <p>{t('churn.proRequired')}</p>

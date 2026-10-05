@@ -14,6 +14,8 @@ const membership = (restaurantId: string, status: MembershipSummaryDTO['status']
   roleName: 'courier',
   permissions: ['courier.deliver'],
   effectivePlan: 'BASIC',
+  planName: 'Basic',
+  entitlements: [],
   themePrimary: '#0092cd',
   logoUrl: null,
   features: [...FEATURE_KEYS],
