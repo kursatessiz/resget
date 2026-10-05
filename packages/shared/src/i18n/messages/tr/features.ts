@@ -134,4 +134,7 @@ export const trFeatures = {
   'features.kitchen_display.name': 'Mutfak ekranı',
   'features.kitchen_display.description':
     'Kabul edilen siparişler mutfak tabletinde fiş olarak, söz verilen saate göre sıralı; satır satır hazır işaretleme, menü bölümüne göre istasyon (ızgara, bar) ekranları, gecikme uyarısı.',
+  'features.accounting_export.name': 'Muhasebe dökümü',
+  'features.accounting_export.description':
+    'Bir ayın siparişleri ve kalemleri muhasebeci için CSV olarak: kayıtlı hakediş dökümü, KDV oranları, iadeler, komisyon ve kesintiler.',
 } as const satisfies Record<string, string>;

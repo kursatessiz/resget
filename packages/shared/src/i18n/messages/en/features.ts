@@ -134,4 +134,7 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.kitchen_display.name': 'Kitchen display',
   'features.kitchen_display.description':
     'Accepted orders as tickets on a kitchen tablet, sorted by the promised time; line by line done marking, station screens by menu section (grill, bar), late warning.',
+  'features.accounting_export.name': 'Accounting export',
+  'features.accounting_export.description':
+    "A month of orders and their lines as CSV for the accountant: each order's recorded settlement, VAT rates, refunds, commission and deductions.",
 };
