@@ -7,7 +7,7 @@ export const trLanding = {
   'landing.cta.signIn': 'Giriş yap',
   'landing.pillar.commission.title': 'Yüzde 1 komisyon',
   'landing.pillar.commission.body':
-    'Sipariş başına yalnızca yüzde 1. Ödeme kuruluşu kesintisi belgelenen gerçek oranıyla yansıtılır.',
+    'Eve teslim ve gel al siparişinde yalnızca yüzde 1, masadan verilen siparişte komisyon yok. Ödeme kuruluşu kesintisi belgelenen gerçek oranıyla yansıtılır.',
   'landing.pillar.qr.title': 'Masa QR ile müşteri edinme',
   'landing.pillar.qr.body': 'Masada menüyü açan misafir, bir sonraki eve siparişinde sizi bulur.',
   'landing.pillar.saas.title': 'Ücretsiz işletme yazılımı',

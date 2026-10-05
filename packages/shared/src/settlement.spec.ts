@@ -1,5 +1,5 @@
 import { LedgerEntryType } from './enums';
-import { computeOrderSettlement, contributionPerOrder, settlementDefaultsFor } from './settlement';
+import { commissionBpsFor, computeOrderSettlement, contributionPerOrder, settlementDefaultsFor } from './settlement';
 import type { Settlement, SettlementInput } from './settlement';
 
 function assertIdentity(s: Settlement): void {
@@ -164,5 +164,13 @@ describe('computeOrderSettlement', () => {
 
   it('falls back to no withholding and no commission VAT outside the known regions', () => {
     expect(settlementDefaultsFor('DE')).toEqual({ withholdingBps: 0, commissionVatBps: 0 });
+  });
+});
+
+describe('commission by fulfillment', () => {
+  it('takes the restaurant rate for delivery and pickup and none for dine-in', () => {
+    expect(commissionBpsFor('DELIVERY', 100)).toBe(100);
+    expect(commissionBpsFor('PICKUP', 150)).toBe(150);
+    expect(commissionBpsFor('DINE_IN', 100)).toBe(0);
   });
 });

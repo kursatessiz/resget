@@ -8,7 +8,7 @@ export const enLanding: Record<keyof typeof trLanding, string> = {
   'landing.cta.signIn': 'Sign in',
   'landing.pillar.commission.title': '1 percent commission',
   'landing.pillar.commission.body':
-    'Only 1 percent per order. The payment provider fee is passed through at its documented real rate.',
+    'Only 1 percent on delivery and pickup orders, no commission on orders placed at the table. The payment provider fee is passed through at its documented real rate.',
   'landing.pillar.qr.title': 'Customer acquisition through table QR',
   'landing.pillar.qr.body': 'The guest who opens your menu at the table finds you for the next delivery order.',
   'landing.pillar.saas.title': 'Free restaurant software',

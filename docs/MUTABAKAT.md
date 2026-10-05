@@ -34,7 +34,7 @@ Sipariş, yerleştirme anındaki modu ve tutarları anlık görüntü olarak ta�
 
 ## Kurallar
 
-1. **Komisyon** brüt kalem toplamının (restoranın finanse ettiği indirim düşülmüş) yüzdesidir. Platformun satıştan aldığı tek gelirdir. Komisyon üzerine fatura KDV'si eklenir ve aynı şekilde hakedişten düşülür.
+1. **Komisyon** brüt kalem toplamının (restoranın finanse ettiği indirim düşülmüş) yüzdesidir. Platformun satıştan aldığı tek gelirdir. Komisyon üzerine fatura KDV'si eklenir ve aynı şekilde hakedişten düşülür. Komisyon yalnızca uygulama üzerinden verilen eve teslim ve gel al siparişlerinden alınır; masaya verilen restoran içi sipariş (`DINE_IN`, masa QR ve açık hesap) komisyonsuzdur (sahibin kararı, 5 Ekim 2026; `commissionBpsFor()`). Masa siparişinde PSP kesintisi ve tevkifat kendi kurallarıyla hesaplanmaya devam eder.
 2. **PSP kesintisi** müşteriden tahsil edilen toplam üzerinden hesaplanır ve restorana gerçek oranıyla yansıtılır. Platform marj eklemez; hacim arttıkça düşen oran restorana geçer.
 3. **Tevkifat** (Türkiye: e-ticaret aracılarının yüzde 1 gelir/kurumlar vergisi stopajı) KDV hariç satış bedeli üzerinden hesaplanır. Komisyon, banka kesintisi ve benzeri giderler matrahı düşürmez; restoranın finanse ettiği indirim düşürür. Tevkifat platform geliri değildir: restoran adına vergi dairesine aktarılır, defterde `WITHHOLDING_TAX` olarak ayrı durur ve restoran bunu beyanında mahsup eder.
 4. **Kurye** ayrı hizmettir. Teslimat ücreti ve kurye maliyeti aynı tarafa akar: restoran taşıyorsa (kendi kuryesi veya kendi ödediği üçüncü taraf) ikisi de restoran defterindedir; platform taşıyorsa ücret platform geliri, maliyet platform gideridir. Hiçbir durumda komisyonun içine girmez.

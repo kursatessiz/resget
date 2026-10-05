@@ -19,6 +19,7 @@ import {
   orderTimestampFor,
   settlementDefaultsFor,
   resolveLineModifiers,
+  commissionBpsFor,
   orderSourceFromParam,
   trackingUrl,
   acceptDeadlineFor,
@@ -360,6 +361,8 @@ export class OrdersService {
     const discountMinor = redemption?.discountMinor ?? coupon?.discountMinor ?? 0;
 
     const regional = settlementDefaultsFor(restaurant.countryCode);
+    // Dine-in at the table carries no commission; delivery and pickup do (docs/MUTABAKAT.md, rule 1).
+    const commissionBps = commissionBpsFor(input.fulfillment, restaurant.commissionBps);
     const isDelivery = input.fulfillment === 'DELIVERY';
     const deliveryFee: SettlementLine | null =
       isDelivery && input.deliveryFeeMinor > 0
@@ -370,7 +373,7 @@ export class OrdersService {
       items: lines.map((l) => ({ amountMinor: l.lineTotalMinor, vatRateBps: l.vatRateBps })),
       deliveryFee,
       discount: discountMinor > 0 ? { amountMinor: discountMinor, fundedBy: 'RESTAURANT' } : null,
-      commissionBps: restaurant.commissionBps,
+      commissionBps,
       commissionVatBps: regional.commissionVatBps,
       psp: { percentBps: restaurant.pspPercentBps, fixedMinor: restaurant.pspFixedMinor, bearer: 'RESTAURANT' },
       withholdingBps: regional.withholdingBps,
@@ -460,7 +463,7 @@ export class OrdersService {
           discountMinor: settlement.discountMinor,
           discountFundedBy: settlement.discountFundedBy,
           chargedToCustomerMinor: settlement.chargedToCustomerMinor,
-          commissionBps: restaurant.commissionBps,
+          commissionBps,
           platformCommissionMinor: settlement.platformCommissionMinor,
           commissionVatMinor: settlement.commissionVatMinor,
           pspFeeMinor: settlement.pspFeeMinor,

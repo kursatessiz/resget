@@ -6,7 +6,9 @@ Bu doküman, ürün fikrinin dayandığı fizibilite konuşmasının (Ekim 2026)
 
 Türkiye'de restoranların dijital sipariş edinme maliyetini yapısal olarak düşüren, teslimat operasyonuna girmeyen, düşük take-rate ile ölçeklenen bağımsız bir sipariş ve ödeme ağı kuruyoruz. Rakiplerin kârını azaltmak hedef değil, modelin olası sonucudur.
 
-Restorana verilen mesaj tek cümledir: "Sipariş başına platform komisyonumuz yüzde 1. Ödeme kuruluşunun kesintisi ayrıca ve gerçek oranıyla yansıtılır. Teslimatı siz yaparsınız, isterseniz anlaşmalı kurye ağından teklif alırsınız."
+Restorana verilen mesaj tek cümledir: "Eve teslim ve gel al siparişlerinde platform komisyonumuz yüzde 1; restoran içinde masadan verilen siparişlerde komisyon yok. Ödeme kuruluşunun kesintisi ayrıca ve gerçek oranıyla yansıtılır. Teslimatı siz yaparsınız, isterseniz anlaşmalı kurye ağından teklif alırsınız."
+
+Masa siparişinin komisyonsuz olması (karar, 5 Ekim 2026) masa QR'ı restoran için maliyetsiz bir araç yapar: platform geliri uygulama üzerinden gelen eve teslim ve gel al siparişindendir, masa QR ise müşteriyi restoranın listesine ve bir sonraki eve siparişe taşıyan edinme yüzeyidir.
 
 ## 2. Çürütülen fikir: valör geliri
 

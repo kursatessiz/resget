@@ -64,7 +64,7 @@ export const trSettings = {
   'settings.domain.removed': 'Alan adı kaldırıldı.',
   'settings.domain.planLapsed': 'Plan Pro olmadığı için alan adı şu an hizmet vermiyor; kayıt ve doğrulama korunur.',
   'settings.platform.title': 'Platform tarafından belirlenir',
-  'settings.platform.commission': 'Sipariş komisyonu: %{percent}',
+  'settings.platform.commission': 'Eve teslim ve gel al sipariş komisyonu: %{percent} (masa siparişinde komisyon yok)',
   'settings.platform.currency': 'Para birimi: {currency}',
   'settings.platform.country': 'Ülke: {country}',
   'settings.platform.listed': 'Pazaryerinde listeleniyor.',

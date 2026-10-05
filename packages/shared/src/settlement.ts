@@ -29,6 +29,16 @@ import { BasisPointsSchema, CurrencyCodeSchema, MinorAmountSchema, bpsOf, netOfV
 
 export const PLATFORM_COMMISSION_BPS = 100;
 
+/**
+ * The commission rate an order is placed with (docs/MUTABAKAT.md, rule 1):
+ * the restaurant's rate for delivery and pickup ordered through the app, none
+ * for a dine-in order at the table (owner's decision, 5 October 2026). The
+ * order snapshots the result, so a later change never touches a placed order.
+ */
+export function commissionBpsFor(fulfillment: 'DELIVERY' | 'PICKUP' | 'DINE_IN', restaurantBps: number): number {
+  return fulfillment === 'DINE_IN' ? 0 : restaurantBps;
+}
+
 /** Regional defaults; the tenant's country selects a row, anything else falls back to DEFAULT. */
 export const SETTLEMENT_DEFAULTS_BY_COUNTRY: Readonly<
   Record<string, { withholdingBps: number; commissionVatBps: number }>
