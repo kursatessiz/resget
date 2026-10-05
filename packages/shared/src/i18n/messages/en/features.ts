@@ -140,4 +140,7 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.accounting_export.name': 'Accounting export',
   'features.accounting_export.description':
     "A month of orders and their lines as CSV for the accountant: each order's recorded settlement, VAT rates, refunds, commission and deductions.",
+  'features.group_orders.name': 'Group orders',
+  'features.group_orders.description':
+    'A shared basket on the restaurant page: everyone who joins through the link adds their own choice, and the basket owner places one order and pays.',
 };

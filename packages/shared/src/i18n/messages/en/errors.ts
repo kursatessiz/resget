@@ -26,6 +26,11 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.MENU_ITEM_UNAVAILABLE': 'An item in the basket is not for sale right now.',
   'errors.MENU_ITEM_SOLD_OUT':
     'There is not enough stock left of an item in the basket. Lower the quantity or remove it.',
+  'errors.GROUP_CART_NOT_FOUND': 'This group basket was not found. Check the link.',
+  'errors.GROUP_CART_CLOSED': 'This group basket is closed for changes.',
+  'errors.GROUP_CART_FULL': 'This group basket has reached its limit of people.',
+  'errors.GROUP_CART_EMPTY': 'Nothing has been added to the basket yet.',
+  'errors.GROUP_CART_FORBIDDEN': 'Only the owner of the basket can do this.',
   'errors.MODIFIER_INVALID':
     'The chosen options are no longer on the menu or incomplete. Remove the item and add it again.',
   'errors.MODIFIER_PRICE_CHANGED':

@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ALLERGENS,
+  GROUP_KEY_HEADER,
   LOW_STOCK_THRESHOLD,
   avoidsAllergens,
   categoryServedAt,
@@ -21,6 +22,8 @@ import type {
   CustomerAddressDTO,
   StorefrontViewerDTO,
   FulfillmentTypeValue,
+  GroupCartDTO,
+  GroupCartLineDTO,
   MenuModifierGroupDTO,
   OrderLineInput,
   PublicCouponDTO,
@@ -37,7 +40,27 @@ interface CartLine {
   key: string;
   item: StorefrontItemDTO;
   quantity: number;
-  modifiers: { id: string; name: string; priceDeltaMinor: number }[];
+  modifiers: { id?: string; name: string; priceDeltaMinor: number }[];
+}
+
+/**
+ * A shared basket (docs/GRUP_SIPARISI.md): this browser's lines are saved to
+ * the basket as they change; only the host sees the checkout, with
+ * everyone's lines in the total.
+ */
+export interface GroupMode {
+  token: string;
+  key: string;
+  participantId: string;
+  isHost: boolean;
+  /** Locked or placed: this browser's lines can no longer change. */
+  closed: boolean;
+  /** This browser's lines as the basket last had them, used once to fill the cart. */
+  initialLines: GroupCartLineDTO[];
+  /** Everyone else's subtotal and lines from the last refresh. */
+  othersSubtotalMinor: number;
+  othersLines: OrderLineInput[];
+  onSaved: (cart: GroupCartDTO) => void;
 }
 
 type PaymentChoice =
@@ -54,6 +77,7 @@ export function Storefront({
   source,
   viewer = null,
   initialCouponCode = null,
+  group = null,
 }: {
   storefront: StorefrontDTO;
   locale: string;
@@ -63,11 +87,64 @@ export function Storefront({
   viewer?: StorefrontViewerDTO | null;
   /** A code from a shared invite link (?kod=, docs/TAVSIYE.md); it only fills the coupon field. */
   initialCouponCode?: string | null;
+  /** Group order mode (docs/GRUP_SIPARISI.md). */
+  group?: GroupMode | null;
 }) {
   const t = useT(locale);
   const router = useRouter();
   const { restaurant, table, payment, ordering } = storefront;
-  const [cart, setCart] = useState<CartLine[]>([]);
+  const [cart, setCart] = useState<CartLine[]>(() => {
+    if (!group) return [];
+    const items = new Map(storefront.categories.flatMap((c) => c.items).map((i) => [i.id, i]));
+    return group.initialLines.flatMap((line) => {
+      const item = items.get(line.menuItemId);
+      if (!item) return [];
+      return [
+        {
+          key: `${item.id}:${line.modifiers.map((m) => m.name).join('|')}`,
+          item,
+          quantity: line.quantity,
+          modifiers: line.modifiers,
+        },
+      ];
+    });
+  });
+  // Group mode: this browser's lines go to the shared basket shortly after each change.
+  const groupSave = useRef<Promise<void> | null>(null);
+  const groupDirty = useRef(false);
+  const saveGroupLines = useCallback(
+    (lines: CartLine[]) => {
+      if (!group || group.closed) return Promise.resolve();
+      groupDirty.current = false;
+      const run = bffJson<GroupCartDTO>(`public/group-carts/${group.token}/participants/${group.participantId}/lines`, {
+        method: 'PUT',
+        headers: { [GROUP_KEY_HEADER]: group.key },
+        body: JSON.stringify({
+          lines: lines.map((l) => ({ menuItemId: l.item.id, quantity: l.quantity, modifiers: l.modifiers })),
+        }),
+      }).then(group.onSaved);
+      groupSave.current = run;
+      return run;
+    },
+    [group],
+  );
+  const firstCart = useRef(true);
+  useEffect(() => {
+    if (firstCart.current) {
+      firstCart.current = false;
+      return undefined;
+    }
+    if (!group || group.closed) return undefined;
+    groupDirty.current = true;
+    const timer = setTimeout(() => {
+      saveGroupLines(cart).catch((err: unknown) =>
+        setError(err instanceof ApiError ? t(`errors.${err.code}`) : t('common.error.network')),
+      );
+    }, 400);
+    return () => clearTimeout(timer);
+    // The cart is the only trigger; group and the saver are stable for a mounted page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart]);
   const [picking, setPicking] = useState<{ item: StorefrontItemDTO; chosen: Record<string, string[]> } | null>(null);
   const [fulfillment, setFulfillment] = useState<FulfillmentTypeValue>(
     ordering.dineIn ? 'DINE_IN' : ordering.delivery ? 'DELIVERY' : 'PICKUP',
@@ -170,11 +247,15 @@ export function Storefront({
   const selectedPayment = paymentChoices.find((p) => p.id === paymentId) ?? paymentChoices[0] ?? null;
 
   const money = (minor: number) => formatMoney({ amountMinor: minor, currency: restaurant.currency }, locale);
-  const subtotal = cart.reduce(
+  const ownSubtotal = cart.reduce(
     (sum, line) =>
       sum + (line.item.priceMinor + line.modifiers.reduce((m, x) => m + x.priceDeltaMinor, 0)) * line.quantity,
     0,
   );
+  // In a group the host pays for everyone's lines.
+  const subtotal = ownSubtotal + (group?.othersSubtotalMinor ?? 0);
+  const hasLines = cart.length > 0 || (group?.othersLines.length ?? 0) > 0;
+  const showCheckout = group ? group.isHost && hasLines : cart.length > 0;
   const previewFee =
     fulfillment === 'DELIVERY' && !ordering.quotedDelivery && ordering.deliveryFeePolicy
       ? customerDeliveryFee(0, subtotal, ordering.deliveryFeePolicy)
@@ -272,15 +353,17 @@ export function Storefront({
     );
 
   const submit = async () => {
-    if (cart.length === 0 || !selectedPayment) return;
+    if (!hasLines || !selectedPayment) return;
     setBusy(true);
     setError(null);
     try {
-      const items: OrderLineInput[] = cart.map((l) => ({
-        menuItemId: l.item.id,
-        quantity: l.quantity,
-        modifiers: l.modifiers,
-      }));
+      // The host's own last change reaches the basket before the order is placed from it.
+      if (group && groupDirty.current) await saveGroupLines(cart);
+      else if (groupSave.current) await groupSave.current;
+      const items: OrderLineInput[] = [
+        ...cart.map((l) => ({ menuItemId: l.item.id, quantity: l.quantity, modifiers: l.modifiers })),
+        ...(group?.othersLines ?? []),
+      ];
       const contact =
         fulfillment === 'DINE_IN' && !phone.trim() ? undefined : { fullName: fullName.trim(), phone: phone.trim() };
       const body = {
@@ -311,8 +394,11 @@ export function Storefront({
         ...(note.trim() ? { note: note.trim() } : {}),
         returnUrl: `${window.location.origin}/t/`,
       };
-      const path =
-        source.kind === 'qr' ? `public/qr/${source.token}/orders` : `public/restaurants/${restaurant.slug}/orders`;
+      const path = group
+        ? `public/group-carts/${group.token}/orders`
+        : source.kind === 'qr'
+          ? `public/qr/${source.token}/orders`
+          : `public/restaurants/${restaurant.slug}/orders`;
       if (viewer && fulfillment === 'DELIVERY' && !savedAddressId && saveAddress && saveLabel.trim()) {
         // The address joins the account first; a failure here must not block the order itself.
         await bffJson<CustomerAddressDTO[]>('me/addresses', {
@@ -326,7 +412,11 @@ export function Storefront({
           }),
         }).catch(() => undefined);
       }
-      const result = await bffJson<PublicOrderResultDTO>(path, { method: 'POST', body: JSON.stringify(body) });
+      const result = await bffJson<PublicOrderResultDTO>(path, {
+        method: 'POST',
+        body: JSON.stringify(body),
+        ...(group ? { headers: { [GROUP_KEY_HEADER]: group.key } } : {}),
+      });
       if (result.checkoutUrl) {
         setDone(t('shop.redirectingToPayment'));
         window.location.assign(result.checkoutUrl);
@@ -371,7 +461,7 @@ export function Storefront({
     (canSchedule && when === 'LATER' ? slot !== '' : availability.accepting) &&
     !belowMinimum &&
     unservedInCart.length === 0 &&
-    cart.length > 0 &&
+    hasLines &&
     selectedPayment !== null &&
     (!needsContact || (fullName.trim().length > 0 && phone.trim().length > 0)) &&
     (fulfillment !== 'DELIVERY' || (addressLine.trim().length >= 5 && city.trim() && district.trim()));
@@ -462,6 +552,7 @@ export function Storefront({
                         <Button
                           variant="soft"
                           onClick={() => startAdd(item)}
+                          disabled={group?.closed}
                           aria-label={`${t('shop.cart.add')}: ${item.name}`}
                         >
                           {t('shop.cart.add')}
@@ -511,7 +602,10 @@ export function Storefront({
         </section>
       ))}
 
-      <Card title={t('shop.cart.title')} aria-label={t('shop.cart.title')}>
+      <Card
+        title={group ? t('group.yourLines') : t('shop.cart.title')}
+        aria-label={group ? t('group.yourLines') : t('shop.cart.title')}
+      >
         {cart.length === 0 ? (
           <p className="ui-text-muted">{t('shop.cart.empty')}</p>
         ) : (
@@ -534,6 +628,7 @@ export function Storefront({
                     variant="outline"
                     tone="muted"
                     onClick={() => changeQuantity(line.key, -1)}
+                    disabled={group?.closed}
                     aria-label={`${t('shop.cart.remove')}: ${line.item.name}`}
                   >
                     -
@@ -543,6 +638,7 @@ export function Storefront({
                     variant="outline"
                     tone="muted"
                     onClick={() => changeQuantity(line.key, 1)}
+                    disabled={group?.closed}
                     aria-label={`${t('shop.cart.add')}: ${line.item.name}`}
                   >
                     +
@@ -558,10 +654,10 @@ export function Storefront({
             ))}
           </ul>
         )}
-        {cart.length > 0 && (
+        {hasLines && (
           <dl className="flex flex-col gap-1">
             <div className="flex justify-between">
-              <dt className="ui-text-muted">{t('shop.cart.subtotal')}</dt>
+              <dt className="ui-text-muted">{group ? t('group.groupSubtotal') : t('shop.cart.subtotal')}</dt>
               <dd>{money(subtotal)}</dd>
             </div>
             {fulfillment === 'DELIVERY' && (
@@ -594,7 +690,7 @@ export function Storefront({
             </div>
           </dl>
         )}
-        {cart.length > 0 && ordering.coupons && (
+        {hasLines && ordering.coupons && (
           <div className="flex flex-col gap-2" data-coupon>
             {coupon ? (
               <div className="flex flex-wrap items-center gap-2">
@@ -632,7 +728,7 @@ export function Storefront({
             )}
           </div>
         )}
-        {cart.length > 0 && loyalty && (
+        {hasLines && loyalty && (
           <div className="flex flex-col gap-2" data-loyalty>
             {points === null && <p className="ui-caption">{t('loyalty.shop.signInHint')}</p>}
             {points !== null && <p className="ui-caption">{t('loyalty.shop.balance', { points })}</p>}
@@ -665,7 +761,7 @@ export function Storefront({
         )}
       </Card>
 
-      {cart.length > 0 && (
+      {showCheckout && (
         <form
           className="flex flex-col gap-6"
           aria-label={t('shop.submit')}

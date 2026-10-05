@@ -89,6 +89,8 @@ export interface StorefrontDTO {
   consentV2: boolean;
   /** Slots for a later order (docs/ILERI_TARIHLI_SIPARIS.md); null while the module is off or the restaurant offers none. */
   scheduling: StorefrontSchedulingDTO | null;
+  /** A shared basket can be opened on the restaurant page (docs/GRUP_SIPARISI.md). */
+  groupOrders: boolean;
 }
 
 export const PublicOrderSchema = z
