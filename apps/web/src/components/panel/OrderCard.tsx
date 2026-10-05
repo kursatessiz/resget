@@ -120,6 +120,11 @@ export function OrderCard({
             <Badge tone={STATUS_TONE[order.status] ?? 'muted'}>{t(`orders.status.${order.status}`)}</Badge>
             <Badge>{t(`orders.fulfillment.${order.fulfillment}`)}</Badge>
             {order.tableLabel && <Badge>{t('orders.table', { label: order.tableLabel })}</Badge>}
+            {order.tabId && (
+              <Badge tone="muted" data-order-tab>
+                {t('tab.order.badge')}
+              </Badge>
+            )}
             {acceptLeft !== null &&
               (acceptLeft > 0 ? (
                 <Badge tone="warn">{t('orders.acceptWithin', { minutes: acceptLeft })}</Badge>

@@ -515,6 +515,7 @@ model Restaurant {
   conversionEvents     ConversionEvent[]
   couponRedemptions    CouponRedemption[]
   groupCarts           GroupCart[]
+  tableTabs            TableTab[]
 
   @@index([serviceAreaId, isListed])
   @@map("restaurants")
@@ -725,10 +726,41 @@ model DiningTable {
   scanEvents  QrScanEvent[]
   touchpoints Touchpoint[]
   orders      Order[]
+  tabs        TableTab[]
 
   @@unique([branchId, label])
   @@index([restaurantId])
   @@map("dining_tables")
+}
+
+enum TableTabStatus {
+  OPEN
+  CLOSED
+}
+
+/// The table's open tab (docs/ACIK_HESAP.md): dine-in orders put on it are paid together, in one go or in shares.
+model TableTab {
+  id             String         @id @default(uuid())
+  restaurantId   String
+  branchId       String
+  tableId        String
+  status         TableTabStatus @default(OPEN)
+  /// The table id while the tab is open, null once closed: at most one open tab per table.
+  openKey        String?        @unique
+  /// The bill link shown to the table (/hesap/<token>); carries no personal data.
+  publicToken    String         @unique
+  openedAt       DateTime       @default(now())
+  closedAt       DateTime?
+  closedByUserId String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  restaurant Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table      DiningTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  orders     Order[]
+
+  @@index([restaurantId, status])
+  @@map("table_tabs")
 }
 
 model QrScanEvent {
@@ -1260,6 +1292,8 @@ model Order {
   branchId       String
   customerUserId String?
   tableId        String?
+  /// The open tab the order is on (docs/ACIK_HESAP.md); null when it is paid on its own.
+  tabId          String?
   channel        OrderChannel
   /// The ordering link the customer came from (docs/SIPARIS_BAGLANTILARI.md): a key of ORDER_SOURCES; null when none.
   source         String?
@@ -1329,6 +1363,7 @@ model Order {
   branch              Branch               @relation(fields: [branchId], references: [id])
   customer            User?                @relation(fields: [customerUserId], references: [id], onDelete: SetNull)
   table               DiningTable?         @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  tab                 TableTab?            @relation(fields: [tabId], references: [id], onDelete: SetNull)
   items               OrderItem[]
   statusHistory       OrderStatusHistory[]
   payments            Payment[]
@@ -1357,6 +1392,7 @@ model Order {
   @@index([customerUserId])
   @@index([restaurantId, commissionInvoiceId])
   @@index([restaurantId, commissionCreditInvoiceId])
+  @@index([tabId])
   @@map("orders")
 }
 

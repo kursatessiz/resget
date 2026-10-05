@@ -30,4 +30,5 @@ export const enNav: Record<keyof typeof trNav, string> = {
   'nav.social': 'Social publishing',
   'nav.orderingLinks': 'Ordering links',
   'nav.kitchen': 'Kitchen display',
+  'nav.tabs': 'Open tabs',
 };

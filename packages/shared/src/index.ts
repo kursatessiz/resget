@@ -50,6 +50,7 @@ export * from './ordering-links';
 export * from './kitchen';
 export * from './accounting';
 export * from './group-orders';
+export * from './tabs';
 export * from './delivery-zone';
 export * from './coupons';
 export * from './order-actions';

@@ -55,6 +55,7 @@ import { trAllergens } from './tr/allergens';
 import { trDayparts } from './tr/dayparts';
 import { trOrderingLinks } from './tr/orderingLinks';
 import { trKitchen } from './tr/kitchen';
+import { trTab } from './tr/tab';
 import { trStock } from './tr/stock';
 import { trGroup } from './tr/group';
 import { trAccounting } from './tr/accounting';
@@ -116,6 +117,7 @@ import { enAllergens } from './en/allergens';
 import { enDayparts } from './en/dayparts';
 import { enOrderingLinks } from './en/orderingLinks';
 import { enKitchen } from './en/kitchen';
+import { enTab } from './en/tab';
 import { enStock } from './en/stock';
 import { enGroup } from './en/group';
 import { enAccounting } from './en/accounting';
@@ -187,6 +189,7 @@ export const TR_NAMESPACES = [
   trDayparts,
   trOrderingLinks,
   trKitchen,
+  trTab,
   trStock,
   trGroup,
   trAccounting,
@@ -251,6 +254,7 @@ export const EN_NAMESPACES = [
   enDayparts,
   enOrderingLinks,
   enKitchen,
+  enTab,
   enStock,
   enGroup,
   enAccounting,
