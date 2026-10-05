@@ -153,3 +153,66 @@ export interface MenuAdminDTO {
 export function categoryServedAt(hours: OpeningHours | null, at: Date, timezone: string): boolean {
   return hours === null || isOpenAt(hours, at, timezone) === true;
 }
+
+// -- Chosen options on an order line ------------------------------------------------------
+
+/** An item's option groups as the server checks an order line against them. */
+export interface ModifierCatalogueGroup {
+  id: string;
+  name: string;
+  minSelect: number;
+  maxSelect: number;
+  modifiers: { id: string; name: string; priceDeltaMinor: number; isAvailable: boolean }[];
+}
+
+/** One chosen option as an order line carries it: the option's id when the client knows it, else its name. */
+export interface ChosenModifier {
+  id?: string;
+  name: string;
+  priceDeltaMinor: number;
+}
+
+export type ModifierCheck =
+  | { ok: true; modifiers: { name: string; priceDeltaMinor: number }[] }
+  | { ok: false; code: 'MODIFIER_INVALID' | 'MODIFIER_PRICE_CHANGED' };
+
+/**
+ * Checks an order line's chosen options against the item's option groups.
+ * The menu, never the client, decides an option's price: an unknown,
+ * unavailable or repeated option, or a group outside its min and max, makes
+ * the line invalid, and a price the client saw that is no longer the menu's
+ * asks the customer to look again instead of charging a different amount.
+ * An option is found by id, else by the "Group: Option" name the ordering
+ * page shows, else by its bare name. The result carries the canonical name
+ * and the menu's price, which the order snapshots.
+ */
+export function resolveLineModifiers(groups: ModifierCatalogueGroup[], chosen: ChosenModifier[]): ModifierCheck {
+  const counts = new Map<string, number>(groups.map((g) => [g.id, 0]));
+  const used = new Set<string>();
+  const resolved: { name: string; priceDeltaMinor: number }[] = [];
+  let priceChanged = false;
+  for (const choice of chosen) {
+    const name = choice.name.trim();
+    const candidates = groups.flatMap((group) =>
+      group.modifiers
+        .filter((m) =>
+          choice.id !== undefined ? m.id === choice.id : `${group.name}: ${m.name}` === name || m.name === name,
+        )
+        .map((modifier) => ({ group, modifier })),
+    );
+    const match = candidates.find(
+      ({ group, modifier }) => !used.has(modifier.id) && (counts.get(group.id) ?? 0) < group.maxSelect,
+    );
+    if (!match || !match.modifier.isAvailable) return { ok: false, code: 'MODIFIER_INVALID' };
+    used.add(match.modifier.id);
+    counts.set(match.group.id, (counts.get(match.group.id) ?? 0) + 1);
+    if (choice.priceDeltaMinor !== match.modifier.priceDeltaMinor) priceChanged = true;
+    resolved.push({
+      name: `${match.group.name}: ${match.modifier.name}`,
+      priceDeltaMinor: match.modifier.priceDeltaMinor,
+    });
+  }
+  if (groups.some((g) => (counts.get(g.id) ?? 0) < g.minSelect)) return { ok: false, code: 'MODIFIER_INVALID' };
+  if (priceChanged) return { ok: false, code: 'MODIFIER_PRICE_CHANGED' };
+  return { ok: true, modifiers: resolved };
+}

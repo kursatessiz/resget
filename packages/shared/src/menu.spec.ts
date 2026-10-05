@@ -1,4 +1,11 @@
-import { ModifierGroupInputSchema, UpdateMenuCategorySchema, UpdateMenuItemSchema, categoryServedAt } from './menu';
+import {
+  ModifierGroupInputSchema,
+  UpdateMenuCategorySchema,
+  UpdateMenuItemSchema,
+  categoryServedAt,
+  resolveLineModifiers,
+} from './menu';
+import type { ModifierCatalogueGroup } from './menu';
 import { majorAmountText, parseMajorAmount } from './money';
 
 describe('menu schemas', () => {
@@ -50,5 +57,73 @@ describe('menu dayparts', () => {
     expect(UpdateMenuCategorySchema.safeParse({ availableHours: { mon: [['09:00', '09:00']] } }).success).toBe(false);
     expect(UpdateMenuCategorySchema.safeParse({ availableHours: breakfast }).success).toBe(true);
     expect(UpdateMenuCategorySchema.safeParse({ availableHours: null }).success).toBe(true);
+  });
+});
+
+describe('order line options', () => {
+  const groups: ModifierCatalogueGroup[] = [
+    {
+      id: 'g-size',
+      name: 'Boyut',
+      minSelect: 1,
+      maxSelect: 1,
+      modifiers: [
+        { id: 'm-small', name: 'Kucuk', priceDeltaMinor: 0, isAvailable: true },
+        { id: 'm-large', name: 'Buyuk', priceDeltaMinor: 2000, isAvailable: true },
+      ],
+    },
+    {
+      id: 'g-extra',
+      name: 'Ekstra',
+      minSelect: 0,
+      maxSelect: 2,
+      modifiers: [
+        { id: 'm-cheese', name: 'Peynir', priceDeltaMinor: 500, isAvailable: true },
+        { id: 'm-egg', name: 'Yumurta', priceDeltaMinor: 700, isAvailable: false },
+        { id: 'm-sauce', name: 'Sos', priceDeltaMinor: 300, isAvailable: true },
+      ],
+    },
+  ];
+
+  it('takes options by id or by name and charges the menu price', () => {
+    expect(
+      resolveLineModifiers(groups, [
+        { id: 'm-large', name: 'whatever', priceDeltaMinor: 2000 },
+        { name: 'Ekstra: Peynir', priceDeltaMinor: 500 },
+        { name: 'Sos', priceDeltaMinor: 300 },
+      ]),
+    ).toEqual({
+      ok: true,
+      modifiers: [
+        { name: 'Boyut: Buyuk', priceDeltaMinor: 2000 },
+        { name: 'Ekstra: Peynir', priceDeltaMinor: 500 },
+        { name: 'Ekstra: Sos', priceDeltaMinor: 300 },
+      ],
+    });
+  });
+
+  it('never lets the client set a price', () => {
+    expect(resolveLineModifiers(groups, [{ name: 'Boyut: Kucuk', priceDeltaMinor: -9000 }])).toEqual({
+      ok: false,
+      code: 'MODIFIER_PRICE_CHANGED',
+    });
+    expect(resolveLineModifiers(groups, [{ name: 'Indirim', priceDeltaMinor: -9000 }]).ok).toBe(false);
+  });
+
+  it('enforces availability, repeats and the group limits', () => {
+    const small = { id: 'm-small', name: 'Kucuk', priceDeltaMinor: 0 };
+    expect(resolveLineModifiers(groups, [])).toEqual({ ok: false, code: 'MODIFIER_INVALID' });
+    expect(resolveLineModifiers(groups, [small, { name: 'Yumurta', priceDeltaMinor: 700 }]).ok).toBe(false);
+    expect(resolveLineModifiers(groups, [small, { id: 'm-large', name: 'Buyuk', priceDeltaMinor: 2000 }]).ok).toBe(
+      false,
+    );
+    expect(
+      resolveLineModifiers(groups, [
+        small,
+        { name: 'Peynir', priceDeltaMinor: 500 },
+        { name: 'Peynir', priceDeltaMinor: 500 },
+      ]).ok,
+    ).toBe(false);
+    expect(resolveLineModifiers([], [])).toEqual({ ok: true, modifiers: [] });
   });
 });

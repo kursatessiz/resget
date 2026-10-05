@@ -18,6 +18,7 @@ import {
   orderShortCode,
   orderTimestampFor,
   settlementDefaultsFor,
+  resolveLineModifiers,
   trackingUrl,
   acceptDeadlineFor,
   TERMINAL_ORDER_STATUSES,
@@ -267,7 +268,27 @@ export class OrdersService {
 
     const menuItems = await this.prisma.menuItem.findMany({
       where: { restaurantId, id: { in: input.items.map((line) => line.menuItemId) } },
-      select: { id: true, name: true, priceMinor: true, vatRateBps: true, isAvailable: true, currency: true },
+      select: {
+        id: true,
+        name: true,
+        priceMinor: true,
+        vatRateBps: true,
+        isAvailable: true,
+        currency: true,
+        modifierGroups: {
+          orderBy: { sortOrder: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            minSelect: true,
+            maxSelect: true,
+            modifiers: {
+              orderBy: { sortOrder: 'asc' },
+              select: { id: true, name: true, priceDeltaMinor: true, isAvailable: true },
+            },
+          },
+        },
+      },
     });
     const byId = new Map(menuItems.map((item) => [item.id, item]));
     const lines = input.items.map((line, position) => {
@@ -275,7 +296,10 @@ export class OrdersService {
       if (!item) throw notFound('NOT_FOUND', `Menu item ${line.menuItemId} not found`);
       if (!item.isAvailable) throw conflict('MENU_ITEM_UNAVAILABLE', `${item.name} is not available`);
       if (item.currency !== restaurant.currency) throw badRequest('VALIDATION', 'Menu item currency mismatch');
-      const modifiersDelta = line.modifiers.reduce((sum, m) => sum + m.priceDeltaMinor, 0);
+      // The menu prices the options, never the client (MODIFIER_INVALID / MODIFIER_PRICE_CHANGED).
+      const options = resolveLineModifiers(item.modifierGroups, line.modifiers);
+      if (!options.ok) throw conflict(options.code, `Options of ${item.name} do not match the menu`);
+      const modifiersDelta = options.modifiers.reduce((sum, m) => sum + m.priceDeltaMinor, 0);
       const unitPriceMinor = item.priceMinor + modifiersDelta;
       if (unitPriceMinor < 0) throw badRequest('VALIDATION', 'Negative line price');
       return {
@@ -284,7 +308,7 @@ export class OrdersService {
         unitPriceMinor,
         quantity: line.quantity,
         vatRateBps: item.vatRateBps,
-        modifiersSnapshot: line.modifiers,
+        modifiersSnapshot: options.modifiers,
         lineTotalMinor: unitPriceMinor * line.quantity,
         position,
       };

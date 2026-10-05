@@ -451,7 +451,17 @@ export const OrderLineInputSchema = z
     menuItemId: UuidSchema,
     quantity: z.number().int().min(1).max(99),
     modifiers: z
-      .array(z.object({ name: z.string().trim().min(1).max(80), priceDeltaMinor: z.number().int() }).strict())
+      .array(
+        z
+          .object({
+            /** The option's id from the menu; clients that know it send it, the name is the fallback. */
+            id: UuidSchema.optional(),
+            name: z.string().trim().min(1).max(80),
+            /** The price the client showed; the server charges the menu's and rejects a mismatch. */
+            priceDeltaMinor: z.number().int(),
+          })
+          .strict(),
+      )
       .max(20)
       .default([]),
   })
