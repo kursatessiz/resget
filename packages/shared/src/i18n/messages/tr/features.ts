@@ -110,6 +110,9 @@ export const trFeatures = {
   'features.lead_ads.name': 'Lead Ads aday aktarımı',
   'features.lead_ads.description':
     'Facebook ve Instagram reklam formlarından gelen adaylar imzalı Meta bildirimiyle alınır ve satış hattına kişi olarak eklenir; pazarlama izni verilmiş sayılmaz. Entegrasyon merkezi gerekir.',
+  'features.social_publishing.name': 'Sosyal yayın',
+  'features.social_publishing.description':
+    'Bağlı Facebook sayfalarına ve Instagram işletme hesaplarına gönderi hazırlama, zamanlama ve yayımlama; her hesabın sonucu ayrı izlenir. Entegrasyon merkezi gerekir.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',

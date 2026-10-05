@@ -101,6 +101,7 @@ export const MARKETING_NAV: readonly MarketingNavItem[] = [
   { key: 'campaigns', path: '/kampanyalar', permission: 'platform.marketing.view', feature: 'campaigns' },
   { key: 'segments', path: '/segmentler', permission: 'platform.marketing.view', feature: 'segments_v2' },
   { key: 'journeys', path: '/akislar', permission: 'platform.marketing.view', feature: 'journeys' },
+  { key: 'social', path: '/sosyal', permission: 'platform.marketing.view', feature: 'social_publishing' },
   { key: 'funnels', path: '/huniler', permission: 'platform.marketing.view', feature: 'kpi_dashboard' },
   { key: 'ads', path: '/reklam', permission: 'platform.marketing.view', feature: 'ad_integrations' },
   { key: 'pages', path: '/sayfalar', permission: 'platform.marketing.view', feature: 'page_engine' },

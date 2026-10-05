@@ -119,6 +119,8 @@ Entegrasyon merkezi (`docs/ENTEGRASYON_MERKEZI.md`): onay turları `oauth_states
 
 Lead Ads (`docs/LEAD_ADS.md`): `social_accounts.leadsEnabled` sayfanın adaylarının alınıp alınmadığını tutar; adaylar `meta_leads` tablosundadır (kiracı, bağlı hesap, aday, sayfa, form ve reklam kimlikleri, durum, deneme sayısı, sebep kodu, bir sonraki deneme zamanı, oluşan kişi; kiracı ve aday kimliği başına tek satır). Cevaplar burada saklanmaz, kişiye ve `FORM` etkinliğine yazılır. Migration: `20261117000000_lead_ads`.
 
+Sosyal yayın (`docs/SOSYAL_YAYIN.md`): gönderiler `social_posts` (kiracı, hazırlayan, metin, görsel adresi, durum, yayın zamanı, yayımlanma zamanı, yayın turunun kirası) ve hesap başına hedefler `social_post_targets` (bağlı hesap, hesabın o anki adı ve türü, durum, dış gönderi kimliği, sebep kodu, deneme sayısı, yayımlanma zamanı; gönderi ve hesap başına tek satır). Görseller `social_post_images` tablosundadır (gönderi başına bir satır, tür ve baytlar); diske yazılmaz. Migration'lar: `20261118000000_social_posts`, `20261118000001_social_post_images`.
+
 ## Migration kuralları
 
 Yalnızca ileri yönlü; deploy'dan önce çalışır; bir sürüm boyunca geriye dönük uyumlu (önce genişlet, sonra daralt). CI, boş Postgres'e uygulayıp şema ile sapma olmadığını denetler. Yeni migration: `pnpm --filter @resget/database db:migrate --name <ad>` (yerel Postgres gerekir).
