@@ -99,4 +99,7 @@ export const enMobile: Record<keyof typeof trMobile, string> = {
   'mobile.orders.readOnly': 'Use the business panel to manage orders from this device.',
   'mobile.orders.confirm': 'Confirm',
   'mobile.orders.overdue': 'Acceptance time passed',
+  'mobile.courier.code.label': 'Customer delivery code',
+  'mobile.courier.code.hint': 'Ask the customer for the {length}-digit code on their tracking screen.',
+  'mobile.courier.code.locked': 'Too many wrong codes. The restaurant can confirm the delivery from the panel.',
 };

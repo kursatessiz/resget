@@ -266,6 +266,8 @@ export function DispatchBoard({
         <span className="ui-caption">{t('dispatch.eta', { time: time.format(new Date(stop.etaAt)) })}</span>
       )}
       {stop.point === null && <span className="ui-caption">{t('dispatch.unroutableStop')}</span>}
+      {stop.proof && <span className="ui-caption">{t(`dispatch.proof.${stop.proof}`)}</span>}
+      {stop.codeLocked && <Badge tone="warn">{t('dispatch.codeLocked')}</Badge>}
     </>
   );
 

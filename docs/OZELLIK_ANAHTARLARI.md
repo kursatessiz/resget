@@ -54,6 +54,7 @@ Anahtar, modülün işletme için var olup olmadığına karar verir. Plan (BASI
 | `own_courier_dispatch` | Teslimat | açık |
 | `courier_network` | Teslimat | açık |
 | `delivery_zones` | Teslimat | kapalı (BETA) |
+| `delivery_pin` | Teslimat | kapalı (BETA) |
 | `crm` | Pazarlama | açık |
 | `campaigns` | Pazarlama | açık |
 | `loyalty` | Pazarlama | açık |

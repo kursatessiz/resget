@@ -122,6 +122,9 @@ export const trFeatures = {
   'features.menu_dayparts.name': 'Öğün saatleri',
   'features.menu_dayparts.description':
     'Menü bölümlerine servis saatleri (kahvaltı, öğle menüsü); bölüm yalnızca bu saatlerde, ileri tarihli siparişte seçilen saate göre sipariş edilebilir.',
+  'features.delivery_pin.name': 'Teslimat kodu',
+  'features.delivery_pin.description':
+    'Teslimat siparişinde müşterinin takip sayfasında dört haneli bir kod görünür; işletmenin kendi kuryesi teslimatı bu kodla tamamlar. İşletme kodsuz onaylayabilir, kayıtta ayrı görünür.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',

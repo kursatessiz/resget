@@ -2,8 +2,14 @@ import { Controller, Get, Headers, HttpCode, Post, Sse } from '@nestjs/common';
 import type { MessageEvent } from '@nestjs/common';
 import type { Observable } from 'rxjs';
 import { z } from 'zod';
-import { CollectPaymentSchema, LocationPingSchema, StopFailureSchema, UuidSchema } from '@resget/shared';
-import type { DeliveryTripDTO, OrderDetailDTO } from '@resget/shared';
+import {
+  CollectPaymentSchema,
+  DeliverStopSchema,
+  LocationPingSchema,
+  StopFailureSchema,
+  UuidSchema,
+} from '@resget/shared';
+import type { DeliverStopInput, DeliveryTripDTO, OrderDetailDTO } from '@resget/shared';
 import { ZodBody, ZodParam } from '../../common/zod-body.pipe';
 import { RequireFeature, RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
@@ -111,9 +117,10 @@ export class CourierController {
     @CurrentUser() user: AuthUser,
     @ZodParam('tripId', UuidSchema) tripId: string,
     @ZodParam('stopId', UuidSchema) stopId: string,
+    @ZodBody(DeliverStopSchema) body: DeliverStopInput,
   ): Promise<DeliveryTripDTO> {
     await this.guard(tenant, tripId);
-    return this.dispatch.deliver(tenant.restaurantId, tripId, stopId, courier(user));
+    return this.dispatch.deliver(tenant.restaurantId, tripId, stopId, courier(user), body.code);
   }
 
   @Post('trips/:tripId/stops/:stopId/fail')

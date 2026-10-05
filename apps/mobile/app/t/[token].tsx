@@ -174,6 +174,12 @@ export default function TrackingScreen() {
           {!isTrackingEnded(tracking.status) && <Caption>{t('mobile.tracking.refresh')}</Caption>}
         </Card>
       )}
+      {tracking?.deliveryCode && (
+        <Card title={t('tracking.deliveryCode.title')}>
+          <Title>{tracking.deliveryCode}</Title>
+          <Caption>{t('tracking.deliveryCode.hint')}</Caption>
+        </Card>
+      )}
       {courier && (
         <Card title={t('tracking.courier', { name: courier.firstName })}>
           {courier.stopsAhead > 0 && <Body>{t('tracking.stopsAhead', { count: courier.stopsAhead })}</Body>}

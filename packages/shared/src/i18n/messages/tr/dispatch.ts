@@ -72,4 +72,7 @@ export const trDispatch = {
   'dispatch.onTrip': 'Seferde',
   'dispatch.live': 'Canlı',
   'dispatch.reconnecting': 'Bağlantı yeniden kuruluyor...',
+  'dispatch.proof.PIN': 'Müşteri koduyla teslim edildi',
+  'dispatch.proof.STAFF': 'Personel onayıyla teslim edildi',
+  'dispatch.codeLocked': 'Kurye çok fazla yanlış kod girdi; teslimi siz onaylayın',
 } as const satisfies Record<string, string>;

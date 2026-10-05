@@ -17,6 +17,8 @@ const stop = (id: string, point: boolean): DeliveryStopDTO => ({
   deliveredAt: null,
   failedAt: null,
   failureReason: null,
+  proof: null,
+  codeLocked: false,
 });
 
 const trip = (status: DeliveryTripDTO['status'], stops: DeliveryStopDTO[]): DeliveryTripDTO => ({

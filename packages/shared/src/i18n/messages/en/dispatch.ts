@@ -74,4 +74,7 @@ export const enDispatch: Record<keyof typeof trDispatch, string> = {
   'dispatch.onTrip': 'On a trip',
   'dispatch.live': 'Live',
   'dispatch.reconnecting': 'Reconnecting...',
+  'dispatch.proof.PIN': 'Delivered with the customer code',
+  'dispatch.proof.STAFF': 'Delivered on staff confirmation',
+  'dispatch.codeLocked': 'The courier entered too many wrong codes; confirm the delivery yourself',
 };

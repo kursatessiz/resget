@@ -24,6 +24,8 @@ const stop = (
   deliveredAt: null,
   failedAt: null,
   failureReason: null,
+  proof: null,
+  codeLocked: false,
 });
 
 const trip = (
