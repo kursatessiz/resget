@@ -44,6 +44,7 @@ export const enOrders: Record<keyof typeof trOrders, string> = {
   'orders.prepMinutes': 'Preparation time (minutes)',
   'orders.promisedReadyAt': 'Promised ready time',
   'orders.scheduledFor': 'Scheduled: {time}',
+  'orders.source': 'Via the {source} link',
   'orders.estimatedDeliveryAt': 'Estimated delivery',
   'orders.shortCode': 'Order {code}',
   'orders.customer': 'Customer',

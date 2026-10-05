@@ -14,7 +14,7 @@ import {
   redeemableFor,
   formatMoney,
 } from '@resget/shared';
-import type { Allergen } from '@resget/shared';
+import type { Allergen, OrderSource } from '@resget/shared';
 import type {
   CheckoutConsentChannel,
   CustomerAddressDTO,
@@ -57,7 +57,7 @@ export function Storefront({
   storefront: StorefrontDTO;
   locale: string;
   /** Where the page was opened from: the table QR (token) or the restaurant page (slug). */
-  source: { kind: 'qr'; token: string } | { kind: 'site' };
+  source: { kind: 'qr'; token: string } | { kind: 'site'; via?: OrderSource | null };
   /** The signed-in customer, when there is one: name, phone and saved addresses prefill the form. */
   viewer?: StorefrontViewerDTO | null;
   /** A code from a shared invite link (?kod=, docs/TAVSIYE.md); it only fills the coupon field. */
@@ -301,6 +301,8 @@ export function Storefront({
           : {}),
         payment: selectedPayment.choice,
         ...(scheduled ? { scheduledFor: slot } : {}),
+        // The channel link the page was opened from (docs/SIPARIS_BAGLANTILARI.md).
+        ...(source.kind === 'site' && source.via ? { source: source.via } : {}),
         ...(note.trim() ? { note: note.trim() } : {}),
         returnUrl: `${window.location.origin}/t/`,
       };

@@ -128,4 +128,7 @@ export const trFeatures = {
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',
+  'features.ordering_links.name': 'Sipariş bağlantıları',
+  'features.ordering_links.description':
+    'Instagram, Facebook, WhatsApp, Google ve TikTok için ayrı sipariş bağlantıları; her kanaldan gelen sipariş ve ciro, sipariş kartında kanal adı. Çerezsiz, siparişin kendisiyle ölçülür.',
 } as const satisfies Record<string, string>;

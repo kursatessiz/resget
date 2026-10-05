@@ -18,6 +18,7 @@ import {
   orderShortCode,
   orderTimestampFor,
   settlementDefaultsFor,
+  orderSourceFromParam,
   trackingUrl,
   acceptDeadlineFor,
   TERMINAL_ORDER_STATUSES,
@@ -47,6 +48,7 @@ import type {
   OrderDetailDTO,
   OrderPaymentDTO,
   OrderPaymentIntent,
+  OrderSource,
   OrderStatusValue,
   OrderSummaryDTO,
   OrderTrackingDTO,
@@ -144,6 +146,8 @@ export interface CreateOrderOptions {
   loyaltyUserId?: string;
   /** A coupon code (docs/KUPONLAR.md); the discount is restaurant-funded and never combined with points. */
   couponCode?: string;
+  /** The channel link a consumer order came from (docs/SIPARIS_BAGLANTILARI.md); the caller checks the module. */
+  source?: OrderSource;
 }
 
 export type PaymentIntentResolver = (
@@ -439,6 +443,7 @@ export class OrdersService {
           paymentProvider: payment?.intent.method === 'MEAL_CARD' ? (payment.intent.providerCode ?? null) : null,
           addressSnapshot: address ? (address as Prisma.InputJsonValue) : Prisma.JsonNull,
           customerNote: input.note ?? null,
+          source: options.source ?? null,
           trackingToken: randomBytes(TRACKING_TOKEN_BYTES).toString('base64url'),
           // Every delivery order gets one; it is asked for only while delivery_pin is on (docs/TESLIMAT_KODU.md).
           deliveryCode: isDelivery
@@ -938,6 +943,7 @@ export class OrdersService {
       restaurantId: row.restaurantId,
       branchId: row.branchId,
       channel: row.channel,
+      source: orderSourceFromParam(row.source),
       fulfillment: row.fulfillment,
       status: row.status,
       currency: row.currency,
