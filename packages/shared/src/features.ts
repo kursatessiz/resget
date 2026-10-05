@@ -40,6 +40,7 @@ export const FEATURES = {
   kitchen_display: { group: 'ordering', defaultEnabled: false, stage: 'BETA' },
   menu_stock: { group: 'ordering', defaultEnabled: false, stage: 'BETA' },
   group_orders: { group: 'ordering', defaultEnabled: false, stage: 'BETA' },
+  table_tabs: { group: 'ordering', defaultEnabled: false, stage: 'BETA' },
   online_payment: { group: 'payments', defaultEnabled: true, stage: 'GA' },
   meal_cards: { group: 'payments', defaultEnabled: true, stage: 'GA' },
   partial_refunds: { group: 'payments', defaultEnabled: true, stage: 'GA' },

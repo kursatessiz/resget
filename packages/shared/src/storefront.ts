@@ -76,6 +76,8 @@ export interface StorefrontDTO {
     defaultLocale: string;
   };
   table: { id: string; label: string } | null;
+  /** On the table page while table_tabs is on: orders can go on the open tab, and the tab already running. */
+  tab: { enabled: boolean; open: { token: string; totalMinor: number; dueMinor: number } | null } | null;
   payment: AcceptedPaymentMethodsDTO;
   ordering: StorefrontOrderingDTO;
   categories: StorefrontCategoryDTO[];
@@ -102,7 +104,10 @@ export const PublicOrderSchema = z
       .strict()
       .optional(),
     address: AddressSnapshotSchema.optional(),
-    payment: OrderPaymentIntentSchema,
+    /** Omitted only for a tab order, which is paid with the tab. */
+    payment: OrderPaymentIntentSchema.optional(),
+    /** Put the order on the table's open tab (docs/ACIK_HESAP.md); table QR orders only. */
+    tab: z.boolean().optional(),
     note: z.string().trim().max(500).optional(),
     /** Where a hosted payment page returns to; required when the chosen method is paid online. */
     returnUrl: z.string().url().optional(),
@@ -131,6 +136,13 @@ export const PublicOrderSchema = z
     if (order.fulfillment === 'DELIVERY' && !order.address) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['address'], message: 'address is required for delivery' });
     }
+    if (order.tab ? order.payment !== undefined || order.fulfillment !== 'DINE_IN' : order.payment === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['payment'],
+        message: 'a payment method, or a table order put on the tab',
+      });
+    }
     if (order.fulfillment !== 'DINE_IN' && !order.customer && !order.address) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['customer'], message: 'name and phone are required' });
     }
@@ -151,6 +163,8 @@ export interface PublicOrderResultDTO {
   currency: string;
   /** Hosted payment page when the order waits for an online payment; the browser goes there next. */
   checkoutUrl: string | null;
+  /** The table's bill when the order went on the open tab (docs/ACIK_HESAP.md). */
+  tabUrl: string | null;
 }
 
 export const StartedOrderSchema = z.object({ outcome: z.literal('STARTED_ORDER') }).strict();

@@ -40,7 +40,9 @@ import {
   refundedQuantities,
   refundStateOf,
   visibleContact,
+  TAB_TOKEN_BYTES,
 } from '@resget/shared';
+import { PaymentMode } from '@resget/shared';
 import type {
   AddressSnapshot,
   CreateOrderInput,
@@ -332,7 +334,16 @@ export class OrdersService {
         : null
       : null;
     if (input.payment && !payment) throw conflict('PAYMENT_METHOD_NOT_ACCEPTED', 'Payment intents are not enabled');
-    const paymentMode = effectivePaymentModeFor(payment?.intent.method ?? null, restaurant.paymentMode);
+    // A tab order is collected by the restaurant with the tab, at the table or the counter (docs/ACIK_HESAP.md).
+    const onTab = input.tab === true;
+    if (onTab) {
+      if (!input.tableId || input.fulfillment !== 'DINE_IN')
+        throw badRequest('VALIDATION', 'Only a table order goes on a tab');
+      await this.features.assertEnabled('table_tabs', restaurantId);
+    }
+    const paymentMode = onTab
+      ? PaymentMode.OWN_POS
+      : effectivePaymentModeFor(payment?.intent.method ?? null, restaurant.paymentMode);
     const initialStatus = payment?.paidBefore ? 'PENDING_PAYMENT' : 'PLACED';
 
     // Loyalty points (docs/SADAKAT.md): a restaurant-funded discount, sized before the settlement is computed.
@@ -431,12 +442,14 @@ export class OrdersService {
         consentCustomerId = customer.id;
       }
       if (countStock) await this.takeStock(tx, lines, byId);
+      const tabId = onTab ? await this.openTabFor(tx, restaurantId, input.branchId, input.tableId!) : null;
       const created = await tx.order.create({
         data: {
           restaurantId,
           branchId: input.branchId,
           customerUserId,
           tableId: input.tableId ?? null,
+          tabId,
           channel: input.channel,
           fulfillment: input.fulfillment,
           deliveryMode: isDelivery
@@ -776,6 +789,31 @@ export class OrdersService {
    * two guests cannot both take the last portion (docs/STOK.md). An item the
    * restaurant stopped counting meanwhile is taken as unlimited.
    */
+  /**
+   * The table's open tab, opened by the first order put on it (docs/ACIK_HESAP.md). The open key is unique, so
+   * two guests ordering at once land on the same tab.
+   */
+  private async openTabFor(
+    tx: Prisma.TransactionClient,
+    restaurantId: string,
+    branchId: string,
+    tableId: string,
+  ): Promise<string> {
+    const tab = await tx.tableTab.upsert({
+      where: { openKey: tableId },
+      update: {},
+      create: {
+        restaurantId,
+        branchId,
+        tableId,
+        openKey: tableId,
+        publicToken: randomBytes(TAB_TOKEN_BYTES).toString('base64url'),
+      },
+      select: { id: true },
+    });
+    return tab.id;
+  }
+
   private async takeStock(
     tx: Prisma.TransactionClient,
     lines: { menuItemId: string; quantity: number; stockTaken: number }[],
@@ -1038,6 +1076,7 @@ export class OrdersService {
       chargedToCustomerMinor: row.chargedToCustomerMinor,
       itemCount: row.items.reduce((sum, item) => sum + item.quantity, 0),
       tableLabel: row.table?.label ?? null,
+      tabId: row.tabId,
       customer: {
         userId: row.customer?.id ?? null,
         fullName: customer?.fullName ?? (address?.contactName || null),
@@ -1097,7 +1136,11 @@ export class OrdersService {
 
   paymentOf(row: OrderRow, now: Date = new Date()): OrderPaymentDTO {
     const latest = row.payments[0] ?? null;
-    const captured = latest?.status === 'CAPTURED' ? latest.amountMinor - latest.refundedMinor : 0;
+    // Everything ever collected counts, across partial collections and tab shares; a refund later gives money
+    // back for what the order no longer charges and never makes the order owe again.
+    const captured = row.payments
+      .filter((p) => p.status === 'CAPTURED' || p.status === 'PARTIALLY_REFUNDED' || p.status === 'REFUNDED')
+      .reduce((sum, p) => sum + p.amountMinor, 0);
     // A cancelled or refunded order owes nothing, whatever was or was not collected.
     const closedUnpaid = isTerminalOrderStatus(row.status) && row.status !== 'DELIVERED' && row.status !== 'PICKED_UP';
     // A charged-back payment was paid and then taken back by the bank: nothing is due at the door.

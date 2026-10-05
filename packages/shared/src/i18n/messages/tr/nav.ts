@@ -29,4 +29,5 @@ export const trNav = {
   'nav.social': 'Sosyal yayın',
   'nav.orderingLinks': 'Sipariş bağlantıları',
   'nav.kitchen': 'Mutfak ekranı',
+  'nav.tabs': 'Açık hesaplar',
 } as const satisfies Record<string, string>;

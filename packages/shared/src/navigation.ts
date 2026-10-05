@@ -22,6 +22,7 @@ export const PANEL_NAV: readonly PanelNavItem[] = [
   { key: 'dispatch', path: '/sevk', permission: 'dispatch.view', feature: 'own_courier_dispatch' },
   { key: 'menu', path: '/menu', permission: 'menu.view' },
   { key: 'tables', path: '/masalar', permission: 'tables.manage', feature: 'table_qr' },
+  { key: 'tabs', path: '/hesaplar', permission: 'orders.view', feature: 'table_tabs' },
   { key: 'customers', path: '/musteriler', permission: 'customers.view' },
   { key: 'pipeline', path: '/satis-hatti', permission: 'customers.view', feature: 'contacts_crm' },
   { key: 'finance', path: '/finans', permission: 'finance.view' },

@@ -493,9 +493,17 @@ export const CreateOrderSchema = z
     marketingChannels: MarketingChannelsSchema.optional(),
     /** A later time the order is for (docs/ILERI_TARIHLI_SIPARIS.md): ready for pickup, or arriving for delivery. */
     scheduledFor: z.string().datetime().optional(),
+    /** Put the table order on the table's open tab instead of paying it now (docs/ACIK_HESAP.md). */
+    tab: z.boolean().optional(),
   })
   .strict()
   .superRefine((order, ctx) => {
+    if (order.tab && order.fulfillment !== 'DINE_IN') {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['tab'], message: 'only a table order goes on a tab' });
+    }
+    if (order.tab && order.payment) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['payment'], message: 'a tab order is paid with the tab' });
+    }
     if (order.fulfillment === 'DELIVERY' && !order.address) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['address'], message: 'address is required for delivery' });
     }
@@ -648,6 +656,8 @@ export interface OrderSummaryDTO {
   chargedToCustomerMinor: number;
   itemCount: number;
   tableLabel: string | null;
+  /** The open tab the order is on (docs/ACIK_HESAP.md); null when it is paid on its own. */
+  tabId: string | null;
   customer: OrderCustomerDTO;
   address: AddressSnapshot | null;
   note: string | null;

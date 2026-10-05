@@ -143,4 +143,7 @@ export const trFeatures = {
   'features.group_orders.name': 'Grup siparişi',
   'features.group_orders.description':
     'Restoran sayfasında paylaşılan tek sepet: bağlantıyla katılan herkes kendi seçimini ekler, sepet sahibi tek sipariş verir ve öder.',
+  'features.table_tabs.name': 'Açık hesap',
+  'features.table_tabs.description':
+    'Masadaki siparişlerin açık hesaba yazılması; hesabın eşit, ürüne göre veya tutara göre bölünüp masada veya kasada ödenmesi.',
 } as const satisfies Record<string, string>;

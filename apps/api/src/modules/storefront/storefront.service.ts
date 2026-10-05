@@ -39,6 +39,7 @@ import { LoyaltyService } from '../loyalty/loyalty.service';
 import { GeocodingService } from '../geocoding/geocoding.service';
 import type { AuthUser } from '../auth/tenant-context';
 import { badRequest, conflict, notFound } from '../../common/api-error';
+import { TabsService } from '../tabs/tabs.service';
 
 const restaurantSelect = {
   ...availabilitySelect,
@@ -81,6 +82,7 @@ export class StorefrontService {
     private readonly zones: DeliveryZoneService,
     private readonly coupons: CouponsService,
     private readonly attribution: AttributionService,
+    private readonly tabs: TabsService,
   ) {}
 
   // -- Reads ---------------------------------------------------------------------------
@@ -320,6 +322,7 @@ export class StorefrontService {
     if (input.fulfillment === 'DELIVERY' && !ordering.delivery)
       throw conflict('ORDER_TRANSITION_INVALID', 'No delivery here');
     if (input.fulfillment === 'DINE_IN' && !context.tableId) throw conflict('ORDER_TRANSITION_INVALID', 'No table');
+    if (input.tab && !context.tableId) throw conflict('ORDER_TRANSITION_INVALID', 'A tab belongs to a table');
 
     // The quote and the routing need a point; an address typed without one is geocoded first (docs/VITRIN.md).
     if (input.fulfillment === 'DELIVERY' && input.address && !input.address.point) {
@@ -351,6 +354,7 @@ export class StorefrontService {
       marketingOptIn: input.marketingOptIn,
       marketingChannels: input.marketingChannels,
       scheduledFor: input.scheduledFor,
+      tab: input.tab,
     };
     // Points belong to the signed-in phone; an order placed for another number cannot spend them.
     let loyaltyUserId: string | undefined;
@@ -395,6 +399,7 @@ export class StorefrontService {
       loyaltyPointsRedeemed,
       currency: order.currency,
       checkoutUrl,
+      tabUrl: order.tabId ? this.tabs.tabUrl(await this.tabTokenOf(order.tabId)) : null,
     };
   }
 
@@ -466,6 +471,11 @@ export class StorefrontService {
 
   // -- Helpers -------------------------------------------------------------------------
 
+  private async tabTokenOf(tabId: string): Promise<string> {
+    const tab = await this.prisma.tableTab.findUniqueOrThrow({ where: { id: tabId }, select: { publicToken: true } });
+    return tab.publicToken;
+  }
+
   private async build(
     restaurant: RestaurantRow,
     table: { id: string; label: string } | null,
@@ -486,6 +496,9 @@ export class StorefrontService {
         // A shared basket lives on the restaurant's own page, not at a table (docs/GRUP_SIPARISI.md).
         table ? Promise.resolve(false) : this.features.isEnabled('group_orders', restaurant.id),
       ]);
+    // The open tab is a table thing (docs/ACIK_HESAP.md).
+    const tabsOn = table ? await this.features.isEnabled('table_tabs', restaurant.id) : false;
+    const tab = table ? { enabled: tabsOn, open: tabsOn ? await this.tabs.openForTable(table.id) : null } : null;
     return {
       restaurant: {
         id: restaurant.id,
@@ -497,6 +510,7 @@ export class StorefrontService {
         defaultLocale: restaurant.defaultLocale,
       },
       table,
+      tab,
       payment,
       ordering: this.orderingOf(restaurant, table !== null, zone, coupons),
       categories,

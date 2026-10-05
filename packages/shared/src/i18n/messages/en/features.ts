@@ -143,4 +143,7 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.group_orders.name': 'Group orders',
   'features.group_orders.description':
     'A shared basket on the restaurant page: everyone who joins through the link adds their own choice, and the basket owner places one order and pays.',
+  'features.table_tabs.name': 'Open tab',
+  'features.table_tabs.description':
+    'Table orders go on an open tab; the bill is split equally, by items or by amount and paid at the table or the counter.',
 };

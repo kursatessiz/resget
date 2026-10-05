@@ -98,7 +98,7 @@ Sahibin kararı (4 Ekim 2026): restoran siparişin bir kısmını iade edebilir 
 
 ## Yönteme göre hakediş modu
 
-Hangi siparişin hangi modla hesaplanacağı ödeme yöntemine bağlıdır (`effectivePaymentModeFor`, `docs/YEMEK_KARTI.md`): yalnızca çevrim içi kart ödemesi restoranın `paymentMode`'unu izler. Nakit, kapıda kart ve yemek kartlarını restoran kendisi tahsil ettiği için bu siparişler `PLATFORM_PSP` restoranında bile `OWN_POS` gibi hesaplanır: PSP kesintisi ve tevkifat sıfır, komisyon + KDV ay sonu faturasına girer. Mod sipariş kaydında saklanır.
+Hangi siparişin hangi modla hesaplanacağı ödeme yöntemine bağlıdır (`effectivePaymentModeFor`, `docs/YEMEK_KARTI.md`): yalnızca çevrim içi kart ödemesi restoranın `paymentMode`'unu izler. Nakit, kapıda kart ve yemek kartlarını restoran kendisi tahsil ettiği için bu siparişler `PLATFORM_PSP` restoranında bile `OWN_POS` gibi hesaplanır: PSP kesintisi ve tevkifat sıfır, komisyon + KDV ay sonu faturasına girer. Mod sipariş kaydında saklanır. Açık hesaba yazılan masa siparişleri (`docs/ACIK_HESAP.md`) de restoran tarafından tahsil edildiği için `OWN_POS` gibi hesaplanır; hesap payları siparişlere en eskiden başlayarak kasada tahsilat olarak yazılır.
 
 ## Bölgesel varsayılanlar
 

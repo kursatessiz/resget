@@ -27,6 +27,7 @@
 | `menu_categories`, `menu_items` | Fiyat minör birim, KDV oranı bps, satışta bayrağı. |
 | `modifier_groups`, `modifiers` | Seçenek grupları, min/max seçim, fiyat farkı. |
 | `dining_tables` | Şube başına etiket benzersiz; `qrToken` benzersiz, yenilenince eski etiketler ölür. |
+| `table_tabs` | Masanın açık hesabı (`docs/ACIK_HESAP.md`): durum `OPEN` / `CLOSED`, `openKey` (açıkken masa kimliği, benzersiz; masa başına tek açık hesap), `publicToken` (kişisel verisiz hesap bağlantısı), açılış ve kapanış; `orders.tabId` siparişi hesaba bağlar. |
 | `qr_scan_events` | Anonim `sessionId`, huni adımı (VIEWED_MENU, STARTED_ORDER, PLACED_ORDER, REGISTERED). Telefon tutmaz. |
 
 ## Müşteri

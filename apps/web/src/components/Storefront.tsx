@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   ALLERGENS,
   GROUP_KEY_HEADER,
@@ -64,6 +65,7 @@ export interface GroupMode {
 }
 
 type PaymentChoice =
+  | { method: 'TAB' }
   | { method: 'CASH_ON_DELIVERY' | 'CARD_ON_DELIVERY' | 'ONLINE_CARD' }
   | { method: 'MEAL_CARD'; providerCode: string; atDoor: boolean };
 
@@ -217,6 +219,9 @@ export function Storefront({
 
   const paymentChoices = useMemo<{ id: string; label: string; choice: PaymentChoice }[]>(() => {
     const list: { id: string; label: string; choice: PaymentChoice }[] = [];
+    // A table order can go on the table's open tab instead of being paid now (docs/ACIK_HESAP.md).
+    if (storefront.tab?.enabled && fulfillment === 'DINE_IN')
+      list.push({ id: 'tab', label: t('tab.payment.option'), choice: { method: 'TAB' } });
     if (payment.cashOnDelivery)
       list.push({ id: 'cash', label: t('payments.method.CASH_ON_DELIVERY'), choice: { method: 'CASH_ON_DELIVERY' } });
     if (payment.cardOnDelivery)
@@ -242,7 +247,7 @@ export function Storefront({
       });
     }
     return list;
-  }, [payment, t]);
+  }, [payment, t, storefront.tab, fulfillment]);
   const [paymentId, setPaymentId] = useState<string>('');
   const selectedPayment = paymentChoices.find((p) => p.id === paymentId) ?? paymentChoices[0] ?? null;
 
@@ -387,7 +392,7 @@ export function Storefront({
               },
             }
           : {}),
-        payment: selectedPayment.choice,
+        ...(selectedPayment.choice.method === 'TAB' ? { tab: true } : { payment: selectedPayment.choice }),
         ...(scheduled ? { scheduledFor: slot } : {}),
         // The channel link the page was opened from (docs/SIPARIS_BAGLANTILARI.md).
         ...(source.kind === 'site' && source.via ? { source: source.via } : {}),
@@ -423,7 +428,9 @@ export function Storefront({
         return;
       }
       setDone(t('shop.placed'));
-      router.push(`/t/${result.trackingToken}`);
+      // A tab order leads to the table's bill, which follows every order on it.
+      const tabToken = result.tabUrl?.split('/hesap/')[1];
+      router.push(tabToken ? `/hesap/${tabToken}` : `/t/${result.trackingToken}`);
     } catch (err) {
       setError(err instanceof ApiError ? t(`errors.${err.code}`) : t('common.error.network'));
     } finally {
@@ -471,6 +478,19 @@ export function Storefront({
       {availabilityNote && (
         <p role="status" className="ui-heading" data-availability={availability.state}>
           {availabilityNote}
+        </p>
+      )}
+      {storefront.tab?.open && (
+        <p className="flex flex-wrap items-center gap-2" data-open-tab>
+          <span>
+            {t('tab.banner', {
+              total: money(storefront.tab.open.totalMinor),
+              due: money(storefront.tab.open.dueMinor),
+            })}
+          </span>
+          <Link href={`/hesap/${storefront.tab.open.token}`} className="pui-btn pui-link pui-theme">
+            {t('tab.banner.link')}
+          </Link>
         </p>
       )}
       {hasTags && (
