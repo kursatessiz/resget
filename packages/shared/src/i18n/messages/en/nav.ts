@@ -29,4 +29,5 @@ export const enNav: Record<keyof typeof trNav, string> = {
   'nav.churn': 'Churn risk',
   'nav.social': 'Social publishing',
   'nav.orderingLinks': 'Ordering links',
+  'nav.kitchen': 'Kitchen display',
 };

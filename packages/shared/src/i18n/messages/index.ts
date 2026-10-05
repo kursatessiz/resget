@@ -54,6 +54,7 @@ import { trScheduling } from './tr/scheduling';
 import { trAllergens } from './tr/allergens';
 import { trDayparts } from './tr/dayparts';
 import { trOrderingLinks } from './tr/orderingLinks';
+import { trKitchen } from './tr/kitchen';
 import { trIntegrations } from './tr/integrations';
 import { enCommon } from './en/common';
 import { enNav } from './en/nav';
@@ -111,6 +112,7 @@ import { enScheduling } from './en/scheduling';
 import { enAllergens } from './en/allergens';
 import { enDayparts } from './en/dayparts';
 import { enOrderingLinks } from './en/orderingLinks';
+import { enKitchen } from './en/kitchen';
 import { enIntegrations } from './en/integrations';
 
 /**
@@ -178,6 +180,7 @@ export const TR_NAMESPACES = [
   trAllergens,
   trDayparts,
   trOrderingLinks,
+  trKitchen,
   trIntegrations,
   trMobile,
 ] as const;
@@ -238,6 +241,7 @@ export const EN_NAMESPACES = [
   enAllergens,
   enDayparts,
   enOrderingLinks,
+  enKitchen,
   enIntegrations,
   enMobile,
 ] as const;

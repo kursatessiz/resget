@@ -61,6 +61,7 @@ const adminCategorySelect = Prisma.validator<Prisma.MenuCategorySelect>()({
   sortOrder: true,
   isActive: true,
   availableHours: true,
+  kitchenStation: true,
   items: { orderBy: { sortOrder: 'asc' }, select: adminItemSelect },
 });
 
@@ -171,7 +172,13 @@ export class MenuService {
     const sortOrder = input.sortOrder ?? (await this.nextCategoryOrder(restaurantId));
     return toCategory(
       await this.prisma.menuCategory.create({
-        data: { restaurantId, name: input.name, sortOrder, availableHours: hoursInput(input.availableHours) },
+        data: {
+          restaurantId,
+          name: input.name,
+          sortOrder,
+          availableHours: hoursInput(input.availableHours),
+          kitchenStation: input.kitchenStation ?? null,
+        },
         select: adminCategorySelect,
       }),
     );

@@ -1,0 +1,27 @@
+export const trKitchen = {
+  'kitchen.title': 'Mutfak ekranı',
+  'kitchen.intro':
+    'Kabul edilen siparişler, söz verilen hazır olma saatine göre sıralı. Bir satırı hazır olarak işaretlemek siparişi hazırlanıyor durumuna alır; bütün satırlar bitince Hazır düğmesine basın.',
+  'kitchen.station.label': 'İstasyon',
+  'kitchen.station.all': 'Tüm istasyonlar',
+  'kitchen.empty': 'Mutfakta bekleyen sipariş yok.',
+  'kitchen.live': 'Canlı',
+  'kitchen.reconnecting': 'Bağlantı yeniden kuruluyor...',
+  'kitchen.ticket.title': 'Sipariş {code}',
+  'kitchen.ticket.table': 'Masa {table}',
+  'kitchen.ticket.due': 'Hazır olacak: {time}',
+  'kitchen.ticket.late': 'Gecikti',
+  'kitchen.ticket.scheduled': 'İleri tarihli: {time}',
+  'kitchen.ticket.note': 'Not: {note}',
+  'kitchen.ticket.progress': '{done} / {total} hazır',
+  'kitchen.item.quantity': '{quantity} x {name}',
+  'kitchen.item.mark': 'Hazır olarak işaretle',
+  'kitchen.item.unmark': 'Geri al',
+  'kitchen.action.ready': 'Hazır',
+  'kitchen.station.manage': 'Mutfak istasyonu',
+  'kitchen.station.name': 'İstasyon adı',
+  'kitchen.station.help':
+    'Bu bölümün ürünleri mutfak ekranında bu istasyonda görünür (örneğin Izgara, Soğuk mutfak, Bar). Boş bırakılırsa yalnızca tüm istasyonlar görünümünde yer alır.',
+  'kitchen.station.clear': 'İstasyonu kaldır',
+  'kitchen.station.badge': 'İstasyon: {station}',
+} as const satisfies Record<string, string>;

@@ -18,6 +18,7 @@ export interface PanelNavItem {
 export const PANEL_NAV: readonly PanelNavItem[] = [
   { key: 'home', path: '', permission: null },
   { key: 'orders', path: '/siparisler', permission: 'orders.view' },
+  { key: 'kitchen', path: '/mutfak', permission: 'orders.view', feature: 'kitchen_display' },
   { key: 'dispatch', path: '/sevk', permission: 'dispatch.view', feature: 'own_courier_dispatch' },
   { key: 'menu', path: '/menu', permission: 'menu.view' },
   { key: 'tables', path: '/masalar', permission: 'tables.manage', feature: 'table_qr' },

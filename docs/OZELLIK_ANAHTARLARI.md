@@ -49,6 +49,7 @@ Anahtar, modülün işletme için var olup olmadığına karar verir. Plan (BASI
 | `allergens` | Sipariş | kapalı (BETA) |
 | `menu_dayparts` | Sipariş | kapalı (BETA) |
 | `ordering_links` | Sipariş | kapalı (BETA) |
+| `kitchen_display` | Sipariş | kapalı (BETA) |
 | `online_payment` | Ödeme | açık |
 | `meal_cards` | Ödeme | açık |
 | `partial_refunds` | Ödeme | açık |
