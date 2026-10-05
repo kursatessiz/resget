@@ -61,6 +61,8 @@ export interface SocialAccountDTO {
   name: string;
   /** Only enabled accounts are used for publishing and leads. */
   enabled: boolean;
+  /** Facebook pages only: whether Lead Ads leads of this page are imported (docs/LEAD_ADS.md). */
+  leadsEnabled: boolean;
   status: SocialAccountStatus;
   scopes: string[];
   connectedAt: string;

@@ -1,0 +1,30 @@
+import type { trLeadAds } from '../tr/leadAds';
+
+export const enLeadAds: Record<keyof typeof trLeadAds, string> = {
+  'leadAds.title': 'Lead Ads leads',
+  'leadAds.intro':
+    'People who fill in your Facebook and Instagram ad forms are added to the sales pipeline as contacts. The form disclaimer does not count as marketing consent; ask for consent separately before sending messages.',
+  'leadAds.pageToggle': 'Import leads',
+  'leadAds.noPages': 'Connect a Facebook page and put it in use to receive leads.',
+  'leadAds.empty': 'No leads yet.',
+  'leadAds.refresh': 'Refresh',
+  'leadAds.retry': 'Try again',
+  'leadAds.openPipeline': 'Open in the sales pipeline',
+  'leadAds.column.received': 'Received',
+  'leadAds.column.contact': 'Contact',
+  'leadAds.column.page': 'Page',
+  'leadAds.column.status': 'Status',
+  'leadAds.unknownPage': 'Removed page',
+  'leadAds.noContact': 'No contact created',
+  'leadAds.status.RECEIVED': 'Importing',
+  'leadAds.status.IMPORTED': 'Imported',
+  'leadAds.status.SKIPPED': 'Skipped',
+  'leadAds.status.FAILED': 'Failed',
+  'leadAds.reason.NO_PHONE': 'The form has no valid phone number',
+  'leadAds.reason.PAGE_UNAVAILABLE': 'The page was disconnected or is not in use',
+  'leadAds.reason.GRAPH_ERROR': 'Meta did not respond',
+  'leadAds.reason.MODULE_OFF': 'The module is off',
+  'leadAds.pagination': 'Page {page} of {pages}',
+  'leadAds.previous': 'Previous',
+  'leadAds.next': 'Next',
+};

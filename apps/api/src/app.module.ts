@@ -46,6 +46,7 @@ import { ChurnModule } from './modules/churn/churn.module';
 import { GovernanceModule } from './modules/governance/governance.module';
 import { AiStudioModule } from './modules/ai-studio/ai-studio.module';
 import { SocialModule } from './modules/social/social.module';
+import { LeadAdsModule } from './modules/lead-ads/lead-ads.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { DomainsModule } from './modules/domains/domains.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
@@ -102,6 +103,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
     GovernanceModule,
     AiStudioModule,
     SocialModule,
+    LeadAdsModule,
     BillingModule,
     CustomersModule,
     ReportsModule,

@@ -107,6 +107,9 @@ export const trFeatures = {
   'features.integration_hub.name': 'Entegrasyon merkezi',
   'features.integration_hub.description':
     'Facebook sayfaları ve Instagram işletme hesaplarının Meta onay ekranıyla (OAuth) bağlanması; erişim anahtarları şifreli saklanır. Lead Ads ve sosyal yayın bu bağlantıları kullanır.',
+  'features.lead_ads.name': 'Lead Ads aday aktarımı',
+  'features.lead_ads.description':
+    'Facebook ve Instagram reklam formlarından gelen adaylar imzalı Meta bildirimiyle alınır ve satış hattına kişi olarak eklenir; pazarlama izni verilmiş sayılmaz. Entegrasyon merkezi gerekir.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',

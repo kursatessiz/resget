@@ -78,6 +78,7 @@ services:
       META_APP_ID: ${META_APP_ID:-}
       META_APP_SECRET: ${META_APP_SECRET:-}
       META_GRAPH_VERSION: ${META_GRAPH_VERSION:-v21.0}
+      META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:-}
       # AI studio (docs/YAPAY_ZEKA.md): ANTHROPIC with a key writes drafts; NONE switches drafting off.
       AI_PROVIDER: ${AI_PROVIDER:-NONE}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}

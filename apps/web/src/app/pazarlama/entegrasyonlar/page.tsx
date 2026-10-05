@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { SocialAccountsManager } from '@/components/panel/SocialAccountsManager';
+import { LeadAdsList } from '@/components/panel/LeadAdsList';
 import { getT } from '@/lib/i18n';
 import { platformAccess } from '@/lib/platform';
 
@@ -17,6 +18,7 @@ export default async function MarketingIntegrationsPage({
   }
   const { meta } = await searchParams;
   const { t, locale } = await getT();
+  const leadAds = context.features.includes('lead_ads');
   return (
     <div className="flex flex-col gap-6">
       <h1 className="ui-title">{t('marketing.nav.integrations')}</h1>
@@ -25,7 +27,16 @@ export default async function MarketingIntegrationsPage({
         locale={locale}
         returnPath="/pazarlama/entegrasyonlar"
         result={meta ?? null}
+        leadAds={leadAds}
       />
+      {leadAds && context.permissions.includes('platform.marketing.view') && (
+        <LeadAdsList
+          restaurantId={context.restaurantId}
+          locale={locale}
+          canRetry
+          pipelineHref="/pazarlama/satis-hatti"
+        />
+      )}
     </div>
   );
 }

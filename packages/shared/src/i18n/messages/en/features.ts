@@ -107,6 +107,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.integration_hub.name': 'Integration hub',
   'features.integration_hub.description':
     "Connect Facebook pages and Instagram business accounts through Meta's consent screen (OAuth); access keys are stored encrypted. Lead Ads and social publishing use these connections.",
+  'features.lead_ads.name': 'Lead Ads import',
+  'features.lead_ads.description':
+    'Leads from Facebook and Instagram ad forms arrive through a signed Meta notification and are added to the sales pipeline as contacts; no marketing consent is assumed. Requires the integration hub.',
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',

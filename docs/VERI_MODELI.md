@@ -117,6 +117,8 @@ Yapay zeka stüdyosu (`docs/YAPAY_ZEKA.md`): kiracı başına aylık token sın�
 
 Entegrasyon merkezi (`docs/ENTEGRASYON_MERKEZI.md`): onay turları `oauth_states` (rastgele state, kiracı, kullanıcı, geri dönüş ekranı, son kullanma, kullanım zamanı) ve bağlı hesaplar `social_accounts` (sağlayıcı, tür, dış kimlik, ad, şifreli sayfa anahtarı, izinler, kullanılsın işareti, durum; kiracı, sağlayıcı ve dış kimlik başına tek satır). Migration: `20261116000000_social_accounts`.
 
+Lead Ads (`docs/LEAD_ADS.md`): `social_accounts.leadsEnabled` sayfanın adaylarının alınıp alınmadığını tutar; adaylar `meta_leads` tablosundadır (kiracı, bağlı hesap, aday, sayfa, form ve reklam kimlikleri, durum, deneme sayısı, sebep kodu, bir sonraki deneme zamanı, oluşan kişi; kiracı ve aday kimliği başına tek satır). Cevaplar burada saklanmaz, kişiye ve `FORM` etkinliğine yazılır. Migration: `20261117000000_lead_ads`.
+
 ## Migration kuralları
 
 Yalnızca ileri yönlü; deploy'dan önce çalışır; bir sürüm boyunca geriye dönük uyumlu (önce genişlet, sonra daralt). CI, boş Postgres'e uygulayıp şema ile sapma olmadığını denetler. Yeni migration: `pnpm --filter @resget/database db:migrate --name <ad>` (yerel Postgres gerekir).

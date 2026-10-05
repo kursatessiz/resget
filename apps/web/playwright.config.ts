@@ -68,6 +68,8 @@ export default defineConfig({
         DOMAIN_VERIFIER: 'MOCK',
         AI_PROVIDER: 'MOCK',
         META_PROVIDER: 'MOCK',
+        // Lead Ads webhook deliveries in e2e/lead-ads.e2e.ts are signed with this test-only value.
+        META_APP_SECRET: 'pw-meta-app-secret',
         PUBLIC_APP_URL: baseURL,
         PUBLIC_API_URL: apiURL,
         CORS_ORIGIN: baseURL,

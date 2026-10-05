@@ -18,6 +18,7 @@ export function SocialAccountsManager({
   locale,
   returnPath,
   result,
+  leadAds = false,
 }: {
   restaurantId: string;
   locale: string;
@@ -25,6 +26,8 @@ export function SocialAccountsManager({
   returnPath: string;
   /** The `meta` query parameter after the round trip, if any. */
   result: string | null;
+  /** Lead Ads is on: Facebook pages get an import switch (docs/LEAD_ADS.md). */
+  leadAds?: boolean;
 }) {
   const t = useT(locale);
   const base = `restaurants/${restaurantId}/social`;
@@ -123,7 +126,9 @@ export function SocialAccountsManager({
                       const enabled = e.target.checked;
                       // Shown at once; the list is reloaded from the server either way.
                       setAccounts((current) =>
-                        (current ?? []).map((a) => (a.id === account.id ? { ...a, enabled } : a)),
+                        (current ?? []).map((a) =>
+                          a.id === account.id ? { ...a, enabled, leadsEnabled: enabled && a.leadsEnabled } : a,
+                        ),
                       );
                       void act(() =>
                         bffJson<SocialAccountDTO>(`${base}/accounts/${account.id}`, {
@@ -135,6 +140,29 @@ export function SocialAccountsManager({
                   />
                   <span>{t('social.enabled')}</span>
                 </label>
+                {leadAds && account.kind === 'FACEBOOK_PAGE' && (
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      className="pui-checkbox"
+                      checked={account.leadsEnabled}
+                      disabled={busy || !account.enabled}
+                      onChange={(e) => {
+                        const enabled = e.target.checked;
+                        setAccounts((current) =>
+                          (current ?? []).map((a) => (a.id === account.id ? { ...a, leadsEnabled: enabled } : a)),
+                        );
+                        void act(() =>
+                          bffJson<SocialAccountDTO>(`restaurants/${restaurantId}/lead-ads/pages/${account.id}`, {
+                            method: 'PUT',
+                            body: JSON.stringify({ enabled }),
+                          }),
+                        );
+                      }}
+                    />
+                    <span>{t('leadAds.pageToggle')}</span>
+                  </label>
+                )}
                 <Button
                   variant="outline"
                   tone="error"

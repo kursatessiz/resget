@@ -475,6 +475,7 @@ model Restaurant {
   aiUsage              AiUsage[]
   oauthStates          OAuthState[]
   socialAccounts       SocialAccount[]
+  metaLeads            MetaLead[]
   loyaltyProgram       LoyaltyProgram?
   campaignSegments     CampaignSegmentPreset[]
   apiKeys              RestaurantApiKey[]
@@ -816,6 +817,7 @@ model RestaurantCustomer {
   consentConfirmations ConsentConfirmation[]
   segmentMembers       SegmentMember[]
   journeyRuns          JourneyRun[]
+  metaLeads            MetaLead[]
   referralCode         Coupon?               @relation("ReferralCode")
   rewardCoupons        Coupon[]              @relation("RewardCoupon")
   referralsMade        ReferralReward[]      @relation("Referrer")
@@ -955,6 +957,8 @@ model SocialAccount {
   encryptedToken    String
   scopes            String[]  @default([])
   enabled           Boolean   @default(false)
+  /// Facebook pages only: Lead Ads leads of this page are imported (docs/LEAD_ADS.md).
+  leadsEnabled      Boolean   @default(false)
   status            String    @default("ACTIVE")
   tokenExpiresAt    DateTime?
   connectedByUserId String?
@@ -963,10 +967,40 @@ model SocialAccount {
 
   restaurant  Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   connectedBy User?      @relation(fields: [connectedByUserId], references: [id], onDelete: SetNull)
+  leads       MetaLead[]
 
   @@unique([restaurantId, provider, externalId])
   @@index([provider, externalId])
   @@map("social_accounts")
+}
+
+/// A Lead Ads lead (docs/LEAD_ADS.md): ids and import status only; the answers go to the CRM contact.
+model MetaLead {
+  id              String    @id @default(uuid())
+  restaurantId    String
+  socialAccountId String?
+  leadgenId       String
+  pageId          String
+  formId          String?
+  adId            String?
+  /// RECEIVED, IMPORTED, SKIPPED or FAILED (META_LEAD_STATUSES in shared).
+  status          String    @default("RECEIVED")
+  attempts        Int       @default(0)
+  /// Machine code of the last failure or skip (LEAD_REASONS in shared).
+  reason          String?
+  nextAttemptAt   DateTime  @default(now())
+  customerId      String?
+  receivedAt      DateTime  @default(now())
+  importedAt      DateTime?
+
+  restaurant    Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  socialAccount SocialAccount?      @relation(fields: [socialAccountId], references: [id], onDelete: SetNull)
+  customer      RestaurantCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@unique([restaurantId, leadgenId])
+  @@index([restaurantId, receivedAt])
+  @@index([status, nextAttemptAt])
+  @@map("meta_leads")
 }
 
 /// A named audience filter the restaurant reuses across campaigns (CampaignSegmentSchema in shared).

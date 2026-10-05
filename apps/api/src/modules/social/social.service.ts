@@ -163,7 +163,11 @@ export class SocialService {
     input: UpdateSocialAccountInput,
   ): Promise<SocialAccountDTO> {
     const row = await this.require(restaurantId, accountId);
-    const updated = await this.prisma.socialAccount.update({ where: { id: row.id }, data: { enabled: input.enabled } });
+    // An account taken out of use stops importing leads too; turning it back on does not resume them by itself.
+    const updated = await this.prisma.socialAccount.update({
+      where: { id: row.id },
+      data: input.enabled ? { enabled: true } : { enabled: false, leadsEnabled: false },
+    });
     await this.audit(restaurantId, actorUserId, input.enabled ? 'social.enable' : 'social.disable', row);
     return this.toDto(updated);
   }
@@ -174,7 +178,7 @@ export class SocialService {
     await this.audit(restaurantId, actorUserId, 'social.disconnect', row);
   }
 
-  private async require(restaurantId: string, accountId: string): Promise<AccountRow> {
+  async require(restaurantId: string, accountId: string): Promise<AccountRow> {
     const row = await this.prisma.socialAccount.findFirst({ where: { id: accountId, restaurantId } });
     if (!row) throw notFound('SOCIAL_ACCOUNT_NOT_FOUND', 'Social account not found');
     return row;
@@ -193,7 +197,7 @@ export class SocialService {
     });
   }
 
-  private toDto(row: AccountRow): SocialAccountDTO {
+  toDto(row: AccountRow): SocialAccountDTO {
     return {
       id: row.id,
       provider: 'META',
@@ -201,6 +205,7 @@ export class SocialService {
       externalId: row.externalId,
       name: row.name,
       enabled: row.enabled,
+      leadsEnabled: row.leadsEnabled,
       status: row.status as SocialAccountStatus,
       scopes: row.scopes,
       connectedAt: row.createdAt.toISOString(),
