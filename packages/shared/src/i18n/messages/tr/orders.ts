@@ -41,6 +41,7 @@ export const trOrders = {
   'orders.returnToReady': 'Teslim edilemedi, geri al',
   'orders.prepMinutes': 'Hazırlık süresi (dakika)',
   'orders.promisedReadyAt': 'Söz verilen hazır olma saati',
+  'orders.scheduledFor': 'İleri tarihli: {time}',
   'orders.estimatedDeliveryAt': 'Tahmini teslim',
   'orders.shortCode': 'Sipariş {code}',
   'orders.customer': 'Müşteri',

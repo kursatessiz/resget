@@ -1,8 +1,10 @@
 import { Controller, Get, Put } from '@nestjs/common';
-import { UpdateAvailabilitySchema, UpdateOpeningHoursSchema } from '@resget/shared';
+import { UpdateAvailabilitySchema, UpdateOpeningHoursSchema, UpdateSchedulingSettingsSchema } from '@resget/shared';
 import type {
   BranchHoursDTO,
   OrderAvailabilityDTO,
+  SchedulingSettings,
+  UpdateSchedulingSettingsInput,
   UpdateAvailabilityInput,
   UpdateOpeningHoursInput,
 } from '@resget/shared';
@@ -41,6 +43,25 @@ export class AvailabilityController {
   @RequirePermission('restaurant.settings.view')
   hours(@Tenant() tenant: TenantContext): Promise<BranchHoursDTO[]> {
     return this.availability.hours(tenant);
+  }
+
+  /** Slots for scheduled orders (docs/ILERI_TARIHLI_SIPARIS.md). */
+  @Get('scheduling')
+  @RequirePermission('restaurant.settings.view')
+  @RequireFeature('scheduled_orders')
+  scheduling(@Tenant() tenant: TenantContext): Promise<SchedulingSettings> {
+    return this.availability.schedulingSettings(tenant.restaurantId);
+  }
+
+  @Put('scheduling')
+  @RequirePermission('restaurant.settings.manage')
+  @RequireFeature('scheduled_orders')
+  setScheduling(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodBody(UpdateSchedulingSettingsSchema) body: UpdateSchedulingSettingsInput,
+  ): Promise<SchedulingSettings> {
+    return this.availability.updateSchedulingSettings(tenant.restaurantId, user.id, body);
   }
 
   @Put('opening-hours')

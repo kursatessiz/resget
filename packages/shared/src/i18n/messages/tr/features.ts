@@ -113,6 +113,9 @@ export const trFeatures = {
   'features.social_publishing.name': 'Sosyal yayın',
   'features.social_publishing.description':
     'Bağlı Facebook sayfalarına ve Instagram işletme hesaplarına gönderi hazırlama, zamanlama ve yayımlama; her hesabın sonucu ayrı izlenir. Entegrasyon merkezi gerekir.',
+  'features.scheduled_orders.name': 'İleri tarihli sipariş',
+  'features.scheduled_orders.description':
+    'Müşteri siparişini şimdi verip çalışma saatleri içinden daha sonraki bir saat seçer; işletme kapalıyken de ön sipariş alınır. Kabul alarmı hazırlığa başlama zamanına göre çalar.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',

@@ -164,7 +164,9 @@ export type ApiErrorCode =
   | 'SOCIAL_POST_LOCKED'
   | 'SOCIAL_POST_INVALID'
   | 'SOCIAL_SCHEDULE_INVALID'
-  | 'SOCIAL_ACCOUNT_UNAVAILABLE';
+  | 'SOCIAL_ACCOUNT_UNAVAILABLE'
+  | 'SCHEDULED_SLOT_INVALID'
+  | 'SCHEDULING_UNAVAILABLE';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {
   return new ForbiddenException({ statusCode: 403, code, message });

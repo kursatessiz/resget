@@ -480,11 +480,20 @@ export const CreateOrderSchema = z
     marketingOptIn: z.boolean().optional(),
     /** Per-channel consent boxes (docs/RIZA.md); only granted channels are recorded. */
     marketingChannels: MarketingChannelsSchema.optional(),
+    /** A later time the order is for (docs/ILERI_TARIHLI_SIPARIS.md): ready for pickup, or arriving for delivery. */
+    scheduledFor: z.string().datetime().optional(),
   })
   .strict()
   .superRefine((order, ctx) => {
     if (order.fulfillment === 'DELIVERY' && !order.address) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['address'], message: 'address is required for delivery' });
+    }
+    if (order.scheduledFor && order.fulfillment === 'DINE_IN') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['scheduledFor'],
+        message: 'a table order is never scheduled',
+      });
     }
     if (order.fulfillment === 'DINE_IN' && !order.tableId) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['tableId'], message: 'tableId is required for dine-in' });
@@ -608,6 +617,8 @@ export interface OrderSummaryDTO {
   address: AddressSnapshot | null;
   note: string | null;
   placedAt: string;
+  /** A scheduled order's slot (docs/ILERI_TARIHLI_SIPARIS.md); null for as soon as possible. */
+  scheduledFor: string | null;
   acceptedAt: string | null;
   promisedReadyAt: string | null;
   readyAt: string | null;
@@ -719,6 +730,8 @@ export interface OrderTrackingDTO {
   /** Lines of the order; refundedQuantity is how many already went back (a claim asks for at most the rest). */
   items: { id: string; name: string; quantity: number; refundedQuantity: number }[];
   placedAt: string;
+  /** A scheduled order's slot (docs/ILERI_TARIHLI_SIPARIS.md); null for as soon as possible. */
+  scheduledFor: string | null;
   promisedReadyAt: string | null;
   estimatedDeliveryAt: string | null;
   completedAt: string | null;

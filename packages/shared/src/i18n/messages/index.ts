@@ -50,6 +50,7 @@ import { trAi } from './tr/ai';
 import { trSocial } from './tr/social';
 import { trLeadAds } from './tr/leadAds';
 import { trSocialPublishing } from './tr/socialPublishing';
+import { trScheduling } from './tr/scheduling';
 import { trIntegrations } from './tr/integrations';
 import { enCommon } from './en/common';
 import { enNav } from './en/nav';
@@ -103,6 +104,7 @@ import { enAi } from './en/ai';
 import { enSocial } from './en/social';
 import { enLeadAds } from './en/leadAds';
 import { enSocialPublishing } from './en/socialPublishing';
+import { enScheduling } from './en/scheduling';
 import { enIntegrations } from './en/integrations';
 
 /**
@@ -166,6 +168,7 @@ export const TR_NAMESPACES = [
   trSocial,
   trLeadAds,
   trSocialPublishing,
+  trScheduling,
   trIntegrations,
   trMobile,
 ] as const;
@@ -222,6 +225,7 @@ export const EN_NAMESPACES = [
   enSocial,
   enLeadAds,
   enSocialPublishing,
+  enScheduling,
   enIntegrations,
   enMobile,
 ] as const;

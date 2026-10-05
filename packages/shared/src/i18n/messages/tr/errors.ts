@@ -124,6 +124,8 @@ export const trErrors = {
   'errors.SOCIAL_POST_INVALID': 'Gönderi seçilen hesaplar için uygun değil; uyarıları düzeltin.',
   'errors.SOCIAL_SCHEDULE_INVALID': 'Yayın zamanı en az bir dakika sonrası ve en çok 90 gün içinde olmalı.',
   'errors.SOCIAL_ACCOUNT_UNAVAILABLE': 'Seçilen hesaplardan biri kullanımda değil veya bağlantısı kaldırılmış.',
+  'errors.SCHEDULED_SLOT_INVALID': 'Seçilen saat artık uygun değil; listeden başka bir saat seçin.',
+  'errors.SCHEDULING_UNAVAILABLE': 'Bu işletme şu anda ileri tarihli sipariş almıyor.',
   'errors.NPS_NOT_ALLOWED': 'Bu sipariş için soru şu an yanıtlanamıyor.',
   'errors.FEEDBACK_CASE_NOT_FOUND': 'Kayıt bulunamadı.',
   'errors.SITE_PAGE_NOT_FOUND': 'Sayfa bulunamadı.',

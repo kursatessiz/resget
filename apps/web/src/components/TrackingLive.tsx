@@ -157,6 +157,18 @@ export function TrackingLive({
           })}
         </ol>
         <div className="mt-4 flex flex-col gap-1">
+          {tracking.scheduledFor && reached <= 3 && (
+            <p className="ui-text-muted" data-scheduled-for>
+              {t('tracking.scheduledFor', {
+                time: new Intl.DateTimeFormat(locale, {
+                  weekday: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }).format(new Date(tracking.scheduledFor)),
+              })}
+            </p>
+          )}
           {tracking.promisedReadyAt && reached >= 1 && reached <= 3 && (
             <p className="ui-text-muted">
               {t('tracking.promisedReadyAt', { time: time.format(new Date(tracking.promisedReadyAt)) })}

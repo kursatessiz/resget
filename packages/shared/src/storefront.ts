@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { OrderAvailabilityDTO } from './availability';
+import type { StorefrontSchedulingDTO } from './scheduling';
 import { CouponCodeSchema } from './coupons';
 import { MarketingChannelsSchema } from './consent';
 import type { DeliveryZone } from './delivery-zone';
@@ -76,6 +77,8 @@ export interface StorefrontDTO {
   tracking: boolean;
   /** Per-channel consent boxes instead of the single legacy box (docs/RIZA.md). */
   consentV2: boolean;
+  /** Slots for a later order (docs/ILERI_TARIHLI_SIPARIS.md); null while the module is off or the restaurant offers none. */
+  scheduling: StorefrontSchedulingDTO | null;
 }
 
 export const PublicOrderSchema = z
@@ -99,9 +102,18 @@ export const PublicOrderSchema = z
     useLoyaltyPoints: z.boolean().optional(),
     /** A coupon code (docs/KUPONLAR.md); not combined with loyalty points. */
     couponCode: CouponCodeSchema.optional(),
+    /** A later slot instead of as soon as possible (docs/ILERI_TARIHLI_SIPARIS.md); one of the offered slots. */
+    scheduledFor: z.string().datetime().optional(),
   })
   .strict()
   .superRefine((order, ctx) => {
+    if (order.scheduledFor && order.fulfillment === 'DINE_IN') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['scheduledFor'],
+        message: 'a table order is never scheduled',
+      });
+    }
     if (order.fulfillment === 'DELIVERY' && !order.address) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['address'], message: 'address is required for delivery' });
     }

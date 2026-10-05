@@ -15,6 +15,7 @@ function tracking(status: string): RealtimeEvent {
     restaurant: { name: 'Demo', logoUrl: null, themePrimary: '#0092CD', phone: null },
     items: [],
     placedAt: new Date().toISOString(),
+    scheduledFor: null,
     promisedReadyAt: null,
     estimatedDeliveryAt: null,
     completedAt: null,

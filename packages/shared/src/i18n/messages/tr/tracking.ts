@@ -27,6 +27,7 @@ export const trTracking = {
   'tracking.status.REJECTED': 'İşletme siparişi kabul edemedi.',
   'tracking.status.REFUNDED': 'Ödemeniz iade edildi.',
   'tracking.promisedReadyAt': 'Tahmini hazır olma: {time}',
+  'tracking.scheduledFor': 'Planlanan saat: {time}',
   'tracking.estimatedDeliveryAt': 'Tahmini teslim: {time}',
   'tracking.courier': 'Kuryeniz {name}',
   'tracking.courierDistance': 'Kuryeniz {km} km uzakta',

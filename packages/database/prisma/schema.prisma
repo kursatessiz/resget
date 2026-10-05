@@ -425,6 +425,8 @@ model Restaurant {
   deliveryZone         Json?
   /// Own-courier dispatch tuning (DispatchSettingsSchema in shared): speed, detour, arrival radius, stops per trip.
   dispatchSettings     Json?
+  /// Slots for scheduled orders (SchedulingSettingsSchema in shared, docs/ILERI_TARIHLI_SIPARIS.md); null means off.
+  schedulingSettings   Json?
   /// Customer notification preferences (NotificationSettingsSchema in shared): order updates on or off, channel, SMS fallback.
   notificationSettings Json?
   /// Order availability (docs/SIPARIS_VE_SEVK.md): consumer orders are refused until this instant; null when not paused.
@@ -1293,6 +1295,8 @@ model Order {
   /// Latest delivery estimate, recomputed from the courier's position while on the way.
   estimatedDeliveryAt       DateTime?
   placedAt                  DateTime  @default(now())
+  /// A scheduled order's slot (docs/ILERI_TARIHLI_SIPARIS.md): ready for pickup, or arriving for delivery; null for as soon as possible.
+  scheduledFor              DateTime?
   acceptedAt                DateTime?
   readyAt                   DateTime?
   completedAt               DateTime?
@@ -1331,6 +1335,7 @@ model Order {
   journeyConversion  JourneyRun?        @relation("JourneyRunConversion")
 
   @@index([restaurantId, placedAt])
+  @@index([restaurantId, scheduledFor])
   @@index([restaurantId, status])
   @@index([status, acceptDeadlineAt])
   @@index([customerUserId])

@@ -114,6 +114,8 @@ Takip sayfası ve sevk panosu aynı bileşeni kullanır (`apps/web/src/component
 - **Pazaryeri**: anahtar açıkken duraklatılmış işletme "kapalı" görünür ve sıralamada açık olanların arkasına düşer.
 - **Uçlar**: `GET /restaurants/:id/availability` (`orders.view`; anahtar kapalıyken `enabled: false` döner ve kart görünmez), `PUT /restaurants/:id/availability` (`orders.manage`, anahtar gerekir; `{ pause: { minutes | null } | null, busy: { extraMinutes, minutes } | null }`, her değişiklik denetim kaydına yazılır), `GET` / `PUT /restaurants/:id/opening-hours` (`restaurant.settings.view` / `restaurant.settings.manage`).
 
+İleri tarihli sipariş (`scheduled_orders`, `docs/ILERI_TARIHLI_SIPARIS.md`) açıkken müşteri saat dışında da çalışma saatleri içinden sunulan bir saat için ön sipariş verebilir; kabul alarmı o siparişin hazırlığa başlama zamanına göre konur.
+
 Bir sonraki açılış zamanı yerel dakikalarla hesaplanır; arada yaz saati değişimi varsa gösterilen saat bir saat kayabilir. Bu değer yalnızca gösterilir, kural her istekte yeniden değerlendirilir.
 
 ## 7. Mobil uygulama sözleşmesi (Faz 1, Expo)

@@ -20,6 +20,9 @@ import {
   settlementDefaultsFor,
   trackingUrl,
   acceptDeadlineFor,
+  scheduledAcceptDeadline,
+  scheduledPromisedReadyAt,
+  schedulingSettingsFrom,
   canRateOrder,
   isAutoRefundStatus,
   canStartRefund,
@@ -49,6 +52,7 @@ import type {
   OrdersQuery,
   SettlementLine,
   DispatchSettings,
+  SchedulingSettings,
   RateOrderInput,
   NpsAnswerInput,
   RefundItem,
@@ -75,6 +79,27 @@ import { badRequest, conflict, notFound } from '../../common/api-error';
 
 export const ACTIVE_TRIP_STATUSES = ['PLANNED', 'ASSIGNED', 'IN_PROGRESS'] as const;
 export const ACTIVE_STOP_STATUSES = ['PENDING', 'EN_ROUTE', 'ARRIVING'] as const;
+
+/** What the acceptance window and the promised time of an order depend on (docs/ILERI_TARIHLI_SIPARIS.md). */
+interface OrderTiming {
+  dispatch: DispatchSettings;
+  scheduling: SchedulingSettings;
+  scheduledFor: Date | null;
+  fulfillment: 'DELIVERY' | 'PICKUP' | 'DINE_IN';
+}
+
+/** The usual timeout after placement, or, for a scheduled order, one timeout before its preparation has to start. */
+function acceptanceDeadline(placedAt: Date, timing: OrderTiming): Date {
+  if (!timing.scheduledFor) return acceptDeadlineFor(placedAt, timing.dispatch);
+  return scheduledAcceptDeadline({
+    placedAt,
+    scheduledFor: timing.scheduledFor,
+    fulfillment: timing.fulfillment,
+    prepMinutes: timing.dispatch.defaultPrepMinutes,
+    acceptTimeoutMinutes: timing.dispatch.acceptTimeoutMinutes,
+    settings: timing.scheduling,
+  });
+}
 
 const orderArgs = Prisma.validator<Prisma.OrderDefaultArgs>()({
   include: {
@@ -208,6 +233,7 @@ export class OrdersService {
         paymentMode: true,
         deliveryMode: true,
         dispatchSettings: true,
+        schedulingSettings: true,
         name: true,
       },
     });
@@ -317,6 +343,14 @@ export class OrdersService {
 
     // One instant for the row and the acceptance window, so the deadline is exactly the setting away from placedAt.
     const placedAt = new Date();
+    const scheduledFor = input.scheduledFor ? new Date(input.scheduledFor) : null;
+    // A scheduled order is for later, within a week; the storefront narrows it to the offered slots.
+    if (
+      scheduledFor &&
+      (scheduledFor.getTime() <= placedAt.getTime() || scheduledFor.getTime() > placedAt.getTime() + 7 * 86_400_000)
+    ) {
+      throw badRequest('SCHEDULED_SLOT_INVALID', 'The scheduled time must be later and within a week');
+    }
     let consentCustomerId: string | null = null;
     const orderId = await this.prisma.$transaction(async (tx) => {
       let customerUserId: string | null = null;
@@ -371,9 +405,15 @@ export class OrdersService {
             : 'NONE',
           status: initialStatus,
           placedAt,
+          scheduledFor,
           acceptDeadlineAt:
             initialStatus === 'PLACED'
-              ? acceptDeadlineFor(placedAt, dispatchSettingsFrom(restaurant.dispatchSettings))
+              ? acceptanceDeadline(placedAt, {
+                  dispatch: dispatchSettingsFrom(restaurant.dispatchSettings),
+                  scheduling: schedulingSettingsFrom(restaurant.schedulingSettings),
+                  scheduledFor,
+                  fulfillment: input.fulfillment,
+                })
               : null,
           currency: restaurant.currency,
           itemsGrossMinor: settlement.itemsGrossMinor,
@@ -633,11 +673,21 @@ export class OrdersService {
     const stamp = orderTimestampFor(to);
     if (stamp) data[stamp] = now;
     if (to === 'ACCEPTED') {
-      const minutes = options.prepMinutes ?? (await this.dispatchSettingsOf(tx, order.id)).defaultPrepMinutes;
-      data.promisedReadyAt = new Date(now.getTime() + minutes * 60_000);
+      const timing = await this.timingOf(tx, order.id);
+      const minutes = options.prepMinutes ?? timing.dispatch.defaultPrepMinutes;
+      // A scheduled order is promised for its slot, never sooner than the kitchen can make it.
+      data.promisedReadyAt = timing.scheduledFor
+        ? scheduledPromisedReadyAt({
+            now,
+            prepMinutes: minutes,
+            scheduledFor: timing.scheduledFor,
+            fulfillment: timing.fulfillment,
+            settings: timing.scheduling,
+          })
+        : new Date(now.getTime() + minutes * 60_000);
     }
     // A paid-first order enters the acceptance window when the payment lands.
-    if (to === 'PLACED') data.acceptDeadlineAt = acceptDeadlineFor(now, await this.dispatchSettingsOf(tx, order.id));
+    if (to === 'PLACED') data.acceptDeadlineAt = acceptanceDeadline(now, await this.timingOf(tx, order.id));
     if (to !== 'PLACED' && order.status === 'PLACED') data.acceptDeadlineAt = null;
     if (to === 'REJECTED' || to === 'CANCELLED_BY_RESTAURANT' || to === 'CANCELLED_BY_CUSTOMER') {
       data.rejectReason = options.reason ?? null;
@@ -666,12 +716,22 @@ export class OrdersService {
     order.status = to;
   }
 
-  private async dispatchSettingsOf(tx: Prisma.TransactionClient, orderId: string): Promise<DispatchSettings> {
+  /** What the acceptance window and the promised time of an order depend on. */
+  private async timingOf(tx: Prisma.TransactionClient, orderId: string): Promise<OrderTiming> {
     const row = await tx.order.findUnique({
       where: { id: orderId },
-      select: { restaurant: { select: { dispatchSettings: true } } },
+      select: {
+        scheduledFor: true,
+        fulfillment: true,
+        restaurant: { select: { dispatchSettings: true, schedulingSettings: true } },
+      },
     });
-    return dispatchSettingsFrom(row?.restaurant.dispatchSettings);
+    return {
+      dispatch: dispatchSettingsFrom(row?.restaurant.dispatchSettings),
+      scheduling: schedulingSettingsFrom(row?.restaurant.schedulingSettings),
+      scheduledFor: row?.scheduledFor ?? null,
+      fulfillment: row?.fulfillment ?? 'PICKUP',
+    };
   }
 
   // -- Events -------------------------------------------------------------------------
@@ -809,6 +869,7 @@ export class OrdersService {
         refundedQuantity: given.get(item.id) ?? 0,
       })),
       placedAt: row.placedAt.toISOString(),
+      scheduledFor: row.scheduledFor?.toISOString() ?? null,
       promisedReadyAt: row.promisedReadyAt?.toISOString() ?? null,
       estimatedDeliveryAt: row.estimatedDeliveryAt?.toISOString() ?? null,
       completedAt: row.completedAt?.toISOString() ?? null,
@@ -880,6 +941,7 @@ export class OrdersService {
         : null,
       note: row.customerNote,
       placedAt: row.placedAt.toISOString(),
+      scheduledFor: row.scheduledFor?.toISOString() ?? null,
       acceptedAt: row.acceptedAt?.toISOString() ?? null,
       promisedReadyAt: row.promisedReadyAt?.toISOString() ?? null,
       readyAt: row.readyAt?.toISOString() ?? null,

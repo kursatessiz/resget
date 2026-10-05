@@ -76,6 +76,29 @@ export function Storefront({
   const [saveAddress, setSaveAddress] = useState(false);
   const [saveLabel, setSaveLabel] = useState('');
   const [note, setNote] = useState('');
+  // Scheduled orders (docs/ILERI_TARIHLI_SIPARIS.md): a later slot instead of as soon as possible.
+  const scheduling = storefront.scheduling;
+  const [when, setWhen] = useState<'NOW' | 'LATER'>(scheduling && !storefront.availability.accepting ? 'LATER' : 'NOW');
+  const [slot, setSlot] = useState('');
+  const scheduled = scheduling !== null && fulfillment !== 'DINE_IN' && when === 'LATER' && slot !== '';
+  const slotDay = (iso: string) =>
+    new Intl.DateTimeFormat(locale, {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      timeZone: scheduling?.timezone,
+    }).format(new Date(iso));
+  const slotTime = (iso: string) =>
+    new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', timeZone: scheduling?.timezone }).format(
+      new Date(iso),
+    );
+  const slotDays = (scheduling?.slots ?? []).reduce<Array<{ day: string; slots: string[] }>>((days, iso) => {
+    const day = slotDay(iso);
+    const last = days[days.length - 1];
+    if (last && last.day === day) last.slots.push(iso);
+    else days.push({ day, slots: [iso] });
+    return days;
+  }, []);
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [marketingChannels, setMarketingChannels] = useState<CheckoutConsentChannel[]>([]);
   const [usePoints, setUsePoints] = useState(false);
@@ -250,6 +273,7 @@ export function Storefront({
             }
           : {}),
         payment: selectedPayment.choice,
+        ...(scheduled ? { scheduledFor: slot } : {}),
         ...(note.trim() ? { note: note.trim() } : {}),
         returnUrl: `${window.location.origin}/t/`,
       };
@@ -308,8 +332,9 @@ export function Storefront({
   const zone = ordering.deliveryZone;
   const belowMinimum =
     fulfillment === 'DELIVERY' && zone !== null && zone.minBasketMinor > 0 && subtotal < zone.minBasketMinor;
+  const canSchedule = scheduling !== null && fulfillment !== 'DINE_IN';
   const canSubmit =
-    availability.accepting &&
+    (canSchedule && when === 'LATER' ? slot !== '' : availability.accepting) &&
     !belowMinimum &&
     cart.length > 0 &&
     selectedPayment !== null &&
@@ -573,6 +598,59 @@ export function Storefront({
                 </label>
               ))}
           </fieldset>
+
+          {canSchedule && scheduling && (
+            <fieldset className="flex flex-col gap-2" data-scheduling>
+              <legend className="ui-heading">{t('shop.when.title')}</legend>
+              {!availability.accepting && <p className="ui-text-muted">{t('shop.when.preorderNote')}</p>}
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  className="pui-radio"
+                  name="when"
+                  value="NOW"
+                  checked={when === 'NOW'}
+                  disabled={!availability.accepting}
+                  onChange={() => setWhen('NOW')}
+                />
+                <span>{t('shop.when.now')}</span>
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  className="pui-radio"
+                  name="when"
+                  value="LATER"
+                  checked={when === 'LATER'}
+                  onChange={() => setWhen('LATER')}
+                />
+                <span>{t('shop.when.later')}</span>
+              </label>
+              {when === 'LATER' &&
+                (scheduling.slots.length === 0 ? (
+                  <p className="ui-caption">{t('shop.when.noSlots')}</p>
+                ) : (
+                  <SelectField
+                    id="sf-slot"
+                    label={t('shop.when.slot')}
+                    help={fulfillment === 'DELIVERY' ? t('shop.when.deliveryHelp') : t('shop.when.pickupHelp')}
+                    value={slot}
+                    onChange={(e) => setSlot(e.target.value)}
+                  >
+                    <option value="">{t('shop.when.pickSlot')}</option>
+                    {slotDays.map((group) => (
+                      <optgroup key={group.day} label={group.day}>
+                        {group.slots.map((iso) => (
+                          <option key={iso} value={iso}>
+                            {slotTime(iso)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </SelectField>
+                ))}
+            </fieldset>
+          )}
 
           <fieldset className="grid gap-3 md:grid-cols-2">
             <legend className="ui-heading">{t('shop.customer.title')}</legend>

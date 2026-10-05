@@ -192,6 +192,20 @@ export function OrderCard({
             )}
           </p>
         )}
+        {order.scheduledFor && (
+          <p data-scheduled-for>
+            <Badge tone="theme">
+              {t('orders.scheduledFor', {
+                time: new Intl.DateTimeFormat(locale, {
+                  weekday: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }).format(new Date(order.scheduledFor)),
+              })}
+            </Badge>
+          </p>
+        )}
         {order.promisedReadyAt && ['ACCEPTED', 'PREPARING'].includes(order.status) && (
           <p className="ui-caption">
             {t('orders.promisedReadyAt')}: {time.format(new Date(order.promisedReadyAt))}
