@@ -155,7 +155,11 @@ export type ApiErrorCode =
   | 'AI_REFUSED'
   | 'AI_FAILED'
   | 'SOCIAL_NOT_CONFIGURED'
-  | 'SOCIAL_ACCOUNT_NOT_FOUND';
+  | 'SOCIAL_ACCOUNT_NOT_FOUND'
+  | 'LEAD_ADS_PAGE_REQUIRED'
+  | 'META_SUBSCRIBE_FAILED'
+  | 'LEAD_NOT_FOUND'
+  | 'LEAD_NOT_RETRYABLE';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {
   return new ForbiddenException({ statusCode: 403, code, message });

@@ -65,6 +65,8 @@ export const EnvSchema = z
       .string()
       .regex(/^v\d{1,2}\.\d$/)
       .default('v21.0'),
+    /** Lead Ads webhook (docs/LEAD_ADS.md): the token Meta echoes when the webhook is set up; deliveries are verified with META_APP_SECRET. */
+    META_WEBHOOK_VERIFY_TOKEN: z.string().min(16).max(200).optional(),
     /** Monthly token budget of a tenant the console has not set one for. */
     AI_DEFAULT_MONTHLY_TOKENS: z.coerce.number().int().min(0).default(200_000),
     /** Push delivery: EXPO sends through Expo's push service; MOCK accepts outside production and refuses in it. */

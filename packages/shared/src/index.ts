@@ -64,3 +64,4 @@ export * from './churn';
 export * from './approvals';
 export * from './ai-studio';
 export * from './social';
+export * from './lead-ads';

@@ -25,7 +25,7 @@ Menü platform izinlerinden ve açık modüllerden kurulur (`MARKETING_NAV`):
 - **Satış hattı** ve **Görevler**: `contacts_crm` modülü açıkken (`docs/CRM.md`).
 - **Kampanyalar**: `campaigns` modülü açıkken, restoranın kampanya ekranıyla; gönderim `platform.marketing.send` ister. `marketing_approvals` açıkken editör hazırlar ve onaya gönderir, pazarlama yöneticisi (`campaigns.approve`) onaylar; kendi isteğini kimse onaylayamaz (`docs/ONAYLAR.md`).
 - **Atıf**: `attribution` modülü açıkken; aday, restoran kaydı ve ilk ödemenin kaynak, ortam ve kampanya kırılımı (`docs/ATIF.md`).
-- **Entegrasyonlar**: `integration_hub` modülü açıkken ve `platform.integrations.manage` ile; platformun Facebook sayfası ve Instagram hesabının Meta onay ekranıyla bağlanması (`docs/ENTEGRASYON_MERKEZI.md`).
+- **Entegrasyonlar**: `integration_hub` modülü açıkken ve `platform.integrations.manage` ile; platformun Facebook sayfası ve Instagram hesabının Meta onay ekranıyla bağlanması (`docs/ENTEGRASYON_MERKEZI.md`); `lead_ads` açıkken sayfadan aday alımı ve aday listesi (`docs/LEAD_ADS.md`).
 
 ## Konsol uçları
 
@@ -55,6 +55,6 @@ Her işlem denetim kaydına yazılır (`platform.setup`, `platform.user.*`).
 15. Kayıp riski sinyalleri (müşteri ve restoran) (tamamlandı, `docs/KAYIP_RISKI.md`; müşteri tarafı anahtar `churn_signals` ve segmentlerde `churnRisk` alanı, konsol tarafı anahtar `restaurant_health`).
 16. Onaylar, sınırlar ve denetim görüntüleyici (platform gönderimleri) (tamamlandı, `docs/ONAYLAR.md`; dört göz onayı ve gönderim sınırları anahtar `marketing_approvals`, konsol denetim kayıtları anahtar `audit_viewer`).
 17. Yapay zeka stüdyosu (yalnızca taslak, kişisel veri modele gitmez, ayrı bütçe) (tamamlandı, `docs/YAPAY_ZEKA.md`, anahtar `ai_studio`; kampanya metni ve menü açıklaması taslakları, aylık token bütçesi konsoldan).
-18. Entegrasyon merkezi, OAuth, Lead Ads, sosyal yayın (Meta hesap bağlama tamamlandı, `docs/ENTEGRASYON_MERKEZI.md`, anahtar `integration_hub`; Lead Ads ve sosyal yayın sonraki adımlar).
+18. Entegrasyon merkezi, OAuth, Lead Ads, sosyal yayın (Meta hesap bağlama tamamlandı, `docs/ENTEGRASYON_MERKEZI.md`, anahtar `integration_hub`; Lead Ads aday aktarımı tamamlandı, `docs/LEAD_ADS.md`, anahtar `lead_ads`; sosyal yayın sonraki adım).
 
 Dış onaylar (Meta App Review, Google geliştirici jetonu, SES üretim erişimi, WhatsApp şablon onayı) 10, 11 ve 18. maddeleri haftalarca bekletebilir; başvurular erken yapılmalıdır.

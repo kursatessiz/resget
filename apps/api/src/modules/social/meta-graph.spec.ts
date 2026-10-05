@@ -66,4 +66,38 @@ describe('Live Meta graph', () => {
       .mockResolvedValue(new Response(JSON.stringify({ error: { code: 190 } }), { status: 400 }));
     await expect(graph.accounts('bad')).rejects.toThrow('Meta Graph 400 190');
   });
+
+  it('subscribes a page to the leadgen webhook with a POST', async () => {
+    let init: RequestInit | undefined;
+    jest.spyOn(global, 'fetch').mockImplementation(async (input: string | URL | Request, options?: RequestInit) => {
+      calls.push(String(input));
+      init = options;
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    });
+    await graph.subscribeLeadgen('12345', 'page-token');
+    expect(calls[0]).toBe('https://graph.facebook.com/v21.0/12345/subscribed_apps');
+    expect(init?.method).toBe('POST');
+    expect(String(init?.body)).toBe('subscribed_fields=leadgen&access_token=page-token');
+  });
+
+  it('reads a lead with the page token and keeps only well-formed answers', async () => {
+    answer([
+      {
+        field_data: [{ name: 'full_name', values: ['Ayse Kaya'] }, { name: 'bad' }],
+        form_id: '777',
+        ad_id: '888',
+      },
+    ]);
+    const lead = await graph.lead('4444', 'page-token');
+    expect(lead).toEqual({ fields: [{ name: 'full_name', values: ['Ayse Kaya'] }], formId: '777', adId: '888' });
+    expect(calls[0]).toContain('/v21.0/4444?');
+    expect(calls[0]).toContain('access_token=page-token');
+  });
+
+  it('never puts a non-numeric id into a request path', async () => {
+    const spy = jest.spyOn(global, 'fetch');
+    await expect(graph.lead('../me/accounts', 'page-token')).rejects.toThrow('invalid Graph id');
+    await expect(graph.subscribeLeadgen('1/../2', 'page-token')).rejects.toThrow('invalid Graph id');
+    expect(spy).not.toHaveBeenCalled();
+  });
 });
