@@ -73,6 +73,11 @@ services:
       # IndexNow (docs/SEO.md): LIVE with a key tells search engines about changed pages.
       INDEXNOW_PROVIDER: ${INDEXNOW_PROVIDER:-NONE}
       INDEXNOW_KEY: ${INDEXNOW_KEY:-}
+      # AI studio (docs/YAPAY_ZEKA.md): ANTHROPIC with a key writes drafts; NONE switches drafting off.
+      AI_PROVIDER: ${AI_PROVIDER:-NONE}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-claude-opus-5-5}
+      AI_DEFAULT_MONTHLY_TOKENS: ${AI_DEFAULT_MONTHLY_TOKENS:-200000}
       CARD_VAULT_PROVIDER: ${CARD_VAULT_PROVIDER:-}
       MASTERPASS_CLIENT_ID: ${MASTERPASS_CLIENT_ID:-}
       MASTERPASS_CLIENT_SECRET: ${MASTERPASS_CLIENT_SECRET:-}

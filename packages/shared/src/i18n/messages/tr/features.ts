@@ -101,6 +101,9 @@ export const trFeatures = {
   'features.audit_viewer.name': 'Denetim kayıtları (konsol)',
   'features.audit_viewer.description':
     'Konsolda denetim kayıtlarını işletme, işlem ve tarih filtreleriyle okuma; platform gönderimleri için hızlı filtre. Genel anahtarla açılır.',
+  'features.ai_studio.name': 'Yapay zeka stüdyosu',
+  'features.ai_studio.description':
+    'Kampanya metni ve menü açıklaması taslakları; yalnızca taslak, kişisel veri modele gitmez, mesaj kredilerinden ayrı aylık token bütçesi. PRO.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',

@@ -50,6 +50,7 @@ export const FEATURES = {
   restaurant_health: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   marketing_approvals: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   audit_viewer: { group: 'integrations', defaultEnabled: false, stage: 'BETA' },
+  ai_studio: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   marketing_platform: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   contacts_crm: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   attribution: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },

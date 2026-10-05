@@ -21,6 +21,7 @@ export default async function CampaignsPage({ params }: { params: Promise<{ slug
           emailChannel={membership.features.includes('email_channel')}
           approvals={membership.features.includes('marketing_approvals')}
           canApprove={can('campaigns.approve')}
+          aiStudio={membership.features.includes('ai_studio')}
         />
         {membership.features.includes('consent_v2') && (
           <ConsentLimits restaurantId={membership.restaurantId} locale={locale} canManage={can('campaigns.manage')} />

@@ -1,0 +1,31 @@
+export const trAi = {
+  'ai.notice':
+    'Yapay zeka yalnızca taslak yazar: seçtiğiniz taslak forma gelir, siz düzenleyip kaydetmeden hiçbir şey kaydedilmez veya gönderilmez.',
+  'ai.briefHelp':
+    'Müşteri adı, telefon veya e-posta yazmayın; yazılan telefon, e-posta ve kart numaraları gönderilmeden önce çıkarılır.',
+  'ai.tone': 'Ton',
+  'ai.tone.FRIENDLY': 'Samimi',
+  'ai.tone.FORMAL': 'Resmi',
+  'ai.tone.PLAYFUL': 'Eğlenceli',
+  'ai.generate': 'Taslak üret',
+  'ai.working': 'Yazılıyor...',
+  'ai.use': 'Bu taslağı kullan',
+  'ai.length.one': '{count} karakter',
+  'ai.length.other': '{count} karakter',
+  'ai.redacted.one': 'Açıklamadan {count} kişisel bilgi çıkarıldı ve gönderilmedi.',
+  'ai.redacted.other': 'Açıklamadan {count} kişisel bilgi çıkarıldı ve gönderilmedi.',
+  'ai.budget': 'Bu ay kalan yapay zeka bütçesi: {remaining} / {limit} token',
+  'ai.campaign.title': 'Yapay zekayla taslak',
+  'ai.campaign.brief': 'Mesaj ne anlatsın?',
+  'ai.menu.title': 'Yapay zekayla açıklama önerisi',
+  'ai.menu.notes': 'Neler anlatılsın? (malzemeler, porsiyon, hazırlanışı)',
+  'ai.menu.notesHelp': 'Yalnızca burada yazdıklarınız kullanılır; alerjen ve diyet bilgisini siz eklemelisiniz.',
+  'ai.admin.title': 'Yapay zeka bütçesi',
+  'ai.admin.intro':
+    'İşletmenin yapay zeka stüdyosunda bir ayda harcayabileceği token sayısı (girdi ve çıktı toplamı). Mesaj kredilerinden ayrıdır; 0 stüdyoyu bu işletme için durdurur.',
+  'ai.admin.limit': 'Aylık token sınırı',
+  'ai.admin.used': 'Bu ay kullanılan: {used}, kalan: {remaining}',
+  'ai.admin.save': 'Bütçeyi kaydet',
+  'ai.admin.saved': 'Bütçe kaydedildi.',
+  'ai.admin.invalid': 'Bütçe 0 veya daha büyük bir tam sayı olmalı.',
+} as const satisfies Record<string, string>;

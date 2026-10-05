@@ -49,6 +49,16 @@ export const EnvSchema = z
       .string()
       .regex(/^[A-Za-z0-9-]{8,128}$/)
       .optional(),
+    /** AI studio (docs/YAPAY_ZEKA.md): ANTHROPIC drafts with Claude, MOCK returns fixed drafts outside production, NONE switches drafting off. */
+    AI_PROVIDER: z.enum(['NONE', 'MOCK', 'ANTHROPIC']).default('NONE'),
+    ANTHROPIC_API_KEY: z.string().min(1).optional(),
+    /** The Claude model drafts are written with. */
+    AI_MODEL: z
+      .string()
+      .regex(/^[a-z0-9.-]{3,64}$/)
+      .default('claude-opus-5-5'),
+    /** Monthly token budget of a tenant the console has not set one for. */
+    AI_DEFAULT_MONTHLY_TOKENS: z.coerce.number().int().min(0).default(200_000),
     /** Push delivery: EXPO sends through Expo's push service; MOCK accepts outside production and refuses in it. */
     PUSH_PROVIDER: z.enum(['MOCK', 'EXPO']).default('MOCK'),
     EXPO_ACCESS_TOKEN: z.string().min(1).optional(),
@@ -201,6 +211,13 @@ export const EnvSchema = z
         message: 'required when INDEXNOW_PROVIDER=LIVE',
       });
     }
+    if (env.AI_PROVIDER === 'ANTHROPIC' && !env.ANTHROPIC_API_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ANTHROPIC_API_KEY'],
+        message: 'required when AI_PROVIDER=ANTHROPIC',
+      });
+    }
     if (env.PAYMENT_PROVIDER === 'STRIPE' && !env.STRIPE_SECRET_KEY) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -209,6 +226,13 @@ export const EnvSchema = z
       });
     }
     if (env.NODE_ENV !== 'production') return;
+    if (env.AI_PROVIDER === 'MOCK') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['AI_PROVIDER'],
+        message: 'MOCK is not allowed in production',
+      });
+    }
     if (!env.REDIS_URL)
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['REDIS_URL'], message: 'required in production' });
     if (!env.CORS_ORIGIN || env.CORS_ORIGIN.split(',').includes('*')) {

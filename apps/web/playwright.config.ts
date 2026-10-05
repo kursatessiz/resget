@@ -66,6 +66,7 @@ export default defineConfig({
         JWT_SECRET: jwtSecret,
         OTP_TEST_CODE: otpTestCode,
         DOMAIN_VERIFIER: 'MOCK',
+        AI_PROVIDER: 'MOCK',
         PUBLIC_APP_URL: baseURL,
         PUBLIC_API_URL: apiURL,
         CORS_ORIGIN: baseURL,

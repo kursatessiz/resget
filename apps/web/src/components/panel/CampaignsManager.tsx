@@ -29,6 +29,7 @@ import { Badge, Button, Card, SelectField, TextAreaField, TextField } from '@/co
 import type { UiTone } from '@/components/ui/types';
 import { ApiError, bffJson } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
+import { AiCampaignAssistant } from './AiAssistant';
 
 const APPROVAL_TONE: Record<CampaignApprovalStatus, UiTone> = {
   NONE: 'muted',
@@ -55,6 +56,7 @@ export function CampaignsManager({
   emailChannel = false,
   approvals = false,
   canApprove = false,
+  aiStudio = false,
 }: {
   restaurantId: string;
   locale: string;
@@ -63,6 +65,8 @@ export function CampaignsManager({
   approvals?: boolean;
   /** The viewer may approve or reject requests (campaigns.approve). */
   canApprove?: boolean;
+  /** The ai_studio module is on: message drafts in the form (docs/YAPAY_ZEKA.md). */
+  aiStudio?: boolean;
   /** The segments_v2 module is on: a saved rule-based segment can be the audience (docs/SEGMENTLER.md). */
   segmentsV2?: boolean;
   /** The campaigns_v2 module is on: A/B test, best send hour, conversions (docs/KAMPANYALAR.md). */
@@ -492,6 +496,17 @@ export function CampaignsManager({
             </Button>
           </div>
           <p className="ui-caption">{t('campaigns.rules')}</p>
+          {aiStudio && (
+            <AiCampaignAssistant
+              restaurantId={restaurantId}
+              locale={locale}
+              channel={channel}
+              onUse={(draft) => {
+                setBody(draft.body);
+                if (draft.subject) setSubject(draft.subject);
+              }}
+            />
+          )}
         </Card>
       )}
 

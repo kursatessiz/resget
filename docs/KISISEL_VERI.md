@@ -44,6 +44,10 @@ Sonrası:
 
 Restoran, kendi müşteri listesinde silinmiş hesabı görmez ve kampanyalar ona ulaşmaz. Geçmiş siparişlerde müşteri adı ve telefonu boş görünür; tutarlar, kalemler ve il / ilçe kalır.
 
+## Yapay zeka stüdyosu
+
+Yapay zeka stüdyosu (`docs/YAPAY_ZEKA.md`) modele kişisel veri göndermez: istek restoranın adını, menü kalemini ve kullanıcının yazdığı açıklamayı taşır; açıklamadaki telefon, e-posta, kart ve IBAN numaraları gönderilmeden önce çıkarılır. Açıklama ve taslaklar saklanmaz; kullanım kaydında (`ai_usage`) yalnızca tür, model, token sayıları, çıkarılan öge sayısı ve isteği yapan kullanıcı tutulur.
+
 ## Testler
 
 Shared `privacy.spec.ts` (mezar taşı, görünür iletişim, adres anonimleştirme, onay şeması); API e2e `privacy.e2e-spec.ts` (dışa aktarma, açık sipariş ve sahip engeli, silme, eski oturumun reddi, silinen ve kalan alanlar, panelde görünüm, numaranın yeniden kullanımı); Playwright `account.e2e.ts` (indirme ve silme akışı).

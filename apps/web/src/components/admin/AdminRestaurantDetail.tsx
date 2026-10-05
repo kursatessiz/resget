@@ -12,6 +12,7 @@ import { Badge, Button, Card, SelectField, TextField } from '@/components/ui';
 import { RestaurantFeatures } from '@/components/admin/AdminFeatures';
 import { ApiError, bffJson } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
+import { AdminAiBudget } from './AdminAiBudget';
 
 /** One restaurant in the console: listing, activity, commission and fees, service area and manual credit grants. */
 export function AdminRestaurantDetail({ id, locale }: { id: string; locale: string }) {
@@ -200,6 +201,7 @@ export function AdminRestaurantDetail({ id, locale }: { id: string; locale: stri
       </Card>
 
       <RestaurantFeatures restaurantId={id} locale={locale} />
+      <AdminAiBudget restaurantId={id} locale={locale} />
 
       <Card title={t('admin.restaurant.commission')} aria-label={t('admin.restaurant.commission')}>
         <div className="grid gap-3 md:grid-cols-2">

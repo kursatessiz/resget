@@ -6,5 +6,12 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const { membership, can } = await requireMembership(slug, 'menu.view');
   const locale = await getLocale();
-  return <MenuManager restaurantId={membership.restaurantId} locale={locale} canManage={can('menu.manage')} />;
+  return (
+    <MenuManager
+      restaurantId={membership.restaurantId}
+      locale={locale}
+      canManage={can('menu.manage')}
+      aiStudio={membership.features.includes('ai_studio') && membership.effectivePlan === 'PRO' && can('menu.manage')}
+    />
+  );
 }

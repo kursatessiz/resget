@@ -109,6 +109,10 @@ export const trErrors = {
   'errors.APPROVAL_SELF_FORBIDDEN':
     'Kendi onay isteğinizi onaylayamaz veya reddedemezsiniz; başka bir yetkili karar vermeli.',
   'errors.SEND_LIMIT_EXCEEDED': 'Bu gönderim tanımlı gönderim sınırını aşıyor.',
+  'errors.AI_NOT_CONFIGURED': 'Yapay zeka stüdyosu henüz yapılandırılmadı.',
+  'errors.AI_BUDGET_EXHAUSTED': 'Bu ayın yapay zeka bütçesi doldu; yeni ay başladığında yeniden kullanılabilir.',
+  'errors.AI_REFUSED': 'Bu istek için taslak üretilemedi; açıklamayı değiştirip yeniden deneyin.',
+  'errors.AI_FAILED': 'Taslak şu an üretilemedi; biraz sonra yeniden deneyin.',
   'errors.NPS_NOT_ALLOWED': 'Bu sipariş için soru şu an yanıtlanamıyor.',
   'errors.FEEDBACK_CASE_NOT_FOUND': 'Kayıt bulunamadı.',
   'errors.SITE_PAGE_NOT_FOUND': 'Sayfa bulunamadı.',

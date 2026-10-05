@@ -53,7 +53,7 @@ Her işlem denetim kaydına yazılır (`platform.setup`, `platform.user.*`).
 14. Geri bildirim yönlendirme: düşük puan uyarısı, yüksek puanda Google değerlendirme daveti (teşvik yok), NPS (tamamlandı, `docs/GERI_BILDIRIM.md`, anahtar `feedback`; değerlendirme daveti Google politikası ve tüketici mevzuatı gereği puana bağlanmadan puan veren herkese gösterilir).
 15. Kayıp riski sinyalleri (müşteri ve restoran) (tamamlandı, `docs/KAYIP_RISKI.md`; müşteri tarafı anahtar `churn_signals` ve segmentlerde `churnRisk` alanı, konsol tarafı anahtar `restaurant_health`).
 16. Onaylar, sınırlar ve denetim görüntüleyici (platform gönderimleri) (tamamlandı, `docs/ONAYLAR.md`; dört göz onayı ve gönderim sınırları anahtar `marketing_approvals`, konsol denetim kayıtları anahtar `audit_viewer`).
-17. Yapay zeka stüdyosu (yalnızca taslak, kişisel veri modele gitmez, ayrı bütçe).
+17. Yapay zeka stüdyosu (yalnızca taslak, kişisel veri modele gitmez, ayrı bütçe) (tamamlandı, `docs/YAPAY_ZEKA.md`, anahtar `ai_studio`; kampanya metni ve menü açıklaması taslakları, aylık token bütçesi konsoldan).
 18. Entegrasyon merkezi, OAuth, Lead Ads, sosyal yayın.
 
 Dış onaylar (Meta App Review, Google geliştirici jetonu, SES üretim erişimi, WhatsApp şablon onayı) 10, 11 ve 18. maddeleri haftalarca bekletebilir; başvurular erken yapılmalıdır.
