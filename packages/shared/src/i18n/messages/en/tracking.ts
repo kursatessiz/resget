@@ -28,6 +28,7 @@ export const enTracking: Record<keyof typeof trTracking, string> = {
   'tracking.status.REJECTED': 'The restaurant could not accept the order.',
   'tracking.status.REFUNDED': 'Your payment has been refunded.',
   'tracking.promisedReadyAt': 'Estimated ready: {time}',
+  'tracking.scheduledFor': 'Scheduled for: {time}',
   'tracking.estimatedDeliveryAt': 'Estimated delivery: {time}',
   'tracking.courier': 'Your courier {name}',
   'tracking.courierDistance': 'Your courier is {km} km away',

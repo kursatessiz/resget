@@ -38,7 +38,7 @@ import { CourierService } from '../courier/courier.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { GeocodingService } from '../geocoding/geocoding.service';
 import type { AuthUser } from '../auth/tenant-context';
-import { conflict, notFound } from '../../common/api-error';
+import { badRequest, conflict, notFound } from '../../common/api-error';
 
 const restaurantSelect = {
   ...availabilitySelect,
@@ -298,7 +298,13 @@ export class StorefrontService {
     },
   ): Promise<PublicOrderResultDTO> {
     // Paused or outside the hours: consumer orders wait (docs/SIPARIS_VE_SEVK.md, "Sipariş alma durumu").
-    await this.availability.assertAccepting(restaurant, branchId);
+    // A pre-order for an offered slot is taken while closed (docs/ILERI_TARIHLI_SIPARIS.md).
+    if (input.scheduledFor) {
+      if (context.tableId !== undefined) throw badRequest('SCHEDULED_SLOT_INVALID', 'A table order is never scheduled');
+      await this.availability.assertScheduledSlot(restaurant, branchId, new Date(input.scheduledFor));
+    } else {
+      await this.availability.assertAccepting(restaurant, branchId);
+    }
     const zone = input.fulfillment === 'DELIVERY' ? await this.zones.activeZone(restaurant) : null;
     const ordering = this.orderingOf(restaurant, context.tableId !== undefined, zone, false);
     if (input.fulfillment === 'DELIVERY' && !ordering.delivery)
@@ -334,6 +340,7 @@ export class StorefrontService {
       qrSessionId: context.sessionId ?? undefined,
       marketingOptIn: input.marketingOptIn,
       marketingChannels: input.marketingChannels,
+      scheduledFor: input.scheduledFor,
     };
     // Points belong to the signed-in phone; an order placed for another number cannot spend them.
     let loyaltyUserId: string | undefined;
@@ -446,16 +453,19 @@ export class StorefrontService {
     table: { id: string; label: string } | null,
     branchId: string | null,
   ): Promise<StorefrontDTO> {
-    const [categories, payment, loyalty, availability, zone, coupons, tracking, consentV2] = await Promise.all([
-      this.menu.menuOf(restaurant.id),
-      this.mealCards.acceptedMethods(restaurant.id),
-      this.loyalty.storefrontRules(restaurant.id),
-      this.availability.of(restaurant, branchId),
-      this.zones.activeZone(restaurant),
-      this.coupons.accepts(restaurant.id),
-      this.attribution.enabled(restaurant.id),
-      this.features.isEnabled('consent_v2', restaurant.id),
-    ]);
+    const [categories, payment, loyalty, availability, zone, coupons, tracking, consentV2, scheduling] =
+      await Promise.all([
+        this.menu.menuOf(restaurant.id),
+        this.mealCards.acceptedMethods(restaurant.id),
+        this.loyalty.storefrontRules(restaurant.id),
+        this.availability.of(restaurant, branchId),
+        this.zones.activeZone(restaurant),
+        this.coupons.accepts(restaurant.id),
+        this.attribution.enabled(restaurant.id),
+        this.features.isEnabled('consent_v2', restaurant.id),
+        // A table orders for now; slots are for the restaurant's own ordering page.
+        table ? Promise.resolve(null) : this.availability.scheduling(restaurant, branchId),
+      ]);
     return {
       restaurant: {
         id: restaurant.id,
@@ -483,6 +493,7 @@ export class StorefrontService {
       availability,
       tracking,
       consentV2,
+      scheduling,
     };
   }
 

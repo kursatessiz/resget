@@ -1,16 +1,26 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@resget/database';
-import { AVAILABILITY_MAX_MINUTES, OpeningHoursSchema, orderAvailability } from '@resget/shared';
+import {
+  AVAILABILITY_MAX_MINUTES,
+  OpeningHoursSchema,
+  isScheduledSlot,
+  orderAvailability,
+  scheduledSlots,
+  schedulingSettingsFrom,
+} from '@resget/shared';
 import type {
   BranchHoursDTO,
   OrderAvailabilityDTO,
+  SchedulingSettings,
+  StorefrontSchedulingDTO,
+  UpdateSchedulingSettingsInput,
   UpdateAvailabilityInput,
   UpdateOpeningHoursInput,
 } from '@resget/shared';
 import { FeatureFlagsService } from '../features/feature-flags.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
-import { conflict, notFound } from '../../common/api-error';
+import { badRequest, conflict, notFound } from '../../common/api-error';
 
 /** The restaurant fields availability reads; storefront selects carry them too. */
 export const availabilitySelect = {
@@ -70,6 +80,91 @@ export class AvailabilityService {
       throw conflict('RESTAURANT_NOT_ACCEPTING', `Restaurant is not taking orders (${availability.state})`);
     }
     return availability;
+  }
+
+  // -- Scheduled orders (docs/ILERI_TARIHLI_SIPARIS.md) ---------------------------------
+
+  /** The slots on offer for the ordering page; null while the module is off or the restaurant offers none. */
+  async scheduling(
+    row: Pick<AvailabilityRow, 'id' | 'timezone'>,
+    branchId: string | null,
+    now = new Date(),
+  ): Promise<StorefrontSchedulingDTO | null> {
+    const input = await this.slotInput(row, branchId, now);
+    if (!input) return null;
+    return {
+      enabled: true,
+      slotMinutes: input.settings.slotMinutes,
+      slots: scheduledSlots(input).map((slot) => slot.toISOString()),
+      timezone: row.timezone,
+    };
+  }
+
+  /**
+   * A consumer order for a later slot: the slot must be one on offer now.
+   * Being outside the hours right now does not matter (that is what a
+   * pre-order is for); a pause that lasts past the slot does.
+   */
+  async assertScheduledSlot(
+    row: AvailabilityRow,
+    branchId: string | null,
+    scheduledFor: Date,
+    now = new Date(),
+  ): Promise<void> {
+    const input = await this.slotInput(row, branchId, now);
+    if (!input) throw conflict('SCHEDULING_UNAVAILABLE', 'No scheduled orders here');
+    if (!isScheduledSlot(scheduledFor, input)) throw badRequest('SCHEDULED_SLOT_INVALID', 'Not an offered slot');
+    const availability = await this.of(row, branchId, now);
+    if (
+      availability.state === 'PAUSED' &&
+      (availability.pausedUntil === null || new Date(availability.pausedUntil).getTime() > scheduledFor.getTime())
+    ) {
+      throw conflict('RESTAURANT_NOT_ACCEPTING', 'Restaurant is paused past the slot');
+    }
+  }
+
+  async schedulingSettings(restaurantId: string): Promise<SchedulingSettings> {
+    const row = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { schedulingSettings: true },
+    });
+    if (!row) throw notFound('RESTAURANT_NOT_FOUND', 'Restaurant not found');
+    return schedulingSettingsFrom(row.schedulingSettings);
+  }
+
+  async updateSchedulingSettings(
+    restaurantId: string,
+    actorUserId: string,
+    input: UpdateSchedulingSettingsInput,
+  ): Promise<SchedulingSettings> {
+    const settings = schedulingSettingsFrom(input);
+    await this.prisma.restaurant.update({ where: { id: restaurantId }, data: { schedulingSettings: settings } });
+    await this.prisma.auditLog.create({
+      data: {
+        restaurantId,
+        actorUserId,
+        action: 'scheduling.update',
+        entity: 'restaurant',
+        entityId: restaurantId,
+        meta: settings,
+      },
+    });
+    return settings;
+  }
+
+  private async slotInput(row: Pick<AvailabilityRow, 'id' | 'timezone'>, branchId: string | null, now: Date) {
+    if (!(await this.features.isEnabled('scheduled_orders', row.id))) return null;
+    const [restaurant, branch] = await Promise.all([
+      this.prisma.restaurant.findUnique({ where: { id: row.id }, select: { schedulingSettings: true } }),
+      this.prisma.branch.findFirst({
+        where: branchId ? { id: branchId, restaurantId: row.id } : { restaurantId: row.id, isActive: true },
+        orderBy: { createdAt: 'asc' },
+        select: { openingHours: true },
+      }),
+    ]);
+    const settings = schedulingSettingsFrom(restaurant?.schedulingSettings);
+    if (!settings.enabled) return null;
+    return { hours: branch?.openingHours ?? null, timezone: row.timezone, settings, now };
   }
 
   async forTenant(tenant: TenantContext): Promise<OrderAvailabilityDTO> {
