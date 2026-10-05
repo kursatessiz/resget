@@ -31,6 +31,7 @@ export const PANEL_NAV: readonly PanelNavItem[] = [
   { key: 'coupons', path: '/kuponlar', permission: 'campaigns.view', feature: 'coupons' },
   { key: 'segments', path: '/segmentler', permission: 'campaigns.view', feature: 'segments_v2' },
   { key: 'journeys', path: '/akislar', permission: 'campaigns.view', feature: 'journeys' },
+  { key: 'social', path: '/sosyal', permission: 'campaigns.view', feature: 'social_publishing' },
   { key: 'reports', path: '/raporlar', permission: 'reports.view' },
   { key: 'attribution', path: '/atif', permission: 'reports.view', feature: 'attribution' },
   { key: 'feedback', path: '/geri-bildirim', permission: 'customers.view', feature: 'feedback' },

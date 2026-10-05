@@ -34,6 +34,16 @@ export interface MetaGraph {
   subscribeLeadgen(pageId: string, pageToken: string): Promise<void>;
   /** A lead's answers, read with the token of the page it came from. */
   lead(leadgenId: string, pageToken: string): Promise<MetaLeadData>;
+  /** A page post, with a photo when an image is given; returns the post's id (docs/SOSYAL_YAYIN.md). */
+  publishPage(pageId: string, pageToken: string, post: MetaPostContent): Promise<string>;
+  /** An Instagram image post: a media container, then its publish; returns the media id. */
+  publishInstagram(igUserId: string, pageToken: string, post: MetaPostContent & { imageUrl: string }): Promise<string>;
+}
+
+export interface MetaPostContent {
+  message: string;
+  /** A public address Meta fetches the image from. */
+  imageUrl: string | null;
 }
 
 /** Graph object ids are digits; anything else never reaches a request path. */
@@ -147,6 +157,48 @@ export class LiveMetaGraph implements MetaGraph {
     };
   }
 
+  async publishPage(pageId: string, pageToken: string, post: MetaPostContent): Promise<string> {
+    const id = graphId(pageId);
+    // A photo answers with the photo's id and the feed post's id; the feed post is what the page shows.
+    const body = post.imageUrl
+      ? await this.post<{ id?: string; post_id?: string }>(`/${id}/photos`, {
+          url: post.imageUrl,
+          caption: post.message,
+          access_token: pageToken,
+        })
+      : await this.post<{ id?: string; post_id?: string }>(`/${id}/feed`, {
+          message: post.message,
+          access_token: pageToken,
+        });
+    const postId = body.post_id ?? body.id;
+    if (!postId) throw new Error('Meta Graph returned no post id');
+    return postId;
+  }
+
+  async publishInstagram(
+    igUserId: string,
+    pageToken: string,
+    post: MetaPostContent & { imageUrl: string },
+  ): Promise<string> {
+    const id = graphId(igUserId);
+    const container = await this.post<{ id?: string }>(`/${id}/media`, {
+      image_url: post.imageUrl,
+      caption: post.message,
+      access_token: pageToken,
+    });
+    if (!container.id) throw new Error('Meta Graph returned no media container');
+    const published = await this.post<{ id?: string }>(`/${id}/media_publish`, {
+      creation_id: container.id,
+      access_token: pageToken,
+    });
+    if (!published.id) throw new Error('Meta Graph returned no media id');
+    return published.id;
+  }
+
+  private post<T>(path: string, params: Record<string, string>): Promise<T> {
+    return this.fetchJson<T>(`${this.graph}${path}`, { method: 'POST', body: new URLSearchParams(params) });
+  }
+
   private get<T>(path: string, params: Record<string, string>): Promise<T> {
     return this.fetchJson<T>(`${this.graph}${path}?${new URLSearchParams(params).toString()}`);
   }
@@ -206,5 +258,27 @@ export class MockMetaGraph implements MetaGraph {
       return { fields: [{ name: 'full_name', values: ['Telefonsuz Aday'] }], formId: '700001', adId: null };
     }
     throw new Error('Meta Graph 500');
+  }
+
+  /** Every published post is recorded here, so tests can see what went out. */
+  readonly published: Array<{ accountId: string; message: string; imageUrl: string | null }> = [];
+
+  /** A message containing "#fail" is refused like a Graph error; anything else is accepted. */
+  async publishPage(pageId: string, _token: string, post: MetaPostContent): Promise<string> {
+    return this.accept(pageId, post);
+  }
+
+  async publishInstagram(
+    igUserId: string,
+    _token: string,
+    post: MetaPostContent & { imageUrl: string },
+  ): Promise<string> {
+    return this.accept(igUserId, post);
+  }
+
+  private accept(accountId: string, post: MetaPostContent): string {
+    if (post.message.includes('#fail')) throw new Error('Meta Graph 400');
+    this.published.push({ accountId, message: post.message, imageUrl: post.imageUrl });
+    return `mock-post-${this.published.length}`;
   }
 }

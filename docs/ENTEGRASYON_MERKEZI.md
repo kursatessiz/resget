@@ -4,7 +4,7 @@ Dış hizmetlere bağlantıların toplandığı yer. Yol haritasının 18. madde
 
 1. **Meta hesap bağlama (bu adım):** Facebook sayfaları ve onlara bağlı Instagram işletme hesapları OAuth ile bağlanır.
 2. **Lead Ads:** Meta reklam formlarından gelen adaylar CRM kişisine dönüşür (`docs/LEAD_ADS.md`, anahtar `lead_ads`).
-3. **Sosyal yayın:** bağlı hesaplara gönderi hazırlanır, zamanlanır ve yayımlanır.
+3. **Sosyal yayın:** bağlı hesaplara gönderi hazırlanır, zamanlanır ve yayımlanır (`docs/SOSYAL_YAYIN.md`, anahtar `social_publishing`).
 
 Modül `integration_hub` anahtarının arkasındadır (varsayılan kapalı, BETA). Sözleşmeler `packages/shared/src/social.ts`, API `apps/api/src/modules/social` içindedir.
 

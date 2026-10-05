@@ -121,6 +121,65 @@ export class UploadsService {
     return LOGO_FILE.test(name) ? name : null;
   }
 
+  // -- Social post images (docs/SOSYAL_YAYIN.md) ---------------------------------------
+
+  /** Stores a post image and returns its public URL; the caller points the post at it. */
+  async storeSocialImage(restaurantId: string, file: UploadedImage | undefined, maxBytes: number): Promise<string> {
+    if (!file || file.size === 0) throw badRequest('UNSUPPORTED_FILE', 'No file received');
+    if (file.size > maxBytes) throw badRequest('FILE_TOO_LARGE', 'Image exceeds the size limit');
+    const kind = sniffImage(file.buffer);
+    if (!kind) throw badRequest('UNSUPPORTED_FILE', 'Only PNG, JPEG and WebP images are accepted');
+    const name = `${randomUUID()}.${kind}`;
+    const dir = path.join(this.root, 'social', restaurantId);
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(dir, name), file.buffer, { flag: 'wx' });
+    return `${this.publicApiUrl()}/uploads/social/${restaurantId}/${name}`;
+  }
+
+  /**
+   * Serves a post image while a post of the restaurant still points at it.
+   * As with logos, the path on disk is rebuilt from the row, never taken
+   * from the URL.
+   */
+  async openSocialImage(restaurantId: string, file: string): Promise<StreamableFile> {
+    if (!UUID.test(restaurantId) || !LOGO_FILE.test(file)) throw notFound('NOT_FOUND', 'File not found');
+    const url = `${this.publicApiUrl()}/uploads/social/${restaurantId}/${file}`;
+    const post = await this.prisma.socialPost.findFirst({
+      where: { restaurantId, imageUrl: url },
+      select: { id: true },
+    });
+    if (!post) throw notFound('NOT_FOUND', 'File not found');
+    const name = this.ownSocialFileOf(restaurantId, url) as string;
+    const full = path.join(this.root, 'social', restaurantId, name);
+    let size: number;
+    try {
+      size = (await stat(full)).size;
+    } catch {
+      throw notFound('NOT_FOUND', 'File not found');
+    }
+    const ext = name.slice(name.lastIndexOf('.') + 1);
+    return new StreamableFile(createReadStream(full), { type: CONTENT_TYPES[ext], length: size });
+  }
+
+  /** Removes a post image this instance stored; anything else is left alone. */
+  async removeSocialImage(restaurantId: string, imageUrl: string | null): Promise<void> {
+    const name = this.ownSocialFileOf(restaurantId, imageUrl);
+    if (!name) return;
+    try {
+      await unlink(path.join(this.root, 'social', restaurantId, name));
+    } catch (error) {
+      this.logger.warn(`post image ${name} could not be removed: ${error instanceof Error ? error.message : 'error'}`);
+    }
+  }
+
+  private ownSocialFileOf(restaurantId: string, imageUrl: string | null): string | null {
+    if (!imageUrl) return null;
+    const prefix = `${this.publicApiUrl()}/uploads/social/${restaurantId}/`;
+    if (!imageUrl.startsWith(prefix)) return null;
+    const name = imageUrl.slice(prefix.length);
+    return LOGO_FILE.test(name) ? name : null;
+  }
+
   private async removeOwnFile(restaurantId: string, logoUrl: string | null): Promise<void> {
     const name = this.ownFileOf(restaurantId, logoUrl);
     if (!name) return;

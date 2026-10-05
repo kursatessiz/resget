@@ -50,4 +50,5 @@ export const trMarketing = {
   'marketing.nav.attribution': 'Atıf',
   'marketing.nav.tasks': 'Görevler',
   'marketing.nav.integrations': 'Entegrasyonlar',
+  'marketing.nav.social': 'Sosyal yayın',
 } as const satisfies Record<string, string>;

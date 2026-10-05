@@ -159,7 +159,12 @@ export type ApiErrorCode =
   | 'LEAD_ADS_PAGE_REQUIRED'
   | 'META_SUBSCRIBE_FAILED'
   | 'LEAD_NOT_FOUND'
-  | 'LEAD_NOT_RETRYABLE';
+  | 'LEAD_NOT_RETRYABLE'
+  | 'SOCIAL_POST_NOT_FOUND'
+  | 'SOCIAL_POST_LOCKED'
+  | 'SOCIAL_POST_INVALID'
+  | 'SOCIAL_SCHEDULE_INVALID'
+  | 'SOCIAL_ACCOUNT_UNAVAILABLE';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {
   return new ForbiddenException({ statusCode: 403, code, message });

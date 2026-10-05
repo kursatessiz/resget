@@ -100,4 +100,37 @@ describe('Live Meta graph', () => {
     await expect(graph.subscribeLeadgen('1/../2', 'page-token')).rejects.toThrow('invalid Graph id');
     expect(spy).not.toHaveBeenCalled();
   });
+
+  const record = (bodies: unknown[]) => {
+    const inits: Array<RequestInit | undefined> = [];
+    jest.spyOn(global, 'fetch').mockImplementation(async (input: string | URL | Request, options?: RequestInit) => {
+      calls.push(String(input));
+      inits.push(options);
+      return new Response(JSON.stringify(bodies.shift()), { status: 200 });
+    });
+    return inits;
+  };
+
+  it('posts text to the page feed and a photo with its caption', async () => {
+    const inits = record([{ id: '1_2' }, { id: 'photo-9', post_id: '1_3' }]);
+    expect(await graph.publishPage('1', 'pt', { message: 'Merhaba', imageUrl: null })).toBe('1_2');
+    expect(calls[0]).toBe('https://graph.facebook.com/v21.0/1/feed');
+    expect(String(inits[0]?.body)).toBe('message=Merhaba&access_token=pt');
+    expect(await graph.publishPage('1', 'pt', { message: 'Foto', imageUrl: 'https://api.example/i.png' })).toBe('1_3');
+    expect(calls[1]).toBe('https://graph.facebook.com/v21.0/1/photos');
+    expect(new URLSearchParams(String(inits[1]?.body)).get('url')).toBe('https://api.example/i.png');
+    expect(new URLSearchParams(String(inits[1]?.body)).get('caption')).toBe('Foto');
+  });
+
+  it('publishes to Instagram through a media container', async () => {
+    const inits = record([{ id: 'container-1' }, { id: 'media-1' }]);
+    const id = await graph.publishInstagram('17841', 'pt', { message: 'Yeni', imageUrl: 'https://api.example/i.png' });
+    expect(id).toBe('media-1');
+    expect(calls).toEqual([
+      'https://graph.facebook.com/v21.0/17841/media',
+      'https://graph.facebook.com/v21.0/17841/media_publish',
+    ]);
+    expect(new URLSearchParams(String(inits[0]?.body)).get('image_url')).toBe('https://api.example/i.png');
+    expect(new URLSearchParams(String(inits[1]?.body)).get('creation_id')).toBe('container-1');
+  });
 });

@@ -53,6 +53,7 @@ export const FEATURES = {
   ai_studio: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   integration_hub: { group: 'integrations', defaultEnabled: false, stage: 'BETA' },
   lead_ads: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
+  social_publishing: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   marketing_platform: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   contacts_crm: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   attribution: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },

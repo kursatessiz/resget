@@ -315,6 +315,7 @@ model User {
   aiUsages                   AiUsage[]
   oauthStates                OAuthState[]
   socialAccounts             SocialAccount[]
+  socialPosts                SocialPost[]
 
   @@map("users")
 }
@@ -476,6 +477,7 @@ model Restaurant {
   oauthStates          OAuthState[]
   socialAccounts       SocialAccount[]
   metaLeads            MetaLead[]
+  socialPosts          SocialPost[]
   loyaltyProgram       LoyaltyProgram?
   campaignSegments     CampaignSegmentPreset[]
   apiKeys              RestaurantApiKey[]
@@ -965,9 +967,10 @@ model SocialAccount {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  restaurant  Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  connectedBy User?      @relation(fields: [connectedByUserId], references: [id], onDelete: SetNull)
+  restaurant  Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  connectedBy User?              @relation(fields: [connectedByUserId], references: [id], onDelete: SetNull)
   leads       MetaLead[]
+  postTargets SocialPostTarget[]
 
   @@unique([restaurantId, provider, externalId])
   @@index([provider, externalId])
@@ -1001,6 +1004,53 @@ model MetaLead {
   @@index([restaurantId, receivedAt])
   @@index([status, nextAttemptAt])
   @@map("meta_leads")
+}
+
+/// A post for the tenant's connected social accounts (docs/SOSYAL_YAYIN.md); each account is a target with its own outcome.
+model SocialPost {
+  id              String    @id @default(uuid())
+  restaurantId    String
+  createdByUserId String?
+  body            String
+  /// An image this instance stored (uploads/social), referenced by absolute URL like the logo.
+  imageUrl        String?
+  /// SOCIAL_POST_STATUSES in shared.
+  status          String    @default("DRAFT")
+  scheduledAt     DateTime?
+  publishedAt     DateTime?
+  /// Held by the publisher while it runs; a stale lease means a crashed run and is taken over.
+  leaseUntil      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  restaurant Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdBy  User?              @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  targets    SocialPostTarget[]
+
+  @@index([restaurantId, createdAt])
+  @@index([status, scheduledAt])
+  @@map("social_posts")
+}
+
+model SocialPostTarget {
+  id              String    @id @default(uuid())
+  postId          String
+  socialAccountId String?
+  /// The account's name and kind when the post was written; kept after a disconnect.
+  accountName     String
+  kind            String
+  /// SOCIAL_TARGET_STATUSES in shared.
+  status          String    @default("PENDING")
+  externalPostId  String?
+  reason          String?
+  attempts        Int       @default(0)
+  publishedAt     DateTime?
+
+  post          SocialPost     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  socialAccount SocialAccount? @relation(fields: [socialAccountId], references: [id], onDelete: SetNull)
+
+  @@unique([postId, socialAccountId])
+  @@map("social_post_targets")
 }
 
 /// A named audience filter the restaurant reuses across campaigns (CampaignSegmentSchema in shared).

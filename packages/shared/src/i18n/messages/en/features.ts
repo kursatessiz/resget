@@ -110,6 +110,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.lead_ads.name': 'Lead Ads import',
   'features.lead_ads.description':
     'Leads from Facebook and Instagram ad forms arrive through a signed Meta notification and are added to the sales pipeline as contacts; no marketing consent is assumed. Requires the integration hub.',
+  'features.social_publishing.name': 'Social publishing',
+  'features.social_publishing.description':
+    'Write, schedule and publish posts to connected Facebook pages and Instagram business accounts; each account has its own outcome. Requires the integration hub.',
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',

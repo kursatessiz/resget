@@ -52,4 +52,5 @@ export const enMarketing: Record<keyof typeof trMarketing, string> = {
   'marketing.nav.attribution': 'Attribution',
   'marketing.nav.tasks': 'Tasks',
   'marketing.nav.integrations': 'Integrations',
+  'marketing.nav.social': 'Social publishing',
 };
