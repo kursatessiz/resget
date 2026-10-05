@@ -37,6 +37,7 @@ export const PERMISSION_KEYS = [
 
   'campaigns.view',
   'campaigns.manage',
+  'campaigns.approve',
   'loyalty.view',
   'loyalty.manage',
   'reports.view',

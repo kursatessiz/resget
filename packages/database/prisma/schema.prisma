@@ -222,6 +222,13 @@ enum CampaignStatus {
   CANCELLED
 }
 
+enum CampaignApprovalStatus {
+  NONE
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum CampaignRecipientStatus {
   PENDING
   SENT
@@ -285,24 +292,26 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  memberships         Membership[]
-  addresses           CustomerAddress[]
-  orders              Order[]
-  consents            Consent[]
-  restaurantCustomers RestaurantCustomer[]
-  otpCodes            OtpCode[]
-  pushDevices         PushDevice[]
-  savedPaymentMethods SavedPaymentMethod[]
-  invitesCreated      InviteToken[]        @relation("InviteCreatedBy")
-  statusChanges       OrderStatusHistory[]
-  tripsCreated        DeliveryTrip[]
-  paymentsCollected   Payment[]            @relation("PaymentCollectedBy")
-  refundsCreated      OrderRefund[]        @relation("OrderRefundCreatedBy")
-  claimsDecided       OrderClaim[]         @relation("OrderClaimDecidedBy")
-  contactActivities   ContactActivity[]    @relation("ContactActivityActor")
-  auditLogs           AuditLog[]
-  campaignsCreated    Campaign[]           @relation("CampaignCreatedBy")
-  apiKeysCreated      RestaurantApiKey[]   @relation("ApiKeyCreatedBy")
+  memberships                Membership[]
+  addresses                  CustomerAddress[]
+  orders                     Order[]
+  consents                   Consent[]
+  restaurantCustomers        RestaurantCustomer[]
+  otpCodes                   OtpCode[]
+  pushDevices                PushDevice[]
+  savedPaymentMethods        SavedPaymentMethod[]
+  invitesCreated             InviteToken[]        @relation("InviteCreatedBy")
+  statusChanges              OrderStatusHistory[]
+  tripsCreated               DeliveryTrip[]
+  paymentsCollected          Payment[]            @relation("PaymentCollectedBy")
+  refundsCreated             OrderRefund[]        @relation("OrderRefundCreatedBy")
+  claimsDecided              OrderClaim[]         @relation("OrderClaimDecidedBy")
+  contactActivities          ContactActivity[]    @relation("ContactActivityActor")
+  auditLogs                  AuditLog[]
+  campaignsCreated           Campaign[]           @relation("CampaignCreatedBy")
+  campaignApprovalsRequested Campaign[]           @relation("CampaignApprovalRequestedBy")
+  campaignApprovalsDecided   Campaign[]           @relation("CampaignApprovalDecidedBy")
+  apiKeysCreated             RestaurantApiKey[]   @relation("ApiKeyCreatedBy")
 
   @@map("users")
 }
@@ -458,6 +467,7 @@ model Restaurant {
   featureFlags         FeatureFlag[]
   auditLogs            AuditLog[]
   campaigns            Campaign[]
+  campaignSendLimit    CampaignSendLimit?
   loyaltyProgram       LoyaltyProgram?
   campaignSegments     CampaignSegmentPreset[]
   apiKeys              RestaurantApiKey[]
@@ -813,46 +823,68 @@ model RestaurantCustomer {
 
 /// A marketing send to a segment of the restaurant's own opted-in customers (PRO, docs/KAMPANYALAR.md).
 model Campaign {
-  id              String         @id @default(uuid())
-  restaurantId    String
-  name            String
-  channel         MessageChannel
-  body            String
-  status          CampaignStatus @default(DRAFT)
+  id                        String                 @id @default(uuid())
+  restaurantId              String
+  name                      String
+  channel                   MessageChannel
+  body                      String
+  status                    CampaignStatus         @default(DRAFT)
   /// CampaignSegmentSchema in shared: who receives it.
-  segment         Json?
+  segment                   Json?
   /// A saved segment (segments v2); when set it decides the audience instead of `segment`.
-  segmentId       String?
+  segmentId                 String?
   /// Campaigns v2 (docs/KAMPANYALAR.md): email subject, the B side of an A/B test, send time and attribution window.
-  subject         String?
-  variantBody     String?
-  variantSubject  String?
+  subject                   String?
+  variantBody               String?
+  variantSubject            String?
   /// Share of the audience that receives variant B, in percent; null means no test.
-  variantSharePct Int?
+  variantSharePct           Int?
   /// FIXED or BEST_HOUR (CAMPAIGN_SEND_TIME_MODES in shared).
-  sendTimeMode    String         @default("FIXED")
-  attributionDays Int            @default(3)
-  scheduledAt     DateTime?
-  startedAt       DateTime?
-  finishedAt      DateTime?
-  audienceCount   Int            @default(0)
-  sentCount       Int            @default(0)
-  failedCount     Int            @default(0)
-  skippedCount    Int            @default(0)
+  sendTimeMode              String                 @default("FIXED")
+  attributionDays           Int                    @default(3)
+  scheduledAt               DateTime?
+  startedAt                 DateTime?
+  finishedAt                DateTime?
+  audienceCount             Int                    @default(0)
+  sentCount                 Int                    @default(0)
+  failedCount               Int                    @default(0)
+  skippedCount              Int                    @default(0)
   /// Why the runner paused (INSUFFICIENT_CREDITS) or the last provider error.
-  lastError       String?
-  createdByUserId String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  lastError                 String?
+  createdByUserId           String?
+  /// Send approval (docs/ONAYLAR.md): who asked, who decided; any edit sets it back to NONE.
+  approvalStatus            CampaignApprovalStatus @default(NONE)
+  approvalRequestedByUserId String?
+  approvalRequestedAt       DateTime?
+  approvalDecidedByUserId   String?
+  approvalDecidedAt         DateTime?
+  approvalNote              String?
+  createdAt                 DateTime               @default(now())
+  updatedAt                 DateTime               @updatedAt
 
-  restaurant Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  createdBy  User?               @relation("CampaignCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  segmentRef Segment?            @relation(fields: [segmentId], references: [id], onDelete: SetNull)
-  recipients CampaignRecipient[]
+  restaurant          Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdBy           User?               @relation("CampaignCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  approvalRequestedBy User?               @relation("CampaignApprovalRequestedBy", fields: [approvalRequestedByUserId], references: [id], onDelete: SetNull)
+  approvalDecidedBy   User?               @relation("CampaignApprovalDecidedBy", fields: [approvalDecidedByUserId], references: [id], onDelete: SetNull)
+  segmentRef          Segment?            @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+  recipients          CampaignRecipient[]
 
   @@index([restaurantId, createdAt])
   @@index([status, scheduledAt])
   @@map("campaigns")
+}
+
+/// Recipient caps the console sets for a tenant's campaigns (docs/ONAYLAR.md); null means no limit.
+model CampaignSendLimit {
+  restaurantId    String   @id
+  maxPerCampaign  Int?
+  maxPerDay       Int?
+  updatedByUserId String?
+  updatedAt       DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("campaign_send_limits")
 }
 
 /// A named audience filter the restaurant reuses across campaigns (CampaignSegmentSchema in shared).
@@ -1779,6 +1811,7 @@ model AuditLog {
   actor      User?       @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([restaurantId, createdAt])
+  @@index([createdAt])
   @@map("audit_logs")
 }
 

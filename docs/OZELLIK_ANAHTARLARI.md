@@ -60,6 +60,8 @@ Anahtar, modülün işletme için var olup olmadığına karar verir. Plan (BASI
 | `feedback` | Pazarlama | kapalı (BETA) |
 | `churn_signals` | Pazarlama | kapalı (BETA) |
 | `restaurant_health` | Pazarlama | kapalı (BETA, yalnızca genel anahtar anlamlıdır) |
+| `marketing_approvals` | Pazarlama | kapalı (BETA) |
+| `audit_viewer` | Entegrasyonlar | kapalı (BETA, yalnızca genel anahtar anlamlıdır) |
 | `marketing_platform` | Pazarlama | kapalı (BETA) |
 | `contacts_crm` | Pazarlama | kapalı (BETA) |
 | `attribution` | Pazarlama | kapalı (BETA) |

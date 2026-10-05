@@ -24,11 +24,14 @@ export const PLATFORM_PERMISSION_KEYS = [
 export type PlatformPermissionKey = (typeof PLATFORM_PERMISSION_KEYS)[number];
 export const PlatformPermissionKeySchema = z.enum(PLATFORM_PERMISSION_KEYS);
 
+/** The platform tenant's slug; a reserved slug no restaurant can take. */
+export const PLATFORM_TENANT_SLUG = 'platform';
+
 /** Restaurant permissions each platform permission grants on the platform tenant. */
 export const PLATFORM_TENANT_GRANTS: Readonly<Record<PlatformPermissionKey, readonly PermissionKey[]>> = {
   'platform.marketing.view': ['customers.view', 'campaigns.view', 'reports.view'],
   'platform.marketing.manage': ['customers.manage', 'campaigns.manage'],
-  'platform.marketing.send': ['campaigns.manage', 'messaging.manage'],
+  'platform.marketing.send': ['campaigns.manage', 'campaigns.approve', 'messaging.manage'],
   'platform.contacts.export': ['customers.contact.view'],
   'platform.integrations.manage': ['integrations.manage'],
 };

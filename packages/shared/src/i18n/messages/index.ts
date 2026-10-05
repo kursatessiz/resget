@@ -45,6 +45,7 @@ import { trReferrals } from './tr/referrals';
 import { trPartnerReferrals } from './tr/partnerReferrals';
 import { trFeedback } from './tr/feedback';
 import { trChurn } from './tr/churn';
+import { trApprovals } from './tr/approvals';
 import { trIntegrations } from './tr/integrations';
 import { enCommon } from './en/common';
 import { enNav } from './en/nav';
@@ -93,6 +94,7 @@ import { enReferrals } from './en/referrals';
 import { enPartnerReferrals } from './en/partnerReferrals';
 import { enFeedback } from './en/feedback';
 import { enChurn } from './en/churn';
+import { enApprovals } from './en/approvals';
 import { enIntegrations } from './en/integrations';
 
 /**
@@ -151,6 +153,7 @@ export const TR_NAMESPACES = [
   trPartnerReferrals,
   trFeedback,
   trChurn,
+  trApprovals,
   trIntegrations,
   trMobile,
 ] as const;
@@ -202,6 +205,7 @@ export const EN_NAMESPACES = [
   enPartnerReferrals,
   enFeedback,
   enChurn,
+  enApprovals,
   enIntegrations,
   enMobile,
 ] as const;

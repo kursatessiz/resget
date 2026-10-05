@@ -111,6 +111,8 @@ Sevk ayarları `restaurants.dispatchSettings` JSON alanındadır (`DispatchSetti
 
 Kampanyalar v2 (`docs/KAMPANYALAR.md`): `campaigns` satırına `subject`, `variantBody`, `variantSubject`, `variantSharePct`, `sendTimeMode`, `attributionDays`; `campaign_recipients` satırına `variant`, `dueAt`, `convertedOrderId` (tekil, sipariş silinince boşalır), `convertedAt`, `revenueMinor` eklendi. Migration: `20261105000000_campaigns_v2`.
 
+Gönderim onayı ve sınırları (`docs/ONAYLAR.md`): `campaigns` satırına `approvalStatus`, `approvalRequestedByUserId`, `approvalRequestedAt`, `approvalDecidedByUserId`, `approvalDecidedAt`, `approvalNote`; kiracı başına alıcı sınırları `campaign_send_limits` (`maxPerCampaign`, `maxPerDay`); `audit_logs.createdAt` dizini. Migration'lar: `20261114000000_campaign_approvals`, `20261114000001_audit_log_time_index`, `20261114000002_platform_campaign_approve`.
+
 ## Migration kuralları
 
 Yalnızca ileri yönlü; deploy'dan önce çalışır; bir sürüm boyunca geriye dönük uyumlu (önce genişlet, sonra daralt). CI, boş Postgres'e uygulayıp şema ile sapma olmadığını denetler. Yeni migration: `pnpm --filter @resget/database db:migrate --name <ad>` (yerel Postgres gerekir).

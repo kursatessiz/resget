@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { CampaignApprovalDTO, CampaignGuardsDTO } from './approvals';
 import { OrderChannel } from './enums';
 import type { CampaignRecipientStatus, CampaignStatus } from './enums';
 import { PaginationSchema, UuidSchema } from './validators';
@@ -266,6 +267,8 @@ export interface CampaignDTO {
   failedCount: number;
   skippedCount: number;
   lastError: string | null;
+  /** Send approval (docs/ONAYLAR.md); status NONE where approvals are not used. */
+  approval: CampaignApprovalDTO;
   createdAt: string;
 }
 
@@ -306,6 +309,8 @@ export interface CampaignPreviewDTO {
   withinSendWindowNow: boolean;
   nextSendWindowStart: string;
   timezone: string;
+  /** Whether an approval is needed and which send limit, if any, this campaign would break now. */
+  guards: CampaignGuardsDTO;
 }
 
 export interface CampaignVariantResultDTO {

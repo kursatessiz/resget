@@ -33,6 +33,7 @@ Mesaj metni restoranın yazdığıdır; şablon `messaging.template.campaign.bod
 - `POST` (`campaigns.manage`): taslak; `scheduledAt` verilirse doğrudan zamanlanır. `PATCH :id`: taslak veya zamanlanmış kampanyada ad, kanal, metin, segment.
 - `POST :id/preview` (`campaigns.view`): alıcı sayısı, gereken kredi ve cüzdan bakiyesi, müşterinin göreceği örnek metin, şu an pencere içinde mi ve değilse ne zaman.
 - `POST :id/send` (`campaigns.manage`): şimdi veya `scheduledAt`. `POST :id/cancel`.
+- `POST :id/approval/request` (`campaigns.manage`), `POST :id/approval/approve` ve `POST :id/approval/reject` (`campaigns.approve`): `marketing_approvals` açıkken dört göz onayı; gönderim onay ve sınırlar olmadan reddedilir, önizleme `guards` alanında durumu gösterir (`docs/ONAYLAR.md`). Oluşturma, düzenleme, gönderim ve iptal her zaman denetim kaydına yazılır.
 - `GET :id`: kampanya ve ilk 500 alıcının durumu.
 - `POST audience/count` (`campaigns.view`): verilen filtrenin şu an kaç izinli müşteriye denk geldiği.
 - `GET segments` (`campaigns.view`): kayıtlı segmentler ve güncel alıcı sayıları; `POST segments`, `PUT segments/:id`, `DELETE segments/:id` (`campaigns.manage`).

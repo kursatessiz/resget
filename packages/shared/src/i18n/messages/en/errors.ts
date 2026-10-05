@@ -106,6 +106,10 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.COUPON_OWN_REFERRAL': 'You cannot use your own invite code.',
   'errors.REFERRAL_NOT_AVAILABLE': 'This restaurant has no referral programme for you.',
   'errors.NPS_EXISTS': 'You already answered for this order.',
+  'errors.CAMPAIGN_APPROVAL_REQUIRED': 'This campaign must be approved before it is sent.',
+  'errors.APPROVAL_SELF_FORBIDDEN':
+    'You cannot approve or reject your own request; another authorised person must decide.',
+  'errors.SEND_LIMIT_EXCEEDED': 'This send goes over the set sending limit.',
   'errors.NPS_NOT_ALLOWED': 'The question cannot be answered for this order now.',
   'errors.FEEDBACK_CASE_NOT_FOUND': 'Case not found.',
   'errors.SITE_PAGE_NOT_FOUND': 'Page not found.',

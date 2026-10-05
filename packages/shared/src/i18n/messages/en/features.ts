@@ -95,6 +95,12 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.restaurant_health.name': 'Restaurant health (console)',
   'features.restaurant_health.description':
     'A console list of restaurants with signals such as an order drop, silence, no first order, an overdue invoice, a suspended listing or a trial ending without a card. Opened with the global switch.',
+  'features.marketing_approvals.name': 'Send approvals and limits',
+  'features.marketing_approvals.description':
+    'A campaign is not sent until an authorised person other than the requester approves it; changing the content takes the approval back. Per-campaign and 24-hour recipient limits set in the console apply. Meant for the platform tenant first.',
+  'features.audit_viewer.name': 'Audit log (console)',
+  'features.audit_viewer.description':
+    'Read the audit log in the console with business, action and date filters, plus a quick filter for platform sends. Opened with the global switch.',
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',

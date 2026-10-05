@@ -39,6 +39,7 @@ import { ConsentService } from '../consent/consent.service';
 import { FeatureFlagsService } from '../features/feature-flags.service';
 import { SegmentsService } from '../segments/segments.service';
 import { CommercialSenderService } from './commercial-sender.service';
+import { APPROVAL_RESET, CampaignGuardsService } from './campaign-guards.service';
 
 type SegmentRow = Prisma.CampaignSegmentPresetGetPayload<Record<string, never>>;
 
@@ -65,6 +66,13 @@ const campaignSelect = Prisma.validator<Prisma.CampaignSelect>()({
   failedCount: true,
   skippedCount: true,
   lastError: true,
+  approvalStatus: true,
+  approvalRequestedByUserId: true,
+  approvalRequestedAt: true,
+  approvalDecidedAt: true,
+  approvalNote: true,
+  approvalRequestedBy: { select: { fullName: true } },
+  approvalDecidedBy: { select: { fullName: true } },
   createdAt: true,
 });
 type CampaignRow = Prisma.CampaignGetPayload<{ select: typeof campaignSelect }>;
@@ -90,6 +98,7 @@ export class CampaignsService {
     private readonly features: FeatureFlagsService,
     private readonly savedSegments: SegmentsService,
     private readonly sender: CommercialSenderService,
+    private readonly guards: CampaignGuardsService,
   ) {}
 
   /** Email, A/B, best hour and attribution belong to campaigns_v2; email also needs the email module. */
@@ -217,6 +226,10 @@ export class CampaignsService {
   async create(restaurantId: string, userId: string, input: CreateCampaignInput): Promise<CampaignDTO> {
     await this.checkSegment(restaurantId, input.segmentId);
     await this.checkV2(restaurantId, input);
+    // Under approvals a new campaign is a draft until someone else approves it (docs/ONAYLAR.md).
+    if (input.scheduledAt && (await this.guards.approvalsOn(restaurantId))) {
+      throw conflict('CAMPAIGN_APPROVAL_REQUIRED', 'A campaign must be approved before it is scheduled');
+    }
     const row = await this.prisma.campaign.create({
       data: {
         restaurantId,
@@ -236,14 +249,27 @@ export class CampaignsService {
       },
       select: campaignSelect,
     });
+    await this.guards.audit(this.prisma, restaurantId, userId, 'campaign.create', row.id, {
+      name: row.name,
+      channel: row.channel,
+      scheduled: row.status === CampaignStatus.SCHEDULED,
+    });
     return this.toDto(row);
   }
 
-  async update(restaurantId: string, campaignId: string, input: UpdateCampaignInput): Promise<CampaignDTO> {
+  async update(
+    restaurantId: string,
+    campaignId: string,
+    userId: string,
+    input: UpdateCampaignInput,
+  ): Promise<CampaignDTO> {
     const row = await this.requireCampaign(restaurantId, campaignId);
     if (row.status !== 'DRAFT' && row.status !== 'SCHEDULED') {
       throw conflict('CAMPAIGN_STATE_INVALID', 'Only a draft or scheduled campaign can be edited');
     }
+    // An edit takes any approval back; under approvals a scheduled campaign also returns to draft.
+    const resetApproval = row.approvalStatus !== 'NONE';
+    const unschedule = row.status === 'SCHEDULED' && (await this.guards.approvalsOn(restaurantId));
     await this.checkSegment(restaurantId, input.segmentId);
     await this.checkV2(restaurantId, input);
     const variant =
@@ -277,8 +303,15 @@ export class CampaignsService {
         ...(input.attributionDays !== undefined ? { attributionDays: input.attributionDays } : {}),
         ...(input.segment !== undefined ? { segment: input.segment } : {}),
         ...(input.segmentId !== undefined ? { segmentId: input.segmentId } : {}),
+        ...(resetApproval ? APPROVAL_RESET : {}),
+        ...(unschedule ? { status: CampaignStatus.DRAFT, scheduledAt: null } : {}),
       },
       select: campaignSelect,
+    });
+    await this.guards.audit(this.prisma, restaurantId, userId, 'campaign.update', row.id, {
+      fields: Object.keys(input),
+      ...(resetApproval ? { approvalReset: row.approvalStatus } : {}),
+      ...(unschedule ? { unscheduled: true } : {}),
     });
     return this.toDto(updated);
   }
@@ -333,6 +366,7 @@ export class CampaignsService {
       select: { balance: true },
     });
     const balance = wallet?.balance ?? 0;
+    const limit = await this.guards.check(restaurantId, audienceCount, now);
     // Email is never charged to a wallet (CLAUDE.md rule 9).
     const creditsNeeded = channel === 'EMAIL' ? 0 : audienceCount;
     return {
@@ -347,30 +381,125 @@ export class CampaignsService {
       withinSendWindowNow: isWithinSendWindow(now, restaurant.timezone),
       nextSendWindowStart: nextSendWindowStart(now, restaurant.timezone).toISOString(),
       timezone: restaurant.timezone,
+      guards: {
+        approvalRequired: await this.guards.approvalsOn(restaurantId),
+        approval: this.guards.approvalDto(row),
+        limit: limit.limit ? { ...limit.limit, usedLast24h: limit.usedLast24h } : null,
+        limitBlock: limit.block,
+      },
     };
   }
 
   /** Queues the campaign: now or at the given moment. The runner respects the send window either way. */
-  async send(restaurantId: string, campaignId: string, input: SendCampaignInput): Promise<CampaignDTO> {
+  async send(
+    restaurantId: string,
+    campaignId: string,
+    userId: string,
+    input: SendCampaignInput,
+    now: Date = new Date(),
+  ): Promise<CampaignDTO> {
     const row = await this.requireCampaign(restaurantId, campaignId);
     if (row.status !== 'DRAFT' && row.status !== 'SCHEDULED') {
       throw conflict('CAMPAIGN_STATE_INVALID', 'Campaign was already sent or cancelled');
+    }
+    // Approval and limits apply only under the module; without it the audience is counted when the campaign starts.
+    let audienceCount: number | null = null;
+    if (await this.guards.approvalsOn(restaurantId)) {
+      if (row.approvalStatus !== 'APPROVED') {
+        throw conflict('CAMPAIGN_APPROVAL_REQUIRED', 'The campaign has not been approved');
+      }
+      const channel = await this.sender.effectiveChannel(restaurantId, row.channel as CampaignChannel);
+      audienceCount = await this.prisma.restaurantCustomer.count({
+        where: await this.campaignAudienceWhere(restaurantId, row, now, channel),
+      });
+      const limit = await this.guards.check(restaurantId, audienceCount, now);
+      if (limit.block) {
+        await this.guards.audit(this.prisma, restaurantId, userId, 'campaign.limit_blocked', row.id, {
+          block: limit.block,
+          audienceCount,
+          usedLast24h: limit.usedLast24h,
+        });
+        throw conflict('SEND_LIMIT_EXCEEDED', `The campaign goes over the ${limit.block} limit`);
+      }
     }
     if (row.channel === 'EMAIL') {
       const blocker = await this.sender.emailBlocker(restaurantId, ['campaigns_v2']);
       if (blocker === 'FEATURE_DISABLED') throw forbidden('FEATURE_DISABLED', 'Email campaigns are switched off');
       if (blocker) throw conflict(blocker, 'No verified sending domain');
     }
-    const scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : new Date();
+    const scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : now;
     const updated = await this.prisma.campaign.update({
       where: { id: row.id },
       data: { status: CampaignStatus.SCHEDULED, scheduledAt, lastError: null },
       select: campaignSelect,
     });
+    await this.guards.audit(this.prisma, restaurantId, userId, 'campaign.send', row.id, {
+      ...(audienceCount !== null ? { audienceCount } : {}),
+      scheduledAt: scheduledAt.toISOString(),
+    });
     return this.toDto(updated);
   }
 
-  async cancel(restaurantId: string, campaignId: string): Promise<CampaignDTO> {
+  // -- Approvals (docs/ONAYLAR.md) -------------------------------------------------------------
+
+  async requestApproval(restaurantId: string, campaignId: string, userId: string): Promise<CampaignDTO> {
+    await this.features.assertEnabled('marketing_approvals', restaurantId);
+    const row = await this.requireCampaign(restaurantId, campaignId);
+    if (row.status !== 'DRAFT' || (row.approvalStatus !== 'NONE' && row.approvalStatus !== 'REJECTED')) {
+      throw conflict('CAMPAIGN_STATE_INVALID', 'Only a draft without a pending or given approval can be submitted');
+    }
+    const updated = await this.prisma.campaign.update({
+      where: { id: row.id },
+      data: {
+        ...APPROVAL_RESET,
+        approvalStatus: 'PENDING',
+        approvalRequestedByUserId: userId,
+        approvalRequestedAt: new Date(),
+      },
+      select: campaignSelect,
+    });
+    await this.guards.audit(this.prisma, restaurantId, userId, 'campaign.approval.request', row.id);
+    return this.toDto(updated);
+  }
+
+  /** Approve or reject a pending request; never the requester's own (four eyes). */
+  async decideApproval(
+    restaurantId: string,
+    campaignId: string,
+    userId: string,
+    decision: { approve: true } | { approve: false; note: string },
+  ): Promise<CampaignDTO> {
+    await this.features.assertEnabled('marketing_approvals', restaurantId);
+    const row = await this.requireCampaign(restaurantId, campaignId);
+    if (row.status !== 'DRAFT' || row.approvalStatus !== 'PENDING') {
+      throw conflict('CAMPAIGN_STATE_INVALID', 'No pending approval request');
+    }
+    if (row.approvalRequestedByUserId === userId) {
+      throw forbidden('APPROVAL_SELF_FORBIDDEN', 'The requester cannot decide on their own request');
+    }
+    // Conditional on the state read above, so two deciders cannot both win.
+    const changed = await this.prisma.campaign.updateMany({
+      where: { id: row.id, approvalStatus: 'PENDING' },
+      data: {
+        approvalStatus: decision.approve ? 'APPROVED' : 'REJECTED',
+        approvalDecidedByUserId: userId,
+        approvalDecidedAt: new Date(),
+        approvalNote: decision.approve ? null : decision.note,
+      },
+    });
+    if (changed.count === 0) throw conflict('CAMPAIGN_STATE_INVALID', 'No pending approval request');
+    await this.guards.audit(
+      this.prisma,
+      restaurantId,
+      userId,
+      decision.approve ? 'campaign.approval.approve' : 'campaign.approval.reject',
+      row.id,
+      decision.approve ? undefined : { note: decision.note },
+    );
+    return this.toDto(await this.requireCampaign(restaurantId, campaignId));
+  }
+
+  async cancel(restaurantId: string, campaignId: string, userId: string): Promise<CampaignDTO> {
     const row = await this.requireCampaign(restaurantId, campaignId);
     if (row.status === 'SENT' || row.status === 'CANCELLED') {
       throw conflict('CAMPAIGN_STATE_INVALID', 'Campaign is already finished');
@@ -380,6 +509,7 @@ export class CampaignsService {
       data: { status: CampaignStatus.CANCELLED, finishedAt: new Date() },
       select: campaignSelect,
     });
+    await this.guards.audit(this.prisma, restaurantId, userId, 'campaign.cancel', row.id, { from: row.status });
     return this.toDto(updated);
   }
 
@@ -415,6 +545,7 @@ export class CampaignsService {
         channel: true,
         variantSharePct: true,
         sendTimeMode: true,
+        approvalStatus: true,
         restaurant: { select: { timezone: true } },
       },
       take: 20,
@@ -446,6 +577,7 @@ export class CampaignsService {
       channel: string;
       variantSharePct: number | null;
       sendTimeMode: string;
+      approvalStatus: string;
       restaurant: { timezone: string };
     },
     now: Date,
@@ -460,6 +592,9 @@ export class CampaignsService {
       where: await this.campaignAudienceWhere(campaign.restaurantId, campaign, now, channel),
       select: { id: true },
     });
+    // Checked again at start: approvals may have been switched on, or the audience grown, since it was queued.
+    const held = await this.holdAtStart(campaign, audience.length, now);
+    if (held) return;
     if (audience.length > 0) {
       const due =
         campaign.sendTimeMode === 'BEST_HOUR'
@@ -482,6 +617,36 @@ export class CampaignsService {
     }
     await this.prisma.campaign.update({ where: { id: campaign.id }, data: { audienceCount: audience.length } });
     if (audience.length === 0) await this.finish(campaign.id, now);
+  }
+
+  /** Puts a campaign that may not start back to draft with the reason; true when it was held. */
+  private async holdAtStart(
+    campaign: { id: string; restaurantId: string; approvalStatus: string },
+    audienceCount: number,
+    now: Date,
+  ): Promise<boolean> {
+    if (!(await this.guards.approvalsOn(campaign.restaurantId))) return false;
+    let reason: 'CAMPAIGN_APPROVAL_REQUIRED' | 'SEND_LIMIT_EXCEEDED' | null = null;
+    let meta: Prisma.InputJsonObject = { audienceCount };
+    if (campaign.approvalStatus !== 'APPROVED') {
+      reason = 'CAMPAIGN_APPROVAL_REQUIRED';
+    } else {
+      const limit = await this.guards.check(campaign.restaurantId, audienceCount, now);
+      if (limit.block) {
+        reason = 'SEND_LIMIT_EXCEEDED';
+        meta = { audienceCount, block: limit.block, usedLast24h: limit.usedLast24h };
+      }
+    }
+    if (!reason) return false;
+    await this.prisma.campaign.update({
+      where: { id: campaign.id },
+      data: { status: CampaignStatus.DRAFT, startedAt: null, scheduledAt: null, lastError: reason },
+    });
+    await this.guards.audit(this.prisma, campaign.restaurantId, null, 'campaign.held', campaign.id, {
+      ...meta,
+      reason,
+    });
+    return true;
   }
 
   private async sendBatch(
@@ -776,6 +941,7 @@ export class CampaignsService {
       failedCount: row.failedCount,
       skippedCount: row.skippedCount,
       lastError: row.lastError,
+      approval: this.guards.approvalDto(row),
       createdAt: row.createdAt.toISOString(),
     };
   }

@@ -105,6 +105,10 @@ export const trErrors = {
   'errors.COUPON_OWN_REFERRAL': 'Kendi davet kodunuzu kullanamazsınız.',
   'errors.REFERRAL_NOT_AVAILABLE': 'Bu restoranda sizin için bir tavsiye programı yok.',
   'errors.NPS_EXISTS': 'Bu sipariş için zaten yanıt verdiniz.',
+  'errors.CAMPAIGN_APPROVAL_REQUIRED': 'Bu kampanya gönderilmeden önce onaylanmalı.',
+  'errors.APPROVAL_SELF_FORBIDDEN':
+    'Kendi onay isteğinizi onaylayamaz veya reddedemezsiniz; başka bir yetkili karar vermeli.',
+  'errors.SEND_LIMIT_EXCEEDED': 'Bu gönderim tanımlı gönderim sınırını aşıyor.',
   'errors.NPS_NOT_ALLOWED': 'Bu sipariş için soru şu an yanıtlanamıyor.',
   'errors.FEEDBACK_CASE_NOT_FOUND': 'Kayıt bulunamadı.',
   'errors.SITE_PAGE_NOT_FOUND': 'Sayfa bulunamadı.',
