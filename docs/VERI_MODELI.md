@@ -132,3 +132,5 @@ Alerjenler (`docs/ALERJENLER.md`): `menu_items.allergens` ve `menu_items.dietary
 Öğün saatleri (`docs/OGUN_SAATLERI.md`): `menu_categories.availableHours` bölümün sipariş edilebildiği haftalık aralıklardır (çalışma saatleri biçiminde; boş ise her zaman). Migration: `20261121000000_menu_dayparts`.
 
 Teslimat kodu (`docs/TESLIMAT_KODU.md`): `orders.deliveryCode` eve teslim siparişinde oluşturulan dört haneli koddur (gel-al ve masada boş); `delivery_stops.proof` teslimin nasıl kanıtlandığıdır (`PIN` veya `STAFF`; modül kapalıyken boş), `delivery_stops.codeAttempts` kuryenin o duraktaki deneme sayısıdır. Migration: `20261122000000_delivery_pin`.
+
+Sipariş bağlantıları (`docs/SIPARIS_BAGLANTILARI.md`): `orders.source` siparişin geldiği kanal bağlantısıdır (`ORDER_SOURCES` anahtarı: Instagram, Facebook, WhatsApp, Google, TikTok; yalnızca restoran sayfasından gelen siparişte ve modül açıkken; diğerlerinde boş). Migration: `20261123000000_order_source`.

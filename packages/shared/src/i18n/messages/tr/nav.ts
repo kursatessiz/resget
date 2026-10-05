@@ -27,4 +27,5 @@ export const trNav = {
   'nav.feedback': 'Geri bildirim',
   'nav.churn': 'Kayıp riski',
   'nav.social': 'Sosyal yayın',
+  'nav.orderingLinks': 'Sipariş bağlantıları',
 } as const satisfies Record<string, string>;

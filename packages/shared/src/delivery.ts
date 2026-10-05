@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { OrderRatingDTO } from './ratings';
+import type { OrderSource } from './ordering-links';
 import {
   DeliveryStopStatus,
   DeliveryTripStatus,
@@ -639,6 +640,8 @@ export interface OrderSummaryDTO {
   restaurantId: string;
   branchId: string;
   channel: OrderChannelValue;
+  /** The channel link the customer came from (docs/SIPARIS_BAGLANTILARI.md); null when none. */
+  source: OrderSource | null;
   fulfillment: FulfillmentTypeValue;
   status: OrderStatusValue;
   currency: string;

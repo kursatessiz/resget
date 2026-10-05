@@ -1255,6 +1255,8 @@ model Order {
   customerUserId String?
   tableId        String?
   channel        OrderChannel
+  /// The ordering link the customer came from (docs/SIPARIS_BAGLANTILARI.md): a key of ORDER_SOURCES; null when none.
+  source         String?
   fulfillment    FulfillmentType
   deliveryMode   DeliveryMode    @default(NONE)
   status         OrderStatus     @default(PLACED)

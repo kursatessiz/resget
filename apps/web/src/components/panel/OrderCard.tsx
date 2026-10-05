@@ -192,6 +192,11 @@ export function OrderCard({
             )}
           </p>
         )}
+        {order.source && (
+          <p data-order-source={order.source}>
+            <Badge tone="muted">{t('orders.source', { source: t(`orderingLinks.source.${order.source}`) })}</Badge>
+          </p>
+        )}
         {order.scheduledFor && (
           <p data-scheduled-for>
             <Badge tone="theme">

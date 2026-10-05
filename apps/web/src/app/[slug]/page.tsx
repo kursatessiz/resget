@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CouponCodeSchema, SlugSchema, restaurantJsonLd } from '@resget/shared';
+import { CouponCodeSchema, SlugSchema, orderSourceFromParam, restaurantJsonLd } from '@resget/shared';
 import type { StorefrontDTO, StorefrontViewerDTO } from '@resget/shared';
 import { ConsentManager } from '@/components/ConsentManager';
 import { JsonLdScript } from '@/components/site/JsonLdScript';
@@ -25,11 +25,14 @@ export default async function RestaurantPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ kod?: string | string[] }>;
+  searchParams: Promise<{ kod?: string | string[]; via?: string | string[] }>;
 }) {
   const { slug } = await params;
   // An invite link carries the friend's code (docs/TAVSIYE.md); only a well-formed one fills the coupon field.
-  const kod = (await searchParams).kod;
+  const query = await searchParams;
+  const kod = query.kod;
+  // An ordering link names its channel (docs/SIPARIS_BAGLANTILARI.md); an unknown value is ignored.
+  const via = orderSourceFromParam(typeof query.via === 'string' ? query.via : null);
   const invite = typeof kod === 'string' ? CouponCodeSchema.safeParse(kod) : null;
   if (!SlugSchema.safeParse(slug).success) notFound();
   const res = await fetch(`${apiInternalBaseUrl()}/public/restaurants/${slug}/menu`, { cache: 'no-store' });
@@ -73,7 +76,7 @@ export default async function RestaurantPage({
         <Storefront
           storefront={storefront}
           locale={locale}
-          source={{ kind: 'site' }}
+          source={{ kind: 'site', via }}
           viewer={viewer}
           initialCouponCode={invite?.success ? invite.data : null}
         />

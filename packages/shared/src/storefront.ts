@@ -5,6 +5,7 @@ import type { Allergen, DietaryTag } from './allergens';
 import type { OpeningHours } from './opening-hours';
 import { CouponCodeSchema } from './coupons';
 import { MarketingChannelsSchema } from './consent';
+import { OrderSourceSchema } from './ordering-links';
 import type { DeliveryZone } from './delivery-zone';
 import type { StorefrontLoyaltyDTO } from './loyalty';
 import type { RatingSummaryDTO } from './ratings';
@@ -111,6 +112,8 @@ export const PublicOrderSchema = z
     couponCode: CouponCodeSchema.optional(),
     /** A later slot instead of as soon as possible (docs/ILERI_TARIHLI_SIPARIS.md); one of the offered slots. */
     scheduledFor: z.string().datetime().optional(),
+    /** The channel link the page was opened from (docs/SIPARIS_BAGLANTILARI.md); kept only while the module is on. */
+    source: OrderSourceSchema.optional(),
   })
   .strict()
   .superRefine((order, ctx) => {
