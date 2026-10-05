@@ -47,6 +47,7 @@ import { GovernanceModule } from './modules/governance/governance.module';
 import { AiStudioModule } from './modules/ai-studio/ai-studio.module';
 import { SocialModule } from './modules/social/social.module';
 import { LeadAdsModule } from './modules/lead-ads/lead-ads.module';
+import { OrderingLinksModule } from './modules/ordering-links/ordering-links.module';
 import { SocialPublishingModule } from './modules/social-publishing/social-publishing.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { DomainsModule } from './modules/domains/domains.module';
@@ -105,6 +106,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
     AiStudioModule,
     SocialModule,
     LeadAdsModule,
+    OrderingLinksModule,
     SocialPublishingModule,
     BillingModule,
     CustomersModule,

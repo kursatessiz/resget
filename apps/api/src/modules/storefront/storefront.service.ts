@@ -363,9 +363,17 @@ export class StorefrontService {
       if (phone === null) create.customer = { fullName: context.viewer.fullName, phone: context.viewer.phone };
       loyaltyUserId = context.viewer.id;
     }
+    // Only the ordering page takes a channel link; it is kept while the module is on (docs/SIPARIS_BAGLANTILARI.md).
+    const source =
+      input.source &&
+      context.channel === 'RESTAURANT_SITE' &&
+      (await this.features.isEnabled('ordering_links', restaurant.id))
+        ? input.source
+        : undefined;
     const order = await this.orders.create(restaurant.id, create, null, false, {
       loyaltyUserId,
       couponCode: input.couponCode,
+      source,
     });
     await this.attribution.identifyOrderSafely(order.id, context.visitorId);
     const loyaltyPointsRedeemed = loyaltyUserId ? await this.loyalty.redeemedPointsOf(order.id) : 0;

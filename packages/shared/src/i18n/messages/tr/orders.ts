@@ -42,6 +42,7 @@ export const trOrders = {
   'orders.prepMinutes': 'Hazırlık süresi (dakika)',
   'orders.promisedReadyAt': 'Söz verilen hazır olma saati',
   'orders.scheduledFor': 'İleri tarihli: {time}',
+  'orders.source': '{source} bağlantısından',
   'orders.estimatedDeliveryAt': 'Tahmini teslim',
   'orders.shortCode': 'Sipariş {code}',
   'orders.customer': 'Müşteri',

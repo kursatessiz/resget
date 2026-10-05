@@ -128,4 +128,7 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',
+  'features.ordering_links.name': 'Ordering links',
+  'features.ordering_links.description':
+    'Separate ordering links for Instagram, Facebook, WhatsApp, Google and TikTok; orders and revenue per channel, and the channel on the order card. Measured on the order itself, without cookies.',
 };
