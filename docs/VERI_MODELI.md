@@ -128,3 +128,5 @@ Yalnızca ileri yönlü; deploy'dan önce çalışır; bir sürüm boyunca geriy
 İleri tarihli sipariş (`docs/ILERI_TARIHLI_SIPARIS.md`): `orders.scheduledFor` siparişin saatidir (gel-alda hazır olma, teslimatta varış; hemen içinse boş, `restaurantId` ile dizinli); `restaurants.schedulingSettings` işletmenin saat ayarlarıdır (`SchedulingSettingsSchema`). Migration: `20261119000000_scheduled_orders`.
 
 Alerjenler (`docs/ALERJENLER.md`): `menu_items.allergens` ve `menu_items.dietaryTags` (katalogdaki anahtarlar, varsayılan boş dizi). Migration: `20261120000000_menu_allergens`.
+
+Öğün saatleri (`docs/OGUN_SAATLERI.md`): `menu_categories.availableHours` bölümün sipariş edilebildiği haftalık aralıklardır (çalışma saatleri biçiminde; boş ise her zaman). Migration: `20261121000000_menu_dayparts`.

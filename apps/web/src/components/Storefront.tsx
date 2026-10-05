@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import {
   ALLERGENS,
   avoidsAllergens,
+  categoryServedAt,
+  localClock,
   CHECKOUT_CONSENT_CHANNELS,
   couponDiscountMinor,
   customerDeliveryFee,
@@ -22,6 +24,7 @@ import type {
   OrderLineInput,
   PublicCouponDTO,
   PublicOrderResultDTO,
+  StorefrontCategoryDTO,
   StorefrontDTO,
   StorefrontItemDTO,
 } from '@resget/shared';
@@ -110,6 +113,19 @@ export function Storefront({
     else days.push({ day, slots: [iso] });
     return days;
   }, []);
+  // Menu dayparts (docs/OGUN_SAATLERI.md): a category is ordered only inside its windows, at the time the order is for.
+  const orderTime = scheduled ? new Date(slot) : new Date();
+  const zoneOfMenu = storefront.availability.timezone;
+  const served = (category: StorefrontCategoryDTO) => categoryServedAt(category.availableHours, orderTime, zoneOfMenu);
+  const categoryOfItem = new Map(
+    storefront.categories.flatMap((category) => category.items.map((item) => [item.id, category] as const)),
+  );
+  const todaysWindows = (category: StorefrontCategoryDTO) =>
+    (category.availableHours?.[localClock(orderTime, zoneOfMenu).day] ?? []).map(([a, b]) => `${a} - ${b}`).join(', ');
+  const unservedInCart = cart.filter((line) => {
+    const category = categoryOfItem.get(line.item.id);
+    return category ? !served(category) : false;
+  });
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [marketingChannels, setMarketingChannels] = useState<CheckoutConsentChannel[]>([]);
   const [usePoints, setUsePoints] = useState(false);
@@ -347,6 +363,7 @@ export function Storefront({
   const canSubmit =
     (canSchedule && when === 'LATER' ? slot !== '' : availability.accepting) &&
     !belowMinimum &&
+    unservedInCart.length === 0 &&
     cart.length > 0 &&
     selectedPayment !== null &&
     (!needsContact || (fullName.trim().length > 0 && phone.trim().length > 0)) &&
@@ -389,6 +406,13 @@ export function Storefront({
       {storefront.categories.map((category) => (
         <section key={category.id} className="flex flex-col gap-3" aria-label={category.name}>
           <h2 className="ui-heading">{category.name}</h2>
+          {!served(category) && (
+            <p className="ui-caption" data-daypart-closed>
+              {todaysWindows(category)
+                ? t('dayparts.servedOnly', { hours: todaysWindows(category) })
+                : t('dayparts.notToday')}
+            </p>
+          )}
           <ul className="ui-divide">
             {category.items.length === 0 && <li className="ui-caption py-2">{t('menu.emptyCategory')}</li>}
             {category.items.length > 0 && category.items.every((item) => !avoidsAllergens(item, avoid)) && (
@@ -422,7 +446,7 @@ export function Storefront({
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       <span className="ui-price">{money(item.priceMinor)}</span>
-                      {item.isAvailable && (
+                      {item.isAvailable && served(category) && (
                         <Button
                           variant="soft"
                           onClick={() => startAdd(item)}
@@ -486,6 +510,11 @@ export function Storefront({
                   <span>{line.item.name}</span>
                   {line.modifiers.length > 0 && (
                     <span className="ui-caption">{line.modifiers.map((m) => m.name).join(', ')}</span>
+                  )}
+                  {unservedInCart.includes(line) && (
+                    <span className="ui-caption" data-daypart-cart>
+                      {t('dayparts.notAtThisTime')}
+                    </span>
                   )}
                 </span>
                 <span className="flex items-center gap-2">

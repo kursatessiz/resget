@@ -5,6 +5,7 @@ import type { FormEvent } from 'react';
 import {
   ALLERGENS,
   DIETARY_TAGS,
+  WEEKDAY_KEYS,
   dietaryConflicts,
   formatMoney,
   majorAmountText,
@@ -13,6 +14,8 @@ import {
 import type {
   Allergen,
   DietaryTag,
+  OpeningHours,
+  WeekdayKey,
   MenuAdminDTO,
   MenuCategoryAdminDTO,
   MenuItemAdminDTO,
@@ -41,6 +44,7 @@ export function MenuManager({
   canManage,
   aiStudio = false,
   allergens = false,
+  dayparts = false,
 }: {
   restaurantId: string;
   locale: string;
@@ -49,6 +53,8 @@ export function MenuManager({
   aiStudio?: boolean;
   /** The allergens module is on: allergen and dietary tag boxes in the item editor (docs/ALERJENLER.md). */
   allergens?: boolean;
+  /** The menu_dayparts module is on: serving hours per category (docs/OGUN_SAATLERI.md). */
+  dayparts?: boolean;
 }) {
   const t = useT(locale);
   const base = `restaurants/${restaurantId}/menu`;
@@ -57,6 +63,7 @@ export function MenuManager({
   const [busy, setBusy] = useState(false);
   const [newCategory, setNewCategory] = useState('');
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const [hoursOf, setHoursOf] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
 
   const fail = useCallback(
@@ -296,6 +303,11 @@ export function MenuManager({
                 {category.name}
                 {!category.isActive && <Badge tone="warn">{t('menu.manage.hidden')}</Badge>}
                 <span className="ui-caption">{t('menu.manage.itemCount', { count: category.items.length })}</span>
+                {dayparts && category.availableHours && (
+                  <Badge tone="theme">
+                    {t('dayparts.manage.summary', { hours: hoursSummary(t, category.availableHours) })}
+                  </Badge>
+                )}
               </span>
             )
           }
@@ -325,6 +337,15 @@ export function MenuManager({
                 >
                   {t('menu.manage.rename')}
                 </Button>
+                {dayparts && (
+                  <Button
+                    variant="link"
+                    tone="muted"
+                    onClick={() => setHoursOf(hoursOf === category.id ? null : category.id)}
+                  >
+                    {t('dayparts.manage.title')}
+                  </Button>
+                )}
                 <Button
                   variant="link"
                   tone="muted"
@@ -340,6 +361,18 @@ export function MenuManager({
             ) : undefined
           }
         >
+          {dayparts && hoursOf === category.id && (
+            <ServingHoursEditor
+              t={t}
+              hours={category.availableHours}
+              busy={busy}
+              onSave={(availableHours) => {
+                void patchCategory(category.id, { availableHours });
+                setHoursOf(null);
+              }}
+              onCancel={() => setHoursOf(null)}
+            />
+          )}
           {category.items.length === 0 && <p className="ui-text-muted">{t('menu.emptyCategory')}</p>}
           <ul className="ui-divide">
             {category.items.map((item, itemIndex) => (
@@ -799,6 +832,110 @@ function ItemEditor({
           </div>
         </section>
       )}
+    </form>
+  );
+}
+
+/** "Mon, Tue 07:00 - 11:00": the days that share the first window, for the category badge. */
+function hoursSummary(t: Translate, hours: OpeningHours): string {
+  const days = WEEKDAY_KEYS.filter((day) => (hours[day] ?? []).length > 0);
+  const first = days.length > 0 ? (hours[days[0]] ?? [])[0] : undefined;
+  if (!first) return '';
+  return `${days.map((day) => t(`dayparts.day.${day}`)).join(', ')} ${first[0]} - ${first[1]}`;
+}
+
+/**
+ * Serving hours of a category: always, or one window on the chosen days
+ * (docs/OGUN_SAATLERI.md). Stored in the opening hours shape, so the same
+ * rules decide on the server and on the ordering page.
+ */
+function ServingHoursEditor({
+  t,
+  hours,
+  busy,
+  onSave,
+  onCancel,
+}: {
+  t: Translate;
+  hours: OpeningHours | null;
+  busy: boolean;
+  onSave: (hours: OpeningHours | null) => void;
+  onCancel: () => void;
+}) {
+  const firstDay = WEEKDAY_KEYS.find((day) => (hours?.[day] ?? []).length > 0);
+  const firstWindow = firstDay ? (hours?.[firstDay] ?? [])[0] : undefined;
+  const [limited, setLimited] = useState(hours !== null);
+  const [days, setDays] = useState<WeekdayKey[]>(
+    hours ? WEEKDAY_KEYS.filter((day) => (hours[day] ?? []).length > 0) : [...WEEKDAY_KEYS],
+  );
+  const [from, setFrom] = useState(firstWindow?.[0] ?? '07:00');
+  const [to, setTo] = useState(firstWindow?.[1] ?? '11:00');
+  const valid = !limited || (days.length > 0 && from !== to && /^\d{2}:\d{2}$/.test(from) && /^\d{2}:\d{2}$/.test(to));
+
+  return (
+    <form
+      className="flex flex-col gap-3"
+      aria-label={t('dayparts.manage.title')}
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!valid) return;
+        onSave(limited ? Object.fromEntries(days.map((day) => [day, [[from, to]]])) : null);
+      }}
+    >
+      <p className="ui-caption">{t('dayparts.manage.help')}</p>
+      <label className="flex items-center gap-2">
+        <input type="radio" className="pui-radio" checked={!limited} onChange={() => setLimited(false)} />
+        <span>{t('dayparts.manage.always')}</span>
+      </label>
+      <label className="flex items-center gap-2">
+        <input type="radio" className="pui-radio" checked={limited} onChange={() => setLimited(true)} />
+        <span>{t('dayparts.manage.window')}</span>
+      </label>
+      {limited && (
+        <>
+          <fieldset className="flex flex-wrap gap-3">
+            <legend className="ui-label">{t('dayparts.manage.days')}</legend>
+            {WEEKDAY_KEYS.map((day) => (
+              <label key={day} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="pui-checkbox"
+                  checked={days.includes(day)}
+                  onChange={(e) =>
+                    setDays((current) => (e.target.checked ? [...current, day] : current.filter((d) => d !== day)))
+                  }
+                />
+                <span>{t(`dayparts.day.${day}`)}</span>
+              </label>
+            ))}
+          </fieldset>
+          <div className="flex flex-wrap gap-3">
+            <TextField
+              id="daypart-from"
+              type="time"
+              label={t('dayparts.manage.from')}
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+            />
+            <TextField
+              id="daypart-to"
+              type="time"
+              label={t('dayparts.manage.to')}
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+            />
+          </div>
+          {!valid && <p className="pui-alert pui-warn">{t('dayparts.manage.invalid')}</p>}
+        </>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" disabled={busy || !valid}>
+          {t('common.save')}
+        </Button>
+        <Button variant="outline" tone="muted" onClick={onCancel} disabled={busy}>
+          {t('common.cancel')}
+        </Button>
+      </div>
     </form>
   );
 }

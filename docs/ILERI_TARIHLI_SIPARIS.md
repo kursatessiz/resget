@@ -40,6 +40,8 @@ Sipariş sayfasının menü yanıtında `scheduling` alanı (saatler ve saat dil
 - **Kabul:** işletme siparişi saatinden önce istediği zaman kabul edebilir. Söz verilen hazır olma saati, saatin hazır olma zamanıdır; mutfak bu kadar hızlı yetişemiyorsa şimdi artı hazırlık süresidir (`scheduledPromisedReadyAt()`).
 - **Personel siparişi:** personel de `scheduledFor` ile sipariş girebilir. Saatin gelecekte ve bir hafta içinde olması yeterlidir; personel saat listesine bağlı değildir.
 
+Öğün saatleri (`docs/OGUN_SAATLERI.md`) açıkken menü bölümleri seçilen saate göre değerlendirilir; o saatte sunulmayan ürün sepette uyarı alır ve sipariş reddedilir.
+
 ## Veri
 
 `orders.scheduledFor` (saat; hemen içinse boş, `restaurantId` ile dizinli) ve `restaurants.schedulingSettings`. Migration: `20261119000000_scheduled_orders`.

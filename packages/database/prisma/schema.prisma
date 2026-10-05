@@ -623,13 +623,15 @@ model InviteToken {
 // ---------------------------------------------------------------------------
 
 model MenuCategory {
-  id           String   @id @default(uuid())
-  restaurantId String
-  name         String
-  sortOrder    Int      @default(0)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String   @id @default(uuid())
+  restaurantId   String
+  name           String
+  sortOrder      Int      @default(0)
+  isActive       Boolean  @default(true)
+  /// Ordering windows (OpeningHours shape, docs/OGUN_SAATLERI.md); null means whenever the restaurant takes orders.
+  availableHours Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   items      MenuItem[]

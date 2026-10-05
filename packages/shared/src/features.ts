@@ -35,6 +35,7 @@ export const FEATURES = {
   order_availability: { group: 'ordering', defaultEnabled: false, stage: 'BETA' },
   scheduled_orders: { group: 'ordering', defaultEnabled: false, stage: 'BETA' },
   allergens: { group: 'ordering', defaultEnabled: false, stage: 'BETA' },
+  menu_dayparts: { group: 'ordering', defaultEnabled: false, stage: 'BETA' },
   online_payment: { group: 'payments', defaultEnabled: true, stage: 'GA' },
   meal_cards: { group: 'payments', defaultEnabled: true, stage: 'GA' },
   partial_refunds: { group: 'payments', defaultEnabled: true, stage: 'GA' },

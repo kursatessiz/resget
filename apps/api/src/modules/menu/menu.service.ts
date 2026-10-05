@@ -1,6 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@resget/database';
-import { allergensFrom, dietaryTagsFrom, menuMatchKey, parseMenuCsv } from '@resget/shared';
+import {
+  OpeningHoursSchema,
+  allergensFrom,
+  categoryServedAt,
+  dietaryTagsFrom,
+  menuMatchKey,
+  parseMenuCsv,
+} from '@resget/shared';
+import type { OpeningHours } from '@resget/shared';
 import type {
   CreateMenuCategoryInput,
   ImportMenuInput,
@@ -52,6 +60,7 @@ const adminCategorySelect = Prisma.validator<Prisma.MenuCategorySelect>()({
   name: true,
   sortOrder: true,
   isActive: true,
+  availableHours: true,
   items: { orderBy: { sortOrder: 'asc' }, select: adminItemSelect },
 });
 
@@ -63,8 +72,20 @@ function toItem(row: AdminItemRow): MenuItemAdminDTO {
   return { ...row, allergens: allergensFrom(row.allergens), dietaryTags: dietaryTagsFrom(row.dietaryTags) };
 }
 
+/** Stored windows, read leniently: anything that is not valid opening hours counts as none (always served). */
+function hoursOf(raw: unknown): OpeningHours | null {
+  const parsed = OpeningHoursSchema.safeParse(raw);
+  return raw !== null && parsed.success ? parsed.data : null;
+}
+
+/** Prisma writes a JSON null as DbNull; undefined leaves the column alone. */
+function hoursInput(hours: OpeningHours | null | undefined) {
+  if (hours === undefined) return undefined;
+  return hours === null ? Prisma.DbNull : (hours as Prisma.InputJsonValue);
+}
+
 function toCategory(row: AdminCategoryRow): MenuCategoryAdminDTO {
-  return { ...row, items: row.items.map(toItem) };
+  return { ...row, availableHours: hoursOf(row.availableHours), items: row.items.map(toItem) };
 }
 
 @Injectable()
@@ -82,6 +103,7 @@ export class MenuService {
       select: {
         id: true,
         name: true,
+        availableHours: true,
         items: {
           orderBy: { sortOrder: 'asc' },
           select: {
@@ -114,9 +136,14 @@ export class MenuService {
       },
     });
     // Allergens and tags reach guests only while the module is on (docs/ALERJENLER.md).
-    const withTags = await this.features.isEnabled('allergens', restaurantId);
+    const [withTags, withDayparts] = await Promise.all([
+      this.features.isEnabled('allergens', restaurantId),
+      this.features.isEnabled('menu_dayparts', restaurantId),
+    ]);
     return categories.map((category) => ({
       ...category,
+      // Ordering windows reach guests only while the module is on (docs/OGUN_SAATLERI.md).
+      availableHours: withDayparts ? hoursOf(category.availableHours) : null,
       items: category.items.map((item) => ({
         ...item,
         allergens: withTags ? allergensFrom(item.allergens) : [],
@@ -144,7 +171,7 @@ export class MenuService {
     const sortOrder = input.sortOrder ?? (await this.nextCategoryOrder(restaurantId));
     return toCategory(
       await this.prisma.menuCategory.create({
-        data: { restaurantId, name: input.name, sortOrder },
+        data: { restaurantId, name: input.name, sortOrder, availableHours: hoursInput(input.availableHours) },
         select: adminCategorySelect,
       }),
     );
@@ -157,7 +184,11 @@ export class MenuService {
   ): Promise<MenuCategoryAdminDTO> {
     await this.requireCategory(restaurantId, categoryId);
     return toCategory(
-      await this.prisma.menuCategory.update({ where: { id: categoryId }, data: input, select: adminCategorySelect }),
+      await this.prisma.menuCategory.update({
+        where: { id: categoryId },
+        data: { ...input, availableHours: hoursInput(input.availableHours) },
+        select: adminCategorySelect,
+      }),
     );
   }
 
@@ -429,5 +460,21 @@ export class MenuService {
     if (wanted.size !== ids.length || existing.length !== ids.length || existing.some((id) => !wanted.has(id))) {
       throw badRequest('REORDER_MISMATCH', 'Reorder list does not match the current rows');
     }
+  }
+
+  /**
+   * The ordered items whose category is outside its ordering window at the
+   * instant (docs/OGUN_SAATLERI.md); empty while the module is off. Only
+   * consumer orders are checked, like the opening hours.
+   */
+  async itemsNotServedAt(restaurantId: string, itemIds: string[], at: Date, timezone: string): Promise<string[]> {
+    if (!(await this.features.isEnabled('menu_dayparts', restaurantId))) return [];
+    const items = await this.prisma.menuItem.findMany({
+      where: { restaurantId, id: { in: itemIds } },
+      select: { name: true, category: { select: { availableHours: true } } },
+    });
+    return items
+      .filter((item) => !categoryServedAt(hoursOf(item.category.availableHours), at, timezone))
+      .map((item) => item.name);
   }
 }

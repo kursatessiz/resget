@@ -305,6 +305,16 @@ export class StorefrontService {
     } else {
       await this.availability.assertAccepting(restaurant, branchId);
     }
+    // Breakfast only in the morning: each item's category must be served when the order is for (docs/OGUN_SAATLERI.md).
+    const notServed = await this.menu.itemsNotServedAt(
+      restaurant.id,
+      input.items.map((line) => line.menuItemId),
+      input.scheduledFor ? new Date(input.scheduledFor) : new Date(),
+      restaurant.timezone,
+    );
+    if (notServed.length > 0) {
+      throw conflict('MENU_ITEM_NOT_SERVED', `Not served at this time: ${notServed.join(', ')}`);
+    }
     const zone = input.fulfillment === 'DELIVERY' ? await this.zones.activeZone(restaurant) : null;
     const ordering = this.orderingOf(restaurant, context.tableId !== undefined, zone, false);
     if (input.fulfillment === 'DELIVERY' && !ordering.delivery)
