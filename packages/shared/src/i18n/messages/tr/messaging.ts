@@ -110,6 +110,8 @@ export const trMessaging = {
   'messaging.push.feedback.lowRating.title': 'Düşük puan: sipariş {code}',
   'messaging.push.feedback.lowRating.body':
     '{restaurant}: bir müşteri siparişe {score} puan verdi; geri bildirim sayfasında takip edin.',
+  'messaging.push.tip.received.title': 'Bahşiş aldınız',
+  'messaging.push.tip.received.body': '{restaurant}: sipariş {code} için {amount} bahşiş.',
   'messaging.push.order.claimFiled.title': 'Eksik ürün bildirimi {code}',
   'messaging.push.order.claimFiled.body': '{restaurant}: bir müşteri siparişinde eksik ürün bildirdi; onay bekliyor.',
   'messaging.push.refundSuffix.done': ' Ödemeniz iade edildi.',

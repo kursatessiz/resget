@@ -52,7 +52,7 @@
 | `payment_provider_connections` | Restoranın kendi sanal POS'u: sağlayıcı kodu, AES-256-GCM ile şifreli bilgiler, anahtar sürümü, doğrulama durumu, maskeli etiket. Restoran başına tek. |
 | `saved_payment_methods` | Müşterinin kasa token'ı (şifreli) ve maskeli kart bilgisi; (`userId`, `provider`, `tokenHash`) benzersiz. Kart numarası yoktur. |
 | `commission_invoices` | `OWN_POS` restoranının aylık komisyon faturası: dönem, matrah, komisyon, KDV, toplam, durum, vade, ödeme referansı; ayın hızlı hakediş ücretleri (`payoutFeeMinor`, `payoutFeeVatMinor`) ve hakedişten zaten düşülen kısım (`deductedMinor`, tahsil edilecek tutar `totalMinor - deductedMinor`, `docs/HAKEDIS_TAKVIMI.md`). |
-| `ledger_entries` | Yalnızca ekleme; restoran bakış açısıyla işaretli tutar; tür `LedgerEntryType`. |
+| `ledger_entries` | Yalnızca ekleme; restoran bakış açısıyla işaretli tutar; tür `LedgerEntryType` (kurye bahşişi `COURIER_TIP` ve `COURIER_TIP_FEE` dahil). |
 | `payouts` | Dönem, tutar, durum, planlanan tarih (yasal sürede); takvim (`WEEKLY`, `DAILY`, `INSTANT`) ve alınan ücret (`feeMinor`, `PAYOUT_FEE` defter satırı). |
 | `payout_schedule_options` | Takvim ve para birimi başına ücret oranı, sabit ücret, iş günü, plan kuralı (`requiresFastPayouts`, `freeWithFastPayouts`) ve satışta mı; restoranın seçimi `restaurants.payoutCadence` (`docs/HAKEDIS_TAKVIMI.md`). |
 
@@ -74,6 +74,7 @@
 |---|---|
 | `courier_providers` | Adaptör kodu, ülke. |
 | `delivery_requests` | Sipariş başına tek; teklif ve nihai ücret, sağlayıcı referansı, takip adresi, ETA. |
+| `courier_tips` | Sipariş başına en fazla bir kurye bahşişi: kendi kurye üyeliği veya kurye ağı teslimatı, tutar, para birimi, PSP kesintisi, tahsil eden (`paymentMode`, sağlayıcı), durum (`PENDING`, `CAPTURED`, `FAILED`, `REFUNDED`, `CHARGED_BACK`), ağa aktarım sonucu ve deneme sayısı. Ödemelerden ayrı tutulur, siparişin borcunu, iadesini ve komisyonunu etkilemez (`docs/BAHSIS.md`). |
 | `delivery_trips` | Restoranın kendi kuryesinin bir çıkışı: şube, kurye üyeliği, durum (`DeliveryTripStatus`), sıra modu (MANUAL / OPTIMIZED), planlanan mesafe ve süre, zaman damgaları. |
 | `delivery_stops` | Seferdeki bir sipariş: sıra, durum (`DeliveryStopStatus`), hedef koordinat anlık görüntüsü, mesafe ve ETA, varış / teslim / başarısızlık zamanı ve gerekçesi. Bir sipariş aynı anda en fazla bir aktif seferde olur (servis denetler). |
 | `courier_locations` | Kuryenin son konumu, üyelik başına tek satır; yalnızca aktif seferde yazılır. |

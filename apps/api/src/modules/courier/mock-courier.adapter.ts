@@ -56,6 +56,15 @@ export class MockCourierAdapter implements CourierProviderAdapter {
     return;
   }
 
+  readonly supportsTips = true;
+
+  /** A delivery whose reference starts with "mock-tip-fail" refuses the tip, so the retry path is testable. */
+  async addTip(providerRef: string, amountMinor: number): Promise<{ providerRef: string }> {
+    if (providerRef.startsWith('mock-tip-fail')) throw new Error('Mock courier network refused the tip');
+    if (amountMinor <= 0) throw new Error('Nothing to hand over');
+    return { providerRef: `mock-tip-${randomUUID()}` };
+  }
+
   parseWebhook(rawBody: string, headers: Record<string, string | undefined>): CourierEvent {
     const signature = headers['x-mock-signature'] ?? '';
     const expected = createHmac('sha256', this.webhookSecret).update(rawBody).digest('hex');

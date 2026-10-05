@@ -146,6 +146,9 @@ export const trFeatures = {
   'features.payout_schedules.name': 'Hakediş takvimi',
   'features.payout_schedules.description':
     'Platformun tahsil ettiği restoran hakedişini haftalık, günlük veya anında alır; ücretler ve plan kuralları platform verisidir.',
+  'features.courier_tips.name': 'Kurye bahşişi',
+  'features.courier_tips.description':
+    'Müşteri teslimattan sonra takip sayfasından kuryeye bahşiş verir; platform komisyon almaz, yalnızca ödeme kuruluşu kesintisi düşer, destekleyen kurye ağına aktarılır.',
   'features.group_orders.name': 'Grup siparişi',
   'features.group_orders.description':
     'Restoran sayfasında paylaşılan tek sepet: bağlantıyla katılan herkes kendi seçimini ekler, sepet sahibi tek sipariş verir ve öder.',

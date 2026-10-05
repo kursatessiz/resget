@@ -52,14 +52,17 @@ Anahtar, modülün işletme için var olup olmadığına karar verir. Plan (BASI
 | `kitchen_display` | Sipariş | kapalı (BETA) |
 | `menu_stock` | Sipariş | kapalı (BETA) |
 | `group_orders` | Sipariş | kapalı (BETA) |
+| `table_tabs` | Sipariş | kapalı (BETA) |
 | `online_payment` | Ödeme | açık |
 | `meal_cards` | Ödeme | açık |
 | `partial_refunds` | Ödeme | açık |
 | `accounting_export` | Ödeme | kapalı (BETA) |
+| `payout_schedules` | Ödeme | kapalı (BETA, yalnızca `PLATFORM_PSP`) |
 | `own_courier_dispatch` | Teslimat | açık |
 | `courier_network` | Teslimat | açık |
 | `delivery_zones` | Teslimat | kapalı (BETA) |
 | `delivery_pin` | Teslimat | kapalı (BETA) |
+| `courier_tips` | Teslimat | kapalı (BETA) |
 | `crm` | Pazarlama | açık |
 | `campaigns` | Pazarlama | açık |
 | `loyalty` | Pazarlama | açık |
@@ -67,6 +70,7 @@ Anahtar, modülün işletme için var olup olmadığına karar verir. Plan (BASI
 | `referrals` | Pazarlama | kapalı (BETA) |
 | `partner_referrals` | Pazarlama | kapalı (BETA) |
 | `feedback` | Pazarlama | kapalı (BETA) |
+| `public_reviews` | Pazarlama | kapalı (BETA) |
 | `churn_signals` | Pazarlama | kapalı (BETA) |
 | `restaurant_health` | Pazarlama | kapalı (BETA, yalnızca genel anahtar anlamlıdır) |
 | `marketing_approvals` | Pazarlama | kapalı (BETA) |

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { OrderRatingDTO } from './ratings';
+import type { TipOfferDTO, TrackingTipDTO } from './tips';
 import type { OrderSource } from './ordering-links';
 import {
   DeliveryStopStatus,
@@ -807,6 +808,9 @@ export interface OrderTrackingDTO {
   /** The latest missing-item claim and whether a new one can be filed now. */
   claim: OrderClaimDTO | null;
   canClaim: boolean;
+  /** The customer's courier tip (docs/BAHSIS.md) and, while one can still be given, what to offer. */
+  tip: TrackingTipDTO | null;
+  tipOffer: TipOfferDTO | null;
 }
 
 // -- Realtime events -----------------------------------------------------------------

@@ -16,6 +16,8 @@ export const trSettlement = {
   'settlement.line.ADJUSTMENT': 'Düzeltme',
   'settlement.line.RESTAURANT_PAYABLE': 'Hakediş',
   'settlement.line.PAYOUT_FEE': 'Hızlı hakediş ücreti',
+  'settlement.line.COURIER_TIP': 'Kurye bahşişi',
+  'settlement.line.COURIER_TIP_FEE': 'Bahşiş ödeme kuruluşu kesintisi',
   'settlement.withholdingNote': 'Tevkifat adınıza vergi dairesine aktarılır; vergi beyanınızda mahsup edebilirsiniz.',
   'settlement.pspNote': 'Ödeme kuruluşu kesintisi belgelenen gerçek orandır; üzerine marj eklenmez.',
   'settlement.payout.scheduled': 'Ödeme {date} tarihinde hesabınıza gönderilecek.',

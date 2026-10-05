@@ -17,6 +17,8 @@ export const enSettlement: Record<keyof typeof trSettlement, string> = {
   'settlement.line.ADJUSTMENT': 'Adjustment',
   'settlement.line.RESTAURANT_PAYABLE': 'Payable to you',
   'settlement.line.PAYOUT_FEE': 'Faster payout fee',
+  'settlement.line.COURIER_TIP': 'Courier tip',
+  'settlement.line.COURIER_TIP_FEE': 'Payment provider fee on a tip',
   'settlement.withholdingNote':
     'The withholding is forwarded to the tax office in your name; you can offset it in your tax return.',
   'settlement.pspNote': 'The payment provider fee is the documented real rate; no margin is added.',

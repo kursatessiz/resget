@@ -21,13 +21,14 @@ import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { badRequest, notFound } from '../../common/api-error';
 import { CheckoutService } from './checkout.service';
-import type { WebhookOutcome } from './checkout.service';
+import type { WebhookKind, WebhookOutcome } from './checkout.service';
 import { MealCardsService } from './meal-cards.service';
 import { RefundsService } from './refunds.service';
 import { ClaimsService } from './claims.service';
 import { PublicRateLimitGuard, RateLimit } from '../storefront/public-rate-limit.guard';
 
 const WebhookKindSchema = z.enum(['meal-cards', 'pos']);
+const PlatformProviderSchema = z.string().regex(/^[A-Z0-9_]{2,32}$/);
 
 /** Staff-side payment actions on an order. */
 @Controller('restaurants/:restaurantId/orders/:orderId')
@@ -185,15 +186,39 @@ export class PublicPaymentsController {
 export class PaymentWebhooksController {
   constructor(private readonly checkout: CheckoutService) {}
 
+  /** The platform's own merchant account (PLATFORM_PSP orders and tips); declared first so it wins over the route below. */
+  @Post('platform/:providerCode')
+  @HttpCode(200)
+  receivePlatform(
+    @ZodParam('providerCode', PlatformProviderSchema) providerCode: string,
+    @Req() req: RawBodyRequest<Request>,
+    @Headers() headers: Record<string, string | undefined>,
+    @Query() query: Record<string, string | undefined>,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<WebhookOutcome | string | undefined> {
+    return this.answer('platform', providerCode, req, headers, query, res);
+  }
+
   @Post(':kind/:connectionId')
   @HttpCode(200)
-  async receive(
+  receive(
     @ZodParam('kind', WebhookKindSchema) kind: z.infer<typeof WebhookKindSchema>,
     @ZodParam('connectionId', UuidSchema) connectionId: string,
     @Req() req: RawBodyRequest<Request>,
     @Headers() headers: Record<string, string | undefined>,
     @Query() query: Record<string, string | undefined>,
     @Res({ passthrough: true }) res: Response,
+  ): Promise<WebhookOutcome | string | undefined> {
+    return this.answer(kind, connectionId, req, headers, query, res);
+  }
+
+  private async answer(
+    kind: WebhookKind,
+    connectionId: string,
+    req: RawBodyRequest<Request>,
+    headers: Record<string, string | undefined>,
+    query: Record<string, string | undefined>,
+    res: Response,
   ): Promise<WebhookOutcome | string | undefined> {
     const raw = req.rawBody?.toString('utf8');
     if (!raw) throw badRequest('WEBHOOK_INVALID', 'Empty body');

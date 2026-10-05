@@ -80,6 +80,10 @@ export interface CourierProviderAdapter {
   cancel(providerRef: string): Promise<void>;
   /** Verifies the webhook signature and maps the payload; throws on a bad signature. */
   parseWebhook(rawBody: string, headers: Record<string, string | undefined>): CourierEvent;
+  /** True when the network takes a customer's tip for the courier of a delivery (docs/BAHSIS.md). */
+  readonly supportsTips?: boolean;
+  /** Hands a tip to the courier of a dispatched delivery; the network bills the restaurant for it. */
+  addTip?(providerRef: string, amountMinor: number, currency: string): Promise<{ providerRef: string }>;
 }
 
 // -- What the customer pays for delivery ---------------------------------------

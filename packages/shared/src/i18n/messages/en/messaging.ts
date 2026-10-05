@@ -111,6 +111,8 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
   'messaging.push.feedback.lowRating.title': 'Low rating: order {code}',
   'messaging.push.feedback.lowRating.body':
     '{restaurant}: a customer rated an order {score}; follow up on the feedback page.',
+  'messaging.push.tip.received.title': 'You received a tip',
+  'messaging.push.tip.received.body': '{restaurant}: a {amount} tip for order {code}.',
   'messaging.push.order.claimFiled.title': 'Missing item report {code}',
   'messaging.push.order.claimFiled.body':
     '{restaurant}: a customer reported a missing item; it waits for your decision.',

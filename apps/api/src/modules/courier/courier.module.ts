@@ -8,6 +8,6 @@ import { CourierOverviewQueries, CourierService } from './courier.service';
   imports: [AuthModule],
   controllers: [CourierController],
   providers: [CourierRegistry, CourierService, CourierOverviewQueries],
-  exports: [CourierService],
+  exports: [CourierService, CourierRegistry],
 })
 export class CourierModule {}

@@ -30,6 +30,8 @@ function tracking(status: string): RealtimeEvent {
     canAnswerNps: false,
     claim: null,
     canClaim: false,
+    tip: null,
+    tipOffer: null,
   };
   return { type: 'tracking.updated', tracking: dto };
 }
