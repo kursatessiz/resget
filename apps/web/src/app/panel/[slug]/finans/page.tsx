@@ -1,3 +1,4 @@
+import { AccountingExport } from '@/components/panel/AccountingExport';
 import { BillingPanel } from '@/components/panel/BillingPanel';
 import { LedgerPanel } from '@/components/panel/LedgerPanel';
 import { getLocale } from '@/lib/i18n';
@@ -17,6 +18,9 @@ export default async function FinancePage({ params }: { params: Promise<{ slug: 
         canPay={can('payments.manage')}
       />
       {can('finance.view') && <LedgerPanel restaurantId={membership.restaurantId} locale={locale} />}
+      {can('finance.view') && membership.features.includes('accounting_export') && (
+        <AccountingExport restaurantId={membership.restaurantId} locale={locale} />
+      )}
     </div>
   );
 }
