@@ -104,6 +104,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.ai_studio.name': 'AI studio',
   'features.ai_studio.description':
     'Drafts of campaign messages and menu descriptions; drafts only, no personal data reaches the model, a monthly token budget separate from message credits. PRO.',
+  'features.integration_hub.name': 'Integration hub',
+  'features.integration_hub.description':
+    "Connect Facebook pages and Instagram business accounts through Meta's consent screen (OAuth); access keys are stored encrypted. Lead Ads and social publishing use these connections.",
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',

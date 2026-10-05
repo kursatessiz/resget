@@ -47,6 +47,7 @@ import { trFeedback } from './tr/feedback';
 import { trChurn } from './tr/churn';
 import { trApprovals } from './tr/approvals';
 import { trAi } from './tr/ai';
+import { trSocial } from './tr/social';
 import { trIntegrations } from './tr/integrations';
 import { enCommon } from './en/common';
 import { enNav } from './en/nav';
@@ -97,6 +98,7 @@ import { enFeedback } from './en/feedback';
 import { enChurn } from './en/churn';
 import { enApprovals } from './en/approvals';
 import { enAi } from './en/ai';
+import { enSocial } from './en/social';
 import { enIntegrations } from './en/integrations';
 
 /**
@@ -157,6 +159,7 @@ export const TR_NAMESPACES = [
   trChurn,
   trApprovals,
   trAi,
+  trSocial,
   trIntegrations,
   trMobile,
 ] as const;
@@ -210,6 +213,7 @@ export const EN_NAMESPACES = [
   enChurn,
   enApprovals,
   enAi,
+  enSocial,
   enIntegrations,
   enMobile,
 ] as const;

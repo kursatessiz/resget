@@ -113,6 +113,8 @@ export const trErrors = {
   'errors.AI_BUDGET_EXHAUSTED': 'Bu ayın yapay zeka bütçesi doldu; yeni ay başladığında yeniden kullanılabilir.',
   'errors.AI_REFUSED': 'Bu istek için taslak üretilemedi; açıklamayı değiştirip yeniden deneyin.',
   'errors.AI_FAILED': 'Taslak şu an üretilemedi; biraz sonra yeniden deneyin.',
+  'errors.SOCIAL_NOT_CONFIGURED': 'Sosyal hesap bağlantısı henüz yapılandırılmadı.',
+  'errors.SOCIAL_ACCOUNT_NOT_FOUND': 'Bağlı hesap bulunamadı.',
   'errors.NPS_NOT_ALLOWED': 'Bu sipariş için soru şu an yanıtlanamıyor.',
   'errors.FEEDBACK_CASE_NOT_FOUND': 'Kayıt bulunamadı.',
   'errors.SITE_PAGE_NOT_FOUND': 'Sayfa bulunamadı.',

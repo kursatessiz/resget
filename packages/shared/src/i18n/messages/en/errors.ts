@@ -114,6 +114,8 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.AI_BUDGET_EXHAUSTED': "This month's AI budget is used up; it renews when the new month starts.",
   'errors.AI_REFUSED': 'No draft could be written for this request; change the description and try again.',
   'errors.AI_FAILED': 'A draft could not be written right now; try again shortly.',
+  'errors.SOCIAL_NOT_CONFIGURED': 'Social account connections are not set up yet.',
+  'errors.SOCIAL_ACCOUNT_NOT_FOUND': 'Connected account not found.',
   'errors.NPS_NOT_ALLOWED': 'The question cannot be answered for this order now.',
   'errors.FEEDBACK_CASE_NOT_FOUND': 'Case not found.',
   'errors.SITE_PAGE_NOT_FOUND': 'Page not found.',

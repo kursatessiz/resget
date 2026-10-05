@@ -153,7 +153,9 @@ export type ApiErrorCode =
   | 'AI_NOT_CONFIGURED'
   | 'AI_BUDGET_EXHAUSTED'
   | 'AI_REFUSED'
-  | 'AI_FAILED';
+  | 'AI_FAILED'
+  | 'SOCIAL_NOT_CONFIGURED'
+  | 'SOCIAL_ACCOUNT_NOT_FOUND';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {
   return new ForbiddenException({ statusCode: 403, code, message });

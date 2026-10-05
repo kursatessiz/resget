@@ -313,6 +313,8 @@ model User {
   campaignApprovalsDecided   Campaign[]           @relation("CampaignApprovalDecidedBy")
   apiKeysCreated             RestaurantApiKey[]   @relation("ApiKeyCreatedBy")
   aiUsages                   AiUsage[]
+  oauthStates                OAuthState[]
+  socialAccounts             SocialAccount[]
 
   @@map("users")
 }
@@ -471,6 +473,8 @@ model Restaurant {
   campaignSendLimit    CampaignSendLimit?
   aiBudget             AiBudget?
   aiUsage              AiUsage[]
+  oauthStates          OAuthState[]
+  socialAccounts       SocialAccount[]
   loyaltyProgram       LoyaltyProgram?
   campaignSegments     CampaignSegmentPreset[]
   apiKeys              RestaurantApiKey[]
@@ -919,6 +923,50 @@ model AiUsage {
 
   @@index([restaurantId, createdAt])
   @@map("ai_usage")
+}
+
+/// One OAuth consent round trip in flight (docs/ENTEGRASYON_MERKEZI.md): single use, bound to the tenant and the user, short lived.
+model OAuthState {
+  id           String    @id @default(uuid())
+  state        String    @unique
+  restaurantId String
+  userId       String
+  provider     String
+  returnPath   String
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("oauth_states")
+}
+
+/// A social account a tenant connected with OAuth (a Facebook page, an Instagram business account); the token is encrypted.
+model SocialAccount {
+  id                String    @id @default(uuid())
+  restaurantId      String
+  provider          String
+  kind              String
+  externalId        String
+  name              String
+  encryptedToken    String
+  scopes            String[]  @default([])
+  enabled           Boolean   @default(false)
+  status            String    @default("ACTIVE")
+  tokenExpiresAt    DateTime?
+  connectedByUserId String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  restaurant  Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  connectedBy User?      @relation(fields: [connectedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([restaurantId, provider, externalId])
+  @@index([provider, externalId])
+  @@map("social_accounts")
 }
 
 /// A named audience filter the restaurant reuses across campaigns (CampaignSegmentSchema in shared).

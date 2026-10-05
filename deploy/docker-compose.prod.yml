@@ -73,6 +73,11 @@ services:
       # IndexNow (docs/SEO.md): LIVE with a key tells search engines about changed pages.
       INDEXNOW_PROVIDER: ${INDEXNOW_PROVIDER:-NONE}
       INDEXNOW_KEY: ${INDEXNOW_KEY:-}
+      # Integration hub (docs/ENTEGRASYON_MERKEZI.md): LIVE with a Meta app connects pages by OAuth.
+      META_PROVIDER: ${META_PROVIDER:-NONE}
+      META_APP_ID: ${META_APP_ID:-}
+      META_APP_SECRET: ${META_APP_SECRET:-}
+      META_GRAPH_VERSION: ${META_GRAPH_VERSION:-v21.0}
       # AI studio (docs/YAPAY_ZEKA.md): ANTHROPIC with a key writes drafts; NONE switches drafting off.
       AI_PROVIDER: ${AI_PROVIDER:-NONE}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
