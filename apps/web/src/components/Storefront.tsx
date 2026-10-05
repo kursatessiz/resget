@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ALLERGENS,
+  LOW_STOCK_THRESHOLD,
   avoidsAllergens,
   categoryServedAt,
   localClock,
@@ -449,6 +450,11 @@ export function Storefront({
                         </span>
                       )}
                       {!item.isAvailable && <Badge tone="muted">{t('shop.unavailable')}</Badge>}
+                      {item.isAvailable && item.stockLeft !== null && item.stockLeft <= LOW_STOCK_THRESHOLD && (
+                        <Badge tone="warn" data-stock-left={item.stockLeft}>
+                          {t('stock.shop.left', { count: item.stockLeft })}
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       <span className="ui-price">{money(item.priceMinor)}</span>

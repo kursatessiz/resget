@@ -14,6 +14,11 @@ import type { Allergen, DietaryTag } from './allergens';
  * the currency, a client never sends one.
  */
 
+/** Highest stock a restaurant can enter for one item. */
+export const MAX_STOCK_QUANTITY = 100_000;
+/** At or below this many portions the ordering page says how many are left. */
+export const LOW_STOCK_THRESHOLD = 5;
+
 const MenuName = z.string().trim().min(1).max(80);
 const SortOrder = z.number().int().min(0).max(100000);
 const ImageUrl = z.string().trim().url().max(500);
@@ -66,6 +71,8 @@ export const CreateMenuItemSchema = z
     /** Declared allergens (docs/ALERJENLER.md); shown while the allergens module is on. */
     allergens: AllergenListSchema.optional(),
     dietaryTags: DietaryTagListSchema.optional(),
+    /** Portions left (docs/STOK.md); null stops counting. Counted while the menu_stock module is on. */
+    stockQuantity: z.number().int().min(0).max(MAX_STOCK_QUANTITY).nullable().optional(),
   })
   .strict();
 export type CreateMenuItemInput = z.infer<typeof CreateMenuItemSchema>;
@@ -140,6 +147,8 @@ export interface MenuItemAdminDTO {
   sortOrder: number;
   allergens: Allergen[];
   dietaryTags: DietaryTag[];
+  /** Portions left (docs/STOK.md); null when not counted. */
+  stockQuantity: number | null;
   modifierGroups: MenuModifierGroupDTO[];
 }
 

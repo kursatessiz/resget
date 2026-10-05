@@ -142,6 +142,9 @@ export interface ResolvedPaymentIntent {
 
 export type OrderListener = (order: { id: string; restaurantId: string; status: string }) => Promise<void>;
 
+/** Statuses after which an order's stock goes back to the menu (docs/STOK.md); a refunded meal was still served. */
+const STOCK_RELEASE_STATUSES = ['REJECTED', 'CANCELLED_BY_RESTAURANT', 'CANCELLED_BY_CUSTOMER'] as const;
+
 export interface CreateOrderOptions {
   /** Spend this signed-in customer's loyalty points on the order (docs/SADAKAT.md). */
   loyaltyUserId?: string;
@@ -279,6 +282,7 @@ export class OrdersService {
         vatRateBps: true,
         isAvailable: true,
         currency: true,
+        stockQuantity: true,
         modifierGroups: {
           orderBy: { sortOrder: 'asc' },
           select: {
@@ -315,8 +319,11 @@ export class OrdersService {
         modifiersSnapshot: options.modifiers,
         lineTotalMinor: unitPriceMinor * line.quantity,
         position,
+        stockTaken: 0,
       };
     });
+    // Counted items take their portions inside the order's transaction (docs/STOK.md).
+    const countStock = await this.features.isEnabled('menu_stock', restaurantId);
 
     const payment = input.payment
       ? this.resolvePayment
@@ -420,6 +427,7 @@ export class OrdersService {
         restaurantCustomerId = customer.id;
         consentCustomerId = customer.id;
       }
+      if (countStock) await this.takeStock(tx, lines, byId);
       const created = await tx.order.create({
         data: {
           restaurantId,
@@ -753,10 +761,55 @@ export class OrdersService {
     }
     // A cancelled order gives its coupon use back (docs/KUPONLAR.md).
     if ((COUPON_RELEASE_STATUSES as readonly string[]).includes(to)) await this.coupons.release(tx, order.id, now);
+    if ((STOCK_RELEASE_STATUSES as readonly string[]).includes(to)) await this.releaseStock(tx, order.id);
     await tx.orderStatusHistory.create({
       data: { orderId: order.id, fromStatus: order.status, toStatus: to, actorUserId, reason: options.reason ?? null },
     });
     order.status = to;
+  }
+
+  /**
+   * Takes each counted item's portions in one conditional write per item, so
+   * two guests cannot both take the last portion (docs/STOK.md). An item the
+   * restaurant stopped counting meanwhile is taken as unlimited.
+   */
+  private async takeStock(
+    tx: Prisma.TransactionClient,
+    lines: { menuItemId: string; quantity: number; stockTaken: number }[],
+    items: Map<string, { stockQuantity: number | null; name: string }>,
+  ): Promise<void> {
+    const wanted = new Map<string, number>();
+    for (const line of lines) {
+      if (items.get(line.menuItemId)?.stockQuantity === null) continue;
+      wanted.set(line.menuItemId, (wanted.get(line.menuItemId) ?? 0) + line.quantity);
+    }
+    for (const [menuItemId, quantity] of wanted) {
+      const taken = await tx.menuItem.updateMany({
+        where: { id: menuItemId, stockQuantity: { gte: quantity } },
+        data: { stockQuantity: { decrement: quantity } },
+      });
+      if (taken.count === 0) {
+        const now = await tx.menuItem.findUnique({ where: { id: menuItemId }, select: { stockQuantity: true } });
+        if (now?.stockQuantity === null) continue;
+        throw conflict('MENU_ITEM_SOLD_OUT', `Not enough of ${items.get(menuItemId)?.name ?? menuItemId} left`);
+      }
+      for (const line of lines) if (line.menuItemId === menuItemId) line.stockTaken = line.quantity;
+    }
+  }
+
+  /** A cancelled or rejected order gives its portions back once; an item no longer counted gets nothing back. */
+  private async releaseStock(tx: Prisma.TransactionClient, orderId: string): Promise<void> {
+    const lines = await tx.orderItem.findMany({
+      where: { orderId, stockTaken: { gt: 0 }, menuItemId: { not: null } },
+      select: { id: true, menuItemId: true, stockTaken: true },
+    });
+    for (const line of lines) {
+      await tx.menuItem.updateMany({
+        where: { id: line.menuItemId!, stockQuantity: { not: null } },
+        data: { stockQuantity: { increment: line.stockTaken } },
+      });
+      await tx.orderItem.update({ where: { id: line.id }, data: { stockTaken: 0 } });
+    }
   }
 
   /** What the acceptance window and the promised time of an order depend on. */

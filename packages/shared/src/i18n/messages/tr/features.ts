@@ -134,4 +134,7 @@ export const trFeatures = {
   'features.kitchen_display.name': 'Mutfak ekranı',
   'features.kitchen_display.description':
     'Kabul edilen siparişler mutfak tabletinde fiş olarak, söz verilen saate göre sıralı; satır satır hazır işaretleme, menü bölümüne göre istasyon (ızgara, bar) ekranları, gecikme uyarısı.',
+  'features.menu_stock.name': 'Menü stok takibi',
+  'features.menu_stock.description':
+    'Ürün başına porsiyon sayısı: siparişte düşer, sıfırda ürün satışta değil görünür, iptal ve retle geri gelir; sipariş sayfasında son porsiyonlar uyarısı.',
 } as const satisfies Record<string, string>;

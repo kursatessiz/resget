@@ -8,6 +8,7 @@ import {
   WEEKDAY_KEYS,
   dietaryConflicts,
   formatMoney,
+  MAX_STOCK_QUANTITY,
   majorAmountText,
   parseMajorAmount,
 } from '@resget/shared';
@@ -46,6 +47,7 @@ export function MenuManager({
   allergens = false,
   dayparts = false,
   stations = false,
+  stock = false,
 }: {
   restaurantId: string;
   locale: string;
@@ -58,6 +60,8 @@ export function MenuManager({
   dayparts?: boolean;
   /** The kitchen_display module is on: a kitchen station per category (docs/MUTFAK_EKRANI.md). */
   stations?: boolean;
+  /** The menu_stock module is on: portions left per item (docs/STOK.md). */
+  stock?: boolean;
 }) {
   const t = useT(locale);
   const base = `restaurants/${restaurantId}/menu`;
@@ -443,6 +447,13 @@ export function MenuManager({
                     <Badge tone={item.isAvailable ? 'success' : 'warn'}>
                       {item.isAvailable ? t('menu.available') : t('menu.unavailable')}
                     </Badge>
+                    {stock && item.stockQuantity !== null && (
+                      <Badge tone={item.stockQuantity > 0 ? 'muted' : 'error'} data-stock={item.stockQuantity}>
+                        {item.stockQuantity > 0
+                          ? t('stock.manage.left', { count: item.stockQuantity })
+                          : t('stock.manage.soldOut')}
+                      </Badge>
+                    )}
                     {item.modifierGroups.length > 0 && (
                       <Badge>{t('menu.manage.modifiers.count', { count: item.modifierGroups.length })}</Badge>
                     )}
@@ -509,6 +520,7 @@ export function MenuManager({
               busy={busy}
               aiAssist={aiStudio ? { restaurantId, locale } : null}
               withAllergens={allergens}
+              withStock={stock}
               onSave={(payload) => void saveItem(payload, editing.item)}
               onSaveGroups={(groups) => {
                 if (editing.item) void saveGroups(editing.item, groups);
@@ -550,6 +562,7 @@ function ItemEditor({
   busy,
   aiAssist,
   withAllergens,
+  withStock,
   onSave,
   onSaveGroups,
   onCancel,
@@ -557,6 +570,7 @@ function ItemEditor({
   t: Translate;
   aiAssist: { restaurantId: string; locale: string } | null;
   withAllergens: boolean;
+  withStock: boolean;
   currency: string;
   categories: { id: string; name: string }[];
   categoryId: string;
@@ -573,6 +587,9 @@ function ItemEditor({
   const [imageUrl, setImageUrl] = useState(item?.imageUrl ?? '');
   const [category, setCategory] = useState(item?.categoryId ?? categoryId);
   const [isAvailable, setIsAvailable] = useState(item?.isAvailable ?? true);
+  const [stockText, setStockText] = useState(
+    item?.stockQuantity === null || item?.stockQuantity === undefined ? '' : String(item.stockQuantity),
+  );
   const [allergenSet, setAllergenSet] = useState<Allergen[]>(item?.allergens ?? []);
   const [tagSet, setTagSet] = useState<DietaryTag[]>(item?.dietaryTags ?? []);
   const conflicts = dietaryConflicts(allergenSet, tagSet);
@@ -598,6 +615,14 @@ function ItemEditor({
       setFormError(t('menu.manage.invalidPrice'));
       return;
     }
+    const stockQuantity = stockText.trim() === '' ? null : Number(stockText.trim());
+    if (
+      stockQuantity !== null &&
+      (!Number.isInteger(stockQuantity) || stockQuantity < 0 || stockQuantity > MAX_STOCK_QUANTITY)
+    ) {
+      setFormError(t('stock.manage.invalid'));
+      return;
+    }
     setFormError(null);
     onSave({
       categoryId: category,
@@ -607,6 +632,7 @@ function ItemEditor({
       vatRateBps: Math.round(vat * 100),
       imageUrl: imageUrl.trim() || null,
       isAvailable,
+      ...(withStock ? { stockQuantity } : {}),
       // Kept in catalogue order, so the saved list reads the same as the boxes.
       ...(withAllergens
         ? {
@@ -718,6 +744,15 @@ function ItemEditor({
           />
           <span>{t('menu.manage.available')}</span>
         </label>
+        {withStock && (
+          <TextField
+            label={t('stock.manage.field')}
+            help={t('stock.manage.help')}
+            inputMode="numeric"
+            value={stockText}
+            onChange={(event) => setStockText(event.target.value)}
+          />
+        )}
       </div>
       {withAllergens && (
         <div className="flex flex-col gap-3">

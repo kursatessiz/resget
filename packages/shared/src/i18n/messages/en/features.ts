@@ -134,4 +134,7 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.kitchen_display.name': 'Kitchen display',
   'features.kitchen_display.description':
     'Accepted orders as tickets on a kitchen tablet, sorted by the promised time; line by line done marking, station screens by menu section (grill, bar), late warning.',
+  'features.menu_stock.name': 'Menu stock',
+  'features.menu_stock.description':
+    'Portions per item: taken on order, the item shows as not available at zero, given back on cancellation or rejection; last portions notice on the ordering page.',
 };
