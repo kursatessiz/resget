@@ -538,6 +538,28 @@ export const AssignCourierSchema = z.object({ courierMembershipId: UuidSchema })
 export const AddStopSchema = z.object({ orderId: UuidSchema }).strict();
 export const ReorderStopsSchema = z.object({ stopIds: z.array(UuidSchema).min(1).max(12) }).strict();
 export const StopFailureSchema = z.object({ reason: z.string().trim().min(2).max(300) }).strict();
+
+/**
+ * Proof of delivery (docs/TESLIMAT_KODU.md, module delivery_pin): the
+ * customer's four-digit code from the tracking page. Required of the
+ * restaurant's courier while the module is on; staff may deliver without it.
+ */
+export const DELIVERY_CODE_LENGTH = 4;
+/** Wrong codes a courier may try on one stop; then only staff can deliver it. */
+export const DELIVERY_CODE_MAX_ATTEMPTS = 5;
+export const DeliverStopSchema = z
+  .object({
+    code: z
+      .string()
+      .regex(new RegExp(`^\\d{${DELIVERY_CODE_LENGTH}}$`), 'digits only, exact length')
+      .optional(),
+  })
+  .strict()
+  // Callers from before the code send no body at all.
+  .default({});
+export type DeliverStopInput = z.infer<typeof DeliverStopSchema>;
+export const DELIVERY_PROOFS = ['PIN', 'STAFF'] as const;
+export type DeliveryProof = (typeof DELIVERY_PROOFS)[number];
 export const CancelTripSchema = z.object({ reason: z.string().trim().max(300).optional() }).strict();
 
 export const LocationPointSchema = z
@@ -686,6 +708,10 @@ export interface DeliveryStopDTO {
   deliveredAt: string | null;
   failedAt: string | null;
   failureReason: string | null;
+  /** How the delivery was confirmed while delivery_pin is on (docs/TESLIMAT_KODU.md); null otherwise. */
+  proof: DeliveryProof | null;
+  /** The courier has used up the code attempts; only staff can deliver now. */
+  codeLocked: boolean;
 }
 
 export interface DeliveryTripDTO {
@@ -732,6 +758,8 @@ export interface OrderTrackingDTO {
   placedAt: string;
   /** A scheduled order's slot (docs/ILERI_TARIHLI_SIPARIS.md); null for as soon as possible. */
   scheduledFor: string | null;
+  /** The code to give the restaurant's courier at the door (docs/TESLIMAT_KODU.md); null when not asked. */
+  deliveryCode: string | null;
   promisedReadyAt: string | null;
   estimatedDeliveryAt: string | null;
   completedAt: string | null;

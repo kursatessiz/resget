@@ -8,11 +8,12 @@ import {
   CancelTripSchema,
   CreateTripSchema,
   ReorderStopsSchema,
+  DeliverStopSchema,
   StopFailureSchema,
   TripsQuerySchema,
   UuidSchema,
 } from '@resget/shared';
-import type { DeliveryTripDTO, DispatchBoardDTO } from '@resget/shared';
+import type { DeliverStopInput, DeliveryTripDTO, DispatchBoardDTO } from '@resget/shared';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/zod-body.pipe';
 import { RequireFeature, RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
@@ -159,8 +160,10 @@ export class DispatchController {
     @CurrentUser() user: AuthUser,
     @ZodParam('tripId', UuidSchema) tripId: string,
     @ZodParam('stopId', UuidSchema) stopId: string,
+    @ZodBody(DeliverStopSchema) body: DeliverStopInput,
   ): Promise<DeliveryTripDTO> {
-    return this.dispatch.deliver(tenant.restaurantId, tripId, stopId, staff(user));
+    // Staff may deliver without the customer's code (docs/TESLIMAT_KODU.md); the stop records how.
+    return this.dispatch.deliver(tenant.restaurantId, tripId, stopId, staff(user), body.code);
   }
 
   @Post('trips/:tripId/stops/:stopId/fail')

@@ -183,6 +183,17 @@ export function TrackingLive({
         </div>
       </Card>
 
+      {tracking.deliveryCode && (
+        <Card title={t('tracking.deliveryCode.title')}>
+          <div className="flex flex-col gap-2">
+            <p className="ui-title" data-delivery-code>
+              {tracking.deliveryCode}
+            </p>
+            <p className="ui-caption">{t('tracking.deliveryCode.hint')}</p>
+          </div>
+        </Card>
+      )}
+
       {courier && (
         <Card title={t('tracking.courier', { name: courier.firstName })}>
           <div className="flex flex-col gap-2">

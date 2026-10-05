@@ -16,6 +16,7 @@ function tracking(status: string): RealtimeEvent {
     items: [],
     placedAt: new Date().toISOString(),
     scheduledFor: null,
+    deliveryCode: null,
     promisedReadyAt: null,
     estimatedDeliveryAt: null,
     completedAt: null,

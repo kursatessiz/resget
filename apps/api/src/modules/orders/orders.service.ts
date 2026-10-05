@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { Prisma } from '@resget/database';
 import {
   customerChurnRisk,
@@ -20,6 +20,8 @@ import {
   settlementDefaultsFor,
   trackingUrl,
   acceptDeadlineFor,
+  TERMINAL_ORDER_STATUSES,
+  DELIVERY_CODE_LENGTH,
   scheduledAcceptDeadline,
   scheduledPromisedReadyAt,
   schedulingSettingsFrom,
@@ -438,6 +440,10 @@ export class OrdersService {
           addressSnapshot: address ? (address as Prisma.InputJsonValue) : Prisma.JsonNull,
           customerNote: input.note ?? null,
           trackingToken: randomBytes(TRACKING_TOKEN_BYTES).toString('base64url'),
+          // Every delivery order gets one; it is asked for only while delivery_pin is on (docs/TESLIMAT_KODU.md).
+          deliveryCode: isDelivery
+            ? String(randomInt(0, 10 ** DELIVERY_CODE_LENGTH)).padStart(DELIVERY_CODE_LENGTH, '0')
+            : null,
           items: {
             create: lines.map((l) => ({ ...l, modifiersSnapshot: l.modifiersSnapshot as Prisma.InputJsonValue })),
           },
@@ -818,6 +824,14 @@ export class OrdersService {
     const address = this.addressOf(row);
     const destination = address?.point ?? null;
     const given = this.refundedQuantitiesOf(row);
+    // The restaurant's own courier asks for it at the door, while the module is on (docs/TESLIMAT_KODU.md);
+    // an order handed to a courier network is not delivered by them, so it shows none.
+    const showCode =
+      row.deliveryCode !== null &&
+      row.status !== 'PENDING_PAYMENT' &&
+      !TERMINAL_ORDER_STATUSES.includes(row.status) &&
+      (await this.features.isEnabled('delivery_pin', row.restaurantId)) &&
+      !(await this.prisma.deliveryRequest.findFirst({ where: { orderId: row.id }, select: { id: true } }));
     const stop = row.deliveryStops[0];
     let courier: OrderTrackingDTO['courier'] = null;
     if (
@@ -870,6 +884,7 @@ export class OrdersService {
       })),
       placedAt: row.placedAt.toISOString(),
       scheduledFor: row.scheduledFor?.toISOString() ?? null,
+      deliveryCode: showCode ? row.deliveryCode : null,
       promisedReadyAt: row.promisedReadyAt?.toISOString() ?? null,
       estimatedDeliveryAt: row.estimatedDeliveryAt?.toISOString() ?? null,
       completedAt: row.completedAt?.toISOString() ?? null,

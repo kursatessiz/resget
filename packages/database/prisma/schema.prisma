@@ -1291,6 +1291,8 @@ model Order {
   rejectReason              String?
   /// Unguessable handle of the public tracking page (/t/<token>); set for every new order.
   trackingToken             String?   @unique
+  /// Four digits the customer reads to the restaurant's courier at the door (docs/TESLIMAT_KODU.md); delivery orders only.
+  deliveryCode              String?
   /// Kitchen promise given when the order was accepted (placedAt + prepMinutes).
   promisedReadyAt           DateTime?
   /// PLACED orders: placedAt + the restaurant's acceptTimeoutMinutes; the watchdog alarms past it (docs/SIPARIS_VE_SEVK.md).
@@ -1893,6 +1895,10 @@ model DeliveryStop {
   deliveredAt    DateTime?
   failedAt       DateTime?
   failureReason  String?
+  /// How the delivery was confirmed while delivery_pin is on: PIN (the customer's code) or STAFF (dispatcher, without the code).
+  proof          String?
+  /// Wrong codes tried by the courier; at the limit only staff can deliver the stop.
+  codeAttempts   Int                @default(0)
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 

@@ -122,6 +122,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.menu_dayparts.name': 'Menu dayparts',
   'features.menu_dayparts.description':
     'Serving hours on menu sections (breakfast, lunch); a section can be ordered only within them, for scheduled orders at the chosen time.',
+  'features.delivery_pin.name': 'Delivery code',
+  'features.delivery_pin.description':
+    "Delivery orders show a four-digit code on the customer's tracking page; the business's own courier completes the delivery with it. Staff can confirm without it, recorded separately.",
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',

@@ -130,3 +130,5 @@ Yalnızca ileri yönlü; deploy'dan önce çalışır; bir sürüm boyunca geriy
 Alerjenler (`docs/ALERJENLER.md`): `menu_items.allergens` ve `menu_items.dietaryTags` (katalogdaki anahtarlar, varsayılan boş dizi). Migration: `20261120000000_menu_allergens`.
 
 Öğün saatleri (`docs/OGUN_SAATLERI.md`): `menu_categories.availableHours` bölümün sipariş edilebildiği haftalık aralıklardır (çalışma saatleri biçiminde; boş ise her zaman). Migration: `20261121000000_menu_dayparts`.
+
+Teslimat kodu (`docs/TESLIMAT_KODU.md`): `orders.deliveryCode` eve teslim siparişinde oluşturulan dört haneli koddur (gel-al ve masada boş); `delivery_stops.proof` teslimin nasıl kanıtlandığıdır (`PIN` veya `STAFF`; modül kapalıyken boş), `delivery_stops.codeAttempts` kuryenin o duraktaki deneme sayısıdır. Migration: `20261122000000_delivery_pin`.

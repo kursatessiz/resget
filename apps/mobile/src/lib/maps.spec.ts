@@ -26,6 +26,7 @@ const tracking = (
   items: [],
   placedAt: '2026-10-04T10:00:00.000Z',
   scheduledFor: null,
+  deliveryCode: null,
   promisedReadyAt: null,
   estimatedDeliveryAt: null,
   completedAt: null,
@@ -62,6 +63,8 @@ const stop = (
   deliveredAt: null,
   failedAt: null,
   failureReason: null,
+  proof: null,
+  codeLocked: false,
 });
 
 describe('regionFor', () => {

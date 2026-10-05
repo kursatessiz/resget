@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { DELIVERY_CODE_LENGTH } from '@resget/shared';
 import type { DeliveryStopDTO, DeliveryTripDTO } from '@resget/shared';
 import { useInAppMap } from '@/components/map-panel';
 import { TripMap } from '@/components/trip-map';
@@ -43,8 +44,11 @@ export default function TripScreen() {
   const [busy, setBusy] = useState(false);
   const [failing, setFailing] = useState<DeliveryStopDTO | null>(null);
   const [reason, setReason] = useState('');
+  const [code, setCode] = useState('');
   const showMap = useInAppMap();
   const navigation = useNavigationApp();
+  // Proof of delivery with the customer's code (docs/TESLIMAT_KODU.md).
+  const needsCode = membership?.features.includes('delivery_pin') ?? false;
   const base = membership ? `restaurants/${membership.restaurantId}/courier/me/trips/${tripId}` : null;
 
   const load = useCallback(async () => {
@@ -100,7 +104,10 @@ export default function TripScreen() {
       case 'arrive':
         return void post(`stops/${action.stop.id}/arrive`);
       case 'deliver':
-        return void post(`stops/${action.stop.id}/deliver`);
+        return void post(`stops/${action.stop.id}/deliver`, needsCode ? { code } : {}).then(() => {
+          setCode('');
+          void load();
+        });
       default:
         return undefined;
     }
@@ -122,7 +129,32 @@ export default function TripScreen() {
         </Body>
       )}
       {error && <Notice tone="error">{error}</Notice>}
-      {action && <Button label={label} onPress={run} busy={busy} disabled={action.kind === 'done'} big />}
+      {action?.kind === 'deliver' && needsCode && !action.stop.codeLocked && (
+        <Card title={t('mobile.courier.code.label')}>
+          <Field
+            label={t('mobile.courier.code.hint', { length: DELIVERY_CODE_LENGTH })}
+            value={code}
+            onChangeText={(value) => setCode(value.replace(/\D/g, '').slice(0, DELIVERY_CODE_LENGTH))}
+            keyboardType="number-pad"
+            maxLength={DELIVERY_CODE_LENGTH}
+          />
+        </Card>
+      )}
+      {action?.kind === 'deliver' && needsCode && action.stop.codeLocked && (
+        <Notice tone="error">{t('mobile.courier.code.locked')}</Notice>
+      )}
+      {action && (
+        <Button
+          label={label}
+          onPress={run}
+          busy={busy}
+          disabled={
+            action.kind === 'done' ||
+            (action.kind === 'deliver' && needsCode && (action.stop.codeLocked || code.length !== DELIVERY_CODE_LENGTH))
+          }
+          big
+        />
+      )}
       {action && (action.kind === 'arrive' || action.kind === 'deliver') && !failing && (
         <Button
           label={t('mobile.courier.action.fail')}

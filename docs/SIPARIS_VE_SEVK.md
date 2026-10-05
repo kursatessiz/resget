@@ -49,7 +49,7 @@ Akış:
 3. **Teslim alma** (`POST .../pickup`): kurye paketleri aldığını onaylar; seferdeki her sipariş HANDED_TO_COURIER olur. Hazır olmayan bir sipariş varsa sefer başlamaz (`TRIP_STATE_INVALID`).
 4. **Yola çıkma** (`POST .../start`): teslim alma atlanmışsa önce yapılır; tüm siparişler OUT_FOR_DELIVERY, ilk durak EN_ROUTE, sefer IN_PROGRESS. Her durak için tahmini varış hesaplanır.
 5. **Varış** (`POST .../stops/:stopId/arrive` veya otomatik): durak ARRIVING, sipariş ARRIVING; müşteri "kapıda olun" mesajını görür.
-6. **Teslim** (`POST .../stops/:stopId/deliver`): durak ve sipariş DELIVERED, sıradaki PENDING durak EN_ROUTE olur. **Teslim edilemedi** (`POST .../stops/:stopId/fail { reason }`): durak FAILED, sipariş READY'ye döner, sefer sıradakiyle sürer.
+6. **Teslim** (`POST .../stops/:stopId/deliver`): durak ve sipariş DELIVERED, sıradaki PENDING durak EN_ROUTE olur. **Teslim edilemedi** (`POST .../stops/:stopId/fail { reason }`): durak FAILED, sipariş READY'ye döner, sefer sıradakiyle sürer. Teslimat kodu modülü açıkken kurye teslimde müşterinin kodunu girer (`docs/TESLIMAT_KODU.md`).
 7. Son durak kapanınca sefer COMPLETED olur, kuryenin konum kaydındaki sefer bağı kaldırılır.
 8. **İptal** (`POST .../cancel`): kalan duraklar REMOVED, kuryedeki siparişler READY'ye döner; teslim edilmiş olanlar değişmez.
 

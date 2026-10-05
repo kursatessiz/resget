@@ -97,4 +97,7 @@ export const trMobile = {
   'mobile.orders.readOnly': 'Siparişleri bu cihazdan yönetmek için işletme panelini kullanın.',
   'mobile.orders.confirm': 'Onayla',
   'mobile.orders.overdue': 'Kabul süresi geçti',
+  'mobile.courier.code.label': 'Müşterinin teslimat kodu',
+  'mobile.courier.code.hint': 'Müşteriden takip ekranındaki {length} haneli kodu isteyin.',
+  'mobile.courier.code.locked': 'Çok fazla yanlış kod girildi. Teslimi restoran panelden onaylayabilir.',
 } as const satisfies Record<string, string>;

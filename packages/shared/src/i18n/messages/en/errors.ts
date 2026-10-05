@@ -127,6 +127,9 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.SOCIAL_ACCOUNT_UNAVAILABLE': 'One of the selected accounts is not in use or was disconnected.',
   'errors.SCHEDULED_SLOT_INVALID': 'The chosen time is no longer available; pick another one from the list.',
   'errors.SCHEDULING_UNAVAILABLE': 'This business is not taking scheduled orders right now.',
+  'errors.DELIVERY_CODE_REQUIRED': "Enter the customer's delivery code to deliver.",
+  'errors.DELIVERY_CODE_INVALID': 'The delivery code is wrong; ask the customer for the code again.',
+  'errors.DELIVERY_CODE_LOCKED': 'Too many wrong codes were tried; the business has to confirm this delivery.',
   'errors.MENU_ITEM_NOT_SERVED':
     'Some items in your basket are not served at the chosen time; please check your basket.',
   'errors.NPS_NOT_ALLOWED': 'The question cannot be answered for this order now.',

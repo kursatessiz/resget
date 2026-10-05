@@ -1,7 +1,15 @@
 import { Injectable } from '@nestjs/common';
+import { timingSafeEqual } from 'node:crypto';
 import { Prisma } from '@resget/database';
-import { dispatchSettingsFrom, estimateStopEtas, optimizeStopOrder, orderShortCode } from '@resget/shared';
+import {
+  DELIVERY_CODE_MAX_ATTEMPTS,
+  dispatchSettingsFrom,
+  estimateStopEtas,
+  optimizeStopOrder,
+  orderShortCode,
+} from '@resget/shared';
 import type {
+  DeliveryProof,
   CourierSummaryDTO,
   CreateTripInput,
   DeliveryStopDTO,
@@ -20,7 +28,8 @@ import { OrderNotificationsService } from '../orders/order-notifications.service
 import { PushService } from '../push/push.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { RoutingRegistry } from './routing.registry';
-import { conflict, forbidden, notFound } from '../../common/api-error';
+import { badRequest, conflict, forbidden, notFound } from '../../common/api-error';
+import { FeatureFlagsService } from '../features/feature-flags.service';
 
 const tripArgs = Prisma.validator<Prisma.DeliveryTripDefaultArgs>()({
   include: {
@@ -59,6 +68,7 @@ export class DispatchService {
     private readonly routing: RoutingRegistry,
     private readonly notifications: OrderNotificationsService,
     private readonly push: PushService,
+    private readonly features: FeatureFlagsService,
   ) {
     this.orders.setTripEventsProvider((tripId) => this.eventsForTrip(tripId));
   }
@@ -404,14 +414,21 @@ export class DispatchService {
     return this.getTrip(restaurantId, tripId);
   }
 
-  async deliver(restaurantId: string, tripId: string, stopId: string, actor: Actor): Promise<DeliveryTripDTO> {
+  async deliver(
+    restaurantId: string,
+    tripId: string,
+    stopId: string,
+    actor: Actor,
+    code?: string,
+  ): Promise<DeliveryTripDTO> {
     const trip = await this.loadTrip(this.prisma, restaurantId, tripId);
     const stop = this.activeStop(trip, stopId);
     if (trip.status !== 'IN_PROGRESS') throw conflict('TRIP_STATE_INVALID', 'Trip has not departed');
+    const proof = await this.deliveryProof(restaurantId, stop, actor, code);
     await this.prisma.$transaction(async (tx) => {
       await tx.deliveryStop.update({
         where: { id: stopId },
-        data: { status: 'DELIVERED', deliveredAt: new Date(), arrivedAt: stop.arrivedAt ?? new Date() },
+        data: { status: 'DELIVERED', deliveredAt: new Date(), arrivedAt: stop.arrivedAt ?? new Date(), proof },
       });
       const order = await this.orders.loadRow(tx, stop.orderId);
       await this.orders.applyTransition(tx, order, 'DELIVERED', actor.role, actor.userId, { fromTrip: true });
@@ -420,6 +437,44 @@ export class DispatchService {
     await this.refreshEstimates(restaurantId, tripId);
     await this.publishTrip(tripId, [], [stop.orderId]);
     return this.getTrip(restaurantId, tripId);
+  }
+
+  /**
+   * Proof of delivery (docs/TESLIMAT_KODU.md): while delivery_pin is on the
+   * courier must give the customer's code; a wrong one counts against the
+   * stop and, at the limit, only staff can deliver it. Staff may deliver
+   * without a code, which the stop records.
+   */
+  private async deliveryProof(
+    restaurantId: string,
+    stop: { id: string; orderId: string; codeAttempts: number },
+    actor: Actor,
+    code: string | undefined,
+  ): Promise<DeliveryProof | null> {
+    if (!(await this.features.isEnabled('delivery_pin', restaurantId))) return null;
+    const order = await this.prisma.order.findUniqueOrThrow({
+      where: { id: stop.orderId },
+      select: { deliveryCode: true },
+    });
+    // An order placed before the module was on carries no code the customer could have seen.
+    if (order.deliveryCode === null) return actor.role === 'COURIER' ? null : 'STAFF';
+    const matches = code !== undefined && sameCode(code, order.deliveryCode);
+    if (actor.role !== 'COURIER') return matches ? 'PIN' : 'STAFF';
+    if (code === undefined) {
+      if (stop.codeAttempts >= DELIVERY_CODE_MAX_ATTEMPTS) {
+        throw conflict('DELIVERY_CODE_LOCKED', 'Too many wrong codes; staff must confirm');
+      }
+      throw badRequest('DELIVERY_CODE_REQUIRED', 'The customer code is required');
+    }
+    // Every courier attempt takes one slot under the limit in a single conditional write, so parallel
+    // guesses cannot read a stale count and get past it, right code or not.
+    const slot = await this.prisma.deliveryStop.updateMany({
+      where: { id: stop.id, codeAttempts: { lt: DELIVERY_CODE_MAX_ATTEMPTS } },
+      data: { codeAttempts: { increment: 1 } },
+    });
+    if (slot.count === 0) throw conflict('DELIVERY_CODE_LOCKED', 'Too many wrong codes; staff must confirm');
+    if (!matches) throw badRequest('DELIVERY_CODE_INVALID', 'Wrong delivery code');
+    return 'PIN';
   }
 
   /** Nobody at the door, wrong address: the order returns to the restaurant as READY for a new trip or a cancellation. */
@@ -741,6 +796,8 @@ export class DispatchService {
       deliveredAt: stop.deliveredAt?.toISOString() ?? null,
       failedAt: stop.failedAt?.toISOString() ?? null,
       failureReason: stop.failureReason,
+      proof: (stop.proof as DeliveryProof | null) ?? null,
+      codeLocked: stop.status !== 'DELIVERED' && stop.codeAttempts >= DELIVERY_CODE_MAX_ATTEMPTS,
     }));
     return {
       id: trip.id,
@@ -771,4 +828,11 @@ export class DispatchService {
       cancelReason: trip.cancelReason,
     };
   }
+}
+
+/** Constant-time comparison of two short codes of equal length. */
+function sameCode(given: string, expected: string): boolean {
+  const a = Buffer.from(given);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
 }

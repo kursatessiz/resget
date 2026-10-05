@@ -62,4 +62,7 @@ export const enTracking: Record<keyof typeof trTracking, string> = {
   'tracking.claim.approved': 'Your report was approved; {amount} has been refunded.',
   'tracking.claim.declined': 'Your report was not accepted. Reason: {reason}',
   'tracking.claim.escalated': 'Your report went to the platform team; a decision follows shortly.',
+  'tracking.deliveryCode.title': 'Delivery code',
+  'tracking.deliveryCode.hint':
+    'Tell this code to the courier when you receive your order. Do not share it with anyone else.',
 };
