@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@resget/database';
-import { menuMatchKey, parseMenuCsv } from '@resget/shared';
+import { allergensFrom, dietaryTagsFrom, menuMatchKey, parseMenuCsv } from '@resget/shared';
 import type {
   CreateMenuCategoryInput,
   ImportMenuInput,
@@ -14,6 +14,7 @@ import type {
   StorefrontCategoryDTO,
   UpdateMenuItemInput,
 } from '@resget/shared';
+import { FeatureFlagsService } from '../features/feature-flags.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
 
@@ -28,6 +29,8 @@ const adminItemSelect = Prisma.validator<Prisma.MenuItemSelect>()({
   imageUrl: true,
   isAvailable: true,
   sortOrder: true,
+  allergens: true,
+  dietaryTags: true,
   modifierGroups: {
     orderBy: { sortOrder: 'asc' },
     select: {
@@ -52,9 +55,24 @@ const adminCategorySelect = Prisma.validator<Prisma.MenuCategorySelect>()({
   items: { orderBy: { sortOrder: 'asc' }, select: adminItemSelect },
 });
 
+type AdminItemRow = Prisma.MenuItemGetPayload<{ select: typeof adminItemSelect }>;
+type AdminCategoryRow = Prisma.MenuCategoryGetPayload<{ select: typeof adminCategorySelect }>;
+
+/** Stored tag columns are plain strings; the DTO carries only known values, in catalogue order. */
+function toItem(row: AdminItemRow): MenuItemAdminDTO {
+  return { ...row, allergens: allergensFrom(row.allergens), dietaryTags: dietaryTagsFrom(row.dietaryTags) };
+}
+
+function toCategory(row: AdminCategoryRow): MenuCategoryAdminDTO {
+  return { ...row, items: row.items.map(toItem) };
+}
+
 @Injectable()
 export class MenuService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly features: FeatureFlagsService,
+  ) {}
 
   /** The guest-facing menu: visible categories, every item with its available option groups. */
   async menuOf(restaurantId: string): Promise<StorefrontCategoryDTO[]> {
@@ -74,6 +92,8 @@ export class MenuService {
             currency: true,
             isAvailable: true,
             imageUrl: true,
+            allergens: true,
+            dietaryTags: true,
             modifierGroups: {
               orderBy: { sortOrder: 'asc' },
               select: {
@@ -93,7 +113,16 @@ export class MenuService {
         },
       },
     });
-    return categories;
+    // Allergens and tags reach guests only while the module is on (docs/ALERJENLER.md).
+    const withTags = await this.features.isEnabled('allergens', restaurantId);
+    return categories.map((category) => ({
+      ...category,
+      items: category.items.map((item) => ({
+        ...item,
+        allergens: withTags ? allergensFrom(item.allergens) : [],
+        dietaryTags: withTags ? dietaryTagsFrom(item.dietaryTags) : [],
+      })),
+    }));
   }
 
   // -- Management (menu.manage) -------------------------------------------------------
@@ -108,15 +137,17 @@ export class MenuService {
         select: adminCategorySelect,
       }),
     ]);
-    return { currency: restaurant.currency, categories };
+    return { currency: restaurant.currency, categories: categories.map(toCategory) };
   }
 
   async createCategory(restaurantId: string, input: CreateMenuCategoryInput): Promise<MenuCategoryAdminDTO> {
     const sortOrder = input.sortOrder ?? (await this.nextCategoryOrder(restaurantId));
-    return this.prisma.menuCategory.create({
-      data: { restaurantId, name: input.name, sortOrder },
-      select: adminCategorySelect,
-    });
+    return toCategory(
+      await this.prisma.menuCategory.create({
+        data: { restaurantId, name: input.name, sortOrder },
+        select: adminCategorySelect,
+      }),
+    );
   }
 
   async updateCategory(
@@ -125,7 +156,9 @@ export class MenuService {
     input: UpdateMenuCategoryInput,
   ): Promise<MenuCategoryAdminDTO> {
     await this.requireCategory(restaurantId, categoryId);
-    return this.prisma.menuCategory.update({ where: { id: categoryId }, data: input, select: adminCategorySelect });
+    return toCategory(
+      await this.prisma.menuCategory.update({ where: { id: categoryId }, data: input, select: adminCategorySelect }),
+    );
   }
 
   /** A category is deleted only when empty; items carry order history and are never dropped by accident. */
@@ -155,27 +188,31 @@ export class MenuService {
       select: { currency: true },
     });
     const sortOrder = input.sortOrder ?? (await this.nextItemOrder(input.categoryId));
-    return this.prisma.menuItem.create({
-      data: {
-        restaurantId,
-        categoryId: input.categoryId,
-        name: input.name,
-        description: input.description ?? null,
-        priceMinor: input.priceMinor,
-        currency: restaurant.currency,
-        vatRateBps: input.vatRateBps,
-        imageUrl: input.imageUrl ?? null,
-        isAvailable: input.isAvailable ?? true,
-        sortOrder,
-      },
-      select: adminItemSelect,
-    });
+    return toItem(
+      await this.prisma.menuItem.create({
+        data: {
+          restaurantId,
+          categoryId: input.categoryId,
+          name: input.name,
+          description: input.description ?? null,
+          priceMinor: input.priceMinor,
+          currency: restaurant.currency,
+          vatRateBps: input.vatRateBps,
+          imageUrl: input.imageUrl ?? null,
+          isAvailable: input.isAvailable ?? true,
+          sortOrder,
+          allergens: input.allergens ?? [],
+          dietaryTags: input.dietaryTags ?? [],
+        },
+        select: adminItemSelect,
+      }),
+    );
   }
 
   async updateItem(restaurantId: string, itemId: string, input: UpdateMenuItemInput): Promise<MenuItemAdminDTO> {
     await this.requireItem(restaurantId, itemId);
     if (input.categoryId) await this.requireCategory(restaurantId, input.categoryId);
-    return this.prisma.menuItem.update({ where: { id: itemId }, data: input, select: adminItemSelect });
+    return toItem(await this.prisma.menuItem.update({ where: { id: itemId }, data: input, select: adminItemSelect }));
   }
 
   /** An item that appears in any order stays (mark it sold out instead); order lines keep their snapshot either way. */
@@ -196,7 +233,9 @@ export class MenuService {
     await this.prisma.$transaction(
       ids.map((id, index) => this.prisma.menuItem.update({ where: { id }, data: { sortOrder: index + 1 } })),
     );
-    return this.prisma.menuCategory.findUniqueOrThrow({ where: { id: categoryId }, select: adminCategorySelect });
+    return toCategory(
+      await this.prisma.menuCategory.findUniqueOrThrow({ where: { id: categoryId }, select: adminCategorySelect }),
+    );
   }
 
   /** Replaces the option groups of an item as a whole, in the order given. */
@@ -228,7 +267,7 @@ export class MenuService {
         });
       }
     });
-    return this.prisma.menuItem.findUniqueOrThrow({ where: { id: itemId }, select: adminItemSelect });
+    return toItem(await this.prisma.menuItem.findUniqueOrThrow({ where: { id: itemId }, select: adminItemSelect }));
   }
 
   private async requireCategory(restaurantId: string, categoryId: string): Promise<void> {

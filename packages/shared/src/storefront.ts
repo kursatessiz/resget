@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { OrderAvailabilityDTO } from './availability';
 import type { StorefrontSchedulingDTO } from './scheduling';
+import type { Allergen, DietaryTag } from './allergens';
 import { CouponCodeSchema } from './coupons';
 import { MarketingChannelsSchema } from './consent';
 import type { DeliveryZone } from './delivery-zone';
@@ -30,6 +31,9 @@ export interface StorefrontItemDTO {
   currency: string;
   isAvailable: boolean;
   imageUrl: string | null;
+  /** Declared allergens and tags; empty while the allergens module is off (docs/ALERJENLER.md). */
+  allergens: Allergen[];
+  dietaryTags: DietaryTag[];
   modifierGroups: MenuModifierGroupDTO[];
 }
 

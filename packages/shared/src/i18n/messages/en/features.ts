@@ -116,6 +116,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.scheduled_orders.name': 'Scheduled orders',
   'features.scheduled_orders.description':
     'Customers order now for a later time within the opening hours; pre-orders are taken while the business is closed too. The accept alarm follows when preparation has to start.',
+  'features.allergens.name': 'Allergens and dietary tags',
+  'features.allergens.description':
+    'The 14 regulated allergens and tags such as vegetarian, vegan or gluten free on menu items; shown on the ordering page with a filter that hides items by allergen.',
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',
