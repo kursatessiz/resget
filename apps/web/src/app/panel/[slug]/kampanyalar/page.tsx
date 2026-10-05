@@ -3,13 +3,14 @@ import { ConsentLimits } from '@/components/panel/ConsentLimits';
 import { Badge, Card, LinkButton } from '@/components/ui';
 import { getT } from '@/lib/i18n';
 import { requireMembership } from '@/lib/panel';
+import { panelPlanLabel } from '@/lib/plans';
 
 /** PRO: the campaign tool (docs/KAMPANYALAR.md). BASIC sees the plan rule and the parts that are ready. */
 export default async function CampaignsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { membership, can } = await requireMembership(slug, 'campaigns.view');
   const { t, locale } = await getT();
-  if (membership.effectivePlan === 'PRO') {
+  if (membership.entitlements.includes('campaigns')) {
     return (
       <div className="flex flex-col gap-6">
         <CampaignsManager
@@ -37,7 +38,7 @@ export default async function CampaignsPage({ params }: { params: Promise<{ slug
       </header>
       <Card
         title={t('campaigns.title')}
-        aside={<Badge tone="muted">{t(`panel.plan.${membership.effectivePlan}`)}</Badge>}
+        aside={<Badge tone="muted">{panelPlanLabel(t, membership.effectivePlan, membership.planName)}</Badge>}
       >
         <p>{t('campaigns.proRequired')}</p>
         <div className="flex flex-col gap-2 md:flex-row">

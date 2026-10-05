@@ -1,31 +1,15 @@
 import { SubscriptionStatus } from './enums';
-import {
-  PLAN_FEATURE_SETS,
-  PRO_TRIAL_DAYS_DEFAULT,
-  debitCredits,
-  effectivePlan,
-  hasFeature,
-  trialEndFrom,
-} from './plans';
+import { PRO_TRIAL_DAYS_DEFAULT, debitCredits, effectivePlan, trialEndFrom } from './plans';
 
 const now = new Date('2026-10-02T12:00:00Z');
 const tomorrow = new Date('2026-10-03T12:00:00Z');
 const yesterday = new Date('2026-10-01T12:00:00Z');
 
 describe('plans', () => {
-  it('BASIC keeps everything a restaurant needs to take orders', () => {
-    for (const f of ['menu', 'orders', 'table_qr', 'marketplace', 'own_ordering_page'] as const) {
-      expect(PLAN_FEATURE_SETS.BASIC).toContain(f);
-    }
-    expect(PLAN_FEATURE_SETS.BASIC).not.toContain('campaigns');
-  });
-
   it('a running PRO trial unlocks PRO, a lapsed one falls back to BASIC', () => {
     const trial = { planCode: 'PRO' as const, status: SubscriptionStatus.TRIALING, currentPeriodEnd: null };
     expect(effectivePlan({ ...trial, trialEndsAt: tomorrow }, now)).toBe('PRO');
     expect(effectivePlan({ ...trial, trialEndsAt: yesterday }, now)).toBe('BASIC');
-    expect(hasFeature({ ...trial, trialEndsAt: yesterday }, 'orders', now)).toBe(true);
-    expect(hasFeature({ ...trial, trialEndsAt: yesterday }, 'crm', now)).toBe(false);
   });
 
   it('past due and cancelled keep PRO until the paid period ends', () => {
@@ -38,6 +22,14 @@ describe('plans', () => {
       );
     }
     expect(effectivePlan(null, now)).toBe('BASIC');
+  });
+
+  it('a plan added by the console resolves like the built-in ones', () => {
+    const sub = { planCode: 'GROWTH', status: SubscriptionStatus.ACTIVE, trialEndsAt: null, currentPeriodEnd: null };
+    expect(effectivePlan(sub, now)).toBe('GROWTH');
+    expect(effectivePlan({ ...sub, status: SubscriptionStatus.CANCELLED, currentPeriodEnd: yesterday }, now)).toBe(
+      'BASIC',
+    );
   });
 
   it('computes the trial end from the default length', () => {

@@ -13,6 +13,7 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
         restaurantId={membership.restaurantId}
         locale={locale}
         plan={membership.effectivePlan}
+        planName={membership.planName}
         canMessaging={can('messaging.manage')}
       />
       {membership.features.includes('partner_referrals') && (

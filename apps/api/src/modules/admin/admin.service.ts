@@ -13,11 +13,8 @@ import type {
   DistrictDensityDTO,
   GrantCreditsInput,
   GrantCreditsResultDTO,
-  PlanCode,
-  PlanDTO,
   RestaurantCreatedDTO,
   ServiceAreaDTO,
-  UpdatePlanInput,
   UpsertCreditPackageInput,
   AreaCandidateDTO,
   UpdateServiceAreaInput,
@@ -430,34 +427,6 @@ export class AdminService {
 
   // -- Plans and packages --------------------------------------------------------------
 
-  async listPlans(): Promise<PlanDTO[]> {
-    const rows = await this.prisma.plan.findMany({
-      orderBy: { monthlyPriceMinor: 'asc' },
-      include: { _count: { select: { subscriptions: true } } },
-    });
-    return rows.map((p) => ({
-      id: p.id,
-      code: p.code as PlanCode,
-      name: p.name,
-      monthlyPriceMinor: p.monthlyPriceMinor,
-      currency: p.currency,
-      isFree: p.isFree,
-      trialDays: p.trialDays,
-      isActive: p.isActive,
-      subscriptions: p._count.subscriptions,
-    }));
-  }
-
-  async updatePlan(actorUserId: string, id: string, input: UpdatePlanInput): Promise<PlanDTO> {
-    const plan = await this.prisma.plan.findUnique({ where: { id }, select: { id: true } });
-    if (!plan) throw notFound('PLAN_NOT_FOUND', 'Plan not found');
-    await this.prisma.$transaction([
-      this.prisma.plan.update({ where: { id }, data: input }),
-      this.audit(actorUserId, null, 'plan.updated', 'plan', id, input as Prisma.InputJsonObject),
-    ]);
-    return (await this.listPlans()).find((p) => p.id === id)!;
-  }
-
   async listCreditPackages(): Promise<AdminCreditPackageDTO[]> {
     const rows = await this.prisma.messageCreditPackage.findMany({ orderBy: [{ channel: 'asc' }, { credits: 'asc' }] });
     return rows.map((r) => ({
@@ -622,7 +591,7 @@ export class AdminService {
       pspFixedMinor: row.pspFixedMinor,
       plan: row.subscription
         ? {
-            code: row.subscription.plan.code as PlanCode,
+            code: row.subscription.plan.code,
             status: row.subscription.status,
             trialEndsAt: row.subscription.trialEndsAt ? row.subscription.trialEndsAt.toISOString() : null,
           }

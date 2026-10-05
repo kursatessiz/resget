@@ -1,14 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { OtpPurpose } from '@resget/database';
-import { PERMISSION_KEYS, effectivePermissions, effectivePlan, platformRoleOf } from '@resget/shared';
-import type {
-  AccessTokenClaims,
-  MeDTO,
-  SubscriptionStatus as SharedSubscriptionStatus,
-  TokenPairDTO,
-} from '@resget/shared';
+import { PERMISSION_KEYS, effectivePermissions, moduleNeedsPlan, platformRoleOf } from '@resget/shared';
+import type { AccessTokenClaims, MeDTO, TokenPairDTO } from '@resget/shared';
 import { FeatureFlagsService } from '../features/feature-flags.service';
+import { EntitlementsService, subscriptionForPlanSelect, subscriptionLike } from '../features/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OtpService } from './otp.service';
 import { InviteAcceptanceService } from './invite-acceptance.service';
@@ -25,6 +21,7 @@ export class AuthService {
     private readonly otp: OtpService,
     private readonly invites: InviteAcceptanceService,
     private readonly features: FeatureFlagsService,
+    private readonly plans: EntitlementsService,
   ) {}
 
   requestLoginCode(phone: string): Promise<{ expiresAt: Date }> {
@@ -108,9 +105,7 @@ export class AuthService {
             slug: true,
             themePrimary: true,
             logoUrl: true,
-            subscription: {
-              select: { plan: { select: { code: true } }, status: true, trialEndsAt: true, currentPeriodEnd: true },
-            },
+            subscription: { select: subscriptionForPlanSelect },
           },
         },
         roleTemplate: { select: { name: true, isOwner: true, permissions: { select: { permissionKey: true } } } },
@@ -118,6 +113,9 @@ export class AuthService {
       orderBy: { createdAt: 'asc' },
     });
     const features = await Promise.all(memberships.map((m) => this.features.enabledFor(m.restaurant.id)));
+    const plans = await Promise.all(
+      memberships.map((m) => this.plans.resolveFor(m.restaurant.id, subscriptionLike(m.restaurant.subscription))),
+    );
     // Platform marketing access (docs/PAZARLAMA.md) is reported apart from the restaurants.
     const platformMembership = await this.prisma.membership.findFirst({
       where: { userId, status: 'ACTIVE', restaurant: { isPlatform: true } },
@@ -147,17 +145,11 @@ export class AuthService {
             m.roleTemplate.permissions.map((p) => p.permissionKey),
           ),
         ),
-        effectivePlan: effectivePlan(
-          m.restaurant.subscription
-            ? {
-                planCode: m.restaurant.subscription.plan.code === 'PRO' ? 'PRO' : 'BASIC',
-                status: m.restaurant.subscription.status as unknown as SharedSubscriptionStatus,
-                trialEndsAt: m.restaurant.subscription.trialEndsAt,
-                currentPeriodEnd: m.restaurant.subscription.currentPeriodEnd,
-              }
-            : null,
-        ),
-        features: features[index],
+        effectivePlan: plans[index].planCode,
+        planName: plans[index].planName,
+        entitlements: [...plans[index].entitlements],
+        // A module the plan leaves out is hidden like a switched-off one; plan features keep their upsell screens.
+        features: features[index].filter((key) => !moduleNeedsPlan(key) || plans[index].entitlements.has(key)),
       })),
     };
   }

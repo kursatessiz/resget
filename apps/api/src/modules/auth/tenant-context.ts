@@ -1,5 +1,5 @@
 import type { Request } from 'express';
-import type { PermissionKey, PlanCode } from '@resget/shared';
+import type { EntitlementKey, PermissionKey, PlanCode } from '@resget/shared';
 
 export interface AuthUser {
   id: string;
@@ -16,6 +16,9 @@ export interface TenantContext {
   isSuperAdmin: boolean;
   permissions: Set<PermissionKey>;
   effectivePlan: PlanCode;
+  planName: string;
+  /** What the plan and the restaurant's grants carry (docs/PLAN_MATRISI.md). */
+  entitlements: ReadonlySet<EntitlementKey>;
   /** The platform tenant (docs/PAZARLAMA.md): only usable while marketing_platform is on, never for roles or money. */
   isPlatform: boolean;
 }

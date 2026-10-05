@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { formatMoney } from '@resget/shared';
+import { formatMoney, isBuiltInPlan } from '@resget/shared';
 import type {
   MessagingOverviewDTO,
   NotificationChannel,
@@ -13,6 +13,7 @@ import type {
 import { Badge, Button, Card, SelectField } from '@/components/ui';
 import type { UiTone } from '@/components/ui/types';
 import { ApiError, bffJson } from '@/lib/client-api';
+import { planLabel } from '@/lib/plans';
 import { useT } from '@/lib/use-t';
 
 const STATUS_TONE: Record<string, UiTone> = { SENT: 'success', DELIVERED: 'success', PENDING: 'warn', FAILED: 'error' };
@@ -23,11 +24,13 @@ export function PlanAndCredits({
   restaurantId,
   locale,
   plan,
+  planName,
   canMessaging,
 }: {
   restaurantId: string;
   locale: string;
   plan: PlanCode;
+  planName: string;
   canMessaging: boolean;
 }) {
   const t = useT(locale);
@@ -163,7 +166,8 @@ export function PlanAndCredits({
       <header className="flex flex-col gap-1">
         <h1 className="ui-title">{t('messaging.title')}</h1>
         <p className="ui-text-muted">
-          {t('messaging.plan.current', { plan: t(`plans.${plan}.name`) })}. {t(`plans.${plan}.summary`)}
+          {t('messaging.plan.current', { plan: planLabel(t, plan, planName) })}.
+          {isBuiltInPlan(plan) && ` ${t(`plans.${plan}.summary`)}`}
         </p>
       </header>
       {error && (

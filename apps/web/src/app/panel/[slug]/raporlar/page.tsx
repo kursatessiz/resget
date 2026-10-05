@@ -7,6 +7,10 @@ export default async function ReportsPage({ params }: { params: Promise<{ slug: 
   const { membership } = await requireMembership(slug, 'reports.view');
   const locale = await getLocale();
   return (
-    <ReportsPanel restaurantId={membership.restaurantId} locale={locale} isPro={membership.effectivePlan === 'PRO'} />
+    <ReportsPanel
+      restaurantId={membership.restaurantId}
+      locale={locale}
+      isPro={membership.entitlements.includes('analytics')}
+    />
   );
 }

@@ -2,15 +2,13 @@ import { BadRequestException, CanActivate, ExecutionContext, Injectable } from '
 import { Reflector } from '@nestjs/core';
 import {
   ALL_PERMISSIONS,
-  PLAN_FEATURE_SETS,
   PLATFORM_FORBIDDEN_TENANT_PERMISSIONS,
   UuidSchema,
   effectivePermissions,
-  effectivePlan,
 } from '@resget/shared';
 import type { PermissionKey } from '@resget/shared';
-import type { PlanCode, SubscriptionStatus as SharedSubscriptionStatus } from '@resget/shared';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EntitlementsService, subscriptionForPlanSelect, subscriptionLike } from '../../features/entitlements.service';
 import { forbidden } from '../../../common/api-error';
 import type { AuthenticatedRequest, TenantContext } from '../tenant-context';
 import { SESSION_ONLY_KEY } from '../decorators/require-permission.decorator';
@@ -27,6 +25,7 @@ export class RestaurantTenantGuard implements CanActivate {
   constructor(
     private readonly prisma: PrismaService,
     private readonly reflector: Reflector,
+    private readonly plans: EntitlementsService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -47,40 +46,34 @@ export class RestaurantTenantGuard implements CanActivate {
       select: {
         isActive: true,
         isPlatform: true,
-        subscription: {
-          select: { plan: { select: { code: true } }, status: true, trialEndsAt: true, currentPeriodEnd: true },
-        },
+        subscription: { select: subscriptionForPlanSelect },
       },
     });
     if (!restaurant) throw forbidden('FORBIDDEN', 'No access to this restaurant');
     if (!restaurant.isActive && !user.isSuperAdmin) throw forbidden('RESTAURANT_INACTIVE', 'Restaurant is inactive');
 
-    const subscription = restaurant.subscription;
-    const plan: PlanCode = effectivePlan(
-      subscription
-        ? {
-            planCode: subscription.plan.code === 'PRO' ? 'PRO' : 'BASIC',
-            status: subscription.status as unknown as SharedSubscriptionStatus,
-            trialEndsAt: subscription.trialEndsAt,
-            currentPeriodEnd: subscription.currentPeriodEnd,
-          }
-        : null,
-    );
+    // The plan in force and what it carries, with the restaurant's grants (docs/PLAN_MATRISI.md).
+    const resolved = await this.plans.resolveFor(restaurantId, subscriptionLike(restaurant.subscription));
+    const plan = {
+      effectivePlan: resolved.planCode,
+      planName: resolved.planName,
+      entitlements: resolved.entitlements,
+    };
 
     // An API key is its own membership: bound to one restaurant, holding the permissions it was minted with,
     // and worth nothing once the plan no longer carries API access (docs/API_ERISIMI.md).
     if (request.apiKey) {
       if (request.apiKey.restaurantId !== restaurantId)
         throw forbidden('FORBIDDEN', 'Key belongs to another restaurant');
-      if (!PLAN_FEATURE_SETS[plan].includes('api_access'))
-        throw forbidden('PLAN_FEATURE_REQUIRED', 'API access needs the PRO plan');
+      if (!resolved.entitlements.has('api_access'))
+        throw forbidden('PLAN_FEATURE_REQUIRED', 'API access is not in the restaurant plan');
       request.tenant = {
         restaurantId,
         membershipId: null,
         isOwner: false,
         isSuperAdmin: false,
         permissions: this.scoped(new Set(request.apiKey.permissions), restaurant.isPlatform),
-        effectivePlan: plan,
+        ...plan,
         isPlatform: restaurant.isPlatform,
       };
       return true;
@@ -93,7 +86,7 @@ export class RestaurantTenantGuard implements CanActivate {
         isOwner: !restaurant.isPlatform,
         isSuperAdmin: true,
         permissions: this.scoped(new Set(ALL_PERMISSIONS), restaurant.isPlatform),
-        effectivePlan: plan,
+        ...plan,
         isPlatform: restaurant.isPlatform,
       };
       return true;
@@ -122,7 +115,7 @@ export class RestaurantTenantGuard implements CanActivate {
         ),
         restaurant.isPlatform,
       ),
-      effectivePlan: plan,
+      ...plan,
       isPlatform: restaurant.isPlatform,
     };
     request.tenant = tenant;

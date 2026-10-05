@@ -4,6 +4,7 @@ import type { MembershipSummaryDTO } from '@resget/shared';
 import { SignOutButton } from '@/components/SignOutButton';
 import type { Translate } from '@resget/shared';
 import type { ReactNode } from 'react';
+import { panelPlanLabel } from '@/lib/plans';
 
 /**
  * Sidebar and header of the restaurant panel. The navigation renders from
@@ -32,7 +33,7 @@ export function PanelShell({
           )}
           <div className="flex flex-col gap-1">
             <span className="ui-heading">{membership.restaurantName}</span>
-            <span className="ui-caption">{t(`panel.plan.${membership.effectivePlan}`)}</span>
+            <span className="ui-caption">{panelPlanLabel(t, membership.effectivePlan, membership.planName)}</span>
           </div>
         </div>
         <nav>

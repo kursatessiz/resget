@@ -57,8 +57,9 @@
 
 | Tablo | Not |
 |---|---|
-| `plans` | `code` BASIC/PRO; fiyat ve deneme süresi veri. |
+| `plans` | Planlar veri: `code` (BASIC taban plan ve PRO deneme planı yerleşik, diğerleri konsoldan), fiyat, deneme süresi, `excludedFeatures` (planın dışarıda bıraktığı yetki anahtarları; `docs/PLAN_MATRISI.md`). |
 | `restaurant_subscriptions` | Restoran başına tek; durum, deneme bitişi, dönem sonu. |
+| `restaurant_entitlements` | Restoranın plan dışında tuttuğu anahtar: `GRACE` (plandan çıkarıldı, dönem sonuna kadar) veya `EXCEPTION` (süper adminin plan dışı açık izni); `until` boşsa süresiz; restoran, anahtar ve kaynak başına tek. |
 | `message_credit_packages` | Kanal, kredi, fiyat. |
 | `message_wallets`, `message_transactions` | Kanal başına bakiye; her hareket bakiye sonrası değeriyle. |
 | `push_devices` | Kişinin telefonu: Expo push jetonu (benzersiz), platform, dil, son görülme, `disabledAt` (sağlayıcı cihazı ölü bildirince). Kullanıcıya bağlıdır, restorana değil. |

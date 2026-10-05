@@ -14,13 +14,33 @@ import { CurrencyCodeSchema, MinorAmountSchema } from './money';
  * page on a custom domain). New restaurants get PRO free for a trial period;
  * when it ends they fall back to BASIC and lose nothing they need to operate.
  *
- * Plans and their prices are platform data (Plan table); this file holds the
- * fixed vocabulary and the rules that decide what a subscription unlocks.
+ * Plans are platform data (Plan table): code, name, price, trial length and
+ * the list of features each one carries (entitlements.ts). A new plan is a
+ * new row, not a code change. Two codes are built in because the product
+ * leans on them: BASIC is the free fallback every restaurant lands on, and
+ * PRO is the plan new restaurants trial.
  */
-export const PLAN_CODES = ['BASIC', 'PRO'] as const;
-export type PlanCode = (typeof PLAN_CODES)[number];
-export const PlanCodeSchema = z.enum(PLAN_CODES);
+export const BUILT_IN_PLAN_CODES = ['BASIC', 'PRO'] as const;
+export type BuiltInPlanCode = (typeof BUILT_IN_PLAN_CODES)[number];
+/** Every restaurant without a running paid plan behaves as this one. */
+export const FALLBACK_PLAN_CODE: BuiltInPlanCode = 'BASIC';
+/** The plan a new restaurant trials (docs/FIYATLANDIRMA.md). */
+export const TRIAL_PLAN_CODE: BuiltInPlanCode = 'PRO';
 
+/** A plan code is data: upper case letters, digits and underscores. */
+export type PlanCode = string;
+export const PlanCodeSchema = z.string().regex(/^[A-Z][A-Z0-9_]{1,23}$/);
+
+export function isBuiltInPlan(code: string): code is BuiltInPlanCode {
+  return (BUILT_IN_PLAN_CODES as readonly string[]).includes(code);
+}
+
+/**
+ * Features the plan matrix speaks of that are not modules of their own in
+ * the switch catalogue. Keys shared with the catalogue (crm, campaigns,
+ * loyalty, coupons, custom_domain, api_access, marketplace, table_qr) mean
+ * the same thing on both sides.
+ */
 export const PLAN_FEATURES = [
   'menu',
   'orders',
@@ -37,49 +57,45 @@ export const PLAN_FEATURES = [
 ] as const;
 export type PlanFeature = (typeof PLAN_FEATURES)[number];
 
-export const PLAN_FEATURE_SETS: Readonly<Record<PlanCode, readonly PlanFeature[]>> = {
-  BASIC: ['menu', 'orders', 'table_qr', 'marketplace', 'own_ordering_page'],
-  PRO: [...PLAN_FEATURES],
-};
-
 /** Days of PRO every new restaurant gets before falling back to BASIC. A platform setting; this is the default. */
 export const PRO_TRIAL_DAYS_DEFAULT = 90;
 
 export interface SubscriptionLike {
   planCode: PlanCode;
-  status: SubscriptionStatus;
+  status: SubscriptionStatus | `${SubscriptionStatus}`;
   trialEndsAt: Date | string | null;
   currentPeriodEnd: Date | string | null;
 }
 
-/** The plan whose features apply right now. A lapsed trial or a cancelled PRO behaves as BASIC. */
-export function effectivePlan(subscription: SubscriptionLike | null | undefined, now: Date = new Date()): PlanCode {
-  if (!subscription || subscription.planCode === 'BASIC') return 'BASIC';
+/**
+ * Whether the subscribed plan applies right now. A lapsed trial, or a past
+ * due or cancelled plan after its paid period, no longer does: the
+ * restaurant then behaves as the fallback plan.
+ */
+export function subscriptionRunning(subscription: SubscriptionLike, now: Date = new Date()): boolean {
+  const after = (at: Date | string | null) => at !== null && new Date(at).getTime() > now.getTime();
   switch (subscription.status) {
     case SubscriptionStatus.ACTIVE:
-      return 'PRO';
+      return true;
     case SubscriptionStatus.TRIALING:
-      return subscription.trialEndsAt && new Date(subscription.trialEndsAt).getTime() > now.getTime() ? 'PRO' : 'BASIC';
+      return after(subscription.trialEndsAt);
     case SubscriptionStatus.PAST_DUE:
-      // Grace: features stay until the paid period ends, then BASIC.
-      return subscription.currentPeriodEnd && new Date(subscription.currentPeriodEnd).getTime() > now.getTime()
-        ? 'PRO'
-        : 'BASIC';
     case SubscriptionStatus.CANCELLED:
-      return subscription.currentPeriodEnd && new Date(subscription.currentPeriodEnd).getTime() > now.getTime()
-        ? 'PRO'
-        : 'BASIC';
+      // Grace: features stay until the paid period ends.
+      return after(subscription.currentPeriodEnd);
     default:
-      return 'BASIC';
+      return false;
   }
 }
 
-export function hasFeature(
+/** The plan whose features apply right now. */
+export function effectivePlan(
   subscription: SubscriptionLike | null | undefined,
-  feature: PlanFeature,
   now: Date = new Date(),
-): boolean {
-  return PLAN_FEATURE_SETS[effectivePlan(subscription, now)].includes(feature);
+  fallbackCode: PlanCode = FALLBACK_PLAN_CODE,
+): PlanCode {
+  if (!subscription || subscription.planCode === fallbackCode) return fallbackCode;
+  return subscriptionRunning(subscription, now) ? subscription.planCode : fallbackCode;
 }
 
 export function trialEndFrom(startedAt: Date, trialDays: number = PRO_TRIAL_DAYS_DEFAULT): Date {

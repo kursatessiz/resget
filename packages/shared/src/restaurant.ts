@@ -8,6 +8,7 @@ import { LocaleCodeSchema } from './i18n/locales';
 import type { PaymentModeValue } from './payments';
 import type { PermissionKey } from './permissions';
 import type { PlanCode } from './plans';
+import type { EntitlementKey } from './entitlements';
 
 /**
  * Restaurant settings the owner edits in the panel. Commission, payment
@@ -102,5 +103,7 @@ export interface RestaurantSettingsDTO {
   customDomainVerifiedAt: string | null;
   branches: RestaurantBranchDTO[];
   effectivePlan: PlanCode;
+  planName: string;
+  entitlements: EntitlementKey[];
   permissions: PermissionKey[];
 }

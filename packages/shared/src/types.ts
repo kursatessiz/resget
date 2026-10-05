@@ -3,6 +3,7 @@ import type { FeatureKey } from './features';
 import type { MembershipStatus } from './enums';
 import type { PermissionKey } from './permissions';
 import type { PlanCode } from './plans';
+import type { EntitlementKey } from './entitlements';
 
 /** Claims carried in the access token. Users are global and identified by phone. */
 export interface AccessTokenClaims {
@@ -31,6 +32,10 @@ export interface MembershipSummaryDTO {
   roleName: string;
   permissions: PermissionKey[];
   effectivePlan: PlanCode;
+  /** The effective plan's name as the platform owner wrote it (plans are data). */
+  planName: string;
+  /** What the plan and the restaurant's grants carry (docs/PLAN_MATRISI.md); screens offer an upgrade for the rest. */
+  entitlements: EntitlementKey[];
   /** Modules switched on for this restaurant (docs/OZELLIK_ANAHTARLARI.md); screens and tabs hide the others. */
   features: FeatureKey[];
   /** Brand of the restaurant, so the panel shell renders in its color without another call. */

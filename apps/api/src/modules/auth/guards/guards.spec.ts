@@ -1,16 +1,29 @@
 import { BadRequestException, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ALL_PERMISSIONS } from '@resget/shared';
-import type { PermissionKey } from '@resget/shared';
+import { ALL_PERMISSIONS, DEFAULT_PLAN_EXCLUSIONS, effectivePlan, planFeaturesFrom } from '@resget/shared';
+import type { BuiltInPlanCode, EntitlementKey, PermissionKey, SubscriptionLike } from '@resget/shared';
 import { RestaurantTenantGuard } from './restaurant-tenant.guard';
 import { PermissionGuard } from './permission.guard';
 import { FEATURE_KEY, PERMISSIONS_KEY, PLAN_FEATURE_KEY } from '../decorators/require-permission.decorator';
 import type { FeatureFlagsService } from '../../features/feature-flags.service';
+import type { EntitlementsService } from '../../features/entitlements.service';
 import type { AuthUser, AuthenticatedRequest, TenantContext } from '../tenant-context';
 
 const RESTAURANT_A = '11111111-1111-4111-8111-111111111111';
 const RESTAURANT_B = '22222222-2222-4222-8222-222222222222';
 const user: AuthUser = { id: 'u1', phone: '+905321112233', fullName: 'A B', isSuperAdmin: false };
+
+/** What the built-in plans carry before the console changes them. */
+const carried = (code: BuiltInPlanCode): ReadonlySet<EntitlementKey> =>
+  new Set(planFeaturesFrom(DEFAULT_PLAN_EXCLUSIONS[code]));
+
+/** The built-in plans as the migration seeds them, no grants. */
+const plans = {
+  resolveFor: async (_restaurantId: string, subscription: SubscriptionLike | null) => {
+    const code = effectivePlan(subscription) as BuiltInPlanCode;
+    return { planCode: code, planName: code, planFeatures: [...carried(code)], entitlements: carried(code) };
+  },
+} as unknown as EntitlementsService;
 
 function ctx(
   request: Partial<AuthenticatedRequest>,
@@ -57,7 +70,7 @@ function membershipRow(overrides: Record<string, unknown> = {}) {
 describe('RestaurantTenantGuard', () => {
   const prisma = { restaurant: { findUnique: jest.fn() }, membership: { findUnique: jest.fn() } };
   const reflector = { getAllAndOverride: jest.fn().mockReturnValue(undefined) } as unknown as Reflector;
-  const guard = new RestaurantTenantGuard(prisma as never, reflector);
+  const guard = new RestaurantTenantGuard(prisma as never, reflector, plans);
 
   beforeEach(() => jest.resetAllMocks());
 
@@ -86,6 +99,8 @@ describe('RestaurantTenantGuard', () => {
     const request: Partial<AuthenticatedRequest> = { user, headers: { 'x-restaurant-id': RESTAURANT_A } };
     await guard.canActivate(ctx(request));
     expect(request.tenant?.effectivePlan).toBe('BASIC');
+    expect(request.tenant?.entitlements.has('crm')).toBe(false);
+    expect(request.tenant?.entitlements.has('orders')).toBe(true);
   });
 
   it('owners hold every permission', async () => {
@@ -156,6 +171,8 @@ describe('PermissionGuard', () => {
     isSuperAdmin: false,
     permissions: new Set<PermissionKey>(['orders.view']),
     effectivePlan: 'BASIC',
+    planName: 'Basic',
+    entitlements: carried('BASIC'),
     isPlatform: false,
     ...overrides,
   });
@@ -182,7 +199,14 @@ describe('PermissionGuard', () => {
       response: expect.objectContaining({ code: 'PLAN_FEATURE_REQUIRED' }),
     });
     const pro = ctx(
-      { user, tenant: tenant({ permissions: new Set<PermissionKey>(['campaigns.view']), effectivePlan: 'PRO' }) },
+      {
+        user,
+        tenant: tenant({
+          permissions: new Set<PermissionKey>(['campaigns.view']),
+          effectivePlan: 'PRO',
+          entitlements: carried('PRO'),
+        }),
+      },
       { permissions: ['campaigns.view'], feature: 'campaigns' },
     );
     await expect(guard.canActivate(pro)).resolves.toBe(true);

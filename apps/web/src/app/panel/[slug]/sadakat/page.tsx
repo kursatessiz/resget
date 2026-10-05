@@ -12,7 +12,7 @@ export default async function LoyaltyPage({ params }: { params: Promise<{ slug: 
       restaurantId={membership.restaurantId}
       locale={locale}
       canManage={can('loyalty.manage')}
-      isPro={membership.effectivePlan === 'PRO'}
+      isPro={membership.entitlements.includes('loyalty')}
     />
   );
 }

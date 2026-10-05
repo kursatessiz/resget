@@ -1,16 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@resget/database';
-import { couponDiscountMinor, couponRefusal, hasFeature } from '@resget/shared';
-import type {
-  CouponDTO,
-  CouponKind,
-  CouponTerms,
-  CreateCouponInput,
-  PlanCode,
-  PublicCouponDTO,
-  SubscriptionStatus as SharedSubscriptionStatus,
-} from '@resget/shared';
+import { couponDiscountMinor, couponRefusal } from '@resget/shared';
+import type { CouponDTO, CouponKind, CouponTerms, CreateCouponInput, PublicCouponDTO } from '@resget/shared';
 import { FeatureFlagsService } from '../features/feature-flags.service';
+import { EntitlementsService } from '../features/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { conflict, notFound } from '../../common/api-error';
 import type { ApiErrorCode } from '../../common/api-error';
@@ -45,6 +38,7 @@ export class CouponsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly features: FeatureFlagsService,
+    private readonly plans: EntitlementsService,
   ) {}
 
   // -- Panel ---------------------------------------------------------------------------
@@ -231,34 +225,15 @@ export class CouponsService {
   /** Whether the menu page offers a coupon field: the module is on and the plan includes coupons. */
   async accepts(restaurantId: string): Promise<boolean> {
     if (!(await this.features.isEnabled('coupons', restaurantId))) return false;
-    return hasFeature(await this.subscriptionOf(this.prisma, restaurantId), 'coupons');
+    return this.plans.has(restaurantId, 'coupons');
   }
 
   // -- Helpers -------------------------------------------------------------------------
 
-  private async subscriptionOf(db: Db, restaurantId: string) {
-    const row = await db.restaurant.findUniqueOrThrow({
-      where: { id: restaurantId },
-      select: {
-        subscription: {
-          select: { plan: { select: { code: true } }, status: true, trialEndsAt: true, currentPeriodEnd: true },
-        },
-      },
-    });
-    return row.subscription
-      ? {
-          planCode: (row.subscription.plan.code === 'PRO' ? 'PRO' : 'BASIC') as PlanCode,
-          status: row.subscription.status as unknown as SharedSubscriptionStatus,
-          trialEndsAt: row.subscription.trialEndsAt,
-          currentPeriodEnd: row.subscription.currentPeriodEnd,
-        }
-      : null;
-  }
-
   /** The coupon when the module is on, the plan includes coupons and the code exists; not found otherwise. */
   private async usable(db: Db, restaurantId: string, code: string): Promise<{ coupon: CouponRow; currency: string }> {
     if (!(await this.features.isEnabled('coupons', restaurantId))) this.refuse('COUPON_NOT_FOUND');
-    if (!hasFeature(await this.subscriptionOf(db, restaurantId), 'coupons')) this.refuse('COUPON_NOT_FOUND');
+    if (!(await this.plans.has(restaurantId, 'coupons'))) this.refuse('COUPON_NOT_FOUND');
     const restaurant = await db.restaurant.findUniqueOrThrow({
       where: { id: restaurantId },
       select: { currency: true },

@@ -47,13 +47,13 @@ export default async function IntegrationsPage({
       <ApiKeysManager
         restaurantId={membership.restaurantId}
         locale={locale}
-        isPro={membership.effectivePlan === 'PRO'}
+        isPro={membership.entitlements.includes('api_access')}
         apiBaseUrl={apiBaseUrl}
       />
       <WebhooksManager
         restaurantId={membership.restaurantId}
         locale={locale}
-        isPro={membership.effectivePlan === 'PRO'}
+        isPro={membership.entitlements.includes('api_access')}
       />
       {membership.features.includes('pos_integration') && (
         <PosManager restaurantId={membership.restaurantId} locale={locale} apiBaseUrl={apiBaseUrl} />
@@ -61,7 +61,7 @@ export default async function IntegrationsPage({
       {membership.features.includes('email_channel') && (
         <EmailManager restaurantId={membership.restaurantId} locale={locale} />
       )}
-      {membership.features.includes('ad_integrations') && membership.effectivePlan === 'PRO' && (
+      {membership.features.includes('ad_integrations') && membership.entitlements.includes('analytics') && (
         <AdsManager
           restaurantId={membership.restaurantId}
           locale={locale}

@@ -3,7 +3,6 @@ import { Prisma } from '@resget/database';
 import {
   LOYALTY_PROGRAM_DEFAULTS,
   balanceValueMinor,
-  hasFeature,
   minorDigitsOf,
   orderShortCode,
   pointsEarnedFor,
@@ -18,17 +17,14 @@ import type {
   LoyaltyProgramDTO,
   LoyaltyRedemption,
   LoyaltyTransactionDTO,
-  PlanCode,
-  SubscriptionStatus as SharedSubscriptionStatus,
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { EntitlementsService, subscriptionForPlanSelect, subscriptionLike } from '../features/entitlements.service';
 import { conflict, notFound } from '../../common/api-error';
 
 type Db = Prisma.TransactionClient | PrismaService;
 
-const subscriptionSelect = {
-  select: { plan: { select: { code: true } }, status: true, trialEndsAt: true, currentPeriodEnd: true },
-} as const;
+const subscriptionSelect = { select: subscriptionForPlanSelect } as const;
 
 const programSelect = {
   id: true,
@@ -69,7 +65,10 @@ const COMPLETED = ['DELIVERED', 'PICKED_UP'] as const;
  */
 @Injectable()
 export class LoyaltyService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly plans: EntitlementsService,
+  ) {}
 
   // -- Program -----------------------------------------------------------------------------
 
@@ -79,7 +78,7 @@ export class LoyaltyService {
     return this.resolveRow(row);
   }
 
-  private resolveRow(row: ProgramRow): ResolvedProgram {
+  private async resolveRow(row: ProgramRow): Promise<ResolvedProgram> {
     const unit = 10 ** minorDigitsOf(row.currency);
     const program: LoyaltyProgram = row.loyaltyProgram
       ? {
@@ -99,27 +98,12 @@ export class LoyaltyService {
           redeemValueMinor: 10 * unit,
           minOrderMinor: 0,
         };
-    const plan = this.planOf(row.subscription);
+    const { entitlements } = await this.plans.resolveFor(row.id, subscriptionLike(row.subscription));
     return {
       program,
       currency: row.currency,
-      active: program.enabled && hasFeature(plan, 'loyalty'),
+      active: program.enabled && entitlements.has('loyalty'),
       stored: row.loyaltyProgram !== null,
-    };
-  }
-
-  private planOf(subscription: ProgramRow['subscription']): {
-    planCode: PlanCode;
-    status: SharedSubscriptionStatus;
-    trialEndsAt: Date | null;
-    currentPeriodEnd: Date | null;
-  } | null {
-    if (!subscription) return null;
-    return {
-      planCode: subscription.plan.code === 'PRO' ? 'PRO' : 'BASIC',
-      status: subscription.status as unknown as SharedSubscriptionStatus,
-      trialEndsAt: subscription.trialEndsAt,
-      currentPeriodEnd: subscription.currentPeriodEnd,
     };
   }
 
@@ -212,15 +196,17 @@ export class LoyaltyService {
         restaurant: { select: { ...programSelect, name: true, slug: true, logoUrl: true } },
       },
     });
-    return rows.map((row) => {
-      const resolved = this.resolveRow(row.restaurant);
-      return {
-        restaurant: { name: row.restaurant.name, slug: row.restaurant.slug, logoUrl: row.restaurant.logoUrl },
-        points: row.loyaltyPoints,
-        valueMinor: resolved.active ? balanceValueMinor(resolved.program, row.loyaltyPoints) : 0,
-        currency: resolved.currency,
-      };
-    });
+    return Promise.all(
+      rows.map(async (row) => {
+        const resolved = await this.resolveRow(row.restaurant);
+        return {
+          restaurant: { name: row.restaurant.name, slug: row.restaurant.slug, logoUrl: row.restaurant.logoUrl },
+          points: row.loyaltyPoints,
+          valueMinor: resolved.active ? balanceValueMinor(resolved.program, row.loyaltyPoints) : 0,
+          currency: resolved.currency,
+        };
+      }),
+    );
   }
 
   // -- Order hooks --------------------------------------------------------------------------

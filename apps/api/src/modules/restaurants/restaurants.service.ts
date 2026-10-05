@@ -103,6 +103,8 @@ export class RestaurantsService {
       deliveryFeePolicy: policy.success ? policy.data : null,
       dispatchSettings: dispatchSettingsFrom(row.dispatchSettings),
       effectivePlan: tenant.effectivePlan,
+      planName: tenant.planName,
+      entitlements: [...tenant.entitlements],
       permissions: [...tenant.permissions],
     };
   }
