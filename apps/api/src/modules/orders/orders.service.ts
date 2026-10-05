@@ -658,7 +658,10 @@ export class OrdersService {
     const row = await this.prisma.order.findFirst({ where: { id: orderId, restaurantId }, ...orderArgs });
     if (!row) throw notFound('ORDER_NOT_FOUND', 'Order not found');
     const activeStop = row.deliveryStops[0];
-    const touchesCourierLeg = COURIER_LEG_STATUSES.includes(input.to) || input.to === 'READY';
+    // READY from the kitchen (an order planned into a trip before it was cooked) is the kitchen's step;
+    // READY back from the courier leg (a failed stop) belongs to the trip.
+    const touchesCourierLeg =
+      COURIER_LEG_STATUSES.includes(input.to) || (input.to === 'READY' && COURIER_LEG_STATUSES.includes(row.status));
     if (activeStop && touchesCourierLeg) {
       throw conflict('ORDER_IN_TRIP', 'The order rides in a trip; use the trip endpoints');
     }

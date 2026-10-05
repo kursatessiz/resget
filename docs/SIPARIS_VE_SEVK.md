@@ -20,7 +20,7 @@ Geçiş tablosu `ORDER_TRANSITIONS` teslimat türüne (`FulfillmentType`) göre 
 
 - Mutfak durumlarını (kabul, hazırlanıyor, hazır, ret, iptal) restoran değiştirir. Kabulde hazırlık süresi verilir; `promisedReadyAt = şimdi + prepMinutes` (varsayılan süre sevk ayarlarından gelir).
 - Müşteri yalnızca mutfak işe başlamadan (PLACED, ACCEPTED) iptal edebilir.
-- Kurye bacağı (HANDED_TO_COURIER, OUT_FOR_DELIVERY, ARRIVING, DELIVERED) sipariş bir sefere bağlıyken yalnızca sefer uçlarından değişir; sipariş ucundan denenirse `ORDER_IN_TRIP` döner. Sefere bağlı olmayan bir eve teslim siparişinde restoran bu adımları elle de işleyebilir (uygulama kullanmayan kurye için yedek yol).
+- Kurye bacağı (HANDED_TO_COURIER, OUT_FOR_DELIVERY, ARRIVING, DELIVERED) sipariş bir sefere bağlıyken yalnızca sefer uçlarından değişir; sipariş ucundan denenirse `ORDER_IN_TRIP` döner. Sefere hazır olmadan planlanmış (ACCEPTED / PREPARING) bir siparişin READY'ye geçişi ise mutfağın adımıdır ve sipariş ucundan (veya mutfak ekranından) yapılır; yoldan READY'ye dönüş (teslim edilemedi) seferin işidir. Sefere bağlı olmayan bir eve teslim siparişinde restoran bu adımları elle de işleyebilir (uygulama kullanmayan kurye için yedek yol).
 - Teslim edilemeyen sipariş `READY` durumuna geri döner (gerekçe geçmişe yazılır); restoran yeni sefere ekler veya iptal eder.
 - `REFUNDED` para geri döndüğünde gelir: iade ucu (`POST /:orderId/refund`, `orders.refund`), iptalden hemen sonraki otomatik iade veya sağlayıcının iade bildirimi (`docs/ODEME.md` bölüm 3b). `/transition` ile `REFUNDED` istenirse `REFUND_NOT_ALLOWED` döner.
 - Her geçiş `order_status_history` tablosuna aktör ve gerekçeyle yazılır; `acceptedAt`, `readyAt`, `completedAt`, `cancelledAt` sütunları damgalanır.
