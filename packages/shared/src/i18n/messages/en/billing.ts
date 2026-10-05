@@ -19,6 +19,7 @@ export const enBilling: Record<keyof typeof trBilling, string> = {
   'billing.invoices.period': 'Period',
   'billing.invoices.orders': 'Orders',
   'billing.invoices.total': 'Total',
+  'billing.invoices.payoutFee': 'Faster payout fee {amount} (VAT included, taken from payouts)',
   'billing.invoices.status': 'Status',
   'billing.invoices.due': 'Due',
   'billing.invoices.fiscal': 'Invoice no',

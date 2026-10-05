@@ -1,15 +1,28 @@
-import { Controller, Get, HttpCode, Post } from '@nestjs/common';
+import { Controller, Get, HttpCode, Post, Put } from '@nestjs/common';
 import type { z } from 'zod';
 import {
   AdminPayoutQuerySchema,
+  ChoosePayoutScheduleSchema,
+  UpsertPayoutScheduleOptionSchema,
   PayoutFailedSchema,
   PayoutRunSchema,
   PayoutSentSchema,
   UuidSchema,
 } from '@resget/shared';
-import type { AdminPayoutDTO, AdminPayoutPageDTO, FinanceLedgerDTO, PayoutRunReportDTO } from '@resget/shared';
+import type {
+  AdminPayoutDTO,
+  AdminPayoutPageDTO,
+  ChoosePayoutScheduleInput,
+  FinanceLedgerDTO,
+  InstantPayoutQuoteDTO,
+  PayoutDTO,
+  PayoutRunReportDTO,
+  PayoutScheduleDTO,
+  PayoutScheduleOptionDTO,
+  UpsertPayoutScheduleOptionInput,
+} from '@resget/shared';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/zod-body.pipe';
-import { RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
+import { RequireFeature, RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import { SuperAdminOnly } from '../auth/decorators/super-admin-only.decorator';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
@@ -26,6 +39,39 @@ export class FinanceController {
   ledger(@Tenant() tenant: TenantContext): Promise<FinanceLedgerDTO> {
     return this.payouts.ledger(tenant.restaurantId);
   }
+
+  /** Payout schedules (docs/HAKEDIS_TAKVIMI.md): the options, the chosen schedule and instant payouts. */
+  @Get('payout-schedule')
+  @RequirePermission('finance.view')
+  @RequireFeature('payout_schedules')
+  schedule(@Tenant() tenant: TenantContext): Promise<PayoutScheduleDTO> {
+    return this.payouts.schedule(tenant.restaurantId);
+  }
+
+  @Put('payout-schedule')
+  @RequirePermission('payments.manage')
+  @RequireFeature('payout_schedules')
+  choose(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodBody(ChoosePayoutScheduleSchema) body: ChoosePayoutScheduleInput,
+  ): Promise<PayoutScheduleDTO> {
+    return this.payouts.choose(tenant.restaurantId, body.cadence, user.id);
+  }
+
+  @Get('payouts/instant/quote')
+  @RequirePermission('finance.view')
+  @RequireFeature('payout_schedules')
+  quote(@Tenant() tenant: TenantContext): Promise<InstantPayoutQuoteDTO> {
+    return this.payouts.instantQuote(tenant.restaurantId);
+  }
+
+  @Post('payouts/instant')
+  @RequirePermission('payments.manage')
+  @RequireFeature('payout_schedules')
+  instant(@Tenant() tenant: TenantContext, @CurrentUser() user: AuthUser): Promise<PayoutDTO> {
+    return this.payouts.instant(tenant.restaurantId, user.id);
+  }
 }
 
 /** Platform owner only: every payout, closing the week on demand, marking transfers. */
@@ -37,6 +83,19 @@ export class AdminPayoutsController {
   @Get()
   list(@ZodQuery(AdminPayoutQuerySchema) query: z.infer<typeof AdminPayoutQuerySchema>): Promise<AdminPayoutPageDTO> {
     return this.payouts.list(query);
+  }
+
+  @Get('options')
+  options(): Promise<PayoutScheduleOptionDTO[]> {
+    return this.payouts.options();
+  }
+
+  @Put('options')
+  saveOption(
+    @CurrentUser() user: AuthUser,
+    @ZodBody(UpsertPayoutScheduleOptionSchema) body: UpsertPayoutScheduleOptionInput,
+  ): Promise<PayoutScheduleOptionDTO[]> {
+    return this.payouts.upsertOption(user.id, body);
   }
 
   @Post('run')

@@ -164,6 +164,8 @@ export const trErrors = {
   'errors.REVIEW_NOT_FOUND': 'Değerlendirme bulunamadı.',
   'errors.REVIEW_EDIT_CLOSED': 'Düzenleme süresi doldu.',
   'errors.REVIEW_ALREADY_REPORTED': 'Bu yorum zaten bildirildi.',
+  'errors.PAYOUT_SCHEDULE_UNAVAILABLE': 'Bu hakediş takvimi işletmeniz için kullanılamıyor.',
+  'errors.PAYOUT_NOTHING_DUE': 'Ödenecek bekleyen hakediş yok.',
   'errors.PLAN_CODE_TAKEN': 'Bu kodla bir plan zaten var.',
   'errors.PLAN_FALLBACK_LOCKED': 'Ücretsiz taban plan satıştan kaldırılamaz ve ücretli yapılamaz.',
   'errors.ENTITLEMENT_NOT_FOUND': 'İzin bulunamadı.',

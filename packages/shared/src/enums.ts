@@ -179,6 +179,8 @@ export enum LedgerEntryType {
   COMMISSION_VAT_REVERSAL = 'COMMISSION_VAT_REVERSAL',
   ADJUSTMENT = 'ADJUSTMENT',
   RESTAURANT_PAYABLE = 'RESTAURANT_PAYABLE',
+  /** The fee of a faster payout (docs/HAKEDIS_TAKVIMI.md), VAT included, taken from the payout. */
+  PAYOUT_FEE = 'PAYOUT_FEE',
 }
 
 /** Why money went back to the customer (docs/ODEME.md, "İade"); one OrderRefund row per refund. */

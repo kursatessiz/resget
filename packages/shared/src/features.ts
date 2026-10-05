@@ -45,6 +45,7 @@ export const FEATURES = {
   meal_cards: { group: 'payments', defaultEnabled: true, stage: 'GA' },
   partial_refunds: { group: 'payments', defaultEnabled: true, stage: 'GA' },
   accounting_export: { group: 'payments', defaultEnabled: false, stage: 'BETA' },
+  payout_schedules: { group: 'payments', defaultEnabled: false, stage: 'BETA' },
   own_courier_dispatch: { group: 'delivery', defaultEnabled: true, stage: 'GA' },
   courier_network: { group: 'delivery', defaultEnabled: true, stage: 'GA' },
   delivery_zones: { group: 'delivery', defaultEnabled: false, stage: 'BETA' },

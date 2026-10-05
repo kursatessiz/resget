@@ -160,6 +160,14 @@ enum LedgerEntryType {
   COMMISSION_VAT_REVERSAL
   ADJUSTMENT
   RESTAURANT_PAYABLE
+  PAYOUT_FEE
+}
+
+/// How a PLATFORM_PSP restaurant is paid (docs/HAKEDIS_TAKVIMI.md).
+enum PayoutCadence {
+  WEEKLY
+  DAILY
+  INSTANT
 }
 
 enum LoyaltyTransactionType {
@@ -376,23 +384,23 @@ model ServiceArea {
 }
 
 model Restaurant {
-  id                     String    @id @default(uuid())
-  slug                   String    @unique
+  id                     String        @id @default(uuid())
+  slug                   String        @unique
   name                   String
   legalName              String?
   taxId                  String?
   countryCode            String
   currency               String
   timezone               String
-  defaultLocale          String    @default("tr")
+  defaultLocale          String        @default("tr")
   serviceAreaId          String?
-  isActive               Boolean   @default(true)
+  isActive               Boolean       @default(true)
   /// The platform's own tenant for platform marketing (docs/PAZARLAMA.md); at most one row, never listed, never orders.
-  isPlatform             Boolean   @default(false)
+  isPlatform             Boolean       @default(false)
   /// The restaurant's partner code for inviting other restaurants (docs/RESTORAN_TAVSIYE.md); made on first ask.
-  partnerCode            String?   @unique
+  partnerCode            String?       @unique
   /// Listed in the consumer marketplace (requires a launched service area and an approved menu).
-  isListed               Boolean   @default(false)
+  isListed               Boolean       @default(false)
   /// Set while an overdue commission invoice keeps the restaurant out of the marketplace; cleared when it is settled.
   listingSuspendedAt     DateTime?
   /// Marketplace listing review (docs/PLATFORM_YONETIMI.md): when the restaurant asked, when the console decided, and why.
@@ -402,11 +410,13 @@ model Restaurant {
   /// The saved card commission invoices are collected from (docs/FATURALAMA.md).
   billingPaymentMethodId String?
   /// Own host of the ordering page (docs/VITRIN.md); served only once DNS is verified and the plan allows it.
-  customDomain           String?   @unique
+  customDomain           String?       @unique
   customDomainVerifiedAt DateTime?
   /// Running total of customer ratings (docs/VITRIN.md), so the marketplace lists the average without a scan.
-  ratingCount            Int       @default(0)
-  ratingSum              Int       @default(0)
+  ratingCount            Int           @default(0)
+  /// The schedule a PLATFORM_PSP restaurant chose (docs/HAKEDIS_TAKVIMI.md); instant payouts are requests on top.
+  payoutCadence          PayoutCadence @default(WEEKLY)
+  ratingSum              Int           @default(0)
 
   /// Platform take rate on gross order value; 100 = 1 percent. Changed only by the super admin.
   commissionBps        Int          @default(100)
@@ -1651,6 +1661,10 @@ model CommissionInvoice {
   baseMinor           Int
   commissionMinor     Int
   vatMinor            Int
+  /// Faster payout fees of the month (docs/HAKEDIS_TAKVIMI.md): net and VAT; already taken from payouts (deductedMinor).
+  payoutFeeMinor      Int                     @default(0)
+  payoutFeeVatMinor   Int                     @default(0)
+  deductedMinor       Int                     @default(0)
   totalMinor          Int
   status              CommissionInvoiceStatus @default(DRAFT)
   issuedAt            DateTime?
@@ -1705,21 +1719,42 @@ model LedgerEntry {
 }
 
 /// A transfer of accumulated restaurant payables. Scheduled within the legal payment deadline of the region.
+/// A payout schedule the platform offers in one currency (docs/HAKEDIS_TAKVIMI.md): fee, delay and plan rule are data.
+model PayoutScheduleOption {
+  id                  String        @id @default(uuid())
+  cadence             PayoutCadence
+  currency            String
+  feeBps              Int           @default(0)
+  feeFixedMinor       Int           @default(0)
+  settleBusinessDays  Int
+  requiresFastPayouts Boolean       @default(false)
+  freeWithFastPayouts Boolean       @default(false)
+  isActive            Boolean       @default(true)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  @@unique([cadence, currency])
+  @@map("payout_schedule_options")
+}
+
 model Payout {
-  id            String       @id @default(uuid())
+  id            String        @id @default(uuid())
   restaurantId  String
   periodStart   DateTime
   periodEnd     DateTime
   amountMinor   Int
   currency      String
-  status        PayoutStatus @default(SCHEDULED)
+  status        PayoutStatus  @default(SCHEDULED)
+  /// Weekly, daily or instant (docs/HAKEDIS_TAKVIMI.md); the fee is the PAYOUT_FEE line taken from this payout.
+  cadence       PayoutCadence @default(WEEKLY)
+  feeMinor      Int           @default(0)
   scheduledFor  DateTime
   sentAt        DateTime?
   settledAt     DateTime?
   providerRef   String?
   failureReason String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   restaurant    Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   ledgerEntries LedgerEntry[]

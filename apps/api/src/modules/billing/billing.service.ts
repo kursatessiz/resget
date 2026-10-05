@@ -2,6 +2,8 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CommissionInvoiceStatus, Prisma } from '@resget/database';
 import {
+  payoutFeeInvoiceLine,
+  settlementDefaultsFor,
   COMMISSION_INVOICE_DUE_DAYS,
   MAX_COLLECTION_ATTEMPTS,
   collectionIsDue,
@@ -45,6 +47,9 @@ const invoiceSelect = Prisma.validator<Prisma.CommissionInvoiceSelect>()({
   baseMinor: true,
   commissionMinor: true,
   vatMinor: true,
+  payoutFeeMinor: true,
+  payoutFeeVatMinor: true,
+  deductedMinor: true,
   totalMinor: true,
   status: true,
   issuedAt: true,
@@ -59,6 +64,11 @@ const invoiceSelect = Prisma.validator<Prisma.CommissionInvoiceSelect>()({
   restaurant: { select: { id: true, name: true, slug: true } },
 });
 type InvoiceRow = Prisma.CommissionInvoiceGetPayload<{ select: typeof invoiceSelect }>;
+
+/** What is left to collect: the faster payout fees on the invoice were already taken from payouts. */
+function collectibleMinor(invoice: { totalMinor: number; deductedMinor: number }): number {
+  return Math.max(0, invoice.totalMinor - invoice.deductedMinor);
+}
 
 const cardSelect = Prisma.validator<Prisma.SavedPaymentMethodSelect>()({
   id: true,
@@ -130,16 +140,38 @@ export class BillingService {
     const period = commissionPeriod(year, month);
     const restaurants = await this.prisma.restaurant.findMany({
       where: { isActive: true, commissionInvoices: { none: { periodStart: period.periodStart } } },
-      select: { id: true, defaultLocale: true },
+      select: { id: true, defaultLocale: true, countryCode: true },
     });
     let issued = 0;
     let skipped = 0;
     for (const restaurant of restaurants) {
       const statement = await this.payments.commissionStatement(restaurant.id, year, month);
-      if (statement.orderCount === 0 || statement.totalMinor <= 0) {
+      const hasCommission = statement.orderCount > 0 && statement.totalMinor > 0;
+      // Faster payout fees of the month (docs/HAKEDIS_TAKVIMI.md): VAT included, already taken from payouts.
+      const fees = await this.prisma.ledgerEntry.aggregate({
+        where: {
+          restaurantId: restaurant.id,
+          currency: statement.currency,
+          type: 'PAYOUT_FEE',
+          occurredAt: { gte: period.periodStart, lt: period.periodEnd },
+        },
+        _sum: { amountMinor: true },
+      });
+      const feeGrossMinor = -(fees._sum.amountMinor ?? 0);
+      if (!hasCommission && feeGrossMinor <= 0) {
         skipped += 1;
         continue;
       }
+      const feeLine = payoutFeeInvoiceLine(
+        Math.max(0, feeGrossMinor),
+        settlementDefaultsFor(restaurant.countryCode).commissionVatBps,
+      );
+      const commissionMinor = hasCommission ? statement.commissionMinor : 0;
+      const vatMinor = hasCommission ? statement.vatMinor : 0;
+      const totalMinor = (hasCommission ? statement.totalMinor : 0) + Math.max(0, feeGrossMinor);
+      const deductedMinor = Math.max(0, feeGrossMinor);
+      // An invoice that only shows fees already taken from payouts is settled the moment it is issued.
+      const settled = totalMinor - deductedMinor <= 0;
       const memo =
         statement.credits.length > 0
           ? `commission ${year}-${String(month).padStart(2, '0')} (${statement.credits.length} credited)`
@@ -153,18 +185,23 @@ export class BillingService {
               periodStart: period.periodStart,
               periodEnd: period.periodEnd,
               currency: statement.currency,
-              orderCount: statement.orderCount,
-              baseMinor: statement.baseMinor,
-              commissionMinor: statement.commissionMinor,
-              vatMinor: statement.vatMinor,
-              totalMinor: statement.totalMinor,
-              status: CommissionInvoiceStatus.ISSUED,
+              orderCount: hasCommission ? statement.orderCount : 0,
+              baseMinor: hasCommission ? statement.baseMinor : 0,
+              commissionMinor,
+              vatMinor,
+              payoutFeeMinor: feeLine.netMinor,
+              payoutFeeVatMinor: feeLine.vatMinor,
+              deductedMinor,
+              totalMinor,
+              status: settled ? CommissionInvoiceStatus.PAID : CommissionInvoiceStatus.ISSUED,
               issuedAt: now,
               dueAt: commissionDueAt(now),
+              ...(settled ? { paidAt: now, paymentRef: 'payout-deduction' } : {}),
             },
             select: invoiceSelect,
           });
           // Which orders this invoice billed and which refunds it credited back (docs/MUTABAKAT.md, "Kısmi iade").
+          if (!hasCommission) return created;
           await tx.order.updateMany({
             where: { id: { in: statement.lines.map((l) => l.orderId) }, commissionInvoiceId: null },
             data: { commissionInvoiceId: created.id },
@@ -207,7 +244,8 @@ export class BillingService {
         throw error;
       }
       issued += 1;
-      await this.notifyOwner(row, 'invoice.issued');
+      // A fee-only invoice is already settled; there is nothing to ask the owner to pay.
+      if (!settled) await this.notifyOwner(row, 'invoice.issued');
     }
     return { issued, skipped };
   }
@@ -240,6 +278,8 @@ export class BillingService {
           baseMinor: invoice.baseMinor,
           commissionMinor: invoice.commissionMinor,
           vatMinor: invoice.vatMinor,
+          payoutFeeMinor: invoice.payoutFeeMinor,
+          payoutFeeVatMinor: invoice.payoutFeeVatMinor,
           totalMinor: invoice.totalMinor,
         });
         await this.prisma.commissionInvoice.update({
@@ -331,7 +371,7 @@ export class BillingService {
       invoices: invoices.map((i) => this.toDto(i)),
       billingCard: restaurant.billingPaymentMethod ? toCardDto(restaurant.billingPaymentMethod) : null,
       listingSuspendedAt: restaurant.listingSuspendedAt?.toISOString() ?? null,
-      openTotalMinor: invoices.filter((i) => invoiceIsOpen(i.status)).reduce((n, i) => n + i.totalMinor, 0),
+      openTotalMinor: invoices.filter((i) => invoiceIsOpen(i.status)).reduce((n, i) => n + collectibleMinor(i), 0),
       dueDays: COMMISSION_INVOICE_DUE_DAYS,
     };
   }
@@ -428,6 +468,9 @@ export class BillingService {
     if (invoice.status === 'PAID' || invoice.status === 'VOID') {
       throw conflict('INVOICE_STATE_INVALID', 'Invoice cannot be voided');
     }
+    // The faster payout fees on it were already taken from payouts; their document stays (docs/HAKEDIS_TAKVIMI.md).
+    if (invoice.deductedMinor > 0)
+      throw conflict('INVOICE_STATE_INVALID', 'An invoice carrying payout fees already taken cannot be voided');
     const now = new Date();
     const memo = `void ${invoice.id}`;
     await this.prisma.$transaction([
@@ -509,7 +552,7 @@ export class BillingService {
     try {
       result = await this.registry.vault.charge({
         token: this.registry.cipher.decrypt(card.encryptedToken),
-        amountMinor: invoice.totalMinor,
+        amountMinor: collectibleMinor(invoice),
         currency: invoice.currency,
         merchantRef: 'platform',
         orderRef: `invoice:${invoice.id}:${attempt}`,
@@ -554,7 +597,7 @@ export class BillingService {
     });
     await this.reinstateIfClear(invoice.restaurantId, null);
     // The restaurant's first paid invoice is the platform's first_payment conversion (docs/ATIF.md); recorded once.
-    await this.attribution.onInvoicePaidSafely(invoice.restaurantId, invoice.totalMinor, invoice.currency);
+    await this.attribution.onInvoicePaidSafely(invoice.restaurantId, collectibleMinor(invoice), invoice.currency);
   }
 
   /** Lifts the marketplace suspension once no invoice of the restaurant is overdue any more. */
@@ -591,7 +634,7 @@ export class BillingService {
           period: new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
             invoice.periodStart,
           ),
-          amount: formatMoney({ amountMinor: invoice.totalMinor, currency: invoice.currency }, locale),
+          amount: formatMoney({ amountMinor: collectibleMinor(invoice), currency: invoice.currency }, locale),
           due: invoice.dueAt ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(invoice.dueAt) : '',
         },
         locale,
@@ -639,6 +682,9 @@ export class BillingService {
       baseMinor: row.baseMinor,
       commissionMinor: row.commissionMinor,
       vatMinor: row.vatMinor,
+      payoutFeeMinor: row.payoutFeeMinor,
+      payoutFeeVatMinor: row.payoutFeeVatMinor,
+      deductedMinor: row.deductedMinor,
       totalMinor: row.totalMinor,
       status: row.status,
       issuedAt: row.issuedAt?.toISOString() ?? null,

@@ -25,6 +25,11 @@ export interface CommissionInvoiceDTO {
   baseMinor: number;
   commissionMinor: number;
   vatMinor: number;
+  /** Faster payout fees of the month (docs/HAKEDIS_TAKVIMI.md), net and VAT; already taken from payouts. */
+  payoutFeeMinor: number;
+  payoutFeeVatMinor: number;
+  deductedMinor: number;
+  /** Everything on the document; what is left to collect is totalMinor - deductedMinor. */
   totalMinor: number;
   status: CommissionInvoiceStatusValue;
   issuedAt: string | null;
@@ -172,6 +177,9 @@ export interface FiscalInvoiceInput {
   baseMinor: number;
   commissionMinor: number;
   vatMinor: number;
+  /** The faster payout fee line (docs/HAKEDIS_TAKVIMI.md); zero when none. */
+  payoutFeeMinor: number;
+  payoutFeeVatMinor: number;
   totalMinor: number;
 }
 

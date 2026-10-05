@@ -143,6 +143,9 @@ export const trFeatures = {
   'features.accounting_export.name': 'Muhasebe dökümü',
   'features.accounting_export.description':
     'Bir ayın siparişleri ve kalemleri muhasebeci için CSV olarak: kayıtlı hakediş dökümü, KDV oranları, iadeler, komisyon ve kesintiler.',
+  'features.payout_schedules.name': 'Hakediş takvimi',
+  'features.payout_schedules.description':
+    'Platformun tahsil ettiği restoran hakedişini haftalık, günlük veya anında alır; ücretler ve plan kuralları platform verisidir.',
   'features.group_orders.name': 'Grup siparişi',
   'features.group_orders.description':
     'Restoran sayfasında paylaşılan tek sepet: bağlantıyla katılan herkes kendi seçimini ekler, sepet sahibi tek sipariş verir ve öder.',

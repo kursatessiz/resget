@@ -3,6 +3,7 @@ import { LedgerEntryType, PayoutStatus } from './enums';
 import type { PaymentModeValue } from './payments';
 import type { SettlementLedgerLine } from './settlement';
 import { PaginationSchema } from './validators';
+import type { PayoutCadence } from './payout-schedules';
 
 /**
  * Ledger and payouts (docs/MUTABAKAT.md, "Defter ve hakedis odemesi"). In
@@ -52,6 +53,7 @@ export const PAYABLE_LINE_TYPES: readonly `${LedgerEntryType}`[] = [
   LedgerEntryType.COMMISSION_REVERSAL,
   LedgerEntryType.COMMISSION_VAT_REVERSAL,
   LedgerEntryType.ADJUSTMENT,
+  LedgerEntryType.PAYOUT_FEE,
 ];
 
 export interface OrderLedgerSnapshot {
@@ -130,6 +132,9 @@ export interface PayoutDTO {
   failureReason: string | null;
   entryCount: number;
   createdAt: string;
+  /** How the payout was made (docs/HAKEDIS_TAKVIMI.md) and the fee taken from it. */
+  cadence: PayoutCadence;
+  feeMinor: number;
 }
 
 export interface FinanceLedgerDTO {

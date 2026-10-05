@@ -66,6 +66,8 @@ export function LedgerPanel({ restaurantId, locale }: { restaurantId: string; lo
                   <span className="ui-caption">
                     {t('finance.payouts.period', { start: day(p.periodStart), end: day(p.periodEnd) })}.{' '}
                     {t('finance.payouts.entries', { count: p.entryCount })}.{' '}
+                    {p.cadence !== 'WEEKLY' && `${t(`finance.payouts.cadence.${p.cadence}`)}. `}
+                    {p.feeMinor > 0 && `${t('finance.payouts.fee', { amount: money(p.feeMinor, p.currency) })}. `}
                     {p.settledAt
                       ? t('finance.payouts.settledAt', { date: day(p.settledAt) })
                       : p.sentAt

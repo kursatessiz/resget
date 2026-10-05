@@ -25,4 +25,5 @@ export const enPlans: Record<keyof typeof trPlans, string> = {
   'plans.credits.rule': 'A credit is used only when a message is actually sent.',
   'plans.credits.package': '{credits} {channel} credits',
   'plans.feature.coupons': 'Coupons and promo codes',
+  'plans.feature.fast_payouts': 'Faster payouts',
 };

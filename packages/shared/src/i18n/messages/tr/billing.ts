@@ -18,6 +18,7 @@ export const trBilling = {
   'billing.invoices.period': 'Dönem',
   'billing.invoices.orders': 'Sipariş',
   'billing.invoices.total': 'Toplam',
+  'billing.invoices.payoutFee': 'Hızlı hakediş ücreti {amount} (KDV dahil, hakedişten düşüldü)',
   'billing.invoices.status': 'Durum',
   'billing.invoices.due': 'Vade',
   'billing.invoices.fiscal': 'Fatura no',

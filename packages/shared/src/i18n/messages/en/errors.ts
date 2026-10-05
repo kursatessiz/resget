@@ -168,6 +168,8 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.REVIEW_NOT_FOUND': 'Review not found.',
   'errors.REVIEW_EDIT_CLOSED': 'The time to edit is over.',
   'errors.REVIEW_ALREADY_REPORTED': 'This review was already reported.',
+  'errors.PAYOUT_SCHEDULE_UNAVAILABLE': 'This payout schedule is not available for your business.',
+  'errors.PAYOUT_NOTHING_DUE': 'There is nothing waiting to be paid out.',
   'errors.PLAN_CODE_TAKEN': 'A plan with this code already exists.',
   'errors.PLAN_FALLBACK_LOCKED': 'The free fallback plan cannot be taken off sale or given a price.',
   'errors.ENTITLEMENT_NOT_FOUND': 'Access grant not found.',
