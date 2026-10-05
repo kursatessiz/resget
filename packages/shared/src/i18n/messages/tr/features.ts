@@ -95,6 +95,12 @@ export const trFeatures = {
   'features.restaurant_health.name': 'Restoran sağlığı (konsol)',
   'features.restaurant_health.description':
     'Konsolda sipariş düşüşü, sessizlik, ilk siparişin gelmemesi, gecikmiş fatura, askıdaki listeleme ve kartsız biten deneme belirtileriyle restoran listesi. Genel anahtarla açılır.',
+  'features.marketing_approvals.name': 'Gönderim onayı ve sınırları',
+  'features.marketing_approvals.description':
+    'Kampanya, isteyen kişiden başka bir yetkili onaylamadan gönderilmez; içerik değişirse onay düşer. Konsolun belirlediği kampanya başına ve 24 saatlik alıcı sınırları uygulanır. Önce platform kiracısı için.',
+  'features.audit_viewer.name': 'Denetim kayıtları (konsol)',
+  'features.audit_viewer.description':
+    'Konsolda denetim kayıtlarını işletme, işlem ve tarih filtreleriyle okuma; platform gönderimleri için hızlı filtre. Genel anahtarla açılır.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',

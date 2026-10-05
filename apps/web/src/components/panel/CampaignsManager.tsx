@@ -12,6 +12,7 @@ import {
 } from '@resget/shared';
 import type {
   AudienceCountDTO,
+  CampaignApprovalStatus,
   CampaignAudienceDTO,
   CampaignChannel,
   CampaignDTO,
@@ -29,6 +30,13 @@ import type { UiTone } from '@/components/ui/types';
 import { ApiError, bffJson } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
 
+const APPROVAL_TONE: Record<CampaignApprovalStatus, UiTone> = {
+  NONE: 'muted',
+  PENDING: 'warn',
+  APPROVED: 'success',
+  REJECTED: 'error',
+};
+
 const STATUS_TONE: Record<CampaignDTO['status'], UiTone> = {
   DRAFT: 'muted',
   SCHEDULED: 'warn',
@@ -45,10 +53,16 @@ export function CampaignsManager({
   segmentsV2 = false,
   campaignsV2 = false,
   emailChannel = false,
+  approvals = false,
+  canApprove = false,
 }: {
   restaurantId: string;
   locale: string;
   canManage: boolean;
+  /** The marketing_approvals module is on: a campaign is sent only after another person approves it (docs/ONAYLAR.md). */
+  approvals?: boolean;
+  /** The viewer may approve or reject requests (campaigns.approve). */
+  canApprove?: boolean;
   /** The segments_v2 module is on: a saved rule-based segment can be the audience (docs/SEGMENTLER.md). */
   segmentsV2?: boolean;
   /** The campaigns_v2 module is on: A/B test, best send hour, conversions (docs/KAMPANYALAR.md). */
@@ -88,6 +102,7 @@ export function CampaignsManager({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [rejectNotes, setRejectNotes] = useState<Record<string, string>>({});
 
   const fail = useCallback(
     (err: unknown) => setError(err instanceof ApiError ? t(`errors.${err.code}`) : t('common.error.network')),
@@ -225,6 +240,27 @@ export function CampaignsManager({
       setNotice(t('campaigns.queued'));
       setPreview(null);
     });
+  const requestApproval = (id: string) =>
+    act(async () => {
+      await bffJson<CampaignDTO>(`${base}/${id}/approval/request`, { method: 'POST', body: '{}' });
+      setNotice(t('approvals.requested'));
+    });
+  const approve = (id: string) =>
+    act(async () => {
+      await bffJson<CampaignDTO>(`${base}/${id}/approval/approve`, { method: 'POST', body: '{}' });
+      setNotice(t('approvals.approved'));
+    });
+  const reject = (id: string) =>
+    act(async () => {
+      await bffJson<CampaignDTO>(`${base}/${id}/approval/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ note: (rejectNotes[id] ?? '').trim() }),
+      });
+      setRejectNotes({ ...rejectNotes, [id]: '' });
+      setNotice(t('approvals.rejected'));
+    });
+  /** Under approvals only an approved campaign may be sent. */
+  const sendable = (c: CampaignDTO) => !approvals || c.approval.status === 'APPROVED';
   const cancel = (id: string) =>
     act(async () => {
       await bffJson<CampaignDTO>(`${base}/${id}/cancel`, { method: 'POST', body: '{}' });
@@ -441,12 +477,16 @@ export function CampaignsManager({
             </fieldset>
           )}
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
-            <TextField
-              label={t('campaigns.scheduledAt')}
-              type="datetime-local"
-              value={scheduledAt}
-              onChange={(e) => setScheduledAt(e.target.value)}
-            />
+            {approvals ? (
+              <p className="ui-caption">{t('approvals.draftFirst')}</p>
+            ) : (
+              <TextField
+                label={t('campaigns.scheduledAt')}
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+              />
+            )}
             <Button onClick={create} disabled={busy || name.trim().length < 2 || body.trim().length < 5}>
               {scheduledAt ? t('campaigns.schedule') : t('campaigns.save')}
             </Button>
@@ -496,9 +536,36 @@ export function CampaignsManager({
               <blockquote className="pui-card pui-card-content">{preview.data.renderedVariantExample}</blockquote>
             </>
           )}
+          {preview.data.guards.approvalRequired && (
+            <p className="ui-caption" data-preview-approval={preview.data.guards.approval.status}>
+              {t(`approvals.previewStatus.${preview.data.guards.approval.status}`)}
+            </p>
+          )}
+          {preview.data.guards.limit && (
+            <p className="ui-caption" data-preview-limit>
+              {t('approvals.previewLimit', {
+                perCampaign: preview.data.guards.limit.maxPerCampaign ?? t('approvals.noLimit'),
+                perDay: preview.data.guards.limit.maxPerDay ?? t('approvals.noLimit'),
+                used: preview.data.guards.limit.usedLast24h,
+              })}
+            </p>
+          )}
+          {preview.data.guards.limitBlock && (
+            <p className="pui-alert pui-error" data-preview-block={preview.data.guards.limitBlock}>
+              {t(`approvals.block.${preview.data.guards.limitBlock}`)}
+            </p>
+          )}
           {canManage && (
             <div>
-              <Button onClick={() => sendNow(preview.id)} disabled={busy || preview.data.audienceCount === 0}>
+              <Button
+                onClick={() => sendNow(preview.id)}
+                disabled={
+                  busy ||
+                  preview.data.audienceCount === 0 ||
+                  preview.data.guards.limitBlock !== null ||
+                  (preview.data.guards.approvalRequired && preview.data.guards.approval.status !== 'APPROVED')
+                }
+              >
                 {t('campaigns.sendNow')}
               </Button>
             </div>
@@ -516,8 +583,26 @@ export function CampaignsManager({
                   <span className="ui-heading">
                     {c.name} ({t(`campaigns.channel.${c.channel}`)})
                   </span>
-                  <Badge tone={STATUS_TONE[c.status]}>{t(`campaigns.status.${c.status}`)}</Badge>
+                  <span className="flex flex-wrap gap-2">
+                    {approvals && c.status === 'DRAFT' && (
+                      <Badge tone={APPROVAL_TONE[c.approval.status]} data-approval={c.approval.status}>
+                        {t(`approvals.status.${c.approval.status}`)}
+                      </Badge>
+                    )}
+                    <Badge tone={STATUS_TONE[c.status]}>{t(`campaigns.status.${c.status}`)}</Badge>
+                  </span>
                 </div>
+                {approvals && c.approval.requestedBy && c.approval.requestedAt && (
+                  <p className="ui-caption">
+                    {t('approvals.requestedBy', { name: c.approval.requestedBy, date: when(c.approval.requestedAt) })}
+                    {c.approval.decidedBy &&
+                      c.approval.decidedAt &&
+                      `. ${t('approvals.decidedBy', { name: c.approval.decidedBy, date: when(c.approval.decidedAt) })}`}
+                  </p>
+                )}
+                {approvals && c.approval.status === 'REJECTED' && c.approval.note && (
+                  <p className="ui-caption">{t('approvals.rejectNote', { note: c.approval.note })}</p>
+                )}
                 <p className="ui-caption">{c.body}</p>
                 {c.segmentId && (
                   <p className="ui-caption">
@@ -552,7 +637,20 @@ export function CampaignsManager({
                       {t('campaigns.preview')}
                     </Button>
                   )}
-                  {canManage && c.status === 'DRAFT' && (
+                  {canManage &&
+                    approvals &&
+                    c.status === 'DRAFT' &&
+                    (c.approval.status === 'NONE' || c.approval.status === 'REJECTED') && (
+                      <Button variant="outline" tone="theme" onClick={() => requestApproval(c.id)} disabled={busy}>
+                        {t('approvals.request')}
+                      </Button>
+                    )}
+                  {canApprove && approvals && c.status === 'DRAFT' && c.approval.status === 'PENDING' && (
+                    <Button onClick={() => approve(c.id)} disabled={busy}>
+                      {t('approvals.approve')}
+                    </Button>
+                  )}
+                  {canManage && c.status === 'DRAFT' && sendable(c) && (
                     <Button onClick={() => sendNow(c.id)} disabled={busy}>
                       {t('campaigns.sendNow')}
                     </Button>
@@ -563,6 +661,24 @@ export function CampaignsManager({
                     </Button>
                   )}
                 </div>
+                {canApprove && approvals && c.status === 'DRAFT' && c.approval.status === 'PENDING' && (
+                  <div className="flex flex-col gap-2 md:flex-row md:items-end">
+                    <TextField
+                      label={t('approvals.rejectReason')}
+                      maxLength={500}
+                      value={rejectNotes[c.id] ?? ''}
+                      onChange={(e) => setRejectNotes({ ...rejectNotes, [c.id]: e.target.value })}
+                    />
+                    <Button
+                      variant="outline"
+                      tone="error"
+                      onClick={() => reject(c.id)}
+                      disabled={busy || (rejectNotes[c.id] ?? '').trim().length < 2}
+                    >
+                      {t('approvals.reject')}
+                    </Button>
+                  </div>
+                )}
                 {results?.campaignId === c.id && (
                   <section className="flex flex-col gap-2" aria-label={t('campaigns.v2.results.title')}>
                     <p className="ui-caption">{t('campaigns.v2.results.window', { days: results.attributionDays })}</p>

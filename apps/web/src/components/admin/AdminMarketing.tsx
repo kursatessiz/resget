@@ -8,6 +8,7 @@ import { Badge, Button, Card, SelectField, TextField } from '@/components/ui';
 import { ApiError, bffJson } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
 import { AdminConsentPolicy } from './AdminConsentPolicy';
+import { AdminSendLimits } from './AdminSendLimits';
 
 /**
  * Platform marketing in the console (docs/PAZARLAMA.md): set up the platform
@@ -215,6 +216,7 @@ export function AdminMarketing({ locale }: { locale: string }) {
         </Card>
       )}
       {data.tenant && <AdminConsentPolicy restaurantId={data.tenant.id} locale={locale} />}
+      {data.tenant && <AdminSendLimits restaurantId={data.tenant.id} locale={locale} />}
     </div>
   );
 }

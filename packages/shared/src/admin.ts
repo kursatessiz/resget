@@ -121,6 +121,7 @@ export const ADMIN_NAV = [
   { key: 'marketing', path: '/pazarlama' },
   { key: 'partnerReferrals', path: '/tavsiye' },
   { key: 'restaurantHealth', path: '/saglik' },
+  { key: 'audit', path: '/denetim' },
   { key: 'features', path: '/ozellikler' },
   { key: 'invoices', path: '/faturalar' },
   { key: 'payouts', path: '/hakedisler' },

@@ -23,6 +23,7 @@ export const enPermissions: Record<keyof typeof trPermissions, string> = {
   'permissions.messaging.manage': 'Manage notification templates',
   'permissions.campaigns.view': 'View campaigns',
   'permissions.campaigns.manage': 'Create and send campaigns',
+  'permissions.campaigns.approve': 'Approve campaigns before they are sent',
   'permissions.loyalty.view': 'View the loyalty program',
   'permissions.loyalty.manage': 'Manage loyalty rules and points',
   'permissions.reports.view': 'View reports',

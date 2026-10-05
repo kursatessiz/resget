@@ -4,6 +4,7 @@ import {
   CampaignsQuerySchema,
   CountAudienceSchema,
   CreateCampaignSchema,
+  RejectCampaignSchema,
   SaveSegmentSchema,
   SendCampaignSchema,
   UpdateCampaignSchema,
@@ -17,6 +18,7 @@ import type {
   CampaignDetailDTO,
   CampaignPageDTO,
   CampaignPreviewDTO,
+  RejectCampaignInput,
   SavedSegmentDTO,
 } from '@resget/shared';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/zod-body.pipe';
@@ -127,10 +129,11 @@ export class CampaignsController {
   @RequirePermission('campaigns.manage')
   update(
     @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
     @ZodParam('campaignId', UuidSchema) id: string,
     @ZodBody(UpdateCampaignSchema) body: z.infer<typeof UpdateCampaignSchema>,
   ): Promise<CampaignDTO> {
-    return this.campaigns.update(tenant.restaurantId, id, body);
+    return this.campaigns.update(tenant.restaurantId, id, user.id, body);
   }
 
   @Post(':campaignId/preview')
@@ -148,17 +151,57 @@ export class CampaignsController {
   @RequirePermission('campaigns.manage')
   send(
     @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
     @ZodParam('campaignId', UuidSchema) id: string,
     @ZodBody(SendCampaignSchema) body: z.infer<typeof SendCampaignSchema>,
   ): Promise<CampaignDTO> {
-    return this.campaigns.send(tenant.restaurantId, id, body);
+    return this.campaigns.send(tenant.restaurantId, id, user.id, body);
   }
 
   @Post(':campaignId/cancel')
   @HttpCode(200)
   @RequirePermission('campaigns.manage')
-  cancel(@Tenant() tenant: TenantContext, @ZodParam('campaignId', UuidSchema) id: string): Promise<CampaignDTO> {
-    return this.campaigns.cancel(tenant.restaurantId, id);
+  cancel(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodParam('campaignId', UuidSchema) id: string,
+  ): Promise<CampaignDTO> {
+    return this.campaigns.cancel(tenant.restaurantId, id, user.id);
+  }
+
+  /** Send approvals (docs/ONAYLAR.md): the marketing_approvals module must be on. */
+  @Post(':campaignId/approval/request')
+  @HttpCode(200)
+  @RequirePermission('campaigns.manage')
+  requestApproval(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodParam('campaignId', UuidSchema) id: string,
+  ): Promise<CampaignDTO> {
+    return this.campaigns.requestApproval(tenant.restaurantId, id, user.id);
+  }
+
+  @Post(':campaignId/approval/approve')
+  @HttpCode(200)
+  @RequirePermission('campaigns.approve')
+  approve(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodParam('campaignId', UuidSchema) id: string,
+  ): Promise<CampaignDTO> {
+    return this.campaigns.decideApproval(tenant.restaurantId, id, user.id, { approve: true });
+  }
+
+  @Post(':campaignId/approval/reject')
+  @HttpCode(200)
+  @RequirePermission('campaigns.approve')
+  reject(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodParam('campaignId', UuidSchema) id: string,
+    @ZodBody(RejectCampaignSchema) body: RejectCampaignInput,
+  ): Promise<CampaignDTO> {
+    return this.campaigns.decideApproval(tenant.restaurantId, id, user.id, { approve: false, note: body.note });
   }
 }
 

@@ -23,7 +23,7 @@ Menü platform izinlerinden ve açık modüllerden kurulur (`MARKETING_NAV`):
 - **Özet**: modüllere geçiş ve yol haritası.
 - **Kişiler**: platform kiracısının kişileri, restoranın müşteri ekranıyla.
 - **Satış hattı** ve **Görevler**: `contacts_crm` modülü açıkken (`docs/CRM.md`).
-- **Kampanyalar**: `campaigns` modülü açıkken, restoranın kampanya ekranıyla; gönderim `platform.marketing.send` ister.
+- **Kampanyalar**: `campaigns` modülü açıkken, restoranın kampanya ekranıyla; gönderim `platform.marketing.send` ister. `marketing_approvals` açıkken editör hazırlar ve onaya gönderir, pazarlama yöneticisi (`campaigns.approve`) onaylar; kendi isteğini kimse onaylayamaz (`docs/ONAYLAR.md`).
 - **Atıf**: `attribution` modülü açıkken; aday, restoran kaydı ve ilk ödemenin kaynak, ortam ve kampanya kırılımı (`docs/ATIF.md`).
 
 ## Konsol uçları
@@ -52,7 +52,7 @@ Her işlem denetim kaydına yazılır (`platform.setup`, `platform.user.*`).
 13. Tavsiye programları: müşteri tavsiyesi ve restorandan restorana tavsiye (tamamlandı: müşteri tavsiyesi `docs/TAVSIYE.md`, anahtar `referrals`; restorandan restorana tavsiye `docs/RESTORAN_TAVSIYE.md`, anahtar `partner_referrals`).
 14. Geri bildirim yönlendirme: düşük puan uyarısı, yüksek puanda Google değerlendirme daveti (teşvik yok), NPS (tamamlandı, `docs/GERI_BILDIRIM.md`, anahtar `feedback`; değerlendirme daveti Google politikası ve tüketici mevzuatı gereği puana bağlanmadan puan veren herkese gösterilir).
 15. Kayıp riski sinyalleri (müşteri ve restoran) (tamamlandı, `docs/KAYIP_RISKI.md`; müşteri tarafı anahtar `churn_signals` ve segmentlerde `churnRisk` alanı, konsol tarafı anahtar `restaurant_health`).
-16. Onaylar, sınırlar ve denetim görüntüleyici (platform gönderimleri).
+16. Onaylar, sınırlar ve denetim görüntüleyici (platform gönderimleri) (tamamlandı, `docs/ONAYLAR.md`; dört göz onayı ve gönderim sınırları anahtar `marketing_approvals`, konsol denetim kayıtları anahtar `audit_viewer`).
 17. Yapay zeka stüdyosu (yalnızca taslak, kişisel veri modele gitmez, ayrı bütçe).
 18. Entegrasyon merkezi, OAuth, Lead Ads, sosyal yayın.
 

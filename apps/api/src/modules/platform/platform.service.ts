@@ -6,6 +6,7 @@ import {
   platformRoleOf,
   platformRoleSystemKey,
   platformTenantPermissions,
+  PLATFORM_TENANT_SLUG,
 } from '@resget/shared';
 import type {
   InvitePlatformUserInput,
@@ -20,9 +21,6 @@ import { FeatureFlagsService } from '../features/feature-flags.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { maskPhone } from '../messaging/sms.provider';
 import { conflict, forbidden, notFound } from '../../common/api-error';
-
-/** Slug of the platform tenant; reserved for sign-up so no restaurant can take it. */
-export const PLATFORM_TENANT_SLUG = 'platform';
 
 /**
  * Platform marketing access (docs/PAZARLAMA.md). The only writer of the
