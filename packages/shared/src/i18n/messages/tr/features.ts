@@ -131,4 +131,7 @@ export const trFeatures = {
   'features.ordering_links.name': 'Sipariş bağlantıları',
   'features.ordering_links.description':
     'Instagram, Facebook, WhatsApp, Google ve TikTok için ayrı sipariş bağlantıları; her kanaldan gelen sipariş ve ciro, sipariş kartında kanal adı. Çerezsiz, siparişin kendisiyle ölçülür.',
+  'features.kitchen_display.name': 'Mutfak ekranı',
+  'features.kitchen_display.description':
+    'Kabul edilen siparişler mutfak tabletinde fiş olarak, söz verilen saate göre sıralı; satır satır hazır işaretleme, menü bölümüne göre istasyon (ızgara, bar) ekranları, gecikme uyarısı.',
 } as const satisfies Record<string, string>;

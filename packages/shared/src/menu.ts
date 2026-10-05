@@ -28,8 +28,16 @@ const AvailableHours = OpeningHoursSchema.nullable().refine((hours) => hours ===
   message: 'Window ends before it starts',
 });
 
+/** Kitchen station of a section (docs/MUTFAK_EKRANI.md); null clears it. */
+const KitchenStation = z.string().trim().min(1).max(40).nullable();
+
 export const CreateMenuCategorySchema = z
-  .object({ name: MenuName, sortOrder: SortOrder.optional(), availableHours: AvailableHours.optional() })
+  .object({
+    name: MenuName,
+    sortOrder: SortOrder.optional(),
+    availableHours: AvailableHours.optional(),
+    kitchenStation: KitchenStation.optional(),
+  })
   .strict();
 export type CreateMenuCategoryInput = z.infer<typeof CreateMenuCategorySchema>;
 
@@ -39,6 +47,7 @@ export const UpdateMenuCategorySchema = z
     sortOrder: SortOrder.optional(),
     isActive: z.boolean().optional(),
     availableHours: AvailableHours.optional(),
+    kitchenStation: KitchenStation.optional(),
   })
   .strict()
   .refine(nonEmpty, { message: 'empty update' });
@@ -141,6 +150,8 @@ export interface MenuCategoryAdminDTO {
   isActive: boolean;
   /** Ordering windows (docs/OGUN_SAATLERI.md); null for whenever the restaurant takes orders. */
   availableHours: OpeningHours | null;
+  /** Kitchen station (docs/MUTFAK_EKRANI.md); null for the shared screen. */
+  kitchenStation: string | null;
   items: MenuItemAdminDTO[];
 }
 

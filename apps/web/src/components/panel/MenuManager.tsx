@@ -45,6 +45,7 @@ export function MenuManager({
   aiStudio = false,
   allergens = false,
   dayparts = false,
+  stations = false,
 }: {
   restaurantId: string;
   locale: string;
@@ -55,6 +56,8 @@ export function MenuManager({
   allergens?: boolean;
   /** The menu_dayparts module is on: serving hours per category (docs/OGUN_SAATLERI.md). */
   dayparts?: boolean;
+  /** The kitchen_display module is on: a kitchen station per category (docs/MUTFAK_EKRANI.md). */
+  stations?: boolean;
 }) {
   const t = useT(locale);
   const base = `restaurants/${restaurantId}/menu`;
@@ -64,6 +67,7 @@ export function MenuManager({
   const [newCategory, setNewCategory] = useState('');
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const [hoursOf, setHoursOf] = useState<string | null>(null);
+  const [stationOf, setStationOf] = useState<{ id: string; name: string } | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
 
   const fail = useCallback(
@@ -308,6 +312,9 @@ export function MenuManager({
                     {t('dayparts.manage.summary', { hours: hoursSummary(t, category.availableHours) })}
                   </Badge>
                 )}
+                {stations && category.kitchenStation && (
+                  <Badge tone="muted">{t('kitchen.station.badge', { station: category.kitchenStation })}</Badge>
+                )}
               </span>
             )
           }
@@ -346,6 +353,19 @@ export function MenuManager({
                     {t('dayparts.manage.title')}
                   </Button>
                 )}
+                {stations && (
+                  <Button
+                    variant="link"
+                    tone="muted"
+                    onClick={() =>
+                      setStationOf(
+                        stationOf?.id === category.id ? null : { id: category.id, name: category.kitchenStation ?? '' },
+                      )
+                    }
+                  >
+                    {t('kitchen.station.manage')}
+                  </Button>
+                )}
                 <Button
                   variant="link"
                   tone="muted"
@@ -372,6 +392,46 @@ export function MenuManager({
               }}
               onCancel={() => setHoursOf(null)}
             />
+          )}
+          {stations && stationOf?.id === category.id && (
+            <form
+              aria-label={t('kitchen.station.manage')}
+              className="flex flex-wrap items-end gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const name = stationOf.name.trim();
+                void patchCategory(category.id, { kitchenStation: name === '' ? null : name });
+                setStationOf(null);
+              }}
+            >
+              <TextField
+                id={`station-${category.id}`}
+                label={t('kitchen.station.name')}
+                help={t('kitchen.station.help')}
+                value={stationOf.name}
+                onChange={(event) => setStationOf({ id: category.id, name: event.target.value })}
+                maxLength={40}
+              />
+              <Button type="submit" disabled={busy}>
+                {t('common.save')}
+              </Button>
+              {category.kitchenStation && (
+                <Button
+                  variant="outline"
+                  tone="muted"
+                  disabled={busy}
+                  onClick={() => {
+                    void patchCategory(category.id, { kitchenStation: null });
+                    setStationOf(null);
+                  }}
+                >
+                  {t('kitchen.station.clear')}
+                </Button>
+              )}
+              <Button variant="link" tone="muted" onClick={() => setStationOf(null)}>
+                {t('common.cancel')}
+              </Button>
+            </form>
           )}
           {category.items.length === 0 && <p className="ui-text-muted">{t('menu.emptyCategory')}</p>}
           <ul className="ui-divide">

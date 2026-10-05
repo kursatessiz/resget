@@ -131,4 +131,7 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.ordering_links.name': 'Ordering links',
   'features.ordering_links.description':
     'Separate ordering links for Instagram, Facebook, WhatsApp, Google and TikTok; orders and revenue per channel, and the channel on the order card. Measured on the order itself, without cookies.',
+  'features.kitchen_display.name': 'Kitchen display',
+  'features.kitchen_display.description':
+    'Accepted orders as tickets on a kitchen tablet, sorted by the promised time; line by line done marking, station screens by menu section (grill, bar), late warning.',
 };

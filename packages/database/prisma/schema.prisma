@@ -630,6 +630,8 @@ model MenuCategory {
   isActive       Boolean  @default(true)
   /// Ordering windows (OpeningHours shape, docs/OGUN_SAATLERI.md); null means whenever the restaurant takes orders.
   availableHours Json?
+  /// Kitchen station the section's items go to on the kitchen display (docs/MUTFAK_EKRANI.md); null for the shared screen.
+  kitchenStation String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -1354,7 +1356,7 @@ model Order {
 }
 
 model OrderItem {
-  id                String  @id @default(uuid())
+  id                String    @id @default(uuid())
   orderId           String
   menuItemId        String?
   nameSnapshot      String
@@ -1365,7 +1367,9 @@ model OrderItem {
   modifiersSnapshot Json?
   lineTotalMinor    Int
   /// Position in the basket, so receipts and screens list items as the customer entered them.
-  position          Int     @default(0)
+  position          Int       @default(0)
+  /// When the kitchen marked the line done on the kitchen display (docs/MUTFAK_EKRANI.md).
+  preparedAt        DateTime?
 
   order    Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
   menuItem MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
