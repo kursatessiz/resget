@@ -2,8 +2,17 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { formatMoney, majorAmountText, parseMajorAmount } from '@resget/shared';
+import {
+  ALLERGENS,
+  DIETARY_TAGS,
+  dietaryConflicts,
+  formatMoney,
+  majorAmountText,
+  parseMajorAmount,
+} from '@resget/shared';
 import type {
+  Allergen,
+  DietaryTag,
   MenuAdminDTO,
   MenuCategoryAdminDTO,
   MenuItemAdminDTO,
@@ -31,12 +40,15 @@ export function MenuManager({
   locale,
   canManage,
   aiStudio = false,
+  allergens = false,
 }: {
   restaurantId: string;
   locale: string;
   canManage: boolean;
   /** The ai_studio module is on and the plan allows it: description drafts in the item editor (docs/YAPAY_ZEKA.md). */
   aiStudio?: boolean;
+  /** The allergens module is on: allergen and dietary tag boxes in the item editor (docs/ALERJENLER.md). */
+  allergens?: boolean;
 }) {
   const t = useT(locale);
   const base = `restaurants/${restaurantId}/menu`;
@@ -403,6 +415,7 @@ export function MenuManager({
               item={editing.item}
               busy={busy}
               aiAssist={aiStudio ? { restaurantId, locale } : null}
+              withAllergens={allergens}
               onSave={(payload) => void saveItem(payload, editing.item)}
               onSaveGroups={(groups) => {
                 if (editing.item) void saveGroups(editing.item, groups);
@@ -443,12 +456,14 @@ function ItemEditor({
   item,
   busy,
   aiAssist,
+  withAllergens,
   onSave,
   onSaveGroups,
   onCancel,
 }: {
   t: Translate;
   aiAssist: { restaurantId: string; locale: string } | null;
+  withAllergens: boolean;
   currency: string;
   categories: { id: string; name: string }[];
   categoryId: string;
@@ -465,6 +480,9 @@ function ItemEditor({
   const [imageUrl, setImageUrl] = useState(item?.imageUrl ?? '');
   const [category, setCategory] = useState(item?.categoryId ?? categoryId);
   const [isAvailable, setIsAvailable] = useState(item?.isAvailable ?? true);
+  const [allergenSet, setAllergenSet] = useState<Allergen[]>(item?.allergens ?? []);
+  const [tagSet, setTagSet] = useState<DietaryTag[]>(item?.dietaryTags ?? []);
+  const conflicts = dietaryConflicts(allergenSet, tagSet);
   const [formError, setFormError] = useState<string | null>(null);
   const [groups, setGroups] = useState<GroupDraft[]>(
     (item?.modifierGroups ?? []).map((g) => ({
@@ -496,6 +514,13 @@ function ItemEditor({
       vatRateBps: Math.round(vat * 100),
       imageUrl: imageUrl.trim() || null,
       isAvailable,
+      // Kept in catalogue order, so the saved list reads the same as the boxes.
+      ...(withAllergens
+        ? {
+            allergens: ALLERGENS.filter((a) => allergenSet.includes(a)),
+            dietaryTags: DIETARY_TAGS.filter((d) => tagSet.includes(d)),
+          }
+        : {}),
     });
   };
 
@@ -601,6 +626,54 @@ function ItemEditor({
           <span>{t('menu.manage.available')}</span>
         </label>
       </div>
+      {withAllergens && (
+        <div className="flex flex-col gap-3">
+          <fieldset className="flex flex-col gap-2">
+            <legend className="ui-label">{t('allergens.manage.allergens')}</legend>
+            <div className="flex flex-wrap gap-3">
+              {ALLERGENS.map((allergen) => (
+                <label key={allergen} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="pui-checkbox"
+                    checked={allergenSet.includes(allergen)}
+                    onChange={(e) =>
+                      setAllergenSet((current) =>
+                        e.target.checked ? [...current, allergen] : current.filter((a) => a !== allergen),
+                      )
+                    }
+                  />
+                  <span>{t(`allergens.name.${allergen}`)}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="ui-label">{t('allergens.manage.dietaryTags')}</legend>
+            <div className="flex flex-wrap gap-3">
+              {DIETARY_TAGS.map((tag) => (
+                <label key={tag} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="pui-checkbox"
+                    checked={tagSet.includes(tag)}
+                    onChange={(e) =>
+                      setTagSet((current) => (e.target.checked ? [...current, tag] : current.filter((d) => d !== tag)))
+                    }
+                  />
+                  <span>{t(`allergens.diet.${tag}`)}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          {conflicts.length > 0 && (
+            <p className="pui-alert pui-warn" data-allergen-conflict>
+              {t('allergens.manage.conflict', { tags: conflicts.map((c) => t(`allergens.diet.${c}`)).join(', ') })}
+            </p>
+          )}
+          <p className="ui-caption">{t('allergens.manage.responsibility')}</p>
+        </div>
+      )}
       {formError && (
         <p role="alert" className="ui-text-muted">
           {formError}

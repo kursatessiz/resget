@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { BasisPointsSchema, MinorAmountSchema } from './money';
 import { UuidSchema } from './validators';
+import { AllergenListSchema, DietaryTagListSchema } from './allergens';
+import type { Allergen, DietaryTag } from './allergens';
 
 /**
  * Menu management (restaurant panel). The menu is tenant data: categories,
@@ -33,6 +35,9 @@ export const CreateMenuItemSchema = z
     imageUrl: ImageUrl.nullable().optional(),
     isAvailable: z.boolean().optional(),
     sortOrder: SortOrder.optional(),
+    /** Declared allergens (docs/ALERJENLER.md); shown while the allergens module is on. */
+    allergens: AllergenListSchema.optional(),
+    dietaryTags: DietaryTagListSchema.optional(),
   })
   .strict();
 export type CreateMenuItemInput = z.infer<typeof CreateMenuItemSchema>;
@@ -105,6 +110,8 @@ export interface MenuItemAdminDTO {
   imageUrl: string | null;
   isAvailable: boolean;
   sortOrder: number;
+  allergens: Allergen[];
+  dietaryTags: DietaryTag[];
   modifierGroups: MenuModifierGroupDTO[];
 }
 

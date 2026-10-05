@@ -116,6 +116,9 @@ export const trFeatures = {
   'features.scheduled_orders.name': 'İleri tarihli sipariş',
   'features.scheduled_orders.description':
     'Müşteri siparişini şimdi verip çalışma saatleri içinden daha sonraki bir saat seçer; işletme kapalıyken de ön sipariş alınır. Kabul alarmı hazırlığa başlama zamanına göre çalar.',
+  'features.allergens.name': 'Alerjen ve beslenme etiketleri',
+  'features.allergens.description':
+    'Menü ürünlerinde yasal 14 alerjen ve vejetaryen, vegan, glutensiz gibi etiketler; sipariş sayfasında gösterim ve alerjene göre gizleme filtresi.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',

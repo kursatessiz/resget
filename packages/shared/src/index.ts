@@ -44,6 +44,7 @@ export * from './design';
 export * from './i18n';
 export * from './availability';
 export * from './scheduling';
+export * from './allergens';
 export * from './delivery-zone';
 export * from './coupons';
 export * from './order-actions';

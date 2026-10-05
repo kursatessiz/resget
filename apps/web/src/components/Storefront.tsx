@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  ALLERGENS,
+  avoidsAllergens,
   CHECKOUT_CONSENT_CHANNELS,
   couponDiscountMinor,
   customerDeliveryFee,
@@ -10,6 +12,7 @@ import {
   redeemableFor,
   formatMoney,
 } from '@resget/shared';
+import type { Allergen } from '@resget/shared';
 import type {
   CheckoutConsentChannel,
   CustomerAddressDTO,
@@ -76,6 +79,14 @@ export function Storefront({
   const [saveAddress, setSaveAddress] = useState(false);
   const [saveLabel, setSaveLabel] = useState('');
   const [note, setNote] = useState('');
+  // Allergens (docs/ALERJENLER.md): the guest can hide items that contain what they avoid.
+  const [avoid, setAvoid] = useState<Allergen[]>([]);
+  const menuAllergens = ALLERGENS.filter((a) =>
+    storefront.categories.some((c) => c.items.some((item) => item.allergens.includes(a))),
+  );
+  const hasTags = storefront.categories.some((c) =>
+    c.items.some((item) => item.allergens.length > 0 || item.dietaryTags.length > 0),
+  );
   // Scheduled orders (docs/ILERI_TARIHLI_SIPARIS.md): a later slot instead of as soon as possible.
   const scheduling = storefront.scheduling;
   const [when, setWhen] = useState<'NOW' | 'LATER'>(scheduling && !storefront.availability.accepting ? 'LATER' : 'NOW');
@@ -348,70 +359,118 @@ export function Storefront({
           {availabilityNote}
         </p>
       )}
+      {hasTags && (
+        <section className="flex flex-col gap-2" aria-label={t('allergens.filter.title')} data-allergen-filter>
+          {menuAllergens.length > 0 && (
+            <fieldset className="flex flex-col gap-2">
+              <legend className="ui-label">{t('allergens.filter.title')}</legend>
+              <div className="flex flex-wrap gap-3">
+                {menuAllergens.map((allergen) => (
+                  <label key={allergen} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      className="pui-checkbox"
+                      checked={avoid.includes(allergen)}
+                      onChange={(e) =>
+                        setAvoid((current) =>
+                          e.target.checked ? [...current, allergen] : current.filter((a) => a !== allergen),
+                        )
+                      }
+                    />
+                    <span>{t(`allergens.name.${allergen}`)}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+          <p className="ui-caption">{t('allergens.filter.disclaimer')}</p>
+        </section>
+      )}
       {storefront.categories.map((category) => (
         <section key={category.id} className="flex flex-col gap-3" aria-label={category.name}>
           <h2 className="ui-heading">{category.name}</h2>
           <ul className="ui-divide">
             {category.items.length === 0 && <li className="ui-caption py-2">{t('menu.emptyCategory')}</li>}
-            {category.items.map((item) => (
-              <li key={item.id} className="flex flex-col gap-2 py-3" data-menu-item={item.name}>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex flex-col gap-1">
-                    <span className={item.isAvailable ? undefined : 'ui-text-muted'}>{item.name}</span>
-                    {item.description && <span className="ui-caption">{item.description}</span>}
-                    {!item.isAvailable && <Badge tone="muted">{t('shop.unavailable')}</Badge>}
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <span className="ui-price">{money(item.priceMinor)}</span>
-                    {item.isAvailable && (
-                      <Button
-                        variant="soft"
-                        onClick={() => startAdd(item)}
-                        aria-label={`${t('shop.cart.add')}: ${item.name}`}
-                      >
-                        {t('shop.cart.add')}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-                {picking?.item.id === item.id && (
-                  <div className="flex flex-col gap-3" role="group" aria-label={t('shop.cart.options')}>
-                    {picking.item.modifierGroups.map((group) => (
-                      <fieldset key={group.id} className="flex flex-col gap-1">
-                        <legend className="ui-caption">
-                          {group.name}{' '}
-                          {group.minSelect > 0 ? t('shop.cart.chooseAtLeast', { count: group.minSelect }) : ''}{' '}
-                          {group.maxSelect > 1 ? t('shop.cart.chooseUpTo', { count: group.maxSelect }) : ''}
-                        </legend>
-                        {group.modifiers.map((modifier) => (
-                          <label key={modifier.id} className="flex items-center justify-between gap-2">
-                            <span className="flex items-center gap-2">
-                              <input
-                                type={group.maxSelect === 1 ? 'radio' : 'checkbox'}
-                                className={group.maxSelect === 1 ? 'pui-radio' : 'pui-checkbox'}
-                                name={`group-${group.id}`}
-                                checked={(picking.chosen[group.id] ?? []).includes(modifier.id)}
-                                onChange={() => toggleChoice(group, modifier.id)}
-                              />
-                              <span>{modifier.name}</span>
-                            </span>
-                            {modifier.priceDeltaMinor !== 0 && (
-                              <span className="ui-caption">{money(modifier.priceDeltaMinor)}</span>
-                            )}
-                          </label>
-                        ))}
-                      </fieldset>
-                    ))}
-                    <div className="flex flex-wrap gap-2">
-                      <Button onClick={confirmPick}>{t('shop.cart.add')}</Button>
-                      <Button variant="outline" tone="muted" onClick={() => setPicking(null)}>
-                        {t('common.cancel')}
-                      </Button>
+            {category.items.length > 0 && category.items.every((item) => !avoidsAllergens(item, avoid)) && (
+              <li className="ui-caption py-2">{t('allergens.filter.allHidden')}</li>
+            )}
+            {category.items
+              .filter((item) => avoidsAllergens(item, avoid))
+              .map((item) => (
+                <li key={item.id} className="flex flex-col gap-2 py-3" data-menu-item={item.name}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col gap-1">
+                      <span className={item.isAvailable ? undefined : 'ui-text-muted'}>{item.name}</span>
+                      {item.description && <span className="ui-caption">{item.description}</span>}
+                      {item.dietaryTags.length > 0 && (
+                        <span className="flex flex-wrap gap-1" data-dietary-tags>
+                          {item.dietaryTags.map((tag) => (
+                            <Badge key={tag} tone="success">
+                              {t(`allergens.diet.${tag}`)}
+                            </Badge>
+                          ))}
+                        </span>
+                      )}
+                      {item.allergens.length > 0 && (
+                        <span className="ui-caption" data-allergens>
+                          {t('allergens.contains', {
+                            list: item.allergens.map((a) => t(`allergens.name.${a}`)).join(', '),
+                          })}
+                        </span>
+                      )}
+                      {!item.isAvailable && <Badge tone="muted">{t('shop.unavailable')}</Badge>}
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className="ui-price">{money(item.priceMinor)}</span>
+                      {item.isAvailable && (
+                        <Button
+                          variant="soft"
+                          onClick={() => startAdd(item)}
+                          aria-label={`${t('shop.cart.add')}: ${item.name}`}
+                        >
+                          {t('shop.cart.add')}
+                        </Button>
+                      )}
                     </div>
                   </div>
-                )}
-              </li>
-            ))}
+                  {picking?.item.id === item.id && (
+                    <div className="flex flex-col gap-3" role="group" aria-label={t('shop.cart.options')}>
+                      {picking.item.modifierGroups.map((group) => (
+                        <fieldset key={group.id} className="flex flex-col gap-1">
+                          <legend className="ui-caption">
+                            {group.name}{' '}
+                            {group.minSelect > 0 ? t('shop.cart.chooseAtLeast', { count: group.minSelect }) : ''}{' '}
+                            {group.maxSelect > 1 ? t('shop.cart.chooseUpTo', { count: group.maxSelect }) : ''}
+                          </legend>
+                          {group.modifiers.map((modifier) => (
+                            <label key={modifier.id} className="flex items-center justify-between gap-2">
+                              <span className="flex items-center gap-2">
+                                <input
+                                  type={group.maxSelect === 1 ? 'radio' : 'checkbox'}
+                                  className={group.maxSelect === 1 ? 'pui-radio' : 'pui-checkbox'}
+                                  name={`group-${group.id}`}
+                                  checked={(picking.chosen[group.id] ?? []).includes(modifier.id)}
+                                  onChange={() => toggleChoice(group, modifier.id)}
+                                />
+                                <span>{modifier.name}</span>
+                              </span>
+                              {modifier.priceDeltaMinor !== 0 && (
+                                <span className="ui-caption">{money(modifier.priceDeltaMinor)}</span>
+                              )}
+                            </label>
+                          ))}
+                        </fieldset>
+                      ))}
+                      <div className="flex flex-wrap gap-2">
+                        <Button onClick={confirmPick}>{t('shop.cart.add')}</Button>
+                        <Button variant="outline" tone="muted" onClick={() => setPicking(null)}>
+                          {t('common.cancel')}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </li>
+              ))}
           </ul>
         </section>
       ))}

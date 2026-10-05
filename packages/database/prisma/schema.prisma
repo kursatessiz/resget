@@ -651,6 +651,9 @@ model MenuItem {
   imageUrl     String?
   isAvailable  Boolean  @default(true)
   sortOrder    Int      @default(0)
+  /// Declared allergens and dietary tags (ALLERGENS, DIETARY_TAGS in shared; docs/ALERJENLER.md).
+  allergens    String[] @default([])
+  dietaryTags  String[] @default([])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

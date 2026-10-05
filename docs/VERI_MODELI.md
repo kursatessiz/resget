@@ -126,3 +126,5 @@ Sosyal yayın (`docs/SOSYAL_YAYIN.md`): gönderiler `social_posts` (kiracı, haz
 Yalnızca ileri yönlü; deploy'dan önce çalışır; bir sürüm boyunca geriye dönük uyumlu (önce genişlet, sonra daralt). CI, boş Postgres'e uygulayıp şema ile sapma olmadığını denetler. Yeni migration: `pnpm --filter @resget/database db:migrate --name <ad>` (yerel Postgres gerekir).
 
 İleri tarihli sipariş (`docs/ILERI_TARIHLI_SIPARIS.md`): `orders.scheduledFor` siparişin saatidir (gel-alda hazır olma, teslimatta varış; hemen içinse boş, `restaurantId` ile dizinli); `restaurants.schedulingSettings` işletmenin saat ayarlarıdır (`SchedulingSettingsSchema`). Migration: `20261119000000_scheduled_orders`.
+
+Alerjenler (`docs/ALERJENLER.md`): `menu_items.allergens` ve `menu_items.dietaryTags` (katalogdaki anahtarlar, varsayılan boş dizi). Migration: `20261120000000_menu_allergens`.
