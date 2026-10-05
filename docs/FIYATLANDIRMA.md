@@ -30,7 +30,7 @@ Kurallar:
 
 ## Komisyonun tahsili
 
-`OWN_POS` restoranlarında yüzde 1 komisyon + KDV ay sonunda tek faturada kesilir ve restoranın kayıtlı kartından (aynı kart kasası) veya otomatik ödeme talimatından çekilir. Fatura kesildikten 10 gün sonra ödenmemişse pazaryeri listelemesi askıya alınır; menü, sipariş ekranı ve masa QR çalışmaya devam eder. `PLATFORM_PSP` restoranlarında komisyon hakedişten düşülür, fatura yalnızca belge amaçlıdır. Ayrıntı: `docs/ODEME.md`.
+Komisyon yalnızca eve teslim ve gel al siparişlerinden alınır; restoran içi masa siparişi komisyonsuzdur (`docs/MUTABAKAT.md` kural 1). `OWN_POS` restoranlarında yüzde 1 komisyon + KDV ay sonunda tek faturada kesilir ve restoranın kayıtlı kartından (aynı kart kasası) veya otomatik ödeme talimatından çekilir. Fatura kesildikten 10 gün sonra ödenmemişse pazaryeri listelemesi askıya alınır; menü, sipariş ekranı ve masa QR çalışmaya devam eder. `PLATFORM_PSP` restoranlarında komisyon hakedişten düşülür, fatura yalnızca belge amaçlıdır. Ayrıntı: `docs/ODEME.md`.
 
 ## Fiyatın değişmesi
 

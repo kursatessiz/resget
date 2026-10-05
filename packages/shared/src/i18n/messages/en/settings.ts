@@ -67,7 +67,7 @@ export const enSettings: Record<keyof typeof trSettings, string> = {
   'settings.domain.planLapsed':
     'The plan is not Pro, so the domain is not serving right now; the record and the verification are kept.',
   'settings.platform.title': 'Set by the platform',
-  'settings.platform.commission': 'Order commission: {percent}%',
+  'settings.platform.commission': 'Delivery and pickup order commission: {percent}% (no commission on table orders)',
   'settings.platform.currency': 'Currency: {currency}',
   'settings.platform.country': 'Country: {country}',
   'settings.platform.listed': 'Listed in the marketplace.',
