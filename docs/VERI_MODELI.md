@@ -42,6 +42,7 @@
 | Tablo | Not |
 |---|---|
 | `orders` | Kanal, teslimat türü, durum (`OrderStatus`, `docs/SIPARIS_VE_SEVK.md`), `computeModeSettlement()` anlık görüntüsü (brüt, KDV, komisyon, PSP, tevkifat, kurye, hakediş), ödeme modu ve platform alacağı, adres anlık görüntüsü (koordinat dahil), takip anahtarı (`trackingToken`, benzersiz), söz verilen hazır olma ve tahmini teslim zamanı. |
+| `order_ratings` | Sipariş başına tek puan ve isteğe bağlı yorum (`docs/VITRIN.md`); herkese açık yorumlar için düzenleme zamanı, işletme yanıtı (`reply`, bir gün düzenlenebilir), işletmenin bildirimi ve platformun kaldırma kaydı (`docs/YORUMLAR.md`). |
 | `order_items` | Ad ve fiyat anlık görüntüsü, modifiye anlık görüntüsü, sepet sırası. |
 | `order_status_history` | Her geçiş, aktör ve gerekçe. |
 | `order_claims` | Müşterinin eksik ürün bildirimi: ürünler ve adetler, tutar, not, durum (bekliyor, onaylandı, reddedildi), karar veren ve ret nedeni (`docs/ODEME.md`, "Eksik ürün bildirimi"). Onaylanan bildirimin iadeleri `order_refunds.claimId` ile bağlıdır. |

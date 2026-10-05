@@ -16,6 +16,7 @@ import {
 import type { OrderTrackingDTO } from '@resget/shared';
 import { ClaimCard } from '@/components/ClaimCard';
 import { FeedbackCard } from '@/components/FeedbackCard';
+import { TrackingReview } from '@/components/TrackingReview';
 import { LiveMap } from '@/components/LiveMap';
 import { Button, Card, LinkButton, TextAreaField } from '@/components/ui';
 import type { MapMarker, MapTilesConfig } from '@/lib/map';
@@ -218,10 +219,14 @@ export function TrackingLive({
       {(tracking.canRate || tracking.rating) && (
         <Card title={t('tracking.rating.title')} aria-label={t('tracking.rating.title')}>
           {tracking.rating ? (
-            <p role="status">
-              {thanked ? `${t('tracking.rating.thanks')} ` : ''}
-              {t('tracking.rating.given', { score: tracking.rating.score })}
-            </p>
+            <TrackingReview
+              token={token}
+              rating={tracking.rating}
+              locale={locale}
+              thanked={thanked}
+              t={t}
+              onUpdated={setTracking}
+            />
           ) : (
             <form
               className="flex flex-col gap-3"

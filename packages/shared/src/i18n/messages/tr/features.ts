@@ -89,6 +89,9 @@ export const trFeatures = {
   'features.feedback.name': 'Geri bildirim ve NPS',
   'features.feedback.description':
     'Düşük puanlarda takip kaydı ve ekibe bildirim, puan veren herkese değerlendirme bağlantısı, takip sayfasında NPS sorusu ve özet; PRO analitik.',
+  'features.public_reviews.name': 'Herkese açık yorumlar',
+  'features.public_reviews.description':
+    'Değerlendirmeler işletme sayfasında kısaltılmış adla görünür; işletme herkese açık yanıt verir, uygunsuz yorumu platforma bildirir.',
   'features.churn_signals.name': 'Müşteri kayıp riski',
   'features.churn_signals.description':
     'Her müşterinin kendi sipariş aralığına göre yeni, düzenli, dönmedi, riskte ve kayıp sınıfları; geri kazanılacak müşteri listesi ve segmentlerde kayıp riski alanı; PRO analitik.',

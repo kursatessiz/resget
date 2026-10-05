@@ -27,6 +27,10 @@ export interface OrderRatingDTO {
   score: number;
   comment: string | null;
   createdAt: string;
+  /** Public reviews (docs/YORUMLAR.md): the last edit, until when the customer may still edit, the restaurant's answer. */
+  editedAt: string | null;
+  editableUntil: string | null;
+  reply: { body: string; createdAt: string; editedAt: string | null } | null;
 }
 
 /** Average over a set of ratings, as the marketplace and the reports show it; null when nobody rated yet. */

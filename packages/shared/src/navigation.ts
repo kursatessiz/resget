@@ -38,6 +38,7 @@ export const PANEL_NAV: readonly PanelNavItem[] = [
   { key: 'reports', path: '/raporlar', permission: 'reports.view' },
   { key: 'attribution', path: '/atif', permission: 'reports.view', feature: 'attribution' },
   { key: 'feedback', path: '/geri-bildirim', permission: 'customers.view', feature: 'feedback' },
+  { key: 'reviews', path: '/yorumlar', permission: 'customers.view', feature: 'public_reviews' },
   { key: 'churn', path: '/kayip-riski', permission: 'customers.view', feature: 'churn_signals' },
   { key: 'subscription', path: '/plan', permission: 'subscription.manage' },
   { key: 'integrations', path: '/entegrasyon', permission: 'integrations.manage' },

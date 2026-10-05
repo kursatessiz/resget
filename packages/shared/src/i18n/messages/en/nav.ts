@@ -26,6 +26,7 @@ export const enNav: Record<keyof typeof trNav, string> = {
   'nav.pipeline': 'Pipeline',
   'nav.attribution': 'Attribution',
   'nav.feedback': 'Feedback',
+  'nav.reviews': 'Reviews',
   'nav.churn': 'Churn risk',
   'nav.social': 'Social publishing',
   'nav.orderingLinks': 'Ordering links',

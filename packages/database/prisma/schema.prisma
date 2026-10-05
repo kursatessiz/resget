@@ -1150,17 +1150,35 @@ model RestaurantApiKey {
 
 /// The customer's rating of a completed order (docs/VITRIN.md); one per order, given from the tracking page.
 model OrderRating {
-  id           String   @id @default(uuid())
-  orderId      String   @unique
-  restaurantId String
-  score        Int
-  comment      String?
-  createdAt    DateTime @default(now())
+  id               String    @id @default(uuid())
+  orderId          String    @unique
+  restaurantId     String
+  score            Int
+  comment          String?
+  createdAt        DateTime  @default(now())
+  /// Public reviews (docs/YORUMLAR.md): the customer may edit for a day after writing.
+  editedAt         DateTime?
+  /// The restaurant's public answer, editable for a day after it is first written.
+  reply            String?
+  replyCreatedAt   DateTime?
+  replyEditedAt    DateTime?
+  replyByUserId    String?
+  /// The restaurant's report to the platform; resolvedAt is set when the platform decides.
+  reportReason     String?
+  reportNote       String?
+  reportedAt       DateTime?
+  reportedByUserId String?
+  reportResolvedAt DateTime?
+  /// Taken down by the platform: off the public page and out of the average.
+  hiddenAt         DateTime?
+  hiddenReason     String?
+  hiddenByUserId   String?
 
   order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId, createdAt])
+  @@index([reportedAt])
   @@map("order_ratings")
 }
 

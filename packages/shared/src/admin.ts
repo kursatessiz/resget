@@ -119,6 +119,7 @@ export const ADMIN_NAV = [
   { key: 'areas', path: '/bolgeler' },
   { key: 'plans', path: '/planlar' },
   { key: 'claims', path: '/bildirimler' },
+  { key: 'reviews', path: '/yorumlar' },
   { key: 'marketing', path: '/pazarlama' },
   { key: 'partnerReferrals', path: '/tavsiye' },
   { key: 'restaurantHealth', path: '/saglik' },

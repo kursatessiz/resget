@@ -2,9 +2,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CouponCodeSchema, SlugSchema, orderSourceFromParam, restaurantJsonLd } from '@resget/shared';
-import type { StorefrontDTO, StorefrontViewerDTO } from '@resget/shared';
+import type { PublicReviewsPageDTO, StorefrontDTO, StorefrontViewerDTO } from '@resget/shared';
 import { ConsentManager } from '@/components/ConsentManager';
 import { StartGroupOrder } from '@/components/GroupOrder';
+import { PublicReviews } from '@/components/PublicReviews';
 import { JsonLdScript } from '@/components/site/JsonLdScript';
 import { Storefront } from '@/components/Storefront';
 import { ThemeRoot } from '@/components/ThemeRoot';
@@ -45,6 +46,9 @@ export default async function RestaurantPage({
   const viewerRes = me ? await apiFetch(`/me/viewer?restaurantId=${storefront.restaurant.id}`) : null;
   const viewer = viewerRes?.ok ? ((await viewerRes.json()) as StorefrontViewerDTO) : null;
   const seo = await getRestaurantSeo(slug).catch(() => null);
+  // Public reviews show only while the module is on for the restaurant (docs/YORUMLAR.md).
+  const reviewsRes = await fetch(`${apiInternalBaseUrl()}/public/restaurants/${slug}/reviews`, { cache: 'no-store' });
+  const reviews = reviewsRes.ok ? ((await reviewsRes.json()) as PublicReviewsPageDTO) : null;
   return (
     <ThemeRoot
       tenantTheme={{ themePrimary: storefront.restaurant.themePrimary, logoUrl: storefront.restaurant.logoUrl }}
@@ -82,6 +86,7 @@ export default async function RestaurantPage({
           viewer={viewer}
           initialCouponCode={invite?.success ? invite.data : null}
         />
+        {reviews && <PublicReviews slug={storefront.restaurant.slug} locale={locale} initial={reviews} />}
         <footer className="ui-rule pt-4">
           <p className="ui-caption text-center">{t('qr.page.poweredBy')}</p>
           {storefront.tracking && (

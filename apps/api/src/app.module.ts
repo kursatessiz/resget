@@ -50,6 +50,7 @@ import { LeadAdsModule } from './modules/lead-ads/lead-ads.module';
 import { OrderingLinksModule } from './modules/ordering-links/ordering-links.module';
 import { KitchenModule } from './modules/kitchen/kitchen.module';
 import { TabsModule } from './modules/tabs/tabs.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { SocialPublishingModule } from './modules/social-publishing/social-publishing.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
@@ -112,6 +113,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
     OrderingLinksModule,
     KitchenModule,
     TabsModule,
+    ReviewsModule,
     AccountingModule,
     SocialPublishingModule,
     BillingModule,
