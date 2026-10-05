@@ -239,6 +239,7 @@ export const trAdmin = {
   'admin.payouts.updated': 'Ödeme güncellendi.',
   'admin.forbidden': 'Bu alan yalnızca platform sahibine açıktır.',
   'admin.nav.claims': 'Bildirimler',
+  'admin.nav.reviews': 'Yorumlar',
   'admin.claims.title': 'Yükseltilen bildirimler',
   'admin.claims.intro':
     'İşletmenin 24 saat içinde karara bağlamadığı eksik ürün bildirimleri. Onay, işletmenin anlaşmasına göre kısmi iade olarak işletmeye yansır ve komisyonun iade payı geri döner; işletme de hâlâ karar verebilir.',

@@ -89,6 +89,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.feedback.name': 'Feedback and NPS',
   'features.feedback.description':
     'Follow-up cases and team alerts for low ratings, a review link for every rater, an NPS question on the tracking page and a summary; PRO analytics.',
+  'features.public_reviews.name': 'Public reviews',
+  'features.public_reviews.description':
+    'Reviews appear on the restaurant page with a short name; the restaurant answers publicly and reports unsuitable reviews to the platform.',
   'features.churn_signals.name': 'Customer churn risk',
   'features.churn_signals.description':
     'New, regular, did-not-return, at-risk and lost classes against each customer’s own ordering rhythm; a list of customers to win back and a churn risk field in segments; PRO analytics.',

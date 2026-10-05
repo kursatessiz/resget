@@ -41,6 +41,8 @@ import {
   refundStateOf,
   visibleContact,
   TAB_TOKEN_BYTES,
+  withinEditWindow,
+  editableUntil,
 } from '@resget/shared';
 import { PaymentMode } from '@resget/shared';
 import type {
@@ -62,6 +64,7 @@ import type {
   DispatchSettings,
   SchedulingSettings,
   RateOrderInput,
+  EditRatingInput,
   NpsAnswerInput,
   RefundItem,
 } from '@resget/shared';
@@ -934,6 +937,36 @@ export class OrdersService {
     return this.trackingByToken(token);
   }
 
+  /**
+   * The customer edits their review for a day after writing it (docs/YORUMLAR.md); the score change moves the
+   * restaurant's average unless the platform took the review down.
+   */
+  async editRatingByToken(token: string, input: EditRatingInput): Promise<OrderTrackingDTO> {
+    const row = await this.prisma.order.findUnique({ where: { trackingToken: token }, ...orderArgs });
+    if (!row || !row.rating) throw notFound('REVIEW_NOT_FOUND', 'Review not found');
+    await this.features.assertEnabled('public_reviews', row.restaurantId);
+    if (!withinEditWindow(row.rating.createdAt)) throw conflict('REVIEW_EDIT_CLOSED', 'The time to edit is over');
+    const rating = row.rating;
+    const score = input.score ?? rating.score;
+    await this.prisma.$transaction(async (tx) => {
+      await tx.orderRating.update({
+        where: { id: rating.id },
+        data: {
+          score,
+          ...(input.comment !== undefined ? { comment: input.comment } : {}),
+          editedAt: new Date(),
+        },
+      });
+      if (score !== rating.score && !rating.hiddenAt) {
+        await tx.restaurant.update({
+          where: { id: row.restaurantId },
+          data: { ratingSum: { increment: score - rating.score } },
+        });
+      }
+    });
+    return this.trackingByToken(token);
+  }
+
   /** The customer's NPS answer from the tracking page (docs/GERI_BILDIRIM.md): once, while the rating window is open. */
   async answerNpsByToken(token: string, input: NpsAnswerInput): Promise<OrderTrackingDTO> {
     const row = await this.prisma.order.findUnique({ where: { trackingToken: token }, ...orderArgs });
@@ -1028,7 +1061,25 @@ export class OrdersService {
       courier,
       destination,
       rating: row.rating
-        ? { score: row.rating.score, comment: row.rating.comment, createdAt: row.rating.createdAt.toISOString() }
+        ? {
+            score: row.rating.score,
+            comment: row.rating.comment,
+            createdAt: row.rating.createdAt.toISOString(),
+            editedAt: row.rating.editedAt?.toISOString() ?? null,
+            // The customer may edit for a day while public reviews are on (docs/YORUMLAR.md).
+            editableUntil:
+              isFeatureEnabled('public_reviews', switches) && withinEditWindow(row.rating.createdAt)
+                ? editableUntil(row.rating.createdAt).toISOString()
+                : null,
+            reply:
+              row.rating.reply && row.rating.replyCreatedAt && !row.rating.hiddenAt
+                ? {
+                    body: row.rating.reply,
+                    createdAt: row.rating.replyCreatedAt.toISOString(),
+                    editedAt: row.rating.replyEditedAt?.toISOString() ?? null,
+                  }
+                : null,
+          }
         : null,
       canRate: isFeatureEnabled('ratings', switches) && canRateOrder(row.status, row.completedAt, row.rating !== null),
       ...feedback,

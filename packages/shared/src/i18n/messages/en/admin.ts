@@ -240,6 +240,7 @@ export const enAdmin: Record<keyof typeof trAdmin, string> = {
   'admin.payouts.updated': 'Payout updated.',
   'admin.forbidden': 'This area is open to the platform owner only.',
   'admin.nav.claims': 'Claims',
+  'admin.nav.reviews': 'Reviews',
   'admin.claims.title': 'Escalated claims',
   'admin.claims.intro':
     'Missing item reports the business did not decide within 24 hours. An approval is a partial refund charged to the business under its agreement, with the refunded share of the commission returned; the business can still decide too.',

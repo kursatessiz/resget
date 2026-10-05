@@ -1,7 +1,7 @@
-import { Controller, Get, Headers, HttpCode, Post, Sse, UseGuards } from '@nestjs/common';
+import { Controller, Get, Headers, HttpCode, Patch, Post, Sse, UseGuards } from '@nestjs/common';
 import type { MessageEvent } from '@nestjs/common';
 import type { Observable } from 'rxjs';
-import { NpsAnswerSchema, RateOrderSchema, TrackingTokenSchema } from '@resget/shared';
+import { EditRatingSchema, NpsAnswerSchema, RateOrderSchema, TrackingTokenSchema } from '@resget/shared';
 import type { OrderTrackingDTO } from '@resget/shared';
 import type { z } from 'zod';
 import { ZodBody, ZodParam } from '../../common/zod-body.pipe';
@@ -36,6 +36,17 @@ export class PublicTrackingController {
     @ZodBody(RateOrderSchema) body: z.infer<typeof RateOrderSchema>,
   ): Promise<OrderTrackingDTO> {
     return this.orders.rateByToken(token, body);
+  }
+
+  /** The customer edits their review for a day after writing it (docs/YORUMLAR.md). */
+  @Patch(':token/rating')
+  @UseGuards(PublicRateLimitGuard)
+  @RateLimit({ bucket: 'funnel', limit: 20, windowSeconds: 600 })
+  editRating(
+    @ZodParam('token', TrackingTokenSchema) token: string,
+    @ZodBody(EditRatingSchema) body: z.infer<typeof EditRatingSchema>,
+  ): Promise<OrderTrackingDTO> {
+    return this.orders.editRatingByToken(token, body);
   }
 
   /** The NPS question on the tracking page (docs/GERI_BILDIRIM.md); once per order. */

@@ -25,6 +25,7 @@ export const trNav = {
   'nav.pipeline': 'Satış hattı',
   'nav.attribution': 'Atıf',
   'nav.feedback': 'Geri bildirim',
+  'nav.reviews': 'Yorumlar',
   'nav.churn': 'Kayıp riski',
   'nav.social': 'Sosyal yayın',
   'nav.orderingLinks': 'Sipariş bağlantıları',
