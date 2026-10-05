@@ -704,7 +704,7 @@ export class OrdersService {
       );
     }
     const now = new Date();
-    const data: Prisma.OrderUpdateInput = { status: to };
+    const data: Prisma.OrderUpdateManyMutationInput = { status: to };
     const stamp = orderTimestampFor(to);
     if (stamp) data[stamp] = now;
     if (to === 'ACCEPTED') {
@@ -728,7 +728,12 @@ export class OrdersService {
       data.rejectReason = options.reason ?? null;
     }
     if (to === 'DELIVERED' || to === 'PICKED_UP') data.estimatedDeliveryAt = null;
-    await tx.order.update({ where: { id: order.id }, data });
+    // Compare and swap: a concurrent transition that committed first leaves nothing to update, so the
+    // side effects below (ledger, loyalty, journeys) run once per real status change.
+    const swapped = await tx.order.updateMany({ where: { id: order.id, status: order.status }, data });
+    if (swapped.count === 0) {
+      throw conflict('ORDER_TRANSITION_INVALID', `Order ${order.id} left ${order.status} while this change was made`);
+    }
     // A completed order settles: its statement lines join the ledger (PLATFORM_PSP only, docs/MUTABAKAT.md).
     if (to === 'DELIVERED' || to === 'PICKED_UP') {
       await this.ledger.recordOrderCompletion(tx, order.id, now);
