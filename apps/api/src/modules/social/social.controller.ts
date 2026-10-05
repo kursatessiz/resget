@@ -64,13 +64,17 @@ export class OAuthCallbackController {
 
   @Get('meta/callback')
   @RateLimit({ bucket: 'oauth', limit: 30, windowSeconds: 600 })
-  async metaCallback(
-    @Query('code') code: string | undefined,
-    @Query('state') state: string | undefined,
-    @Query('error') error: string | undefined,
-    @Res() res: Response,
-  ): Promise<void> {
-    const outcome = await this.social.metaCallback({ code, state, error });
+  async metaCallback(@Query() query: Record<string, unknown>, @Res() res: Response): Promise<void> {
+    // A repeated parameter arrives as an array; only single string values are read, anything else counts as absent.
+    const outcome = await this.social.metaCallback({
+      code: single(query.code),
+      state: single(query.state),
+      error: single(query.error),
+    });
     res.redirect(302, outcome.redirectUrl);
   }
+}
+
+function single(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
 }

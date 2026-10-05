@@ -86,6 +86,8 @@ describe('Integration hub (e2e)', () => {
   it('refuses unknown, expired and declined round trips', async () => {
     const unknown = await ctx.http().get('/public/oauth/meta/callback?code=mock-code&state=nope').expect(302);
     expect(unknown.headers.location).toMatch(/\/panel\?meta=error$/);
+    const repeated = await ctx.http().get('/public/oauth/meta/callback?code=mock-code&state=a&state=b').expect(302);
+    expect(repeated.headers.location).toMatch(/\/panel\?meta=error$/);
 
     const expired = await start();
     const state = new URL(expired.authorizeUrl).searchParams.get('state') ?? '';
