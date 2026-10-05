@@ -54,6 +54,8 @@ export const PLAN_FEATURES = [
   'coupons',
   'custom_domain',
   'api_access',
+  /** Faster payouts without a fee, or at all (docs/HAKEDIS_TAKVIMI.md). */
+  'fast_payouts',
 ] as const;
 export type PlanFeature = (typeof PLAN_FEATURES)[number];
 

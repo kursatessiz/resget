@@ -207,6 +207,11 @@ export function BillingPanel({
                     vat: money(invoice.vatMinor, invoice.currency),
                   })}
                 </p>
+                {invoice.deductedMinor > 0 && (
+                  <p className="ui-caption" data-invoice-payout-fee>
+                    {t('billing.invoices.payoutFee', { amount: money(invoice.deductedMinor, invoice.currency) })}
+                  </p>
+                )}
                 <p className="ui-caption">
                   {invoice.dueAt && `${t('billing.invoices.due')}: ${day(invoice.dueAt)}. `}
                   {invoice.paidAt && `${t('billing.invoices.paidAt', { date: day(invoice.paidAt) })}. `}

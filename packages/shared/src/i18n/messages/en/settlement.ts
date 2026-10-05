@@ -16,6 +16,7 @@ export const enSettlement: Record<keyof typeof trSettlement, string> = {
   'settlement.line.COMMISSION_VAT_REVERSAL': 'Commission VAT returned',
   'settlement.line.ADJUSTMENT': 'Adjustment',
   'settlement.line.RESTAURANT_PAYABLE': 'Payable to you',
+  'settlement.line.PAYOUT_FEE': 'Faster payout fee',
   'settlement.withholdingNote':
     'The withholding is forwarded to the tax office in your name; you can offset it in your tax return.',
   'settlement.pspNote': 'The payment provider fee is the documented real rate; no margin is added.',

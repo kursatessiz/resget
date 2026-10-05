@@ -51,9 +51,10 @@
 | `meal_card_connections` | Restoranın kabul ettiği yemek kartı kuruluşları (`docs/YEMEK_KARTI.md`): kapıda ve/veya çevrim içi; çevrim içi için şifreli API bilgileri, doğrulama durumu, maskeli etiket. (`restaurantId`, `providerCode`) benzersiz. |
 | `payment_provider_connections` | Restoranın kendi sanal POS'u: sağlayıcı kodu, AES-256-GCM ile şifreli bilgiler, anahtar sürümü, doğrulama durumu, maskeli etiket. Restoran başına tek. |
 | `saved_payment_methods` | Müşterinin kasa token'ı (şifreli) ve maskeli kart bilgisi; (`userId`, `provider`, `tokenHash`) benzersiz. Kart numarası yoktur. |
-| `commission_invoices` | `OWN_POS` restoranının aylık komisyon faturası: dönem, matrah, komisyon, KDV, toplam, durum, vade, ödeme referansı. |
+| `commission_invoices` | `OWN_POS` restoranının aylık komisyon faturası: dönem, matrah, komisyon, KDV, toplam, durum, vade, ödeme referansı; ayın hızlı hakediş ücretleri (`payoutFeeMinor`, `payoutFeeVatMinor`) ve hakedişten zaten düşülen kısım (`deductedMinor`, tahsil edilecek tutar `totalMinor - deductedMinor`, `docs/HAKEDIS_TAKVIMI.md`). |
 | `ledger_entries` | Yalnızca ekleme; restoran bakış açısıyla işaretli tutar; tür `LedgerEntryType`. |
-| `payouts` | Dönem, tutar, durum, planlanan tarih (yasal sürede). |
+| `payouts` | Dönem, tutar, durum, planlanan tarih (yasal sürede); takvim (`WEEKLY`, `DAILY`, `INSTANT`) ve alınan ücret (`feeMinor`, `PAYOUT_FEE` defter satırı). |
+| `payout_schedule_options` | Takvim ve para birimi başına ücret oranı, sabit ücret, iş günü, plan kuralı (`requiresFastPayouts`, `freeWithFastPayouts`) ve satışta mı; restoranın seçimi `restaurants.payoutCadence` (`docs/HAKEDIS_TAKVIMI.md`). |
 
 ## Plan ve krediler
 

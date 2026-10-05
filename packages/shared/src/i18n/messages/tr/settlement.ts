@@ -15,6 +15,7 @@ export const trSettlement = {
   'settlement.line.COMMISSION_VAT_REVERSAL': 'Komisyon KDV iadesi',
   'settlement.line.ADJUSTMENT': 'Düzeltme',
   'settlement.line.RESTAURANT_PAYABLE': 'Hakediş',
+  'settlement.line.PAYOUT_FEE': 'Hızlı hakediş ücreti',
   'settlement.withholdingNote': 'Tevkifat adınıza vergi dairesine aktarılır; vergi beyanınızda mahsup edebilirsiniz.',
   'settlement.pspNote': 'Ödeme kuruluşu kesintisi belgelenen gerçek orandır; üzerine marj eklenmez.',
   'settlement.payout.scheduled': 'Ödeme {date} tarihinde hesabınıza gönderilecek.',
