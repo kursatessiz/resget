@@ -1,4 +1,5 @@
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, StreamableFile } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@resget/database';
 import {
   EDITABLE_SOCIAL_POST_STATUSES,
@@ -25,7 +26,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { META_GRAPH } from '../social/meta-graph';
 import type { MetaGraph } from '../social/meta-graph';
 import { SocialService } from '../social/social.service';
-import { UploadsService } from '../uploads/uploads.service';
+import { sniffImage } from '../uploads/uploads.service';
 import type { UploadedImage } from '../uploads/uploads.service';
 
 /** How long a publishing run holds a post; a lease older than this belongs to a crashed run. */
@@ -33,6 +34,8 @@ const LEASE_MS = 5 * 60_000;
 /** Posts the sweep publishes per run. */
 const SWEEP_BATCH = 20;
 const MIN_LEAD_MS = 60_000;
+const IMAGE_TYPES = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' } as const;
+const IMAGE_FILE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.(png|jpg|webp)$/;
 
 const postInclude = {
   targets: { orderBy: { accountName: 'asc' } },
@@ -64,7 +67,7 @@ export class SocialPublishingService {
     private readonly prisma: PrismaService,
     private readonly features: FeatureFlagsService,
     private readonly social: SocialService,
-    private readonly uploads: UploadsService,
+    private readonly config: ConfigService,
     @Optional() @Inject(META_GRAPH) private readonly meta: MetaGraph | null,
   ) {}
 
@@ -138,16 +141,30 @@ export class SocialPublishingService {
     if (!isEditable(post) && post.status !== 'FAILED') {
       throw conflict('SOCIAL_POST_LOCKED', 'A published or running post stays on record');
     }
+    // The image row goes with the post (cascade).
     await this.prisma.socialPost.delete({ where: { id: post.id } });
-    await this.uploads.removeSocialImage(restaurantId, post.imageUrl);
     await this.audit(restaurantId, userId, 'social.post.delete', post.id);
   }
 
   async setImage(restaurantId: string, postId: string, file: UploadedImage | undefined): Promise<SocialPostDTO> {
     const post = await this.editable(restaurantId, postId);
-    const imageUrl = await this.uploads.storeSocialImage(restaurantId, file, SOCIAL_IMAGE_MAX_BYTES);
-    await this.prisma.socialPost.update({ where: { id: post.id }, data: { imageUrl } });
-    await this.uploads.removeSocialImage(restaurantId, post.imageUrl);
+    if (!file || file.size === 0) throw badRequest('UNSUPPORTED_FILE', 'No file received');
+    if (file.size > SOCIAL_IMAGE_MAX_BYTES) throw badRequest('FILE_TOO_LARGE', 'Image exceeds the size limit');
+    // The kind is read from the bytes, never from the client's file name or declared type.
+    const kind = sniffImage(file.buffer);
+    if (!kind) throw badRequest('UNSUPPORTED_FILE', 'Only PNG, JPEG and WebP images are accepted');
+    // A new row (and so a new id and address) per image: the address is cached as immutable.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.socialPostImage.deleteMany({ where: { postId: post.id } });
+      const image = await tx.socialPostImage.create({
+        data: { postId: post.id, contentType: IMAGE_TYPES[kind], data: new Uint8Array(file.buffer) },
+        select: { id: true },
+      });
+      await tx.socialPost.update({
+        where: { id: post.id },
+        data: { imageUrl: `${this.publicApiUrl()}/uploads/social/${image.id}.${kind}` },
+      });
+    });
     return this.get(restaurantId, postId);
   }
 
@@ -155,15 +172,39 @@ export class SocialPublishingService {
     const post = await this.editable(restaurantId, postId);
     const kinds = post.targets.map((t) => t.kind as SocialAccountKind);
     const stillFits = socialPostProblems({ body: post.body, hasImage: false, kinds }).length === 0;
-    await this.prisma.socialPost.update({
-      where: { id: post.id },
-      data: {
-        imageUrl: null,
-        ...(post.status === 'SCHEDULED' && !stillFits ? { status: 'DRAFT', scheduledAt: null } : {}),
-      },
-    });
-    await this.uploads.removeSocialImage(restaurantId, post.imageUrl);
+    await this.prisma.$transaction([
+      this.prisma.socialPostImage.deleteMany({ where: { postId: post.id } }),
+      this.prisma.socialPost.update({
+        where: { id: post.id },
+        data: {
+          imageUrl: null,
+          ...(post.status === 'SCHEDULED' && !stillFits ? { status: 'DRAFT', scheduledAt: null } : {}),
+        },
+      }),
+    ]);
     return this.get(restaurantId, postId);
+  }
+
+  /**
+   * Serves a post image by its random id; public, because Meta fetches it
+   * for Instagram. The stored type is sent, not one derived from the
+   * request, and a removed or replaced image is a 404.
+   */
+  async openImage(file: string): Promise<StreamableFile> {
+    const match = IMAGE_FILE.exec(file);
+    if (!match) throw notFound('NOT_FOUND', 'File not found');
+    const image = await this.prisma.socialPostImage.findUnique({
+      where: { id: match[1] },
+      select: { contentType: true, data: true },
+    });
+    if (!image || image.contentType !== IMAGE_TYPES[match[2] as keyof typeof IMAGE_TYPES]) {
+      throw notFound('NOT_FOUND', 'File not found');
+    }
+    return new StreamableFile(Buffer.from(image.data), { type: image.contentType, length: image.data.length });
+  }
+
+  private publicApiUrl(): string {
+    return this.config.getOrThrow<string>('PUBLIC_API_URL').replace(/\/+$/, '');
   }
 
   // -- Scheduling and publishing ---------------------------------------------------------

@@ -29,13 +29,6 @@ export class UploadsController {
   logo(@Param('restaurantId') restaurantId: string, @Param('file') file: string): Promise<StreamableFile> {
     return this.uploads.openLogo(restaurantId, file);
   }
-
-  /** Social post images (docs/SOSYAL_YAYIN.md): public so Meta can fetch them for Instagram. */
-  @Get('social/:restaurantId/:file')
-  @Header('cache-control', 'public, max-age=31536000, immutable')
-  socialImage(@Param('restaurantId') restaurantId: string, @Param('file') file: string): Promise<StreamableFile> {
-    return this.uploads.openSocialImage(restaurantId, file);
-  }
 }
 
 /** The restaurant's logo: one multipart field named `file`, PNG, JPEG or WebP, at most LOGO_MAX_BYTES. */

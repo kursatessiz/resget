@@ -109,8 +109,14 @@ describe('Social publishing (e2e)', () => {
     const withImage = await attachImage(draft.id);
     expect(withImage.problems).toEqual([]);
     const imageUrl = new URL(withImage.imageUrl as string);
-    expect(imageUrl.pathname).toMatch(new RegExp(`^/uploads/social/${restaurantId}/[0-9a-f-]{36}\\.png$`));
-    await ctx.http().get(imageUrl.pathname).expect(200).expect('content-type', 'image/png');
+    expect(imageUrl.pathname).toMatch(/^\/uploads\/social\/[0-9a-f-]{36}\.png$/);
+    const served = await ctx.http().get(imageUrl.pathname).expect(200).expect('content-type', 'image/png');
+    expect(Buffer.compare(served.body as Buffer, PNG_1X1)).toBe(0);
+    await ctx
+      .http()
+      .get(imageUrl.pathname.replace(/\.png$/, '.jpg'))
+      .expect(404);
+    await ctx.http().get('/uploads/social/..%2F..%2Fetc%2Fpasswd').expect(404);
 
     await ctx
       .http()

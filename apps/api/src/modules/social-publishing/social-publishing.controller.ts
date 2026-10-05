@@ -1,4 +1,16 @@
-import { Controller, Delete, Get, HttpCode, Patch, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  Header,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  StreamableFile,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   SOCIAL_IMAGE_MAX_BYTES,
@@ -21,6 +33,18 @@ import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import type { UploadedImage } from '../uploads/uploads.service';
 import { SocialPublishingService } from './social-publishing.service';
+
+/** Public: post images, by random id (docs/SOSYAL_YAYIN.md); Meta fetches them for Instagram. */
+@Controller('uploads/social')
+export class SocialImagesController {
+  constructor(private readonly posts: SocialPublishingService) {}
+
+  @Get(':file')
+  @Header('cache-control', 'public, max-age=31536000, immutable')
+  image(@Param('file') file: string): Promise<StreamableFile> {
+    return this.posts.openImage(file);
+  }
+}
 
 /** Posts for the tenant's connected social accounts (docs/SOSYAL_YAYIN.md). */
 @Controller('restaurants/:restaurantId/social/posts')

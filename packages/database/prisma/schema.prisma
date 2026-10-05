@@ -1012,7 +1012,7 @@ model SocialPost {
   restaurantId    String
   createdByUserId String?
   body            String
-  /// An image this instance stored (uploads/social), referenced by absolute URL like the logo.
+  /// Public address of the post's image (social_post_images), absolute like the logo's.
   imageUrl        String?
   /// SOCIAL_POST_STATUSES in shared.
   status          String    @default("DRAFT")
@@ -1026,6 +1026,7 @@ model SocialPost {
   restaurant Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   createdBy  User?              @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
   targets    SocialPostTarget[]
+  image      SocialPostImage?
 
   @@index([restaurantId, createdAt])
   @@index([status, scheduledAt])
@@ -1051,6 +1052,19 @@ model SocialPostTarget {
 
   @@unique([postId, socialAccountId])
   @@map("social_post_targets")
+}
+
+/// A post's image, kept in the database rather than on disk; served by its random id (docs/SOSYAL_YAYIN.md).
+model SocialPostImage {
+  id          String   @id @default(uuid())
+  postId      String   @unique
+  contentType String
+  data        Bytes
+  createdAt   DateTime @default(now())
+
+  post SocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("social_post_images")
 }
 
 /// A named audience filter the restaurant reuses across campaigns (CampaignSegmentSchema in shared).

@@ -60,11 +60,12 @@ Her hesap, kendi sonucu olan bir hedeftir (`PENDING`, `PUBLISHED`, `FAILED`). Bi
 
 ## Görseller
 
-Görseller logo gibi `UPLOADS_DIR` altında saklanır (`social/<restaurantId>/<rastgele ad>`). `GET /uploads/social/:restaurantId/:file` adresinden herkese açık sunulur, çünkü Meta Instagram için görseli bu adresten indirir.
+Görseller diske değil, veritabanında `social_post_images` tablosunda saklanır (gönderi başına bir satır). Böylece istekten gelen hiçbir değer dosya yoluna girmez.
 
-- Adres yalnızca bir gönderi görsele işaret ettiği sürece yanıt verir; diskteki yol URL'den değil kayıttan kurulur.
-- Görsel değiştirilince, kaldırılınca veya gönderi silinince dosya silinir.
-- Canlıda `PUBLIC_API_URL` internetten erişilebilir olmalıdır.
+- **Sunum:** `GET /uploads/social/<rastgele kimlik>.<uzantı>` adresinden herkese açık sunulur, çünkü Meta Instagram için görseli bu adresten indirir. Gönderilen tür kayıttaki türdür; uzantı kayıtla uyuşmazsa 404 döner.
+- **Değiştirme:** her yeni görsel yeni bir satır ve yeni bir adres alır. Adres değişmez önbellekle sunulduğu için eski görsel yeni adresin arkasında görünmez.
+- **Silme:** görsel kaldırılınca veya gönderi silinince satır da silinir ve adres 404 döner.
+- **Canlı ortam:** `PUBLIC_API_URL` internetten erişilebilir olmalıdır.
 
 ## Denetim kaydı
 
@@ -98,7 +99,7 @@ Görseller logo gibi `UPLOADS_DIR` altında saklanır (`social/<restaurantId>/<r
   - Kapalı hesapla kısmi yayın.
   - Reddedilen hesabın üç denemesi ve bu sırada kilit.
   - Başarısız gönderinin silinmesi.
-  - Görselin yalnızca işaret edildiği sürece sunulması.
+  - Görselin baytlarıyla sunulması, uzantı uyuşmazlığında ve yol denemesinde 404, kaldırılınca 404.
 - `apps/web/e2e/social-publishing.e2e.ts`:
   - Gönderi yazma.
   - Instagram görsel uyarısı.
