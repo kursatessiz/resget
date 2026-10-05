@@ -86,9 +86,20 @@ export type UpdateAiBudgetInput = z.infer<typeof UpdateAiBudgetSchema>;
 /** What stands in for removed personal data in the text the model sees. */
 export const REDACTION_MARK = '[REDACTED]';
 
-const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
-/** Runs of digits with optional spaces, dots, dashes, brackets or a leading plus: phones, cards, IBAN tails. */
-const LONG_NUMBER = /\+?\d[\d\s().-]{8,}\d/g;
+/**
+ * Whether a whitespace-free word holds an email address: one "@" after a
+ * local part, and a domain with a dot inside it. Index checks, not a
+ * regular expression, so the cost is linear whatever the input.
+ */
+function isEmailWord(word: string): boolean {
+  const at = word.indexOf('@');
+  if (at <= 0 || at !== word.lastIndexOf('@')) return false;
+  const dot = word.indexOf('.', at + 2);
+  return dot > 0 && dot < word.length - 1;
+}
+
+/** Runs of digits with optional spaces, dots, dashes, brackets or a leading plus: phones, cards, IBAN tails. Bounded. */
+const LONG_NUMBER = /\+?\d[\d\s().-]{8,40}\d/g;
 /** IBAN: two letters, two check digits, then 10 to 30 letters or digits, spaces allowed. */
 const IBAN = /\b[A-Z]{2}\d{2}(?:\s?[A-Z0-9]){10,30}\b/g;
 
@@ -105,7 +116,15 @@ export function redactPersonalData(text: string): { text: string; redactions: nu
       redactions += 1;
       return REDACTION_MARK;
     });
-  let out = replace(text, EMAIL);
+  // Emails word by word, keeping the whitespace between words as it was.
+  let out = text
+    .split(/(\s+)/)
+    .map((word) => {
+      if (!isEmailWord(word)) return word;
+      redactions += 1;
+      return REDACTION_MARK;
+    })
+    .join('');
   out = replace(out, IBAN);
   out = replace(out, LONG_NUMBER, 10);
   return { text: out, redactions };

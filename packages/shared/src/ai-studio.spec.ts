@@ -31,3 +31,21 @@ describe('AI studio requests', () => {
     expect(aiBudgetPeriodStart(new Date('2026-10-31T23:30:00Z')).toISOString()).toBe('2026-10-01T00:00:00.000Z');
   });
 });
+
+describe('redaction cost', () => {
+  it('stays fast on long adversarial input', () => {
+    const inputs = ['%'.repeat(50_000), `a@${'.'.repeat(50_000)}`, `${'1 '.repeat(25_000)}x`, 'x@'.repeat(25_000)];
+    for (const input of inputs) {
+      const started = Date.now();
+      redactPersonalData(input);
+      expect(Date.now() - started).toBeLessThan(500);
+    }
+  });
+
+  it('still finds an address next to punctuation and keeps the spacing', () => {
+    expect(redactPersonalData('Yazin: ali@ornek.com.tr, tesekkurler').text).toBe(
+      `Yazin: ${REDACTION_MARK} tesekkurler`,
+    );
+    expect(redactPersonalData('@ornek veya ali@ ya da a@b').redactions).toBe(0);
+  });
+});
