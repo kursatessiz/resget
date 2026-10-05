@@ -1,0 +1,22 @@
+export const trDayparts = {
+  'dayparts.servedOnly': 'Bu bölüm bugün yalnızca şu saatlerde sipariş edilebilir: {hours}.',
+  'dayparts.notToday': 'Bu bölüm bugün sipariş edilemez.',
+  'dayparts.notAtThisTime': 'Bu ürün seçilen saatte sunulmuyor; sepetten çıkarın veya başka bir saat seçin.',
+  'dayparts.manage.title': 'Servis saatleri',
+  'dayparts.manage.always': 'Restoran açıkken her zaman',
+  'dayparts.manage.window': 'Yalnızca belirli saatlerde',
+  'dayparts.manage.days': 'Günler',
+  'dayparts.manage.from': 'Başlangıç',
+  'dayparts.manage.to': 'Bitiş',
+  'dayparts.manage.help':
+    'Kahvaltı veya öğle menüsü gibi bölümler yalnızca bu saatlerde sipariş edilebilir; gece yarısını geçen aralık için bitişi başlangıçtan küçük girin.',
+  'dayparts.manage.summary': 'Servis: {hours}',
+  'dayparts.manage.invalid': 'Bitiş saati başlangıçla aynı olamaz ve en az bir gün seçilmelidir.',
+  'dayparts.day.mon': 'Pzt',
+  'dayparts.day.tue': 'Sal',
+  'dayparts.day.wed': 'Çar',
+  'dayparts.day.thu': 'Per',
+  'dayparts.day.fri': 'Cum',
+  'dayparts.day.sat': 'Cmt',
+  'dayparts.day.sun': 'Paz',
+} as const satisfies Record<string, string>;

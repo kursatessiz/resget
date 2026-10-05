@@ -119,6 +119,9 @@ export const trFeatures = {
   'features.allergens.name': 'Alerjen ve beslenme etiketleri',
   'features.allergens.description':
     'Menü ürünlerinde yasal 14 alerjen ve vejetaryen, vegan, glutensiz gibi etiketler; sipariş sayfasında gösterim ve alerjene göre gizleme filtresi.',
+  'features.menu_dayparts.name': 'Öğün saatleri',
+  'features.menu_dayparts.description':
+    'Menü bölümlerine servis saatleri (kahvaltı, öğle menüsü); bölüm yalnızca bu saatlerde, ileri tarihli siparişte seçilen saate göre sipariş edilebilir.',
   'features.attribution.name': 'Ziyaret ölçümü ve atıf',
   'features.attribution.description':
     'Çerez izin bandı, UTM ve reklam tıklama kimlikleriyle ziyaret kaydı, masa QR bağlantısı, dönüşümler ve atıf raporu; platform sitesinde aday formu.',

@@ -126,6 +126,7 @@ export const trErrors = {
   'errors.SOCIAL_ACCOUNT_UNAVAILABLE': 'Seçilen hesaplardan biri kullanımda değil veya bağlantısı kaldırılmış.',
   'errors.SCHEDULED_SLOT_INVALID': 'Seçilen saat artık uygun değil; listeden başka bir saat seçin.',
   'errors.SCHEDULING_UNAVAILABLE': 'Bu işletme şu anda ileri tarihli sipariş almıyor.',
+  'errors.MENU_ITEM_NOT_SERVED': 'Sepetinizdeki bazı ürünler seçilen saatte sunulmuyor; sepetinizi kontrol edin.',
   'errors.NPS_NOT_ALLOWED': 'Bu sipariş için soru şu an yanıtlanamıyor.',
   'errors.FEEDBACK_CASE_NOT_FOUND': 'Kayıt bulunamadı.',
   'errors.SITE_PAGE_NOT_FOUND': 'Sayfa bulunamadı.',

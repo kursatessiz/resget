@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { OrderAvailabilityDTO } from './availability';
 import type { StorefrontSchedulingDTO } from './scheduling';
 import type { Allergen, DietaryTag } from './allergens';
+import type { OpeningHours } from './opening-hours';
 import { CouponCodeSchema } from './coupons';
 import { MarketingChannelsSchema } from './consent';
 import type { DeliveryZone } from './delivery-zone';
@@ -40,6 +41,8 @@ export interface StorefrontItemDTO {
 export interface StorefrontCategoryDTO {
   id: string;
   name: string;
+  /** Ordering windows in the restaurant's zone while the menu_dayparts module is on; null otherwise (docs/OGUN_SAATLERI.md). */
+  availableHours: OpeningHours | null;
   items: StorefrontItemDTO[];
 }
 

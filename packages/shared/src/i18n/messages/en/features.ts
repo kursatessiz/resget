@@ -119,6 +119,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.allergens.name': 'Allergens and dietary tags',
   'features.allergens.description':
     'The 14 regulated allergens and tags such as vegetarian, vegan or gluten free on menu items; shown on the ordering page with a filter that hides items by allergen.',
+  'features.menu_dayparts.name': 'Menu dayparts',
+  'features.menu_dayparts.description':
+    'Serving hours on menu sections (breakfast, lunch); a section can be ordered only within them, for scheduled orders at the chosen time.',
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',

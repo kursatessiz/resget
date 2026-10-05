@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { BasisPointsSchema, MinorAmountSchema } from './money';
 import { UuidSchema } from './validators';
+import { OpeningHoursSchema, isOpenAt } from './opening-hours';
+import type { OpeningHours } from './opening-hours';
+import { hoursAreValid } from './availability';
 import { AllergenListSchema, DietaryTagListSchema } from './allergens';
 import type { Allergen, DietaryTag } from './allergens';
 
@@ -16,11 +19,27 @@ const SortOrder = z.number().int().min(0).max(100000);
 const ImageUrl = z.string().trim().url().max(500);
 const nonEmpty = (value: object) => Object.keys(value).length > 0;
 
-export const CreateMenuCategorySchema = z.object({ name: MenuName, sortOrder: SortOrder.optional() }).strict();
+/**
+ * When a category may be ordered (docs/OGUN_SAATLERI.md, module
+ * menu_dayparts): weekly windows in the restaurant's zone, the same shape as
+ * opening hours; null means whenever the restaurant takes orders.
+ */
+const AvailableHours = OpeningHoursSchema.nullable().refine((hours) => hours === null || hoursAreValid(hours), {
+  message: 'Window ends before it starts',
+});
+
+export const CreateMenuCategorySchema = z
+  .object({ name: MenuName, sortOrder: SortOrder.optional(), availableHours: AvailableHours.optional() })
+  .strict();
 export type CreateMenuCategoryInput = z.infer<typeof CreateMenuCategorySchema>;
 
 export const UpdateMenuCategorySchema = z
-  .object({ name: MenuName.optional(), sortOrder: SortOrder.optional(), isActive: z.boolean().optional() })
+  .object({
+    name: MenuName.optional(),
+    sortOrder: SortOrder.optional(),
+    isActive: z.boolean().optional(),
+    availableHours: AvailableHours.optional(),
+  })
   .strict()
   .refine(nonEmpty, { message: 'empty update' });
 export type UpdateMenuCategoryInput = z.infer<typeof UpdateMenuCategorySchema>;
@@ -120,10 +139,17 @@ export interface MenuCategoryAdminDTO {
   name: string;
   sortOrder: number;
   isActive: boolean;
+  /** Ordering windows (docs/OGUN_SAATLERI.md); null for whenever the restaurant takes orders. */
+  availableHours: OpeningHours | null;
   items: MenuItemAdminDTO[];
 }
 
 export interface MenuAdminDTO {
   currency: string;
   categories: MenuCategoryAdminDTO[];
+}
+
+/** Whether a category can be ordered at an instant: no windows means always, otherwise inside one of them. */
+export function categoryServedAt(hours: OpeningHours | null, at: Date, timezone: string): boolean {
+  return hours === null || isOpenAt(hours, at, timezone) === true;
 }

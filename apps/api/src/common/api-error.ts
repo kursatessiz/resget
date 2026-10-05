@@ -166,7 +166,8 @@ export type ApiErrorCode =
   | 'SOCIAL_SCHEDULE_INVALID'
   | 'SOCIAL_ACCOUNT_UNAVAILABLE'
   | 'SCHEDULED_SLOT_INVALID'
-  | 'SCHEDULING_UNAVAILABLE';
+  | 'SCHEDULING_UNAVAILABLE'
+  | 'MENU_ITEM_NOT_SERVED';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {
   return new ForbiddenException({ statusCode: 403, code, message });
