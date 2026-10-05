@@ -312,6 +312,7 @@ model User {
   campaignApprovalsRequested Campaign[]           @relation("CampaignApprovalRequestedBy")
   campaignApprovalsDecided   Campaign[]           @relation("CampaignApprovalDecidedBy")
   apiKeysCreated             RestaurantApiKey[]   @relation("ApiKeyCreatedBy")
+  aiUsages                   AiUsage[]
 
   @@map("users")
 }
@@ -468,6 +469,8 @@ model Restaurant {
   auditLogs            AuditLog[]
   campaigns            Campaign[]
   campaignSendLimit    CampaignSendLimit?
+  aiBudget             AiBudget?
+  aiUsage              AiUsage[]
   loyaltyProgram       LoyaltyProgram?
   campaignSegments     CampaignSegmentPreset[]
   apiKeys              RestaurantApiKey[]
@@ -885,6 +888,37 @@ model CampaignSendLimit {
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@map("campaign_send_limits")
+}
+
+/// Monthly AI studio token budget the console sets for a tenant (docs/YAPAY_ZEKA.md); absent means the default.
+model AiBudget {
+  restaurantId      String   @id
+  monthlyTokenLimit Int
+  updatedByUserId   String?
+  updatedAt         DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("ai_budgets")
+}
+
+/// One AI studio draft request: tokens and the kind only; neither the brief nor the drafts are stored.
+model AiUsage {
+  id           String   @id @default(uuid())
+  restaurantId String
+  actorUserId  String?
+  kind         String
+  model        String
+  inputTokens  Int
+  outputTokens Int
+  redactions   Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  actor      User?      @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([restaurantId, createdAt])
+  @@map("ai_usage")
 }
 
 /// A named audience filter the restaurant reuses across campaigns (CampaignSegmentSchema in shared).

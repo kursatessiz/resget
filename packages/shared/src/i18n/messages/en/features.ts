@@ -101,6 +101,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.audit_viewer.name': 'Audit log (console)',
   'features.audit_viewer.description':
     'Read the audit log in the console with business, action and date filters, plus a quick filter for platform sends. Opened with the global switch.',
+  'features.ai_studio.name': 'AI studio',
+  'features.ai_studio.description':
+    'Drafts of campaign messages and menu descriptions; drafts only, no personal data reaches the model, a monthly token budget separate from message credits. PRO.',
   'features.attribution.name': 'Visit measurement and attribution',
   'features.attribution.description':
     'Cookie consent banner, visits with UTM and ad click ids, table QR link, conversions and the attribution report; lead form on the platform site.',

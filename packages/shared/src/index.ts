@@ -62,3 +62,4 @@ export * from './partner-referrals';
 export * from './feedback';
 export * from './churn';
 export * from './approvals';
+export * from './ai-studio';

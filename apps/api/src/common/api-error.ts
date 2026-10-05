@@ -149,7 +149,11 @@ export type ApiErrorCode =
   | 'SITE_PAGE_NOT_FOUND'
   | 'SITE_PAGE_PATH_TAKEN'
   | 'PLATFORM_ONLY'
-  | 'RATE_LIMITED';
+  | 'RATE_LIMITED'
+  | 'AI_NOT_CONFIGURED'
+  | 'AI_BUDGET_EXHAUSTED'
+  | 'AI_REFUSED'
+  | 'AI_FAILED';
 
 export function forbidden(code: ApiErrorCode, message: string): ForbiddenException {
   return new ForbiddenException({ statusCode: 403, code, message });
@@ -166,6 +170,11 @@ export function conflict(code: ApiErrorCode, message: string): ConflictException
 
 export function badRequest(code: ApiErrorCode, message: string): BadRequestException {
   return new BadRequestException({ statusCode: 400, code, message });
+}
+
+/** An upstream service (an AI or other provider) failed or answered unusably (502). */
+export function badGateway(code: ApiErrorCode, message: string): HttpException {
+  return new HttpException({ statusCode: 502, code, message }, 502);
 }
 
 export function unauthorized(message = 'Authentication required'): UnauthorizedException {

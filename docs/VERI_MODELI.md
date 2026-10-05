@@ -113,6 +113,8 @@ Kampanyalar v2 (`docs/KAMPANYALAR.md`): `campaigns` satırına `subject`, `varia
 
 Gönderim onayı ve sınırları (`docs/ONAYLAR.md`): `campaigns` satırına `approvalStatus`, `approvalRequestedByUserId`, `approvalRequestedAt`, `approvalDecidedByUserId`, `approvalDecidedAt`, `approvalNote`; kiracı başına alıcı sınırları `campaign_send_limits` (`maxPerCampaign`, `maxPerDay`); `audit_logs.createdAt` dizini. Migration'lar: `20261114000000_campaign_approvals`, `20261114000001_audit_log_time_index`, `20261114000002_platform_campaign_approve`.
 
+Yapay zeka stüdyosu (`docs/YAPAY_ZEKA.md`): kiracı başına aylık token sınırı `ai_budgets` (`monthlyTokenLimit`) ve istek başına içeriksiz kullanım kaydı `ai_usage` (tür, model, girdi ve çıktı token, çıkarılan öge sayısı, isteyen kullanıcı). Migration: `20261115000000_ai_studio`.
+
 ## Migration kuralları
 
 Yalnızca ileri yönlü; deploy'dan önce çalışır; bir sürüm boyunca geriye dönük uyumlu (önce genişlet, sonra daralt). CI, boş Postgres'e uygulayıp şema ile sapma olmadığını denetler. Yeni migration: `pnpm --filter @resget/database db:migrate --name <ad>` (yerel Postgres gerekir).

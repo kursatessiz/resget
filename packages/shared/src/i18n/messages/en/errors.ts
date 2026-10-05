@@ -110,6 +110,10 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.APPROVAL_SELF_FORBIDDEN':
     'You cannot approve or reject your own request; another authorised person must decide.',
   'errors.SEND_LIMIT_EXCEEDED': 'This send goes over the set sending limit.',
+  'errors.AI_NOT_CONFIGURED': 'The AI studio is not set up yet.',
+  'errors.AI_BUDGET_EXHAUSTED': "This month's AI budget is used up; it renews when the new month starts.",
+  'errors.AI_REFUSED': 'No draft could be written for this request; change the description and try again.',
+  'errors.AI_FAILED': 'A draft could not be written right now; try again shortly.',
   'errors.NPS_NOT_ALLOWED': 'The question cannot be answered for this order now.',
   'errors.FEEDBACK_CASE_NOT_FOUND': 'Case not found.',
   'errors.SITE_PAGE_NOT_FOUND': 'Page not found.',

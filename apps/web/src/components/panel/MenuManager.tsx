@@ -12,6 +12,7 @@ import type {
 } from '@resget/shared';
 import { Badge, Button, Card, SelectField, TextAreaField, TextField } from '@/components/ui';
 import { ApiError, bffJson } from '@/lib/client-api';
+import { AiMenuAssistant } from './AiAssistant';
 import { MenuImport } from './MenuImport';
 import { useT } from '@/lib/use-t';
 
@@ -29,10 +30,13 @@ export function MenuManager({
   restaurantId,
   locale,
   canManage,
+  aiStudio = false,
 }: {
   restaurantId: string;
   locale: string;
   canManage: boolean;
+  /** The ai_studio module is on and the plan allows it: description drafts in the item editor (docs/YAPAY_ZEKA.md). */
+  aiStudio?: boolean;
 }) {
   const t = useT(locale);
   const base = `restaurants/${restaurantId}/menu`;
@@ -398,6 +402,7 @@ export function MenuManager({
               categoryId={category.id}
               item={editing.item}
               busy={busy}
+              aiAssist={aiStudio ? { restaurantId, locale } : null}
               onSave={(payload) => void saveItem(payload, editing.item)}
               onSaveGroups={(groups) => {
                 if (editing.item) void saveGroups(editing.item, groups);
@@ -437,11 +442,13 @@ function ItemEditor({
   categoryId,
   item,
   busy,
+  aiAssist,
   onSave,
   onSaveGroups,
   onCancel,
 }: {
   t: Translate;
+  aiAssist: { restaurantId: string; locale: string } | null;
   currency: string;
   categories: { id: string; name: string }[];
   categoryId: string;
@@ -569,6 +576,14 @@ function ItemEditor({
           maxLength={500}
           className="md:col-span-2"
         />
+        {aiAssist && (
+          <AiMenuAssistant
+            restaurantId={aiAssist.restaurantId}
+            locale={aiAssist.locale}
+            itemName={name}
+            onUse={setDescription}
+          />
+        )}
         <TextField
           id="item-image"
           label={t('menu.manage.imageUrl')}

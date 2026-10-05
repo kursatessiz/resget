@@ -22,6 +22,7 @@ export default async function MarketingCampaignsPage() {
       }
       approvals={approvals}
       canApprove={permissions.includes('platform.marketing.send')}
+      aiStudio={features.includes('ai_studio')}
       segmentsV2={access.context.features.includes('segments_v2')}
       campaignsV2={access.context.features.includes('campaigns_v2')}
       emailChannel={access.context.features.includes('email_channel')}
