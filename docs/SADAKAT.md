@@ -46,6 +46,7 @@ Satır yoksa ekran para birimine göre varsayılan önerir: 1 birim harcamaya 1 
 - `/panel/<slug>/musteriler`: her müşteride puan; `loyalty.manage` ile kartta puan düzeltme (puan ve neden).
 - Vitrin (`/m/<token>`, `/<slug>`): sepet özetinde bakiye, "{puan} puan kullan, {tutar} indirim al" kutusu, indirim satırı ve bu siparişle kazanılacak puan; giriş yapmamış ziyaretçiye giriş çağrısı.
 - `/hesabim`: "Puanlarım" kartı, restoran başına bakiye ve bugünkü değeri, sipariş bağlantısı.
+- Mobil uygulama: "Siparişlerim" ekranında aynı kart (`docs/MOBIL.md`), yalnızca puanı olan müşteriye.
 
 ## Testler
 
@@ -55,4 +56,3 @@ Shared `loyalty.spec.ts` (kazanım adımları, tavan ve en az sipariş, şema). 
 
 - Puan hareketlerinin müşteriye bildirimi (mesajlaşma motoru, kredi düşer; restoran tercihi olarak).
 - Kademeli program (gümüş / altın) ve ürün bazlı çarpanlar.
-- Mobil uygulamada puan kartı (B1).

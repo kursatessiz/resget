@@ -1,26 +1,38 @@
 import { useCallback, useState } from 'react';
-import { Linking } from 'react-native';
+import { Linking, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { formatMoney, trackingTokenFromLink } from '@resget/shared';
-import type { CustomerOrderDTO } from '@resget/shared';
+import type { CustomerAccountDTO, CustomerOrderDTO, LoyaltyBalanceDTO } from '@resget/shared';
 import { Body, Button, Caption, Card, Notice, Screen, Title } from '@/components/ui';
 import { ApiError } from '@/lib/api';
 import { WEB_BASE_URL } from '@/lib/config';
 import { deviceLocale, useT } from '@/lib/i18n';
 import { useSession } from '@/state/session';
+import { useTheme } from '@/theme';
 
-/** The person's own orders as a customer, with live tracking in the app and reordering on the restaurant's page. */
+/**
+ * The person's own orders as a customer, with live tracking in the app and
+ * reordering on the restaurant's page, and the points they hold at each
+ * restaurant (docs/SADAKAT.md, same balances as the web account page).
+ */
 export default function MyOrders() {
   const t = useT();
+  const theme = useTheme();
   const locale = deviceLocale();
   const router = useRouter();
   const { api } = useSession();
   const [orders, setOrders] = useState<CustomerOrderDTO[] | null>(null);
+  const [points, setPoints] = useState<LoyaltyBalanceDTO[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      setOrders(await api.request<CustomerOrderDTO[]>('me/orders'));
+      const [list, account] = await Promise.all([
+        api.request<CustomerOrderDTO[]>('me/orders'),
+        api.request<CustomerAccountDTO>('me/account'),
+      ]);
+      setOrders(list);
+      setPoints(account.loyalty);
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? t(`errors.${err.code}`) : t('mobile.error.network'));
@@ -34,11 +46,34 @@ export default function MyOrders() {
   );
 
   const when = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' });
+  const openRestaurant = (slug: string) => void Linking.openURL(`${WEB_BASE_URL}/${encodeURIComponent(slug)}`);
   return (
     <Screen>
       <Title>{t('mobile.tabs.myOrders')}</Title>
       <Body muted>{t('mobile.customer.intro')}</Body>
       {error && <Notice tone="error">{error}</Notice>}
+      {points.length > 0 && (
+        <Card title={t('loyalty.account.title')}>
+          {points.map((balance) => (
+            <View key={balance.restaurant.slug} style={{ gap: theme.spacing[1] }}>
+              <Body>{t('loyalty.account.line', { restaurant: balance.restaurant.name, points: balance.points })}</Body>
+              {balance.valueMinor > 0 && (
+                <Caption>
+                  {t('loyalty.account.value', {
+                    amount: formatMoney({ amountMinor: balance.valueMinor, currency: balance.currency }, locale),
+                  })}
+                </Caption>
+              )}
+              <Button
+                label={t('loyalty.account.order')}
+                variant="outline"
+                tone="muted"
+                onPress={() => openRestaurant(balance.restaurant.slug)}
+              />
+            </View>
+          ))}
+        </Card>
+      )}
       {orders && orders.length === 0 && <Body muted>{t('mobile.customer.empty')}</Body>}
       {orders?.map((order) => {
         const token = order.trackingUrl ? trackingTokenFromLink(order.trackingUrl) : null;
@@ -60,7 +95,7 @@ export default function MyOrders() {
               label={t('mobile.customer.reorder')}
               variant="outline"
               tone="muted"
-              onPress={() => void Linking.openURL(`${WEB_BASE_URL}/${encodeURIComponent(order.restaurant.slug)}`)}
+              onPress={() => openRestaurant(order.restaurant.slug)}
             />
           </Card>
         );
