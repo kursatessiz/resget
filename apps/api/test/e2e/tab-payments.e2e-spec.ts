@@ -20,6 +20,7 @@ describe('Open tab online share (e2e)', () => {
   let token: string;
   let tabId: string;
   let originalMode: PaymentMode;
+  const shares: string[] = [];
   const owner = () => bearer(ownerToken);
 
   const waiterOrder = async (quantity: number) =>
@@ -118,6 +119,7 @@ describe('Open tab online share (e2e)', () => {
     expect((await pay(before.dueMinor + 1, 409)).headers['x-error-code']).toBe('PAYMENT_STATE_INVALID');
     const share = Math.floor(before.dueMinor / 2);
     const started = (await pay(share)).body as TabPaymentStartedDTO;
+    shares.push(started.paymentId);
     expect(started.session.redirectUrl).toContain(`/hesap/${token}`);
     // Not paid until the POS says so.
     expect((await publicBill()).paidMinor).toBe(before.paidMinor);
@@ -143,6 +145,7 @@ describe('Open tab online share (e2e)', () => {
   it('gives back what the counter collected while the guest was paying', async () => {
     const due = (await publicBill()).dueMinor;
     const started = (await pay(due)).body as TabPaymentStartedDTO;
+    shares.push(started.paymentId);
     await ctx
       .http()
       .post(`/restaurants/${restaurantId}/tabs/${tabId}/collect`)
@@ -155,5 +158,39 @@ describe('Open tab online share (e2e)', () => {
     expect(row).toMatchObject({ status: 'CAPTURED', excessMinor: 500 });
     expect(row.excessRefundedAt).not.toBeNull();
     expect((await pay(100, 409)).headers['x-error-code']).toBe('PAYMENT_STATE_INVALID');
+  });
+
+  it("books a refund made in the POS provider's panel on every order the share paid, once", async () => {
+    const parts = await ctx.prisma.payment.findMany({ where: { order: { tabId }, providerRef: 'tab-pay-1' } });
+    expect(parts.length).toBeGreaterThan(0);
+    const share = parts.reduce((sum, p) => sum + p.amountMinor, 0);
+    const refund = { providerRef: 'tab-pay-1', orderRef: shares[0], status: 'REFUNDED', amountMinor: share };
+    expect((await notice(refund)).body.status).toBe('REFUNDED');
+    expect((await notice(refund)).body.status).toBe('IGNORED');
+
+    const after = await ctx.prisma.payment.findMany({ where: { order: { tabId }, providerRef: 'tab-pay-1' } });
+    expect(after.every((p) => p.status === 'REFUNDED' && p.refundedMinor === p.amountMinor)).toBe(true);
+    const rows = await ctx.prisma.orderRefund.findMany({ where: { paymentId: { in: parts.map((p) => p.id) } } });
+    expect(rows).toHaveLength(parts.length);
+    expect(rows.every((r) => r.source === 'PROVIDER')).toBe(true);
+    expect(rows.reduce((sum, r) => sum + r.amountMinor, 0)).toBe(share);
+    expect((await ctx.prisma.tabPayment.findUniqueOrThrow({ where: { id: shares[0] } })).status).toBe('REFUNDED');
+    // The other share and the counter's cash still stand, so no order is closed as refunded.
+    const orders = await ctx.prisma.order.findMany({ where: { tabId }, select: { status: true } });
+    expect(orders.some((o) => o.status === 'REFUNDED')).toBe(false);
+  });
+
+  it('books a chargeback of a share against the orders it paid', async () => {
+    const parts = await ctx.prisma.payment.findMany({ where: { order: { tabId }, providerRef: 'tab-pay-2' } });
+    expect(parts.length).toBeGreaterThan(0);
+    const back = { providerRef: 'tab-pay-2', orderRef: shares[1], status: 'CHARGEBACK', amountMinor: 1 };
+    expect((await notice(back)).body.status).toBe('CHARGEBACK');
+    expect((await notice(back)).body.status).toBe('IGNORED');
+    const after = await ctx.prisma.payment.findMany({ where: { order: { tabId }, providerRef: 'tab-pay-2' } });
+    expect(after.every((p) => p.status === 'CHARGED_BACK')).toBe(true);
+    const rows = await ctx.prisma.orderRefund.findMany({ where: { paymentId: { in: parts.map((p) => p.id) } } });
+    expect(rows).toHaveLength(parts.length);
+    expect(rows.every((r) => r.source === 'CHARGEBACK')).toBe(true);
+    expect((await ctx.prisma.tabPayment.findUniqueOrThrow({ where: { id: shares[1] } })).status).toBe('CHARGED_BACK');
   });
 });

@@ -29,7 +29,12 @@ Misafir `/hesap/<token>` sayfasındaki hesaplayıcının verdiği payı (eşit, 
   - Her parça siparişte `ONLINE_CARD` yöntemiyle, `CAPTURED` ve `OWN_POS` olarak, sağlayıcının işlem referansıyla kaydedilir. Böylece sipariş başına iade POS üzerinden çalışır.
   - Tekrarlanan bildirim etkisizdir. Her şey ödenip servis edildiyse hesap kendiliğinden kapanır.
 - **Fazla ödeme**: misafir öderken kasada da tahsilat yapıldıysa, kalanı aşan kısım (`excessMinor`) hemen POS üzerinden iade edilir (`excessRefundedAt`). İade başarısız olursa kayıtta kalır ve loglanır.
-- **Sağlayıcı panelindeki iade**: tüm tutarın sağlayıcı panelinden iadesi bildirimle kendiliğinden siparişlere işlenmez; personel panelden sipariş bazında iade eder (Kalan).
+- **Sağlayıcı panelindeki iade ve chargeback**: payın tamamı POS sağlayıcısının kendi panelinden iade edilirse veya kart sahibinin bankası geri alırsa, bildirim aynı referansla gelir ve pay kendiliğinden siparişlere işlenir:
+  - Payın ödediği her sipariş parçası, panelden yapılan iade gibi kaydedilir. Kaynak sağlayıcı iadesinde `PROVIDER`, chargeback'te `CHARGEBACK` olur.
+  - Parçanın kalan tutarı iade satırına yazılır. Komisyon payı `docs/MUTABAKAT.md` kurallarıyla döner; yük restoranındır.
+  - Ödenecek bir şeyi kalmayan sipariş `REFUNDED` olarak kapanır. Hesaptaki diğer paylar ve kasadaki tahsilatlar yerinde kalır.
+  - Pay kaydı `REFUNDED` veya `CHARGED_BACK` olur. Henüz iade edilememiş fazla ödeme varsa, sağlayıcının tam iadesi onu da kapsadığı için kapatılır.
+  - Bildirim bir kez işlenir; tekrarı etkisizdir. Personel daha önce bir siparişi kısmen iade ettiyse yalnızca kalanı işlenir.
 
 - Açık hesaptaki her sipariş kendi hakediş anlık görüntüsünü taşır. Masaya sipariş komisyonsuzdur (`commissionBpsFor`, `docs/MUTABAKAT.md` kural 1). Parayı restoran tahsil ettiği için hesaba yazılan sipariş `OWN_POS` gibi hesaplanır: PSP kesintisi ve tevkifat sıfır, platform alacağı sıfır.
 - Tahsil edilen pay, hesabın siparişlerine en eskiden başlayarak dağıtılır ve hiçbir siparişe kalanından fazla yazılmaz (`allocateTabPayment()`). Her parça o siparişte sıradan bir kasada tahsilat (`CAPTURED`, `OWN_POS`, `collectedByUserId`) olarak kaydedilir; böylece iade, rapor ve muhasebe aktarımı sipariş başına çalışmaya devam eder.
