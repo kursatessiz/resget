@@ -90,6 +90,7 @@ export class LoyaltyService {
           minOrderMinor: row.loyaltyProgram.minOrderMinor,
           maxDiscountBps: row.loyaltyProgram.maxDiscountBps,
           welcomePoints: row.loyaltyProgram.welcomePoints,
+          notifyEarned: row.loyaltyProgram.notifyEarned,
         }
       : {
           ...LOYALTY_PROGRAM_DEFAULTS,

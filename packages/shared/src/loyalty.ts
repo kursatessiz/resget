@@ -25,6 +25,8 @@ export const LoyaltyProgramSchema = z
     maxDiscountBps: BasisPointsSchema.refine((v) => v > 0, { message: 'maxDiscountBps must be positive' }),
     /** One-time bonus the first completed order brings. */
     welcomePoints: z.number().int().min(0).max(1_000_000),
+    /** Tell the customer about points earned on a completed order; a paid message unless a push reaches them. */
+    notifyEarned: z.boolean().default(false),
   })
   .strict();
 export type LoyaltyProgram = z.infer<typeof LoyaltyProgramSchema>;
@@ -38,6 +40,7 @@ export const LOYALTY_PROGRAM_DEFAULTS: Readonly<
   redeemPoints: 100,
   maxDiscountBps: 5000,
   welcomePoints: 0,
+  notifyEarned: false,
 };
 
 export const UpdateLoyaltyProgramSchema = LoyaltyProgramSchema;

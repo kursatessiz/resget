@@ -26,6 +26,11 @@ Satır yoksa ekran para birimine göre varsayılan önerir: 1 birim harcamaya 1 
 
 - **Harcama (yerleştirme):** vitrin `PublicOrderSchema.useLoyaltyPoints = true` gönderir. `StorefrontController` sipariş uçlarında `OptionalJwtAuthGuard` ile giriş yapmış ziyaretçiyi tanır; `OrdersService.create(..., { loyaltyUserId })` harcanabilir puanı `prepareRedemption` ile hesaplar, indirimi hakedişe verir ve siparişle aynı veritabanı işleminde `applyRedemption` ile puanı düşer (bakiye koşullu `updateMany`: iki sekme aynı puanı iki kez harcayamaz). Yanıt `discountMinor` ve `loyaltyPointsRedeemed` taşır. İletişim bilgisi olmayan masa siparişinde puan harcanıyorsa sipariş giriş yapan kişinin adı ve telefonuyla bağlanır.
 - **Kazanım (tamamlanma):** `applyTransition` `DELIVERED` veya `PICKED_UP` geçişinde `recordCompletion` çağırır: harcama tabanı `itemsGrossMinor - discountMinor`; ilk kazanımda `WELCOME` satırı ve `loyaltyJoinedAt`. Aynı sipariş için ikinci kez yazılmaz.
+- **Kazanım bildirimi (restoran tercihi, `notifyEarned`, varsayılan kapalı):** açıksa sipariş yayınlandıktan sonra müşteriye kazandığı puan ve yeni bakiyesi bildirilir (`LoyaltyEarnedNotifier`, sipariş dinleyicisi).
+  - Önce ücretsiz push denenir (`loyalty.earned`). Hiçbir cihaz almazsa mesaj, restoranın mesaj ayarlarındaki kanaldan ve SMS yedeğiyle gider. Bu mesaj restoranın kredisinden düşer (`billable`, `docs/MESAJLASMA.md`).
+  - Kazanım satırları mesajdan önce işaretlenir (`notifiedAt`). Sipariş başına tek bildirim gider; aynı siparişin tekrar yayınlanması yeni mesaj üretmez.
+  - Siparişe bağlı işlemsel bir bildirimdir; ticari ileti izni gerektirmez. Silinmiş hesaba gönderilmez.
+  - Panelde sadakat ayarlarındaki kutuyla açılır.
 - **İade:** `REJECTED`, `CANCELLED_BY_*` veya `REFUNDED` geçişinde `recordReversal` harcanan puanı geri verir, kazanılmış puanı (bakiyeyi aşmadan) geri alır; sipariş başına tek `REVERSAL` satırı. Ödeme bekleyen ve hiç tamamlanmayan siparişin puanı iptal edilene kadar bağlı kalır.
 - **Düzeltme:** `POST .../loyalty/customers/:customerId/adjust` (`loyalty.manage`, Pro) `ADJUSTMENT` satırı ve denetim kaydı yazar; eksi düzeltme bakiyeyi aşamaz (`LOYALTY_INSUFFICIENT_POINTS`).
 
@@ -54,5 +59,4 @@ Shared `loyalty.spec.ts` (kazanım adımları, tavan ve en az sipariş, şema). 
 
 ## Kalan
 
-- Puan hareketlerinin müşteriye bildirimi (mesajlaşma motoru, kredi düşer; restoran tercihi olarak).
 - Kademeli program (gümüş / altın) ve ürün bazlı çarpanlar.

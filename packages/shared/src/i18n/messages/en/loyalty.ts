@@ -20,6 +20,8 @@ export const enLoyalty: Record<keyof typeof trLoyalty, string> = {
   'loyalty.program.minOrder': 'Minimum order to spend points',
   'loyalty.program.maxDiscount': 'Largest share of an order the discount may cover, in percent',
   'loyalty.program.welcomePoints': 'Welcome points on the first completed order',
+  'loyalty.program.notifyEarned':
+    'Tell the customer about points earned (uses a message credit when no app notification reaches them)',
   'loyalty.program.save': 'Save',
   'loyalty.program.saved': 'Program saved.',
   'loyalty.stats.title': 'Status',

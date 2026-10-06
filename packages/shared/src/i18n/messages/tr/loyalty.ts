@@ -18,6 +18,7 @@ export const trLoyalty = {
   'loyalty.program.minOrder': 'Puan harcamak için en az sipariş tutarı',
   'loyalty.program.maxDiscount': 'Siparişin en çok yüzde kaçı indirim olabilir',
   'loyalty.program.welcomePoints': 'İlk tamamlanan siparişte hoş geldin puanı',
+  'loyalty.program.notifyEarned': 'Kazanılan puanı müşteriye bildir (uygulama bildirimi ulaşmazsa mesaj kredisi düşer)',
   'loyalty.program.save': 'Kaydet',
   'loyalty.program.saved': 'Program kaydedildi.',
   'loyalty.stats.title': 'Durum',

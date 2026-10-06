@@ -1347,6 +1347,8 @@ model LoyaltyProgram {
   minOrderMinor    Int      @default(0)
   maxDiscountBps   Int      @default(5000)
   welcomePoints    Int      @default(0)
+  /// Tell the customer about points earned on a completed order (paid message, push first; docs/SADAKAT.md).
+  notifyEarned     Boolean  @default(false)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -1367,6 +1369,8 @@ model LoyaltyTransaction {
   balanceAfter    Int
   memo            String?
   createdByUserId String?
+  /// When the customer was told about this earn (once per order, docs/SADAKAT.md).
+  notifiedAt      DateTime?
   createdAt       DateTime               @default(now())
 
   restaurant Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)

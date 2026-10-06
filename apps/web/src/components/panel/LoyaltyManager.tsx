@@ -16,6 +16,7 @@ interface Draft {
   minOrder: string;
   maxDiscountPercent: string;
   welcomePoints: string;
+  notifyEarned: boolean;
 }
 
 function draftOf(program: LoyaltyProgramDTO): Draft {
@@ -28,6 +29,7 @@ function draftOf(program: LoyaltyProgramDTO): Draft {
     minOrder: majorAmountText(program.minOrderMinor, program.currency),
     maxDiscountPercent: String(program.maxDiscountBps / 100),
     welcomePoints: String(program.welcomePoints),
+    notifyEarned: program.notifyEarned,
   };
 }
 
@@ -92,6 +94,7 @@ export function LoyaltyManager({
       minOrderMinor,
       maxDiscountBps: Math.round(percent * 100),
       welcomePoints: Number(draft.welcomePoints),
+      notifyEarned: draft.notifyEarned,
     };
     setBusy(true);
     setError(null);
@@ -227,6 +230,16 @@ export function LoyaltyManager({
                 onChange={(e) => set({ welcomePoints: e.target.value })}
               />
             </div>
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                className="pui-checkbox mt-1"
+                checked={draft.notifyEarned}
+                disabled={!canManage || !isPro}
+                onChange={(e) => set({ notifyEarned: e.target.checked })}
+              />
+              <span>{t('loyalty.program.notifyEarned')}</span>
+            </label>
             {canManage && (
               <div>
                 <Button type="submit" disabled={busy || !isPro}>

@@ -2,6 +2,7 @@ import { normalizePhone, redeemableFor } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
 import { LoyaltyService } from '../../src/modules/loyalty/loyalty.service';
+import { LoyaltyEarnedNotifier } from '../../src/modules/orders/loyalty-earned.notifier';
 
 /** Loyalty program (docs/SADAKAT.md): earn on completion with a welcome bonus, spend at checkout, reversal, staff adjustment, plan gate. */
 describe('Loyalty (e2e)', () => {
@@ -198,6 +199,51 @@ describe('Loyalty (e2e)', () => {
     const reversal = await ctx.prisma.loyaltyTransaction.findMany({ where: { orderId, type: 'REVERSAL' } });
     expect(reversal).toHaveLength(1);
     expect(reversal[0].points).toBe(expected.points);
+  });
+
+  it('tells the customer about points earned once, only when the restaurant turned it on', async () => {
+    const owner = bearer(ownerToken, restaurantId);
+    const startedAt = new Date();
+    const notices = () =>
+      ctx.prisma.messageLog.count({
+        where: { restaurantId, templateKey: 'loyalty.earned', createdAt: { gte: startedAt } },
+      });
+    const complete = async () => {
+      const placed = await publicOrder({}).expect(201);
+      const orderId = await orderIdOf(placed.body.trackingToken);
+      await transition(orderId, 'ACCEPTED', { prepMinutes: 5 });
+      await transition(orderId, 'READY');
+      await transition(orderId, 'PICKED_UP');
+      return orderId;
+    };
+    // The order listener runs after the order is published.
+    const settle = async (expected: number) => {
+      for (let i = 0; i < 30 && (await notices()) < expected; i++) await new Promise((r) => setTimeout(r, 100));
+      return notices();
+    };
+
+    // Off by default: the earn is written, no message.
+    const quiet = await complete();
+    expect(await ctx.prisma.loyaltyTransaction.count({ where: { orderId: quiet, type: 'EARN' } })).toBe(1);
+    await new Promise((r) => setTimeout(r, 300));
+    expect(await notices()).toBe(0);
+
+    const saved = await ctx
+      .http()
+      .put(`/restaurants/${restaurantId}/loyalty`)
+      .set(owner)
+      .send({ ...program, notifyEarned: true });
+    expect(saved.status).toBe(200);
+    expect(saved.body.notifyEarned).toBe(true);
+    const told = await complete();
+    expect(await settle(1)).toBe(1);
+    const earn = await ctx.prisma.loyaltyTransaction.findFirstOrThrow({ where: { orderId: told, type: 'EARN' } });
+    expect(earn.notifiedAt).not.toBeNull();
+    // Another publish of the same completed order sends nothing more.
+    await ctx.app.get(LoyaltyEarnedNotifier).onOrder({ id: told, restaurantId, status: 'PICKED_UP' });
+    expect(await notices()).toBe(1);
+
+    await ctx.http().put(`/restaurants/${restaurantId}/loyalty`).set(owner).send(program).expect(200);
   });
 
   it('lets staff adjust a balance within limits, shows it on the customer, and closes everything to BASIC', async () => {

@@ -29,6 +29,8 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
   'messaging.template.campaign.body': '{restaurant}: {body} Opt out: {url}',
   'messaging.template.order.acceptOverdue':
     '{restaurant}: order {code} has been waiting {minutes} minutes for acceptance. Open the orders screen.',
+  'messaging.template.loyalty.earned':
+    '{restaurant}: you earned {points} points with your last order. Your balance is {balance} points; use them as a discount next time.',
   'messaging.template.apiKey.expiring':
     '{restaurant}: your API key "{name}" expires on {date}. Create a new key in the panel so your integration keeps working.',
   'messaging.template.invoice.issued':
@@ -84,6 +86,7 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
   'messaging.wallet.channel.PUSH': 'Push notification',
   'messaging.log.error.DEVICE_GONE': 'Device is no longer registered',
   'messaging.log.template.order.arriving': 'Courier arriving',
+  'messaging.log.template.loyalty.earned': 'Points earned',
   'messaging.log.template.order.completed': 'Order completed',
   'messaging.log.template.trip.assigned': 'Trip assigned',
   'messaging.log.template.order.placed': 'New order',
@@ -113,6 +116,9 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
   'messaging.push.feedback.lowRating.title': 'Low rating: order {code}',
   'messaging.push.feedback.lowRating.body':
     '{restaurant}: a customer rated an order {score}; follow up on the feedback page.',
+  'messaging.push.loyalty.earned.title': 'You earned points',
+  'messaging.push.loyalty.earned.body':
+    '{restaurant}: you earned {points} points with your last order. Your balance is {balance} points.',
   'messaging.push.tip.received.title': 'You received a tip',
   'messaging.push.tip.received.body': '{restaurant}: a {amount} tip for order {code}.',
   'messaging.push.order.claimFiled.title': 'Missing item report {code}',
