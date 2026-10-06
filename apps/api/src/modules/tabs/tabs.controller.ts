@@ -1,6 +1,14 @@
-import { Controller, Get, HttpCode, Post } from '@nestjs/common';
-import { CollectTabPaymentSchema, TabTokenSchema, UuidSchema } from '@resget/shared';
-import type { CollectTabPaymentInput, TabBillDTO, TabSummaryDTO } from '@resget/shared';
+import { Controller, Get, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
+import type { Request } from 'express';
+import { CollectTabPaymentSchema, PayTabShareSchema, TabTokenSchema, UuidSchema } from '@resget/shared';
+import type {
+  CollectTabPaymentInput,
+  PayTabShareInput,
+  TabBillDTO,
+  TabPaymentStartedDTO,
+  TabSummaryDTO,
+} from '@resget/shared';
+import { PublicRateLimitGuard, RateLimit } from '../storefront/public-rate-limit.guard';
 import { ZodBody, ZodParam } from '../../common/zod-body.pipe';
 import { RequireFeature, RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
@@ -58,5 +66,18 @@ export class PublicTabsController {
   @Get(':token')
   bill(@ZodParam('token', TabTokenSchema) token: string): Promise<TabBillDTO> {
     return this.tabs.publicBill(token);
+  }
+
+  /** A guest pays a share by card on the restaurant's own POS; rate limited like the other anonymous writes. */
+  @Post(':token/pay')
+  @HttpCode(200)
+  @UseGuards(PublicRateLimitGuard)
+  @RateLimit({ bucket: 'funnel', limit: 20, windowSeconds: 600 })
+  pay(
+    @ZodParam('token', TabTokenSchema) token: string,
+    @ZodBody(PayTabShareSchema) body: PayTabShareInput,
+    @Req() req: Request,
+  ): Promise<TabPaymentStartedDTO> {
+    return this.tabs.startOnlinePayment(token, body, req.ip);
   }
 }

@@ -486,6 +486,7 @@ model Restaurant {
   ledgerEntries        LedgerEntry[]
   payouts              Payout[]
   courierTips          CourierTip[]
+  tabPayments          TabPayment[]
   paymentConnection    PaymentProviderConnection?
   mealCardConnections  MealCardConnection[]
   commissionInvoices   CommissionInvoice[]
@@ -782,12 +783,39 @@ model TableTab {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  restaurant Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  table      DiningTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  restaurant Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table      DiningTable  @relation(fields: [tableId], references: [id], onDelete: Cascade)
   orders     Order[]
+  payments   TabPayment[]
 
   @@index([restaurantId, status])
   @@map("table_tabs")
+}
+
+/// A share of an open tab a guest pays by card from the phone (docs/ACIK_HESAP.md),
+/// always on the restaurant's own POS. On capture it is spread over the tab's
+/// orders as ordinary payments; what the bill no longer owed goes back.
+model TabPayment {
+  id               String        @id @default(uuid())
+  restaurantId     String
+  tabId            String
+  amountMinor      Int
+  currency         String
+  status           PaymentStatus @default(PENDING)
+  provider         String
+  providerRef      String?
+  capturedAt       DateTime?
+  /// Captured beyond what the bill still owed (someone paid at the counter meanwhile); refunded at once.
+  excessMinor      Int           @default(0)
+  excessRefundedAt DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  tab        TableTab   @relation(fields: [tabId], references: [id], onDelete: Cascade)
+
+  @@index([tabId])
+  @@map("tab_payments")
 }
 
 model QrScanEvent {

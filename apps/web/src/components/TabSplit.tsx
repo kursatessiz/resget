@@ -25,10 +25,13 @@ export function TabSplit({
   bill,
   locale,
   onUseShare,
+  useShareLabel,
 }: {
   bill: TabBillDTO;
   locale: string;
   onUseShare?: (amountMinor: number) => void;
+  /** The share button's text; the panel collects, the table pays by card. */
+  useShareLabel?: string;
 }) {
   const t = useT(locale);
   const [mode, setMode] = useState<TabSplitMode>('EQUAL');
@@ -177,7 +180,7 @@ export function TabSplit({
             <span>{t('tab.split.share', { n: i + 1, amount: money(amount) })}</span>
             {onUseShare && amount > 0 && amount <= bill.dueMinor && (mode !== 'AMOUNT' || byAmount.ok) && (
               <Button variant="outline" tone="muted" onClick={() => onUseShare(amount)}>
-                {t('tab.split.useShare')}
+                {useShareLabel ?? t('tab.split.useShare')}
               </Button>
             )}
           </li>

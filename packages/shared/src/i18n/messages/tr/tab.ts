@@ -30,6 +30,11 @@ export const trTab = {
   'tab.split.over': 'Tutarlar kalanı {amount} aşıyor.',
   'tab.split.basis': 'Bölünen tutar: {amount}',
   'tab.split.useShare': 'Bu payı tahsil et',
+  'tab.pay.title': 'Kartla öde',
+  'tab.pay.hint':
+    "Ödeme işletmenin kendi POS'unda, kart sağlayıcısının sayfasında alınır; onaylandıktan sonra hesap kendiliğinden güncellenir.",
+  'tab.pay.all': 'Kalanı kartla öde ({amount})',
+  'tab.pay.useShare': 'Bu payı kartla öde',
   'tab.panel.title': 'Açık hesaplar',
   'tab.panel.intro':
     'Masaların açık hesapları. Hesabı tek seferde veya paylara bölerek nakit, kart veya yemek kartıyla tahsil edin; her şey ödenip siparişler servis edilince hesap kendiliğinden kapanır.',
