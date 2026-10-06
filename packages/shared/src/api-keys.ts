@@ -33,6 +33,9 @@ export type ApiKeyPermission = (typeof API_KEY_GRANTABLE_PERMISSIONS)[number];
 export const API_KEY_EXPIRY_DAYS = [30, 90, 180, 365] as const;
 export type ApiKeyExpiryDays = (typeof API_KEY_EXPIRY_DAYS)[number];
 
+/** Days before a key's expiry when the owner is reminded, once per key (docs/API_ERISIMI.md). */
+export const API_KEY_EXPIRY_NOTICE_DAYS = 7;
+
 /** How many days of request counts the list and the usage report cover (UTC days, today included). */
 export const API_KEY_USAGE_DAYS = 30;
 

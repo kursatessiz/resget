@@ -29,6 +29,8 @@ export const enMessaging: Record<keyof typeof trMessaging, string> = {
   'messaging.template.campaign.body': '{restaurant}: {body} Opt out: {url}',
   'messaging.template.order.acceptOverdue':
     '{restaurant}: order {code} has been waiting {minutes} minutes for acceptance. Open the orders screen.',
+  'messaging.template.apiKey.expiring':
+    '{restaurant}: your API key "{name}" expires on {date}. Create a new key in the panel so your integration keeps working.',
   'messaging.template.invoice.issued':
     '{restaurant}: your commission invoice for {period} is {amount}, due {due}. It is collected automatically from your saved card; details are on the Finance page of the panel.',
   'messaging.template.invoice.overdue':

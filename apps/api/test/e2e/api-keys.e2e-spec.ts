@@ -1,6 +1,7 @@
 import { API_KEY_HEADER, parseApiKeyToken } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
+import { ApiKeyExpiryNotifier } from '../../src/modules/api-keys/api-key-expiry.notifier';
 
 /** Restaurant API keys (docs/API_ERISIMI.md): mint, call with the key, scope, session-only routes, revoke, plan gate. */
 describe('API keys (e2e)', () => {
@@ -212,5 +213,44 @@ describe('API keys (e2e)', () => {
     const expired = list.body.find((k: { id: string }) => k.id === created.body.id);
     expect(expired.revokedAt).toBeNull();
     expect(expired.requestsLastDays).toBe(0);
+  });
+
+  it('reminds the owner once, a week ahead, of a key about to expire', async () => {
+    const notifier = ctx.app.get(ApiKeyExpiryNotifier);
+    const mint = async (name: string) =>
+      (
+        await ctx
+          .http()
+          .post(`/restaurants/${restaurantId}/api-keys`)
+          .set(bearer(ownerToken, restaurantId))
+          .send({ name, permissions: ['orders.view'], expiresInDays: 30 })
+          .expect(201)
+      ).body.id as string;
+    const soon = await mint('E2E Soon');
+    const later = await mint('E2E Later');
+    const revoked = await mint('E2E Revoked soon');
+    const inDays = (days: number) => new Date(Date.now() + days * 86_400_000);
+    await ctx.prisma.restaurantApiKey.update({ where: { id: soon }, data: { expiresAt: inDays(3) } });
+    await ctx.prisma.restaurantApiKey.update({ where: { id: later }, data: { expiresAt: inDays(10) } });
+    await ctx.prisma.restaurantApiKey.update({
+      where: { id: revoked },
+      data: { expiresAt: inDays(2), revokedAt: new Date() },
+    });
+    const since = new Date();
+
+    expect(await notifier.run()).toBe(1);
+    expect(await notifier.run()).toBe(0);
+    const logs = await ctx.prisma.messageLog.findMany({
+      where: { restaurantId, templateKey: 'apiKey.expiring', createdAt: { gte: since } },
+    });
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({ channel: 'SMS', status: 'SENT', creditsCharged: 0 });
+    const rows = await ctx.prisma.restaurantApiKey.findMany({
+      where: { id: { in: [soon, later, revoked] } },
+      select: { id: true, expiryNoticeAt: true },
+    });
+    expect(rows.find((r) => r.id === soon)!.expiryNoticeAt).not.toBeNull();
+    expect(rows.find((r) => r.id === later)!.expiryNoticeAt).toBeNull();
+    expect(rows.find((r) => r.id === revoked)!.expiryNoticeAt).toBeNull();
   });
 });

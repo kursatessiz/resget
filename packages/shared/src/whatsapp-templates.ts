@@ -74,6 +74,11 @@ export const WHATSAPP_TEMPLATES: Partial<Record<MessageTemplateKey, WhatsAppTemp
     category: 'UTILITY',
     params: ['restaurant', 'code', 'minutes'],
   },
+  'apiKey.expiring': {
+    name: 'resget_api_key_expiring',
+    category: 'UTILITY',
+    params: ['restaurant', 'name', 'date'],
+  },
   'invoice.issued': {
     name: 'resget_invoice_issued',
     category: 'UTILITY',
