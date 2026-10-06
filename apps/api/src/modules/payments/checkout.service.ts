@@ -7,6 +7,7 @@ import type {
   CollectPaymentInput,
   GatewayWebhookEvent,
   HostedCheckoutParams,
+  HostedCheckoutSession,
   OrderDetailDTO,
   OrderPaymentIntent,
 } from '@resget/shared';
@@ -21,7 +22,27 @@ import { LedgerService } from '../ledger/ledger.service';
 import { OrderNotificationsService } from '../orders/order-notifications.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
 
-export type WebhookKind = 'meal-cards' | 'pos';
+export type WebhookKind = 'meal-cards' | 'pos' | 'platform';
+
+/** Who collected a notified payment: the restaurant's POS (with its restaurant) or the platform's merchant account. */
+export type WebhookScope = { mode: 'OWN_POS'; restaurantId: string } | { mode: 'PLATFORM_PSP' };
+
+/**
+ * A notification whose reference is not an order but a courier tip
+ * (docs/BAHSIS.md). Returns null when the reference is not a tip, so the
+ * order payment path handles it.
+ */
+export type TipWebhookHandler = (
+  event: GatewayWebhookEvent,
+  scope: WebhookScope,
+) => Promise<GatewayWebhookEvent['status'] | 'IGNORED' | null>;
+
+/** A hosted session the restaurant's own POS or the platform's merchant opened, and which of them it was. */
+export interface OpenedHostedCheckout {
+  session: HostedCheckoutSession;
+  providerCode: string;
+  paymentMode: 'OWN_POS' | 'PLATFORM_PSP';
+}
 
 /** What the webhook endpoint answers: JSON by default, the provider's own acknowledgement or a browser redirect when the adapter asks. */
 export interface WebhookOutcome {
@@ -40,6 +61,7 @@ export interface WebhookOutcome {
 @Injectable()
 export class CheckoutService {
   private readonly logger = new Logger(CheckoutService.name);
+  private tipHandler: TipWebhookHandler | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -53,6 +75,52 @@ export class CheckoutService {
     private readonly notifications: OrderNotificationsService,
   ) {
     this.orders.setPaymentIntentResolver((restaurantId, intent) => this.resolveIntent(restaurantId, intent));
+  }
+
+  /** Set by the tips module so a tip's notification reaches it before the order payment path. */
+  setTipWebhookHandler(handler: TipWebhookHandler): void {
+    this.tipHandler = handler;
+  }
+
+  /** The provider code of the platform's own merchant account (docs/ODEME.md). */
+  platformProviderCode(): string {
+    return this.config.get<string>('PAYMENT_PROVIDER', 'MOCK');
+  }
+
+  /**
+   * A hosted card session for any amount the restaurant takes online: its
+   * own POS under OWN_POS, the platform's merchant under PLATFORM_PSP. Each
+   * session carries the notification address of the account that collects.
+   */
+  async openHostedCheckout(restaurantId: string, params: HostedCheckoutParams): Promise<OpenedHostedCheckout> {
+    const restaurant = await this.prisma.restaurant.findUniqueOrThrow({
+      where: { id: restaurantId },
+      select: {
+        paymentMode: true,
+        paymentConnection: { select: { id: true, providerCode: true, status: true, encryptedCredentials: true } },
+      },
+    });
+    if (restaurant.paymentMode === 'OWN_POS') {
+      const pos = restaurant.paymentConnection;
+      if (!pos || pos.status !== PaymentConnectionStatus.ACTIVE) {
+        throw conflict('PAYMENT_METHOD_NOT_ACCEPTED', 'The restaurant has no active POS connection');
+      }
+      const gateway = this.payments.gateway(pos.providerCode);
+      if (!gateway) throw conflict('PAYMENT_METHOD_NOT_ACCEPTED', `No adapter for ${pos.providerCode}`);
+      const session = await gateway.createHostedCheckout(this.payments.cipher.decryptJson(pos.encryptedCredentials), {
+        ...params,
+        notifyUrl: this.webhookUrl('pos', pos.id),
+      });
+      return { session, providerCode: pos.providerCode, paymentMode: 'OWN_POS' };
+    }
+    const code = this.platformProviderCode();
+    const gateway = this.payments.gateway(code);
+    if (!gateway) throw conflict('PAYMENT_METHOD_NOT_ACCEPTED', `No adapter for ${code}`);
+    const session = await gateway.createHostedCheckout(this.payments.platformCredentials(code), {
+      ...params,
+      notifyUrl: this.webhookUrl('platform', code),
+    });
+    return { session, providerCode: code, paymentMode: 'PLATFORM_PSP' };
   }
 
   /** Validates a payment intent against what the restaurant accepts and decides whether the order waits for payment. */
@@ -118,12 +186,6 @@ export class CheckoutService {
       include: {
         payments: { where: { status: 'PENDING' }, orderBy: { createdAt: 'desc' }, take: 1 },
         customer: { select: { phone: true, fullName: true } },
-        restaurant: {
-          select: {
-            paymentMode: true,
-            paymentConnection: { select: { id: true, providerCode: true, status: true, encryptedCredentials: true } },
-          },
-        },
       },
     });
     const payment = order.payments[0];
@@ -151,27 +213,8 @@ export class CheckoutService {
     }
 
     if (payment.method === 'ONLINE_CARD') {
-      if (order.restaurant.paymentMode === 'OWN_POS') {
-        const pos = order.restaurant.paymentConnection;
-        if (!pos || pos.status !== PaymentConnectionStatus.ACTIVE) {
-          throw conflict('PAYMENT_METHOD_NOT_ACCEPTED', 'The restaurant has no active POS connection');
-        }
-        const gateway = this.payments.gateway(pos.providerCode);
-        if (!gateway) throw conflict('PAYMENT_METHOD_NOT_ACCEPTED', `No adapter for ${pos.providerCode}`);
-        const credentials = this.payments.cipher.decryptJson(pos.encryptedCredentials);
-        // Providers that take the notification address per request get this connection's webhook URL.
-        const session = await gateway.createHostedCheckout(credentials, {
-          ...params,
-          notifyUrl: this.webhookUrl('pos', pos.id),
-        });
-        await this.prisma.payment.update({ where: { id: payment.id }, data: { providerRef: session.sessionId } });
-        return { paymentId: payment.id, session };
-      }
-      const code = this.config.get<string>('PAYMENT_PROVIDER', 'MOCK');
-      const gateway = this.payments.gateway(code);
-      if (!gateway) throw conflict('PAYMENT_METHOD_NOT_ACCEPTED', `No adapter for ${code}`);
-      // The platform's own merchant credentials come from the environment; the mock needs none.
-      const session = await gateway.createHostedCheckout(this.payments.platformCredentials(code), params);
+      // The platform's merchant answers on its own webhook address; the restaurant's POS on its connection's.
+      const { session } = await this.openHostedCheckout(order.restaurantId, params);
       await this.prisma.payment.update({ where: { id: payment.id }, data: { providerRef: session.sessionId } });
       return { paymentId: payment.id, session };
     }
@@ -196,9 +239,16 @@ export class CheckoutService {
     query: Record<string, string | undefined> = {},
   ): Promise<WebhookOutcome> {
     let event: GatewayWebhookEvent;
-    let restaurantId: string;
+    // Known from the connection; the platform's merchant serves every restaurant, so its payments name their own.
+    let restaurantId: string | null;
     try {
-      if (kind === 'meal-cards') {
+      if (kind === 'platform') {
+        // Only the merchant the environment configures; production refuses MOCK there (apps/api/src/config/env.ts).
+        const gateway = connectionId === this.platformProviderCode() ? this.payments.gateway(connectionId) : null;
+        if (!gateway) throw new Error('Unknown platform provider');
+        restaurantId = null;
+        event = await gateway.parseWebhook(this.payments.platformCredentials(connectionId), rawBody, headers, query);
+      } else if (kind === 'meal-cards') {
         const connection = await this.mealCards.onlineCredentials(connectionId);
         const adapter = connection ? this.issuers.get(connection.providerCode) : null;
         if (!connection || !adapter) throw new Error('Unknown connection');
@@ -221,15 +271,24 @@ export class CheckoutService {
       throw badRequest('WEBHOOK_INVALID', 'Webhook could not be verified');
     }
 
-    const payment = await this.prisma.payment.findFirst({
-      where: { orderId: event.orderRef, restaurantId },
-      orderBy: { createdAt: 'desc' },
-    });
     const reply = (status: WebhookOutcome['status']): WebhookOutcome => ({
       received: true,
       status,
       ...(event.ack ? { ack: event.ack } : {}),
       ...(event.browserRedirectUrl ? { browserRedirectUrl: event.browserRedirectUrl } : {}),
+    });
+    // A courier tip travels with its own reference (docs/BAHSIS.md); meal-card issuers never collect one.
+    if (kind !== 'meal-cards' && this.tipHandler) {
+      const scope: WebhookScope = restaurantId ? { mode: 'OWN_POS', restaurantId } : { mode: 'PLATFORM_PSP' };
+      const tipStatus = await this.tipHandler(event, scope);
+      if (tipStatus) return reply(tipStatus);
+    }
+
+    const payment = await this.prisma.payment.findFirst({
+      where: restaurantId
+        ? { orderId: event.orderRef, restaurantId }
+        : { orderId: event.orderRef, paymentMode: 'PLATFORM_PSP', method: 'ONLINE_CARD' },
+      orderBy: { createdAt: 'desc' },
     });
     if (!payment) return reply('IGNORED');
     if (payment.status === 'CAPTURED' && event.status === 'CAPTURED') return reply('CAPTURED');
@@ -255,7 +314,7 @@ export class CheckoutService {
         });
         await tx.auditLog.create({
           data: {
-            restaurantId,
+            restaurantId: payment.restaurantId,
             action: 'payment.charged_back',
             entity: 'Payment',
             entityId: payment.id,

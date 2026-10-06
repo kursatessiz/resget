@@ -68,6 +68,7 @@ export const PUSH_TEMPLATE_KEYS = [
   'order.placed',
   'order.claimFiled',
   'feedback.lowRating',
+  'tip.received',
 ] as const;
 export type PushTemplateKey = (typeof PUSH_TEMPLATE_KEYS)[number];
 

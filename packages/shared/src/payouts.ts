@@ -54,6 +54,8 @@ export const PAYABLE_LINE_TYPES: readonly `${LedgerEntryType}`[] = [
   LedgerEntryType.COMMISSION_VAT_REVERSAL,
   LedgerEntryType.ADJUSTMENT,
   LedgerEntryType.PAYOUT_FEE,
+  LedgerEntryType.COURIER_TIP,
+  LedgerEntryType.COURIER_TIP_FEE,
 ];
 
 export interface OrderLedgerSnapshot {

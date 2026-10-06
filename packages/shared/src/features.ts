@@ -50,6 +50,7 @@ export const FEATURES = {
   courier_network: { group: 'delivery', defaultEnabled: true, stage: 'GA' },
   delivery_zones: { group: 'delivery', defaultEnabled: false, stage: 'BETA' },
   delivery_pin: { group: 'delivery', defaultEnabled: false, stage: 'BETA' },
+  courier_tips: { group: 'delivery', defaultEnabled: false, stage: 'BETA' },
   crm: { group: 'marketing', defaultEnabled: true, stage: 'GA' },
   campaigns: { group: 'marketing', defaultEnabled: true, stage: 'GA' },
   loyalty: { group: 'marketing', defaultEnabled: true, stage: 'GA' },

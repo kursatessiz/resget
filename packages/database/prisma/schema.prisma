@@ -161,6 +161,8 @@ enum LedgerEntryType {
   ADJUSTMENT
   RESTAURANT_PAYABLE
   PAYOUT_FEE
+  COURIER_TIP
+  COURIER_TIP_FEE
 }
 
 /// How a PLATFORM_PSP restaurant is paid (docs/HAKEDIS_TAKVIMI.md).
@@ -250,6 +252,19 @@ enum MessageTransactionType {
   DEBIT
   REFUND
   EXPIRY
+}
+
+enum CourierTipStatus {
+  PENDING
+  CAPTURED
+  FAILED
+  REFUNDED
+  CHARGED_BACK
+}
+
+enum TipPassThroughStatus {
+  SENT
+  FAILED
 }
 
 enum DeliveryRequestStatus {
@@ -470,6 +485,7 @@ model Restaurant {
   orderClaims          OrderClaim[]
   ledgerEntries        LedgerEntry[]
   payouts              Payout[]
+  courierTips          CourierTip[]
   paymentConnection    PaymentProviderConnection?
   mealCardConnections  MealCardConnection[]
   commissionInvoices   CommissionInvoice[]
@@ -601,6 +617,7 @@ model Membership {
   restaurant      Restaurant              @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   roleTemplate    RoleTemplate            @relation(fields: [roleTemplateId], references: [id])
   courierTrips    DeliveryTrip[]
+  courierTips     CourierTip[]
   courierLocation CourierLocation?
   locationSamples CourierLocationSample[]
   ownedContacts   RestaurantCustomer[]    @relation("ContactOwner")
@@ -1405,6 +1422,7 @@ model Order {
   posSync             PosOrderSync?
   rating              OrderRating?
   deliveryRequest     DeliveryRequest?
+  courierTip          CourierTip?
   deliveryStops       DeliveryStop[]
   refunds             OrderRefund[]
   claims              OrderClaim[]
@@ -1961,10 +1979,49 @@ model DeliveryRequest {
   restaurant Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   order      Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   provider   CourierProvider @relation(fields: [providerId], references: [id])
+  tips       CourierTip[]
 
   @@index([restaurantId, createdAt])
   @@index([providerRef])
   @@map("delivery_requests")
+}
+
+/// A customer's tip for the courier of a delivered order (docs/BAHSIS.md).
+/// Kept apart from payments so it never counts toward what the order is owed,
+/// its refunds or the commission. The provider's fee is the only deduction.
+model CourierTip {
+  id                  String                @id @default(uuid())
+  restaurantId        String
+  orderId             String                @unique
+  /// The restaurant's own courier who delivered the order; null when a network carried it.
+  courierMembershipId String?
+  /// The courier network's delivery the tip is handed to.
+  deliveryRequestId   String?
+  status              CourierTipStatus      @default(PENDING)
+  amountMinor         Int
+  currency            String
+  /// What the collecting provider kept, as it reported.
+  pspFeeMinor         Int                   @default(0)
+  /// Who collected: the restaurant's own POS or the platform's merchant account.
+  paymentMode         PaymentMode
+  provider            String
+  providerRef         String?
+  capturedAt          DateTime?
+  reversedAt          DateTime?
+  passThroughStatus   TipPassThroughStatus?
+  passThroughRef      String?
+  passThroughAttempts Int                   @default(0)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  restaurant      Restaurant       @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  order           Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  courier         Membership?      @relation(fields: [courierMembershipId], references: [id], onDelete: SetNull)
+  deliveryRequest DeliveryRequest? @relation(fields: [deliveryRequestId], references: [id], onDelete: SetNull)
+
+  @@index([restaurantId, capturedAt])
+  @@index([courierMembershipId, capturedAt])
+  @@map("courier_tips")
 }
 
 // ---------------------------------------------------------------------------

@@ -40,6 +40,8 @@ const tracking = (
   canAnswerNps: false,
   claim: null,
   canClaim: false,
+  tip: null,
+  tipOffer: null,
 });
 
 const stop = (

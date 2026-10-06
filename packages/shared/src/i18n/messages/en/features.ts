@@ -146,6 +146,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.payout_schedules.name': 'Payout schedule',
   'features.payout_schedules.description':
     'A restaurant the platform collects for is paid weekly, daily or instantly; fees and plan rules are platform data.',
+  'features.courier_tips.name': 'Courier tips',
+  'features.courier_tips.description':
+    'The customer tips the courier from the tracking page after delivery; the platform takes no commission, only the payment provider fee comes off, and a supporting courier network receives it.',
   'features.group_orders.name': 'Group orders',
   'features.group_orders.description':
     'A shared basket on the restaurant page: everyone who joins through the link adds their own choice, and the basket owner places one order and pays.',

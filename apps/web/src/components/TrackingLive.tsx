@@ -16,6 +16,7 @@ import {
 import type { OrderTrackingDTO } from '@resget/shared';
 import { ClaimCard } from '@/components/ClaimCard';
 import { FeedbackCard } from '@/components/FeedbackCard';
+import { TipCard } from '@/components/TipCard';
 import { TrackingReview } from '@/components/TrackingReview';
 import { LiveMap } from '@/components/LiveMap';
 import { Button, Card, LinkButton, TextAreaField } from '@/components/ui';
@@ -274,6 +275,8 @@ export function TrackingLive({
           )}
         </Card>
       )}
+
+      <TipCard token={token} tracking={tracking} t={t} locale={locale} />
 
       <FeedbackCard token={token} tracking={tracking} t={t} onUpdated={setTracking} />
 

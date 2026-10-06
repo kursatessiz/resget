@@ -35,6 +35,7 @@ export * from './loyalty';
 export * from './api-keys';
 export * from './webhooks';
 export * from './ratings';
+export * from './tips';
 export * from './geocoding';
 export * from './opening-hours';
 export * from './marketplace-ranking';

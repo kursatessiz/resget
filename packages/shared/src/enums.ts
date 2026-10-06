@@ -181,6 +181,10 @@ export enum LedgerEntryType {
   RESTAURANT_PAYABLE = 'RESTAURANT_PAYABLE',
   /** The fee of a faster payout (docs/HAKEDIS_TAKVIMI.md), VAT included, taken from the payout. */
   PAYOUT_FEE = 'PAYOUT_FEE',
+  /** A courier tip the platform collected (docs/BAHSIS.md): the whole tip, handed on to the courier by the restaurant. */
+  COURIER_TIP = 'COURIER_TIP',
+  /** The provider's fee on a courier tip, the only thing that comes off it. */
+  COURIER_TIP_FEE = 'COURIER_TIP_FEE',
 }
 
 /** Why money went back to the customer (docs/ODEME.md, "İade"); one OrderRefund row per refund. */

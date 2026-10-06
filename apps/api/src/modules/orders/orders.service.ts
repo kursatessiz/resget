@@ -160,6 +160,9 @@ export interface CreateOrderOptions {
   source?: OrderSource;
 }
 
+/** Adds the courier tip state to the tracking page (docs/BAHSIS.md); set by the tips module. */
+export type TrackingTipExtender = (row: OrderRow) => Promise<Pick<OrderTrackingDTO, 'tip' | 'tipOffer'>>;
+
 export type PaymentIntentResolver = (
   restaurantId: string,
   intent: OrderPaymentIntent,
@@ -186,6 +189,7 @@ export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
   /** Registered by the checkout service: validates a payment intent against what the restaurant accepts. */
   private resolvePayment: PaymentIntentResolver | null = null;
+  private tipExtender: TrackingTipExtender | null = null;
   /** Registered by the refunds service: gives an online payment back after a cancellation (docs/ODEME.md, "İade"). */
   private refundAfterCancel: ((orderId: string) => Promise<void>) | null = null;
 
@@ -219,6 +223,10 @@ export class OrdersService {
 
   setTripEventsProvider(provider: (tripId: string) => Promise<TopicEvent[]>): void {
     this.tripEvents = provider;
+  }
+
+  setTrackingTipExtender(extender: TrackingTipExtender): void {
+    this.tipExtender = extender;
   }
 
   setPaymentIntentResolver(resolver: PaymentIntentResolver): void {
@@ -976,7 +984,7 @@ export class OrdersService {
   }
 
   async trackingOf(row: OrderRow): Promise<OrderTrackingDTO> {
-    const [restaurant, branch, switches, feedback] = await Promise.all([
+    const [restaurant, branch, switches, feedback, tips] = await Promise.all([
       this.prisma.restaurant.findUnique({
         where: { id: row.restaurantId },
         select: { name: true, logoUrl: true, themePrimary: true },
@@ -984,6 +992,7 @@ export class OrdersService {
       this.prisma.branch.findUnique({ where: { id: row.branchId }, select: { phone: true } }),
       this.features.switchesFor(row.restaurantId),
       this.feedback.trackingExtras(row),
+      this.tipExtender ? this.tipExtender(row) : Promise.resolve({ tip: null, tipOffer: null }),
     ]);
     const address = this.addressOf(row);
     const destination = address?.point ?? null;
@@ -1091,6 +1100,7 @@ export class OrdersService {
           row.claims.some((c) => isClaimWaiting(c.status)),
           row.payments.reduce((n, p) => n + refundableMinor(p), 0),
         ),
+      ...tips,
     };
   }
 
