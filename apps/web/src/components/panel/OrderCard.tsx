@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import {
-  COURIER_CALLABLE_ORDER_STATUSES,
   ORDER_PREP_OPTIONS,
+  courierCallActions,
   formatMoney,
   isActiveDeliveryRequest,
   orderActionsFor,
@@ -106,15 +106,9 @@ export function OrderCard({
   const partlyRefunded = refundState === 'NONE' && order.payment.refundedMinor > 0;
   const offerClaim = canRefund && Boolean(onClaim) && Boolean(loadDetail) && order.openClaimId !== null;
   const request = order.courierRequest;
-  const offerCall =
-    Boolean(onCourier) &&
-    courierNetwork !== null &&
-    order.fulfillment === 'DELIVERY' &&
-    COURIER_CALLABLE_ORDER_STATUSES.includes(order.status) &&
-    order.activeTrip === null &&
-    (!request || !isActiveDeliveryRequest(request.status));
-  const offerCallOff =
-    Boolean(onCourier) && request !== null && ['QUOTED', 'REQUESTED', 'ASSIGNED'].includes(request.status);
+  const courierActions = courierCallActions(order, courierNetwork !== null);
+  const offerCall = Boolean(onCourier) && courierActions.call;
+  const offerCallOff = Boolean(onCourier) && courierActions.cancel;
 
   const run = (action: OrderAction) => {
     if (action.needsPrep || action.needsReason) {

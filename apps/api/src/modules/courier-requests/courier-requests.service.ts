@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
+  CANCELLABLE_DELIVERY_REQUEST_STATUSES,
   COURIER_CALLABLE_ORDER_STATUSES,
   isActiveDeliveryRequest,
   networkOrderSteps,
@@ -179,7 +180,7 @@ export class CourierRequestsService {
       where: { orderId, restaurantId },
       include: { provider: { select: { code: true } } },
     });
-    if (!request || !['QUOTED', 'REQUESTED', 'ASSIGNED'].includes(request.status)) {
+    if (!request || !CANCELLABLE_DELIVERY_REQUEST_STATUSES.includes(request.status)) {
       throw conflict('COURIER_REQUEST_NOT_ALLOWED', 'No courier call to cancel');
     }
     const adapter = this.registry.get(request.provider.code);
@@ -274,7 +275,7 @@ export class CourierRequestsService {
       where: { orderId: order.id },
       include: { provider: { select: { code: true } } },
     });
-    if (!request || !['QUOTED', 'REQUESTED', 'ASSIGNED'].includes(request.status)) return;
+    if (!request || !CANCELLABLE_DELIVERY_REQUEST_STATUSES.includes(request.status)) return;
     try {
       const adapter = this.registry.get(request.provider.code);
       if (request.providerRef && adapter) await adapter.cancel(request.providerRef);

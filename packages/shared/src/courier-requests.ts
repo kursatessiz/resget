@@ -1,6 +1,6 @@
 import { DeliveryRequestStatus } from './enums';
 import type { CourierEventKind } from './courier';
-import type { OrderActor, OrderStatusValue } from './delivery';
+import type { OrderActor, OrderStatusValue, OrderSummaryDTO } from './delivery';
 
 /**
  * Calling a courier network for one order (docs/KURYE.md, "Kurye çağırma").
@@ -16,6 +16,13 @@ export const ACTIVE_DELIVERY_REQUEST_STATUSES: readonly RequestStatus[] = [
   DeliveryRequestStatus.REQUESTED,
   DeliveryRequestStatus.ASSIGNED,
   DeliveryRequestStatus.PICKED_UP,
+];
+
+/** A request the restaurant can still call off: the parcel is not picked up yet. */
+export const CANCELLABLE_DELIVERY_REQUEST_STATUSES: readonly RequestStatus[] = [
+  DeliveryRequestStatus.QUOTED,
+  DeliveryRequestStatus.REQUESTED,
+  DeliveryRequestStatus.ASSIGNED,
 ];
 
 /** Order statuses in which a courier may be called: networks expect a call while the food is still cooking. */
@@ -77,6 +84,27 @@ export function networkOrderSteps(
         ? [{ to: 'READY', actor: 'COURIER' }]
         : [];
   }
+}
+
+/**
+ * What an order card offers for the courier network, on the web panel and
+ * in the app alike: a call while the order can take one and the restaurant
+ * has a network, a cancellation while the parcel is not picked up.
+ */
+export function courierCallActions(
+  order: Pick<OrderSummaryDTO, 'fulfillment' | 'status' | 'activeTrip' | 'courierRequest'>,
+  networkAvailable: boolean,
+): { call: boolean; cancel: boolean } {
+  const request = order.courierRequest;
+  return {
+    call:
+      networkAvailable &&
+      order.fulfillment === 'DELIVERY' &&
+      COURIER_CALLABLE_ORDER_STATUSES.includes(order.status) &&
+      order.activeTrip === null &&
+      (!request || !isActiveDeliveryRequest(request.status)),
+    cancel: request !== null && CANCELLABLE_DELIVERY_REQUEST_STATUSES.includes(request.status),
+  };
 }
 
 /** Whether the order screen offers a courier call for this restaurant (docs/KURYE.md). */

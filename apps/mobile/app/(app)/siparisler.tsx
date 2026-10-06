@@ -4,12 +4,13 @@ import { useFocusEffect } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import {
   ORDER_PREP_OPTIONS,
+  courierCallActions,
   formatMoney,
   freshPlacedOrderIds,
   isTerminalOrderStatus,
   orderActionsFor,
 } from '@resget/shared';
-import type { OrderActionSpec, OrderSummaryDTO } from '@resget/shared';
+import type { CourierNetworkStatusDTO, OrderActionSpec, OrderSummaryDTO } from '@resget/shared';
 import { Body, Button, Caption, Card, Field, Notice, Screen, Title } from '@/components/ui';
 import { ApiError } from '@/lib/api';
 import { isTabletWidth } from '@/lib/dispatch';
@@ -48,6 +49,9 @@ export default function Orders() {
     membership.features.includes('app_order_handling') &&
     membership.permissions.includes('orders.manage');
   const base = membership ? `restaurants/${membership.restaurantId}/orders` : null;
+  // A courier network call from the order (docs/KURYE.md), for members who dispatch.
+  const canDispatch = handling && !!membership && membership.permissions.includes('dispatch.manage');
+  const [network, setNetwork] = useState<CourierNetworkStatusDTO | null>(null);
   const time = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' });
 
   const fail = useCallback(
@@ -94,6 +98,19 @@ export default function Orders() {
 
   useFocusEffect(
     useCallback(() => {
+      if (canDispatch && membership) {
+        api
+          .request<CourierNetworkStatusDTO>(`restaurants/${membership.restaurantId}/courier/network`, {
+            restaurantId: membership.restaurantId,
+          })
+          .then(setNetwork)
+          .catch(() => setNetwork(null));
+      }
+    }, [api, canDispatch, membership]),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
       void load();
       const timer = setInterval(() => void load(), handling ? HANDLING_REFRESH_MS : READ_ONLY_REFRESH_MS);
       return () => clearInterval(timer);
@@ -124,6 +141,24 @@ export default function Orders() {
     }
   };
 
+  const courier = async (order: OrderSummaryDTO, action: 'call' | 'cancel') => {
+    if (!base || !membership) return;
+    setBusyId(order.id);
+    setError(null);
+    try {
+      await api.request(`${base}/${order.id}/courier-request${action === 'cancel' ? '/cancel' : ''}`, {
+        method: 'POST',
+        body: {},
+        restaurantId: membership.restaurantId,
+      });
+      await load();
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const press = (order: OrderSummaryDTO, action: OrderActionSpec) => {
     if (action.needsPrep || action.needsReason) {
       setPending({ orderId: order.id, action });
@@ -140,6 +175,9 @@ export default function Orders() {
       new Date(order.acceptDeadlineAt).getTime() <= Date.now();
     const actions = handling ? orderActionsFor(order) : [];
     const open = pending?.orderId === order.id ? pending.action : null;
+    const courierActions = canDispatch
+      ? courierCallActions(order, network?.available === true)
+      : { call: false, cancel: false };
     return (
       <Card key={order.id} title={t('orders.shortCode', { code: order.shortCode })}>
         <Body>
@@ -153,6 +191,35 @@ export default function Orders() {
             : ''}
         </Caption>
         {overdue && <Notice tone="error">{t('mobile.orders.overdue')}</Notice>}
+        {order.courierRequest && (
+          <Caption>
+            {t('courier.call.label', {
+              provider: order.courierRequest.providerName,
+              status: t(`courier.requests.status.${order.courierRequest.status}`),
+            })}
+          </Caption>
+        )}
+        {!open && (courierActions.call || courierActions.cancel) && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing[2] }}>
+            {courierActions.call && (
+              <Button
+                label={t('courier.call.button')}
+                variant="outline"
+                busy={busyId === order.id}
+                onPress={() => void courier(order, 'call')}
+              />
+            )}
+            {courierActions.cancel && (
+              <Button
+                label={t('courier.call.cancel')}
+                variant="outline"
+                tone="error"
+                busy={busyId === order.id}
+                onPress={() => void courier(order, 'cancel')}
+              />
+            )}
+          </View>
+        )}
         {open ? (
           <View style={{ gap: theme.spacing[2] }}>
             {open.needsPrep && (
