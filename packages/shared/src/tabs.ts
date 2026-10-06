@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { HostedCheckoutSession } from './payments';
 import { CollectPaymentSchema } from './meal-cards';
 import { shareOf } from './money';
 import type { OrderStatusValue } from './delivery';
@@ -222,6 +223,19 @@ export interface TabBillDTO {
   dueMinor: number;
   /** Panel only: how the restaurant takes money at the counter; null on the table's own view. */
   collect: TabCollectOptionsDTO | null;
+  /** Whether a guest can pay a share by card from the phone, on the restaurant's own POS. */
+  payOnline: boolean;
+}
+
+/** A guest pays a share of the open tab online (docs/ACIK_HESAP.md, "Telefondan pay ödemesi"). */
+export const PayTabShareSchema = z
+  .object({ amountMinor: z.number().int().positive(), returnUrl: z.string().url() })
+  .strict();
+export type PayTabShareInput = z.infer<typeof PayTabShareSchema>;
+
+export interface TabPaymentStartedDTO {
+  paymentId: string;
+  session: HostedCheckoutSession;
 }
 
 export interface TabCollectOptionsDTO {

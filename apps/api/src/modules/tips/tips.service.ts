@@ -77,7 +77,7 @@ export class TipsService {
     private readonly push: PushService,
   ) {
     this.orders.setTrackingTipExtender((row) => this.trackingExtras(row));
-    this.checkout.setTipWebhookHandler((event, scope) => this.handleWebhook(event, scope));
+    this.checkout.addReferenceHandler((event, scope) => this.handleWebhook(event, scope));
   }
 
   // -- Tracking page ------------------------------------------------------------------

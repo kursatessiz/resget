@@ -28,6 +28,7 @@
 | `modifier_groups`, `modifiers` | Seçenek grupları, min/max seçim, fiyat farkı. |
 | `dining_tables` | Şube başına etiket benzersiz; `qrToken` benzersiz, yenilenince eski etiketler ölür. |
 | `table_tabs` | Masanın açık hesabı (`docs/ACIK_HESAP.md`): durum `OPEN` / `CLOSED`, `openKey` (açıkken masa kimliği, benzersiz; masa başına tek açık hesap), `publicToken` (kişisel verisiz hesap bağlantısı), açılış ve kapanış; `orders.tabId` siparişi hesaba bağlar. |
+| `tab_payments` | Misafirin telefondan kartla ödediği hesap payı (`docs/ACIK_HESAP.md`): tutar, para birimi, durum, restoranın POS sağlayıcısı ve işlem referansı, tahsil anı, hesabın artık borçlu olmadığı fazla tutar (`excessMinor`) ve iadesi. Tahsil edilen pay siparişlere sıradan ödemeler olarak dağıtılır. |
 | `qr_scan_events` | Anonim `sessionId`, huni adımı (VIEWED_MENU, STARTED_ORDER, PLACED_ORDER, REGISTERED). Telefon tutmaz. |
 
 ## Müşteri

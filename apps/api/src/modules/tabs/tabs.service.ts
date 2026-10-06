@@ -1,9 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@resget/database';
 import { allocateTabPayment, countsOnBill, isTerminalOrderStatus, orderShortCode } from '@resget/shared';
 import type {
   CollectTabPaymentInput,
+  GatewayWebhookEvent,
+  PayTabShareInput,
+  TabPaymentStartedDTO,
   TabBillDTO,
   TabBillLineDTO,
   TabOrderDTO,
@@ -16,7 +19,12 @@ import { FeatureFlagsService } from '../features/feature-flags.service';
 import { OrdersService } from '../orders/orders.service';
 import type { OrderRow } from '../orders/orders.service';
 import { MealCardsService } from '../payments/meal-cards.service';
-import { conflict, notFound } from '../../common/api-error';
+import { CheckoutService } from '../payments/checkout.service';
+import type { WebhookScope } from '../payments/checkout.service';
+import { PaymentsRegistry } from '../payments/payments.registry';
+import { badRequest, conflict, notFound } from '../../common/api-error';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Db = Prisma.TransactionClient | PrismaService;
 
@@ -55,7 +63,13 @@ export class TabsService {
     private readonly realtime: RealtimeService,
     private readonly features: FeatureFlagsService,
     private readonly config: ConfigService,
-  ) {}
+    private readonly checkout: CheckoutService,
+    private readonly payments: PaymentsRegistry,
+  ) {
+    this.checkout.addReferenceHandler((event, scope) => this.handleWebhook(event, scope));
+  }
+
+  private readonly logger = new Logger(TabsService.name);
 
   // -- Panel -----------------------------------------------------------------------
 
@@ -124,36 +138,17 @@ export class TabsService {
       await this.lock(tx, tabId);
       const { row, orders } = await this.load(tx, restaurantId, tabId);
       if (row.status !== 'OPEN') throw conflict('TAB_CLOSED', 'The tab is closed');
-      // An order still waiting for its own online payment is not on the bill to collect.
-      const payable = orders.filter((o) => countsOnBill(o.status) && o.status !== 'PENDING_PAYMENT');
-      const dues = payable.map((o) => ({ orderId: o.id, dueMinor: this.orders.paymentOf(o).dueMinor }));
-      const owed = dues.reduce((sum, d) => sum + d.dueMinor, 0);
+      const owed = this.owedOn(orders);
       if (owed === 0) throw conflict('PAYMENT_STATE_INVALID', 'The tab is already paid');
       if (input.amountMinor > owed) throw conflict('PAYMENT_STATE_INVALID', 'Amount exceeds what the tab owes');
-      const capturedAt = new Date();
-      const parts = allocateTabPayment(input.amountMinor, dues);
-      for (const part of parts) {
-        const order = payable.find((o) => o.id === part.orderId)!;
-        const data = {
-          provider,
-          method: input.method,
-          status: 'CAPTURED' as const,
-          amountMinor: part.amountMinor,
-          providerRef: input.reference ?? null,
-          capturedAt,
-          collectedByUserId: actorUserId,
-          paymentMode: 'OWN_POS' as const,
-        };
-        const pending = order.payments.find((p) => p.status === 'PENDING');
-        if (pending) await tx.payment.update({ where: { id: pending.id }, data });
-        else await tx.payment.create({ data: { restaurantId, orderId: order.id, currency: order.currency, ...data } });
-        await tx.order.update({
-          where: { id: order.id },
-          data: { paymentMethod: input.method, paymentProvider: input.method === 'MEAL_CARD' ? provider : null },
-        });
-      }
+      const { orderIds } = await this.spread(tx, restaurantId, orders, input.amountMinor, {
+        provider,
+        method: input.method,
+        providerRef: input.reference ?? null,
+        collectedByUserId: actorUserId,
+      });
       await this.closeIfSettled(tx, restaurantId, tabId, actorUserId);
-      return parts.map((p) => p.orderId);
+      return orderIds;
     });
     for (const orderId of touched) this.realtime.publishMany(await this.orders.eventsForOrder(orderId));
     return this.bill(restaurantId, tabId);
@@ -178,7 +173,11 @@ export class TabsService {
     const row = await this.prisma.tableTab.findUnique({ where: { publicToken: token }, select: tabSelect });
     if (!row || !(await this.features.isEnabled('table_tabs', row.restaurantId)))
       throw notFound('TAB_NOT_FOUND', 'Tab not found');
-    return (await this.resolve(this.prisma, row)).bill;
+    const { bill } = await this.resolve(this.prisma, row);
+    return {
+      ...bill,
+      payOnline: bill.status === 'OPEN' && bill.dueMinor > 0 && (await this.canPayOnline(row.restaurantId)),
+    };
   }
 
   /** The table's running tab for the menu page, when there is one. */
@@ -193,7 +192,183 @@ export class TabsService {
     return `${this.config.getOrThrow<string>('PUBLIC_APP_URL').replace(/\/$/, '')}/hesap/${token}`;
   }
 
+  // -- Paying a share from the phone (docs/ACIK_HESAP.md, "Telefondan pay ödemesi") ---------
+
+  /** A share paid by card online always lands on the restaurant's own POS: tab orders are restaurant-collected. */
+  private async canPayOnline(restaurantId: string): Promise<boolean> {
+    const [restaurant, accepted] = await Promise.all([
+      this.prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { paymentMode: true } }),
+      this.mealCards.acceptedMethods(restaurantId),
+    ]);
+    return restaurant?.paymentMode === 'OWN_POS' && accepted.onlineCard;
+  }
+
+  async startOnlinePayment(token: string, input: PayTabShareInput, customerIp?: string): Promise<TabPaymentStartedDTO> {
+    const row = await this.prisma.tableTab.findUnique({ where: { publicToken: token }, select: tabSelect });
+    if (!row || !(await this.features.isEnabled('table_tabs', row.restaurantId)))
+      throw notFound('TAB_NOT_FOUND', 'Tab not found');
+    if (row.status !== 'OPEN') throw conflict('TAB_CLOSED', 'The tab is closed');
+    if (!(await this.canPayOnline(row.restaurantId))) {
+      throw conflict('PAYMENT_METHOD_NOT_ACCEPTED', 'The restaurant takes no card payment online');
+    }
+    const { orders } = await this.resolve(this.prisma, row);
+    if (input.amountMinor > this.owedOn(orders)) {
+      throw conflict('PAYMENT_STATE_INVALID', 'Amount exceeds what the tab owes');
+    }
+    const payment = await this.prisma.tabPayment.create({
+      data: {
+        restaurantId: row.restaurantId,
+        tabId: row.id,
+        amountMinor: input.amountMinor,
+        currency: row.restaurant.currency,
+        provider: 'POS',
+      },
+    });
+    const opened = await this.checkout.openHostedCheckout(row.restaurantId, {
+      orderRef: payment.id,
+      amountMinor: input.amountMinor,
+      currency: row.restaurant.currency,
+      returnUrl: input.returnUrl,
+      // The table's link carries no personal data; the provider's page asks for what it needs.
+      customerPhone: '',
+      ...(customerIp ? { customerIp } : {}),
+    });
+    if (opened.paymentMode !== 'OWN_POS') throw conflict('PAYMENT_METHOD_NOT_ACCEPTED', 'Not the restaurant POS');
+    await this.prisma.tabPayment.update({
+      where: { id: payment.id },
+      data: { provider: opened.providerCode, providerRef: opened.session.sessionId },
+    });
+    return { paymentId: payment.id, session: opened.session };
+  }
+
+  /** Null when the reference is not a tab share; otherwise what the notification did. */
+  async handleWebhook(
+    event: GatewayWebhookEvent,
+    scope: WebhookScope,
+  ): Promise<GatewayWebhookEvent['status'] | 'IGNORED' | null> {
+    if (!UUID.test(event.orderRef)) return null;
+    const payment = await this.prisma.tabPayment.findUnique({ where: { id: event.orderRef } });
+    if (!payment) return null;
+    if (scope.mode !== 'OWN_POS' || scope.restaurantId !== payment.restaurantId) return 'IGNORED';
+    if (event.currency !== payment.currency) throw badRequest('WEBHOOK_INVALID', 'Currency mismatch');
+    if (event.status === 'FAILED') {
+      await this.prisma.tabPayment.updateMany({
+        where: { id: payment.id, status: 'PENDING' },
+        data: { status: 'FAILED' },
+      });
+      return 'FAILED';
+    }
+    if (event.status !== 'CAPTURED') {
+      // A refund made in the provider's own panel is applied per order from the panel (docs/ACIK_HESAP.md).
+      this.logger.warn(`Tab payment ${payment.id}: ${event.status} notice left for staff`);
+      return 'IGNORED';
+    }
+    if (event.amountMinor <= 0) throw badRequest('WEBHOOK_INVALID', 'Empty payment');
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.tabPayment.updateMany({
+        where: { id: payment.id, status: { in: ['PENDING', 'FAILED'] } },
+        data: {
+          status: 'CAPTURED',
+          amountMinor: event.amountMinor,
+          providerRef: event.providerRef,
+          capturedAt: new Date(event.occurredAt),
+        },
+      });
+      if (count === 0) return null;
+      await this.lock(tx, payment.tabId);
+      const { orders } = await this.load(tx, payment.restaurantId, payment.tabId);
+      // Someone may have paid at the counter meanwhile: the bill takes only what it still owes.
+      const applied = Math.min(event.amountMinor, this.owedOn(orders));
+      const { orderIds } = await this.spread(tx, payment.restaurantId, orders, applied, {
+        provider: payment.provider,
+        method: 'ONLINE_CARD',
+        providerRef: event.providerRef,
+        collectedByUserId: null,
+      });
+      const excessMinor = event.amountMinor - applied;
+      if (excessMinor > 0) await tx.tabPayment.update({ where: { id: payment.id }, data: { excessMinor } });
+      await this.closeIfSettled(tx, payment.restaurantId, payment.tabId, null);
+      return { orderIds, excessMinor };
+    });
+    if (!outcome) return 'CAPTURED';
+    if (outcome.excessMinor > 0) await this.refundExcess(payment.id, event.providerRef, outcome.excessMinor);
+    for (const orderId of outcome.orderIds) this.realtime.publishMany(await this.orders.eventsForOrder(orderId));
+    return 'CAPTURED';
+  }
+
+  /** Gives back what the bill no longer owed, on the restaurant's POS; a failure stays on the record. */
+  private async refundExcess(paymentId: string, providerRef: string, amountMinor: number): Promise<void> {
+    try {
+      const payment = await this.prisma.tabPayment.findUniqueOrThrow({
+        where: { id: paymentId },
+        select: { restaurant: { select: { paymentConnection: true } } },
+      });
+      const pos = payment.restaurant.paymentConnection;
+      const gateway = pos ? this.payments.gateway(pos.providerCode) : null;
+      if (!pos || !gateway) throw new Error('No POS connection');
+      const result = await gateway.refund(
+        this.payments.cipher.decryptJson(pos.encryptedCredentials),
+        providerRef,
+        amountMinor,
+      );
+      if (!result.ok) throw new Error('Refund declined');
+      await this.prisma.tabPayment.update({ where: { id: paymentId }, data: { excessRefundedAt: new Date() } });
+    } catch (err) {
+      this.logger.warn(`Tab payment ${paymentId}: excess ${amountMinor} not refunded: ${(err as Error).message}`);
+    }
+  }
+
   // -- Helpers ---------------------------------------------------------------------
+
+  /** What the bill still owes over the orders a collection may pay (not those waiting for their own payment). */
+  private payableOf(orders: OrderRow[]): OrderRow[] {
+    return orders.filter((o) => countsOnBill(o.status) && o.status !== 'PENDING_PAYMENT');
+  }
+
+  private owedOn(orders: OrderRow[]): number {
+    return this.payableOf(orders).reduce((sum, o) => sum + this.orders.paymentOf(o).dueMinor, 0);
+  }
+
+  /** Spreads an amount over the tab's orders oldest first, each part an ordinary payment of its order (OWN_POS). */
+  private async spread(
+    tx: Prisma.TransactionClient,
+    restaurantId: string,
+    orders: OrderRow[],
+    amountMinor: number,
+    base: {
+      provider: string;
+      method: CollectTabPaymentInput['method'] | 'ONLINE_CARD';
+      providerRef: string | null;
+      collectedByUserId: string | null;
+    },
+  ): Promise<{ orderIds: string[] }> {
+    if (amountMinor <= 0) return { orderIds: [] };
+    const payable = this.payableOf(orders);
+    const dues = payable.map((o) => ({ orderId: o.id, dueMinor: this.orders.paymentOf(o).dueMinor }));
+    const capturedAt = new Date();
+    const parts = allocateTabPayment(amountMinor, dues);
+    for (const part of parts) {
+      const order = payable.find((o) => o.id === part.orderId)!;
+      const data = {
+        provider: base.provider,
+        method: base.method,
+        status: 'CAPTURED' as const,
+        amountMinor: part.amountMinor,
+        providerRef: base.providerRef,
+        capturedAt,
+        collectedByUserId: base.collectedByUserId,
+        paymentMode: 'OWN_POS' as const,
+      };
+      const pending = order.payments.find((p) => p.status === 'PENDING');
+      if (pending) await tx.payment.update({ where: { id: pending.id }, data });
+      else await tx.payment.create({ data: { restaurantId, orderId: order.id, currency: order.currency, ...data } });
+      await tx.order.update({
+        where: { id: order.id },
+        data: { paymentMethod: base.method, paymentProvider: base.method === 'MEAL_CARD' ? base.provider : null },
+      });
+    }
+    return { orderIds: parts.map((p) => p.orderId) };
+  }
 
   private async lock(tx: Prisma.TransactionClient, tabId: string): Promise<void> {
     await tx.$queryRaw`SELECT id FROM table_tabs WHERE id = ${tabId} FOR UPDATE`;
@@ -214,14 +389,14 @@ export class TabsService {
     tx: Prisma.TransactionClient,
     restaurantId: string,
     tabId: string,
-    actorUserId: string,
+    actorUserId: string | null,
   ): Promise<void> {
     const { bill } = await this.load(tx, restaurantId, tabId);
     const allDone = bill.orders.every((o) => isTerminalOrderStatus(o.status));
     if (bill.dueMinor === 0 && allDone) await this.markClosed(tx, tabId, actorUserId);
   }
 
-  private async markClosed(tx: Prisma.TransactionClient, tabId: string, actorUserId: string): Promise<void> {
+  private async markClosed(tx: Prisma.TransactionClient, tabId: string, actorUserId: string | null): Promise<void> {
     await tx.tableTab.update({
       where: { id: tabId },
       data: { status: 'CLOSED', openKey: null, closedAt: new Date(), closedByUserId: actorUserId },
@@ -273,6 +448,7 @@ export class TabsService {
       totalMinor,
       paidMinor: totalMinor - dueMinor,
       dueMinor,
+      payOnline: false,
       collect: null,
     };
   }

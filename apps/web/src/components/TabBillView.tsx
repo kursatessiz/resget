@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { formatMoney } from '@resget/shared';
-import type { TabBillDTO } from '@resget/shared';
-import { Badge, Card } from '@/components/ui';
-import { bffJson } from '@/lib/client-api';
+import type { TabBillDTO, TabPaymentStartedDTO } from '@resget/shared';
+import { Badge, Button, Card } from '@/components/ui';
+import { ApiError, bffJson } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
 import { TabSplit } from './TabSplit';
 
@@ -27,6 +27,24 @@ export function TabBillView({ initial, locale }: { initial: TabBillDTO; locale: 
   }, [bill.status, bill.token]);
 
   const money = (minor: number) => formatMoney({ amountMinor: minor, currency: bill.currency }, locale);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  /** A share paid by card on the restaurant's own POS; the bill follows once the POS confirms. */
+  const payOnline = async (amountMinor: number) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const started = await bffJson<TabPaymentStartedDTO>(`public/tabs/${bill.token}/pay`, {
+        method: 'POST',
+        body: JSON.stringify({ amountMinor, returnUrl: `${window.location.origin}/hesap/${bill.token}` }),
+      });
+      window.location.assign(started.session.redirectUrl);
+    } catch (err) {
+      setError(err instanceof ApiError ? t(`errors.${err.code}`) : t('common.error.network'));
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -88,7 +106,28 @@ export function TabBillView({ initial, locale }: { initial: TabBillDTO; locale: 
           ))}
         </ul>
       </Card>
-      {bill.status === 'OPEN' && bill.dueMinor > 0 && <TabSplit bill={bill} locale={locale} />}
+      {bill.status === 'OPEN' && bill.dueMinor > 0 && bill.payOnline && (
+        <Card title={t('tab.pay.title')} aria-label={t('tab.pay.title')}>
+          <div className="flex flex-col gap-2">
+            <p className="ui-caption">{t('tab.pay.hint')}</p>
+            {error && <p role="alert">{error}</p>}
+            <div>
+              <Button disabled={busy} onClick={() => void payOnline(bill.dueMinor)}>
+                {t('tab.pay.all', { amount: money(bill.dueMinor) })}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+      {bill.status === 'OPEN' && bill.dueMinor > 0 && (
+        <TabSplit
+          bill={bill}
+          locale={locale}
+          {...(bill.payOnline
+            ? { onUseShare: (amount: number) => void payOnline(amount), useShareLabel: t('tab.pay.useShare') }
+            : {})}
+        />
+      )}
     </div>
   );
 }

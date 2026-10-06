@@ -28,11 +28,12 @@ export type WebhookKind = 'meal-cards' | 'pos' | 'platform';
 export type WebhookScope = { mode: 'OWN_POS'; restaurantId: string } | { mode: 'PLATFORM_PSP' };
 
 /**
- * A notification whose reference is not an order but a courier tip
- * (docs/BAHSIS.md). Returns null when the reference is not a tip, so the
- * order payment path handles it.
+ * A notification whose reference is not an order but something else the
+ * restaurant or the platform collects: a courier tip (docs/BAHSIS.md) or a
+ * share of an open tab (docs/ACIK_HESAP.md). Returns null when the reference
+ * is not its own, so the next handler or the order payment path takes it.
  */
-export type TipWebhookHandler = (
+export type ReferenceWebhookHandler = (
   event: GatewayWebhookEvent,
   scope: WebhookScope,
 ) => Promise<GatewayWebhookEvent['status'] | 'IGNORED' | null>;
@@ -61,7 +62,7 @@ export interface WebhookOutcome {
 @Injectable()
 export class CheckoutService {
   private readonly logger = new Logger(CheckoutService.name);
-  private tipHandler: TipWebhookHandler | null = null;
+  private readonly referenceHandlers: ReferenceWebhookHandler[] = [];
 
   constructor(
     private readonly prisma: PrismaService,
@@ -77,9 +78,9 @@ export class CheckoutService {
     this.orders.setPaymentIntentResolver((restaurantId, intent) => this.resolveIntent(restaurantId, intent));
   }
 
-  /** Set by the tips module so a tip's notification reaches it before the order payment path. */
-  setTipWebhookHandler(handler: TipWebhookHandler): void {
-    this.tipHandler = handler;
+  /** Registered by the tips and tabs modules so their notifications reach them before the order payment path. */
+  addReferenceHandler(handler: ReferenceWebhookHandler): void {
+    this.referenceHandlers.push(handler);
   }
 
   /** The provider code of the platform's own merchant account (docs/ODEME.md). */
@@ -346,11 +347,13 @@ export class CheckoutService {
       ...(event.ack ? { ack: event.ack } : {}),
       ...(event.browserRedirectUrl ? { browserRedirectUrl: event.browserRedirectUrl } : {}),
     });
-    // A courier tip travels with its own reference (docs/BAHSIS.md); meal-card issuers never collect one.
-    if (kind !== 'meal-cards' && this.tipHandler) {
+    // A tip or a tab share travels with its own reference; meal-card issuers never collect one.
+    if (kind !== 'meal-cards') {
       const scope: WebhookScope = restaurantId ? { mode: 'OWN_POS', restaurantId } : { mode: 'PLATFORM_PSP' };
-      const tipStatus = await this.tipHandler(event, scope);
-      if (tipStatus) return reply(tipStatus);
+      for (const handler of this.referenceHandlers) {
+        const handled = await handler(event, scope);
+        if (handled) return reply(handled);
+      }
     }
 
     const payment = await this.prisma.payment.findFirst({

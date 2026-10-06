@@ -31,6 +31,11 @@ export const enTab: Record<keyof typeof trTab, string> = {
   'tab.split.over': 'The amounts exceed what is left, {amount}.',
   'tab.split.basis': 'Amount split: {amount}',
   'tab.split.useShare': 'Collect this share',
+  'tab.pay.title': 'Pay by card',
+  'tab.pay.hint':
+    "The payment is taken on the restaurant's own POS, on the card provider's page; the bill updates by itself once it is confirmed.",
+  'tab.pay.all': 'Pay the rest by card ({amount})',
+  'tab.pay.useShare': 'Pay this share by card',
   'tab.panel.title': 'Open tabs',
   'tab.panel.intro':
     "The tables' open tabs. Collect a bill in one go or in shares, with cash, a card or a meal card; once everything is paid and the orders are served, the tab closes by itself.",
