@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { OrderRatingDTO } from './ratings';
 import type { TipOfferDTO, TrackingTipDTO } from './tips';
+import type { DeliveryRequestSummaryDTO } from './courier-overview';
 import type { OrderSource } from './ordering-links';
 import {
   DeliveryStopStatus,
@@ -678,6 +679,8 @@ export interface OrderSummaryDTO {
   openClaimId: string | null;
   /** Chosen method, issuer and what is still due at the door (docs/YEMEK_KARTI.md). */
   payment: OrderPaymentDTO;
+  /** The courier network delivering this order, when one was called (docs/KURYE.md). */
+  courierRequest: DeliveryRequestSummaryDTO | null;
 }
 
 export interface OrderDetailDTO extends OrderSummaryDTO {
@@ -811,6 +814,8 @@ export interface OrderTrackingDTO {
   /** The customer's courier tip (docs/BAHSIS.md) and, while one can still be given, what to offer. */
   tip: TrackingTipDTO | null;
   tipOffer: TipOfferDTO | null;
+  /** The courier network carrying the order while its request is active (docs/KURYE.md). */
+  courierNetwork: { name: string; trackingUrl: string | null } | null;
 }
 
 // -- Realtime events -----------------------------------------------------------------

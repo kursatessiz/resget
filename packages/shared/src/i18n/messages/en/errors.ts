@@ -12,6 +12,8 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.TABLE_NOT_FOUND': 'This table could not be found. Please ask the staff.',
   'errors.MENU_UNAVAILABLE': 'The menu cannot be shown right now.',
   'errors.COURIER_QUOTE_FAILED': 'Could not get a courier quote. Please try again.',
+  'errors.COURIER_REQUEST_NOT_ALLOWED': 'A courier cannot be called for this order right now.',
+  'errors.COURIER_DISPATCH_FAILED': 'The courier network did not accept the call. Please try again.',
   'errors.PAYMENT_CONNECTION_REQUIRED': 'This mode needs a virtual POS connection first.',
   'errors.ORDER_NOT_FOUND': 'Order not found.',
   'errors.ORDER_TRANSITION_INVALID': 'The order cannot move from its current status to that one.',

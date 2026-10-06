@@ -32,6 +32,7 @@ function tracking(status: string): RealtimeEvent {
     canClaim: false,
     tip: null,
     tipOffer: null,
+    courierNetwork: null,
   };
   return { type: 'tracking.updated', tracking: dto };
 }

@@ -131,7 +131,7 @@ Harita döşeme sağlayıcısı (ücret, lisans, Türkiye kapsama) sahibin karar
 
 ## 8. Üçüncü taraf kuryeyle ilişki
 
-`DeliveryMode.THIRD_PARTY_API` siparişlerinde hareket `DeliveryRequest` ve `CourierProviderAdapter` webhook'larından gelir (Faz 2, `docs/KURYE.md`). Bu olaylar aynı sipariş durum makinesine bağlanır (ASSIGNED -> HANDED_TO_COURIER, PICKED_UP -> OUT_FOR_DELIVERY, DELIVERED -> DELIVERED); müşteri takip sayfası her iki modda aynıdır.
+Kurye ağına verilen siparişlerde hareket `DeliveryRequest` ve `CourierProviderAdapter` webhook'larından gelir (`docs/KURYE.md`, "Kurye çağırma"; personel sipariş kartından çağırır, `POST /webhooks/courier/<kod>` imza doğrulanarak işlenir). Bu olaylar aynı sipariş durum makinesine bağlanır (`networkOrderSteps()`: ASSIGNED -> HANDED_TO_COURIER, PICKED_UP -> OUT_FOR_DELIVERY, DELIVERED -> DELIVERED, iptal ve başarısızlıkta kurye bacağından READY'ye dönüş). Müşteri takip sayfası her iki modda aynıdır; ağ siparişinde kurye kartı yerine ağın adı ve takip bağlantısı gösterilir.
 
 ## 9. Sonraki adımlar
 

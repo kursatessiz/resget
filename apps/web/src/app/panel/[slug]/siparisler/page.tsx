@@ -15,6 +15,7 @@ export default async function OrdersPage({ params }: { params: Promise<{ slug: s
         locale={locale}
         canManage={can('orders.manage')}
         canRefund={can('orders.refund')}
+        canDispatch={can('dispatch.manage')}
       />
     </div>
   );

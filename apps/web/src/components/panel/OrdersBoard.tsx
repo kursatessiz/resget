@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isTerminalOrderStatus } from '@resget/shared';
-import type { OrderDetailDTO, OrderStatusValue, OrderSummaryDTO, RealtimeEvent } from '@resget/shared';
+import type {
+  CourierNetworkStatusDTO,
+  OrderDetailDTO,
+  OrderStatusValue,
+  OrderSummaryDTO,
+  RealtimeEvent,
+} from '@resget/shared';
 import { Badge, Button } from '@/components/ui';
 import { ApiError, bffJson, useRealtime } from '@/lib/client-api';
 import type { RefundRequest } from './RefundPanel';
@@ -65,11 +71,14 @@ export function OrdersBoard({
   locale,
   canManage,
   canRefund = false,
+  canDispatch = false,
 }: {
   restaurantId: string;
   locale: string;
   canManage: boolean;
   canRefund?: boolean;
+  /** The member holds dispatch.manage: courier network calls are offered (docs/KURYE.md). */
+  canDispatch?: boolean;
 }) {
   const t = useT(locale);
   const [orders, setOrders] = useState<Map<string, OrderSummaryDTO>>(new Map());
@@ -80,6 +89,14 @@ export function OrdersBoard({
   const seen = useRef<Set<string>>(new Set());
   const alarmed = useRef<Set<string>>(new Set());
   const base = `restaurants/${restaurantId}/orders`;
+  const [network, setNetwork] = useState<CourierNetworkStatusDTO | null>(null);
+
+  useEffect(() => {
+    if (!canDispatch) return;
+    bffJson<CourierNetworkStatusDTO>(`restaurants/${restaurantId}/courier/network`)
+      .then(setNetwork)
+      .catch(() => setNetwork(null));
+  }, [canDispatch, restaurantId]);
 
   useEffect(() => {
     try {
@@ -151,6 +168,22 @@ export function OrdersBoard({
         method: 'POST',
         body: JSON.stringify({ to, ...extra }),
       });
+      upsert(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? t(`errors.${err.code}`) : t('common.error.network'));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const courier = async (order: OrderSummaryDTO, action: 'call' | 'cancel') => {
+    setBusyId(order.id);
+    setError(null);
+    try {
+      const updated = await bffJson<OrderDetailDTO>(
+        `${base}/${order.id}/courier-request${action === 'cancel' ? '/cancel' : ''}`,
+        { method: 'POST', body: '{}' },
+      );
       upsert(updated);
     } catch (err) {
       setError(err instanceof ApiError ? t(`errors.${err.code}`) : t('common.error.network'));
@@ -238,6 +271,8 @@ export function OrdersBoard({
                   onRefund={(o, request) => void refund(o, request)}
                   onClaim={(o, claimId, decision) => void decideClaim(o, claimId, decision)}
                   loadDetail={(o) => bffJson<OrderDetailDTO>(`${base}/${o.id}`)}
+                  courierNetwork={network?.available ? network.providerName : null}
+                  onCourier={canDispatch ? (o, action) => void courier(o, action) : undefined}
                 />
               ))}
             </section>

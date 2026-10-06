@@ -43,6 +43,13 @@ export const enCourier: Record<keyof typeof trCourier, string> = {
   'courier.requests.status.PICKED_UP': 'Picked up',
   'courier.requests.status.DELIVERED': 'Delivered',
   'courier.requests.status.CANCELLED': 'Cancelled',
+  'courier.call.button': 'Call a courier',
+  'courier.call.cancel': 'Cancel the courier call',
+  'courier.call.called': 'A {provider} courier was called.',
+  'courier.call.cancelled': 'The courier call was cancelled.',
+  'courier.call.label': '{provider}: {status}',
+  'courier.call.eta': 'Pickup {pickup} min, drop-off {dropoff} min',
+  'courier.call.track': "The network's tracking page",
   'courier.requests.status.FAILED': 'Failed',
   'courier.separateFromCommission': 'The courier fee is a service separate from the platform commission.',
 };

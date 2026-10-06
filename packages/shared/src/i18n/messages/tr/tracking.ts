@@ -38,6 +38,8 @@ export const trTracking = {
   'tracking.map.courier': '{name} (kurye)',
   'tracking.map.destination': 'Teslimat adresi',
   'tracking.items': 'Sipariş içeriği',
+  'tracking.courierNetwork': 'Siparişinizi {name} kuryesi getiriyor.',
+  'tracking.courierNetworkLink': 'Kuryeyi izle',
   'tracking.rating.title': 'Siparişinizi değerlendirin',
   'tracking.rating.intro': 'Puanınız yalnızca işletmeye gider ve menüsünü geliştirmesine yardım eder.',
   'tracking.rating.score': 'Puan',
