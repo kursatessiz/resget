@@ -1,8 +1,16 @@
 import { Controller, Get, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { StartTipSchema, TipsReportQuerySchema, TrackingTokenSchema, UuidSchema } from '@resget/shared';
-import type { StartTipInput, TipDTO, TipStartedDTO, TipsReportDTO, TipsReportQuery } from '@resget/shared';
+import type {
+  CourierTipsSummaryDTO,
+  StartTipInput,
+  TipDTO,
+  TipStartedDTO,
+  TipsReportDTO,
+  TipsReportQuery,
+} from '@resget/shared';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/zod-body.pipe';
+import { forbidden } from '../../common/api-error';
 import { RequireFeature, RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
 import { Tenant } from '../auth/decorators/current-user.decorator';
 import type { TenantContext } from '../auth/tenant-context';
@@ -23,6 +31,18 @@ export class TipsController {
     @ZodQuery(TipsReportQuerySchema) query: TipsReportQuery,
   ): Promise<TipsReportDTO> {
     return this.tips.report(tenant.restaurantId, query.days);
+  }
+
+  /** The signed-in courier's own tips (docs/BAHSIS.md, "Rapor"); a courier never sees another's. */
+  @Get('me')
+  @RequirePermission('courier.deliver')
+  @RequireFeature('courier_tips')
+  mine(
+    @Tenant() tenant: TenantContext,
+    @ZodQuery(TipsReportQuerySchema) query: TipsReportQuery,
+  ): Promise<CourierTipsSummaryDTO> {
+    if (!tenant.membershipId) throw forbidden('COURIER_NOT_ASSIGNED', 'Super admins have no courier identity');
+    return this.tips.mine(tenant.restaurantId, tenant.membershipId, query.days);
   }
 
   @Post(':tipId/pass-through')

@@ -23,6 +23,8 @@ export const enTips: Record<keyof typeof trTips, string> = {
   'tips.status.CHARGED_BACK': 'Disputed',
   'tips.passThrough.SENT': 'Sent to the network',
   'tips.passThrough.FAILED': 'Not sent to the network',
+  'tips.mine.title': 'My tips',
+  'tips.mine.line': 'Order {code}: {net} net',
   'tips.report.title': 'Tips',
   'tips.report.intro':
     'Tips customers gave after delivery. The net amount belongs to the courier; the platform takes no commission, only the payment provider fee comes off.',

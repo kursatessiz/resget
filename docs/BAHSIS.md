@@ -11,7 +11,7 @@ Modül anahtarı `courier_tips` (teslimat, varsayılan kapalı, BETA).
 
 ## Kim, ne zaman bahşiş verebilir
 
-Siparişin müşterisi, takip sayfasından (`/t/<token>`) bahşiş verir. Kart şu koşulların hepsi sağlanınca görünür (`tipOffer`):
+Siparişin müşterisi, takip sayfasından (`/t/<token>`) veya uygulamanın takip ekranından bahşiş verir. Uygulama aynı kartı gösterir; ödeme tarayıcıda hosted sayfada alınır, dönüş web takip sayfasınadır ve müşteri uygulamaya dönünce ekran yeniden okunur. Kart şu koşulların hepsi sağlanınca görünür (`tipOffer`):
 
 - **Sipariş**: teslimat siparişidir (`DELIVERY`) ve durumu `DELIVERED`'dır.
 - **Süre**: teslimden bu yana en fazla `TIP_WINDOW_DAYS` gün geçmiştir. Bu süre değerlendirme süresiyle aynıdır (7 gün).
@@ -73,12 +73,15 @@ Panelde `/kurye` ekranında "Bahşişler" kartı yer alır (`courier.manage`; `G
 
 Aralık tahsil anına (`capturedAt`) göredir. Varsayılan aralık son 30 gündür (`TIP_REPORT_DEFAULT_DAYS`).
 
+Kendi kurye, uygulamanın kurye ekranında yalnızca kendi bahşişlerini görür ("Bahşişlerim"; `GET /restaurants/:id/tips/me`, `courier.deliver`): son 30 günün adedi, brüt, kesinti ve net toplamı ile son bahşişler. Başka bir kuryenin bahşişi bu uçta hiçbir zaman görünmez. Kart modül kapalıyken gösterilmez.
+
 ## Uçlar
 
 | Uç | Yetki |
 |---|---|
 | `POST /public/orders/:token/tip` | Takip token'ı (hız sınırlı) |
 | `GET /restaurants/:id/tips` | `courier.manage`, `@RequireFeature('courier_tips')` |
+| `GET /restaurants/:id/tips/me` | `courier.deliver`, `@RequireFeature('courier_tips')` |
 | `POST /restaurants/:id/tips/:tipId/pass-through` | `courier.manage`, `@RequireFeature('courier_tips')` |
 | `POST /webhooks/payments/platform/:providerCode` | İmza doğrulaması |
 
@@ -90,6 +93,5 @@ Hata kodları:
 
 ## Kalan
 
-- Kuryenin kendi bahşiş özeti ve müşteri takip ekranındaki bahşiş kartı mobil uygulamada (bugün müşteri yüzeyi web takip sayfasıdır).
 - Gerçek kurye ağı adaptörlerinde bahşiş aktarımı: ağın API'si belgelendiğinde eklenir.
 - Panelden bahşiş iadesi.

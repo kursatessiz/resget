@@ -21,6 +21,8 @@ export const trTips = {
   'tips.status.CHARGED_BACK': 'İtiraz edildi',
   'tips.passThrough.SENT': 'Ağa aktarıldı',
   'tips.passThrough.FAILED': 'Ağa aktarılamadı',
+  'tips.mine.title': 'Bahşişlerim',
+  'tips.mine.line': 'Sipariş {code}: net {net}',
   'tips.report.title': 'Bahşişler',
   'tips.report.intro':
     'Müşterilerin teslimattan sonra verdiği bahşişler. Net tutar kuryeye aittir; platform komisyon almaz, yalnızca ödeme kuruluşunun kesintisi düşer.',

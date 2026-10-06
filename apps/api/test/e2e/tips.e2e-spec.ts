@@ -1,7 +1,14 @@
 import { createHmac } from 'node:crypto';
 import type { PaymentMode } from '@resget/database';
 import { normalizePhone } from '@resget/shared';
-import type { OrderDetailDTO, OrderTrackingDTO, TipDTO, TipStartedDTO, TipsReportDTO } from '@resget/shared';
+import type {
+  CourierTipsSummaryDTO,
+  OrderDetailDTO,
+  OrderTrackingDTO,
+  TipDTO,
+  TipStartedDTO,
+  TipsReportDTO,
+} from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
 
@@ -196,6 +203,17 @@ describe('Courier tips (e2e)', () => {
     const detail = (await ctx.http().get(`/restaurants/${restaurantId}/orders/${order.id}`).set(owner()).expect(200))
       .body as OrderDetailDTO;
     expect(detail.payment).toEqual(before.payment);
+
+    // The courier sees the tip in their own summary; the owner, who delivered nothing, does not.
+    const courierToken = await ctx.login(COURIER_PHONE);
+    const mine = (
+      await ctx.http().get(`/restaurants/${restaurantId}/tips/me`).set(bearer(courierToken, restaurantId)).expect(200)
+    ).body as CourierTipsSummaryDTO;
+    expect(mine.recent.find((r) => r.id === started.tipId)).toMatchObject({ status: 'CAPTURED', netMinor: 2410 });
+    expect(mine.totals.netMinor).toBeGreaterThanOrEqual(2410);
+    const theirs = (await ctx.http().get(`/restaurants/${restaurantId}/tips/me`).set(owner()).expect(200))
+      .body as CourierTipsSummaryDTO;
+    expect(theirs.recent.some((r) => r.id === started.tipId)).toBe(false);
   });
 
   it('offers no tip for an order without a courier', async () => {

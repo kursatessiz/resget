@@ -121,6 +121,14 @@ export interface TipDTO {
   passThroughStatus: TipPassThroughStatus | null;
 }
 
+/** The courier's own tips in the app (courier mode): only what this courier delivered. */
+export interface CourierTipsSummaryDTO {
+  days: number;
+  currency: string;
+  totals: TipTotalsDTO;
+  recent: TipDTO[];
+}
+
 export interface TipsReportDTO {
   days: number;
   currency: string;
