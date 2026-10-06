@@ -20,6 +20,7 @@ import type {
   TipDTO,
   TipStartedDTO,
   TipTotalsDTO,
+  CourierTipsSummaryDTO,
   TipsReportDTO,
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -423,6 +424,29 @@ export class TipsService {
     await this.passThrough(tip.id);
     const row = await this.prisma.courierTip.findUniqueOrThrow({ where: { id: tip.id }, include: REPORT_INCLUDE });
     return toDto(row);
+  }
+
+  /** One courier's tips over the last days (courier mode in the app): totals and the latest, nothing of others. */
+  async mine(restaurantId: string, membershipId: string, days: number): Promise<CourierTipsSummaryDTO> {
+    const restaurant = await this.prisma.restaurant.findUniqueOrThrow({
+      where: { id: restaurantId },
+      select: { currency: true },
+    });
+    const rows = await this.prisma.courierTip.findMany({
+      where: {
+        restaurantId,
+        courierMembershipId: membershipId,
+        currency: restaurant.currency,
+        capturedAt: { gte: new Date(Date.now() - days * 86_400_000) },
+        status: { in: [...SETTLED] },
+      },
+      include: REPORT_INCLUDE,
+      orderBy: { capturedAt: 'desc' },
+      take: REPORT_ROW_CAP,
+    });
+    const totals = emptyTotals();
+    for (const row of rows) if (row.status === 'CAPTURED') addTo(totals, row);
+    return { days, currency: restaurant.currency, totals, recent: rows.slice(0, RECENT_LIMIT).map(toDto) };
   }
 
   async report(restaurantId: string, days: number): Promise<TipsReportDTO> {
