@@ -57,6 +57,7 @@ export const MESSAGE_TEMPLATE_KEYS = [
   'listing.declined',
   'consent.confirm',
   'apiKey.expiring',
+  'loyalty.earned',
 ] as const;
 export type MessageTemplateKey = (typeof MESSAGE_TEMPLATE_KEYS)[number];
 /** Platform messages that always go by SMS and have no WhatsApp template: the sign-in code and the consent confirmation link. */

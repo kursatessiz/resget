@@ -6,11 +6,12 @@ import { OrdersService } from './orders.service';
 import { SettlementService } from './settlement.service';
 import { OrderNotificationsService } from './order-notifications.service';
 import { OrdersWatchdog } from './orders.watchdog';
+import { LoyaltyEarnedNotifier } from './loyalty-earned.notifier';
 
 @Module({
   imports: [AuthModule],
   controllers: [OrdersController, PublicTrackingController],
-  providers: [SettlementService, OrdersService, OrderNotificationsService, OrdersWatchdog],
+  providers: [SettlementService, OrdersService, OrderNotificationsService, OrdersWatchdog, LoyaltyEarnedNotifier],
   exports: [SettlementService, OrdersService, OrderNotificationsService, OrdersWatchdog],
 })
 export class OrdersModule {}

@@ -28,6 +28,8 @@ export const trMessaging = {
   'messaging.template.campaign.body': '{restaurant}: {body} Cikmak icin: {url}',
   'messaging.template.order.acceptOverdue':
     '{restaurant}: {code} numarali siparis {minutes} dakikadir kabul bekliyor. Siparis ekranini acin.',
+  'messaging.template.loyalty.earned':
+    '{restaurant}: son siparisinizle {points} puan kazandiniz. Bakiyeniz {balance} puan; bir sonraki sipariste indirim olarak kullanabilirsiniz.',
   'messaging.template.apiKey.expiring':
     '{restaurant}: "{name}" adli API anahtarinizin suresi {date} tarihinde doluyor. Entegrasyonunuz durmasin diye panelden yeni anahtar olusturun.',
   'messaging.template.invoice.issued':
@@ -83,6 +85,7 @@ export const trMessaging = {
   'messaging.wallet.channel.PUSH': 'Push bildirimi',
   'messaging.log.error.DEVICE_GONE': 'Cihaz artık kayıtlı değil',
   'messaging.log.template.order.arriving': 'Kurye yaklaşıyor',
+  'messaging.log.template.loyalty.earned': 'Puan kazanıldı',
   'messaging.log.template.order.completed': 'Sipariş tamamlandı',
   'messaging.log.template.trip.assigned': 'Sefer atandı',
   'messaging.log.template.order.placed': 'Yeni sipariş',
@@ -112,6 +115,9 @@ export const trMessaging = {
   'messaging.push.feedback.lowRating.title': 'Düşük puan: sipariş {code}',
   'messaging.push.feedback.lowRating.body':
     '{restaurant}: bir müşteri siparişe {score} puan verdi; geri bildirim sayfasında takip edin.',
+  'messaging.push.loyalty.earned.title': 'Puan kazandınız',
+  'messaging.push.loyalty.earned.body':
+    '{restaurant}: son siparişinizle {points} puan kazandınız. Bakiyeniz {balance} puan.',
   'messaging.push.tip.received.title': 'Bahşiş aldınız',
   'messaging.push.tip.received.body': '{restaurant}: sipariş {code} için {amount} bahşiş.',
   'messaging.push.order.claimFiled.title': 'Eksik ürün bildirimi {code}',
