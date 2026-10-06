@@ -52,6 +52,7 @@ Hesaba kaydedilecek şablonlar (Türkçe; İngilizce metinler `en` dilinde aynı
 | `resget_order_partially_refunded` | UTILITY | Merhaba, {{1}} siparişiniz ({{2}}) için {{3}} iade edildi. Anlayışınız için teşekkürler. |
 | `resget_order_claim_declined` | UTILITY | Merhaba, {{1}} siparişinizdeki ({{2}}) eksik ürün bildiriminiz kabul edilmedi. {{3}} Anlayışınız için teşekkürler. |
 | `resget_order_accept_overdue` | UTILITY | Dikkat: {{1}} için {{2}} numaralı sipariş {{3}} dakikadır kabul bekliyor. Sipariş ekranını açın. |
+| `resget_api_key_expiring` | UTILITY | Merhaba, {{1}} için "{{2}}" adlı API anahtarının süresi {{3}} tarihinde doluyor. Entegrasyon durmasın diye panelden yeni anahtar oluşturun. |
 | `resget_invoice_issued` | UTILITY | Merhaba, {{1}} için {{2}} dönemi komisyon faturası {{3}}, son ödeme {{4}}. Kayıtlı kartınızdan otomatik tahsil edilir; ayrıntılar panelde. |
 | `resget_invoice_overdue` | UTILITY | Merhaba, {{1}} için {{2}} dönemi komisyon faturasının ({{3}}) vadesi geçti. Pazaryeri listelemesi ödeme alınana kadar askıda; masa QR ve sipariş sayfası çalışmaya devam eder. |
 | `resget_listing_approved` | UTILITY | Merhaba, {{1}} için pazaryeri listelemesi onaylandı. {{2}} Bölgenizdeki müşteriler artık sizi görebilir. |

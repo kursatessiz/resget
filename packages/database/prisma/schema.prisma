@@ -1195,6 +1195,8 @@ model RestaurantApiKey {
   revokedAt       DateTime?
   /// After this moment the key is refused (401 API_KEY_EXPIRED); null means it never expires.
   expiresAt       DateTime?
+  /// When the owner was reminded that the key is about to expire; once per key.
+  expiryNoticeAt  DateTime?
   createdByUserId String?
   createdAt       DateTime  @default(now())
 

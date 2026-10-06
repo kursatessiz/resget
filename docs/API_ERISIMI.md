@@ -10,6 +10,9 @@ Restoranın kendi yazılımı (kasa, ERP, web sitesi) panelin kullandığı rest
 4. **Plan düşerse anahtar durur, silinmez.** `api_access` taşımayan planda her anahtarlı çağrı `PLAN_FEATURE_REQUIRED` ile 403 döner; plan dönünce aynı anahtar çalışır.
 5. **Geçersiz anahtar oturuma düşmez.** `x-api-key` başlığı varsa yalnızca anahtar değerlendirilir; bozuk, bilinmeyen veya iptal edilmiş anahtar 401'dir, yanında bearer olsa bile.
 6. **Süresi dolan anahtar kendi koduyla reddedilir.** Anahtar oluşturulurken bir geçerlilik süresi alabilir; süre dolunca her çağrı 401 `API_KEY_EXPIRED` döner. Böylece entegrasyon, yanlış anahtar (`UNAUTHORIZED`) ile süresi dolmuş anahtarı ayırt eder. Süre uzatılmaz; yeni anahtar oluşturulur.
+   - **Hatırlatma**: süresi 7 gün içinde dolacak anahtar için sahibe bir kez SMS gider (`API_KEY_EXPIRY_NOTICE_DAYS`, şablon `apiKey.expiring`). İş saatte bir çalışır (`ApiKeyExpiryNotifier`, `API_KEY_EXPIRY_NOTICES=off` kapatır).
+   - Hatırlatma, fatura bildirimleri gibi platform trafiğidir: restoranın mesaj kredisinden düşmez.
+   - Anahtar mesajdan önce işaretlenir (`expiryNoticeAt`). Böylece iki API örneği aynı anahtar için iki kez hatırlatmaz. İptal edilmiş veya süresi zaten dolmuş anahtar için hatırlatma gitmez.
 
 ## Kullanım
 
@@ -64,8 +67,8 @@ Her anahtar dakikada `API_KEY_RATE_LIMIT` (varsayılan 600) istek yapabilir; aş
 
 ## Testler
 
-API e2e `webhooks.e2e-spec.ts`: yerel bir alıcıya imzalı teslim ve imza doğrulaması, 500 yanıtında geri çekilmeli yeniden deneme ve sayaç, deneme gönderimi, duraklatmada kuyruk açılmaması, silme, anahtarla yönetim reddi; ürün ve kategori değişikliğinde menü olayları, başarısız teslimin aynı kimlikle yeniden gönderilmesi, gönderilmiş teslimde ve duraklatılmış adreste ret. API e2e `api-keys.e2e-spec.ts`: oluşturma ve tek seferlik token, listede sır yok, verilen ve verilmeyen yetkiler, verilemeyen yetki, yalnızca oturum uçları, başka restoran, bozuk anahtar ve bearer ile birlikte, `me/*` reddi, Temel planda 403, iptal sonrası 401, bulunamayan anahtar; geçerlilik süresi ve süresi dolan anahtarda `API_KEY_EXPIRED`, izin verilmeyen süre, gün bazında sayım ve rapor, anahtarla rapor reddi. Playwright `api-keys.e2e.ts`: süreli oluşturma, token kartı, kullanım özeti ve raporu, iptal. Birim testi `packages/shared/src/api-keys.spec.ts`: süre seçenekleri, durum, UTC gün penceresi.
+API e2e `webhooks.e2e-spec.ts`: yerel bir alıcıya imzalı teslim ve imza doğrulaması, 500 yanıtında geri çekilmeli yeniden deneme ve sayaç, deneme gönderimi, duraklatmada kuyruk açılmaması, silme, anahtarla yönetim reddi; ürün ve kategori değişikliğinde menü olayları, başarısız teslimin aynı kimlikle yeniden gönderilmesi, gönderilmiş teslimde ve duraklatılmış adreste ret. API e2e `api-keys.e2e-spec.ts`: oluşturma ve tek seferlik token, listede sır yok, verilen ve verilmeyen yetkiler, verilemeyen yetki, yalnızca oturum uçları, başka restoran, bozuk anahtar ve bearer ile birlikte, `me/*` reddi, Temel planda 403, iptal sonrası 401, bulunamayan anahtar; geçerlilik süresi ve süresi dolan anahtarda `API_KEY_EXPIRED`, izin verilmeyen süre, gün bazında sayım ve rapor, anahtarla rapor reddi. Playwright `api-keys.e2e.ts`: süreli oluşturma, token kartı, kullanım özeti ve raporu, iptal. Süresi yaklaşan anahtarda sahibe tek hatırlatma (iptal edilen ve 7 günden uzak anahtar hariç) da `api-keys.e2e-spec.ts` içindedir. Birim testi `packages/shared/src/api-keys.spec.ts`: süre seçenekleri, durum, UTC gün penceresi.
 
 ## Kalan
 
-- Süresi yaklaşan anahtar için sahibe hatırlatma (mesajlaşma motoru).
+- Yok. Yeni istekler bu belgeye eklenir.

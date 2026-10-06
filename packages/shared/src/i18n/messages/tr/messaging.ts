@@ -28,6 +28,8 @@ export const trMessaging = {
   'messaging.template.campaign.body': '{restaurant}: {body} Cikmak icin: {url}',
   'messaging.template.order.acceptOverdue':
     '{restaurant}: {code} numarali siparis {minutes} dakikadir kabul bekliyor. Siparis ekranini acin.',
+  'messaging.template.apiKey.expiring':
+    '{restaurant}: "{name}" adli API anahtarinizin suresi {date} tarihinde doluyor. Entegrasyonunuz durmasin diye panelden yeni anahtar olusturun.',
   'messaging.template.invoice.issued':
     '{restaurant}: {period} donemi komisyon faturaniz {amount}. Son odeme {due}. Kayitli kartinizdan otomatik tahsil edilir; detaylar panelde Finans sayfasinda.',
   'messaging.template.invoice.overdue':
