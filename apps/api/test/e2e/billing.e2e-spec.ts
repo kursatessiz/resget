@@ -76,6 +76,11 @@ describe('Commission billing (e2e)', () => {
   const invoicesOf = () =>
     ctx.prisma.commissionInvoice.findMany({ where: { restaurantId }, orderBy: { periodStart: 'desc' } });
 
+  // A domain only this suite uses, so the summary email is told apart from other restaurants' mail in the log.
+  const OWNER_EMAIL = 'o@billing-summary.e2e.example.com';
+  let ownerEmailBefore: string | null = null;
+  const startedAt = new Date();
+
   beforeAll(async () => {
     ctx = await createTestApp();
     adminToken = await ctx.login(SEED.superAdminPhone);
@@ -88,6 +93,9 @@ describe('Commission billing (e2e)', () => {
     restaurantId = restaurant.id;
     branchId = restaurant.branches[0].id;
     menuItemId = (await ctx.prisma.menuItem.findFirstOrThrow({ where: { restaurantId }, select: { id: true } })).id;
+    const owner = await ctx.prisma.user.findUniqueOrThrow({ where: { phone: SEED.ownerPhone } });
+    ownerEmailBefore = owner.email;
+    await ctx.prisma.user.update({ where: { id: owner.id }, data: { email: OWNER_EMAIL } });
     const stalePeriods = [lastMonth, monthBefore].map((p) => commissionPeriod(p.year, p.month).periodStart);
     await ctx.prisma.commissionInvoice.deleteMany({ where: { restaurantId, periodStart: { in: stalePeriods } } });
     await ctx.prisma.restaurant.update({
@@ -107,6 +115,7 @@ describe('Commission billing (e2e)', () => {
       where: { id: restaurantId },
       data: { billingPaymentMethodId: null, listingSuspendedAt: null },
     });
+    await ctx.prisma.user.update({ where: { phone: SEED.ownerPhone }, data: { email: ownerEmailBefore } });
     await ctx.close();
   });
 
@@ -133,6 +142,12 @@ describe('Commission billing (e2e)', () => {
     const second = await ctx.http().post('/admin/billing/run').set(bearer(adminToken)).send({}).expect(200);
     expect(second.body.issued).toBe(0);
     expect(await invoicesOf()).toHaveLength(1);
+    // The owner gave an address: one summary email at the cut, from the platform, never on the second run.
+    const emails = await ctx.prisma.messageLog.findMany({
+      where: { channel: 'EMAIL', toMasked: 'o***@billing-summary.e2e.example.com', createdAt: { gte: startedAt } },
+    });
+    expect(emails).toHaveLength(1);
+    expect(emails[0]).toMatchObject({ templateKey: 'email.invoice.summary', status: 'SENT', restaurantId: null });
 
     const overview = await ctx.http().get(`/restaurants/${restaurantId}/billing`).set(bearer(ownerToken)).expect(200);
     expect(overview.body.invoices[0]).toMatchObject({ id: invoice.id, status: 'ISSUED', totalMinor: 1200 });

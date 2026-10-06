@@ -48,7 +48,7 @@ Her denemede bir `message_logs` satırı yazılır (kanal `EMAIL`, maskeli adres
    - gönderen adı restoranın adıdır;
    - altbilgide "bu e-posta {restoran} adına gönderildi" yazar.
 
-Metinler i18n anahtarlarıdır (`email.template.<anahtar>.subject|body`, `email.footer.*`). HTML gövde düz metinden kaçışlanarak üretilir (`plainTextToHtml`); çeviri değerleri asla HTML olarak işlenmez.
+Metinler i18n anahtarlarıdır (`email.template.<anahtar>.subject|body`, `email.footer.*`). Şablonlar: `test` (deneme), `campaign` (kampanya), `invoice.summary` ve `invoice.summarySettled` (sahibe aylık komisyon özeti, `docs/FATURALAMA.md`; platform adresinden giden işlemsel e-posta). HTML gövde düz metinden kaçışlanarak üretilir (`plainTextToHtml`); çeviri değerleri asla HTML olarak işlenmez.
 
 ## Bastırma listesi
 

@@ -46,6 +46,12 @@ export const enEmail: Record<keyof typeof trEmail, string> = {
     'Hello,\n\nThis is a test email sent for {restaurant}. If you received it, sending works.',
   'email.template.campaign.subject': '{subject}',
   'email.template.campaign.body': '{body}',
+  'email.template.invoice.summary.subject': '{restaurant}: {period} commission summary',
+  'email.template.invoice.summary.body':
+    'Hello,\n\nThe commission invoice for {restaurant} for {period} has been issued.\n\nCompleted orders: {orders}\nCommission: {commission}\nVAT on commission: {vat}\nFaster payout fees (VAT included): {fees}\nAlready taken from payouts: {deducted}\nAmount due: {amount}\nDue date: {due}\n\nThe amount is charged automatically to your saved collection card. The invoice and the order breakdown are on the Finance page of the panel.',
+  'email.template.invoice.summarySettled.subject': '{restaurant}: {period} commission summary',
+  'email.template.invoice.summarySettled.body':
+    'Hello,\n\nThe invoice for {restaurant} for {period} has been issued. Nothing is due this period.\n\nCompleted orders: {orders}\nCommission: {commission}\nVAT on commission: {vat}\nFaster payout fees (VAT included): {fees}\nAlready taken from payouts: {deducted}\n\nThe invoice is on the Finance page of the panel.',
   'email.footer.transactional': 'This email was sent on behalf of {restaurant}.',
   'email.footer.commercial':
     '{restaurant}, {address}\nIf you no longer want emails like this, you can unsubscribe here: {url}',
