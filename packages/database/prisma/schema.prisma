@@ -1193,14 +1193,32 @@ model RestaurantApiKey {
   permissions     String[]  @default([])
   lastUsedAt      DateTime?
   revokedAt       DateTime?
+  /// After this moment the key is refused (401 API_KEY_EXPIRED); null means it never expires.
+  expiresAt       DateTime?
   createdByUserId String?
   createdAt       DateTime  @default(now())
 
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  createdBy  User?      @relation("ApiKeyCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  restaurant Restaurant              @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdBy  User?                   @relation("ApiKeyCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  usage      RestaurantApiKeyUsage[]
 
   @@index([restaurantId, createdAt])
   @@map("restaurant_api_keys")
+}
+
+/// Requests made with an API key per UTC day (docs/API_ERISIMI.md); counted in memory and added in batches.
+model RestaurantApiKeyUsage {
+  id           String   @id @default(uuid())
+  restaurantId String
+  apiKeyId     String
+  day          DateTime @db.Date
+  requests     Int      @default(0)
+
+  apiKey RestaurantApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@unique([apiKeyId, day])
+  @@index([restaurantId, day])
+  @@map("restaurant_api_key_usage")
 }
 
 /// The customer's rating of a completed order (docs/VITRIN.md); one per order, given from the tracking page.

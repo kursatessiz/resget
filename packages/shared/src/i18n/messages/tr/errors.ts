@@ -98,6 +98,7 @@ export const trErrors = {
   'errors.WEBHOOK_NOT_FOUND': 'Webhook bulunamadı.',
   'errors.WEBHOOK_URL_INVALID': 'Üretimde yalnızca https adresler kabul edilir.',
   'errors.API_KEY_NOT_FOUND': 'API anahtarı bulunamadı.',
+  'errors.API_KEY_EXPIRED': 'API anahtarının süresi doldu. Panelden yeni bir anahtar oluşturun.',
   'errors.DOMAIN_NOT_SET': 'Önce bir alan adı kaydedin.',
   'errors.SEGMENT_NOT_FOUND': 'Kayıtlı segment bulunamadı.',
   'errors.SEGMENT_NAME_TAKEN': 'Bu adla kayıtlı bir segment zaten var.',

@@ -25,6 +25,7 @@ export type ApiErrorCode =
   | 'DOMAIN_TAKEN'
   | 'DOMAIN_NOT_SET'
   | 'API_KEY_NOT_FOUND'
+  | 'API_KEY_EXPIRED'
   | 'WEBHOOK_NOT_FOUND'
   | 'WEBHOOK_URL_INVALID'
   | 'MENU_IMPORT_INVALID'
@@ -220,8 +221,11 @@ export function badGateway(code: ApiErrorCode, message: string): HttpException {
   return new HttpException({ statusCode: 502, code, message }, 502);
 }
 
-export function unauthorized(message = 'Authentication required'): UnauthorizedException {
-  return new UnauthorizedException({ statusCode: 401, code: 'UNAUTHORIZED', message });
+export function unauthorized(
+  message = 'Authentication required',
+  code: ApiErrorCode = 'UNAUTHORIZED',
+): UnauthorizedException {
+  return new UnauthorizedException({ statusCode: 401, code, message });
 }
 
 export function errorCodeOf(exception: HttpException): string | null {

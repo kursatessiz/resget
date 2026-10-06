@@ -1,7 +1,7 @@
 import { Controller, Get, HttpCode, Post } from '@nestjs/common';
 import type { z } from 'zod';
 import { CreateApiKeySchema, UuidSchema } from '@resget/shared';
-import type { ApiKeyDTO, CreatedApiKeyDTO } from '@resget/shared';
+import type { ApiKeyDTO, ApiKeyUsageDTO, CreatedApiKeyDTO } from '@resget/shared';
 import { ZodBody, ZodParam } from '../../common/zod-body.pipe';
 import {
   RequireFeature,
@@ -27,6 +27,13 @@ export class ApiKeysController {
   @RequirePermission('integrations.manage')
   list(@Tenant() tenant: TenantContext): Promise<ApiKeyDTO[]> {
     return this.apiKeys.list(tenant.restaurantId);
+  }
+
+  /** Requests per UTC day over the last API_KEY_USAGE_DAYS days (docs/API_ERISIMI.md, "Kullanım"). */
+  @Get(':keyId/usage')
+  @RequirePermission('integrations.manage')
+  usage(@Tenant() tenant: TenantContext, @ZodParam('keyId', UuidSchema) id: string): Promise<ApiKeyUsageDTO> {
+    return this.apiKeys.usage(tenant.restaurantId, id);
   }
 
   @Post()

@@ -1,13 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { API_KEY_GRANTABLE_PERMISSIONS, API_KEY_HEADER } from '@resget/shared';
-import type { ApiKeyDTO, ApiKeyPermission, CreatedApiKeyDTO } from '@resget/shared';
-import { Badge, Button, Card, TextField } from '@/components/ui';
+import {
+  API_KEY_EXPIRY_DAYS,
+  API_KEY_GRANTABLE_PERMISSIONS,
+  API_KEY_HEADER,
+  API_KEY_USAGE_DAYS,
+  apiKeyStatus,
+} from '@resget/shared';
+import type { ApiKeyDTO, ApiKeyExpiryDays, ApiKeyPermission, ApiKeyUsageDTO, CreatedApiKeyDTO } from '@resget/shared';
+import { Badge, Button, Card, SelectField, TextField } from '@/components/ui';
 import { ApiError, bffJson } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
 
-/** PRO API access (docs/API_ERISIMI.md): mint a scoped key, read it once, revoke it. */
+/** PRO API access (docs/API_ERISIMI.md): mint a scoped key with an optional lifetime, read it once, see its use, revoke it. */
 export function ApiKeysManager({
   restaurantId,
   locale,
@@ -24,7 +30,9 @@ export function ApiKeysManager({
   const [keys, setKeys] = useState<ApiKeyDTO[] | null>(null);
   const [name, setName] = useState('');
   const [granted, setGranted] = useState<Set<ApiKeyPermission>>(() => new Set(['orders.view', 'menu.view']));
+  const [expiresInDays, setExpiresInDays] = useState<ApiKeyExpiryDays | null>(null);
   const [created, setCreated] = useState<CreatedApiKeyDTO | null>(null);
+  const [usage, setUsage] = useState<ApiKeyUsageDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -35,6 +43,10 @@ export function ApiKeysManager({
   );
   const when = (iso: string) =>
     new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
+  // Usage days are UTC calendar days; formatting them in UTC keeps the date the API counted.
+  const dayOf = (day: string) =>
+    new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${day}T00:00:00Z`));
+  const number = (n: number) => new Intl.NumberFormat(locale).format(n);
 
   const load = useCallback(async () => setKeys(await bffJson<ApiKeyDTO[]>(base)), [base]);
 
@@ -64,7 +76,7 @@ export function ApiKeysManager({
     act(async () => {
       const key = await bffJson<CreatedApiKeyDTO>(base, {
         method: 'POST',
-        body: JSON.stringify({ name: name.trim(), permissions: [...granted] }),
+        body: JSON.stringify({ name: name.trim(), permissions: [...granted], expiresInDays }),
       });
       setCreated(key);
       setName('');
@@ -76,6 +88,19 @@ export function ApiKeysManager({
       if (created?.id === id) setCreated(null);
       setNotice(t('integrations.list.revokedNotice'));
     });
+  const toggleUsage = async (id: string) => {
+    if (usage?.id === id) {
+      setUsage(null);
+      return;
+    }
+    setError(null);
+    try {
+      setUsage(await bffJson<ApiKeyUsageDTO>(`${base}/${id}/usage`));
+    } catch (err) {
+      fail(err);
+    }
+  };
+  const now = new Date();
 
   return (
     <div className="flex flex-col gap-6">
@@ -149,6 +174,21 @@ export function ApiKeysManager({
               </label>
             ))}
           </fieldset>
+          <SelectField
+            label={t('integrations.new.expiry')}
+            value={expiresInDays === null ? '' : String(expiresInDays)}
+            onChange={(e) =>
+              setExpiresInDays(e.target.value === '' ? null : (Number(e.target.value) as ApiKeyExpiryDays))
+            }
+            disabled={!isPro}
+          >
+            <option value="">{t('integrations.new.expiryNever')}</option>
+            {API_KEY_EXPIRY_DAYS.map((days) => (
+              <option key={days} value={days}>
+                {t('integrations.new.expiryDays', { days })}
+              </option>
+            ))}
+          </SelectField>
           <div>
             <Button type="submit" disabled={busy || !isPro || name.trim().length < 2 || granted.size === 0}>
               {t('integrations.new.create')}
@@ -161,32 +201,74 @@ export function ApiKeysManager({
         {keys && keys.length === 0 && <p className="ui-text-muted">{t('integrations.list.empty')}</p>}
         {keys && keys.length > 0 && (
           <ul className="flex flex-col gap-3">
-            {keys.map((key) => (
-              <li key={key.id} className="flex flex-col gap-1" aria-label={key.name}>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className="ui-heading">{key.name}</span>
-                    <Badge tone={key.revokedAt ? 'muted' : 'success'}>
-                      {key.revokedAt ? t('integrations.list.revoked') : t('integrations.list.active')}
-                    </Badge>
-                  </span>
-                  {!key.revokedAt && (
-                    <Button variant="outline" tone="muted" onClick={() => revoke(key.id)} disabled={busy}>
-                      {t('integrations.list.revoke')}
-                    </Button>
+            {keys.map((key) => {
+              const status = apiKeyStatus(key, now);
+              return (
+                <li key={key.id} className="flex flex-col gap-1" aria-label={key.name} data-api-key-status={status}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="ui-heading">{key.name}</span>
+                      <Badge tone={status === 'ACTIVE' ? 'success' : status === 'EXPIRED' ? 'warn' : 'muted'}>
+                        {status === 'ACTIVE'
+                          ? t('integrations.list.active')
+                          : status === 'EXPIRED'
+                            ? t('integrations.list.expired')
+                            : t('integrations.list.revoked')}
+                      </Badge>
+                    </span>
+                    <span className="flex flex-wrap gap-2">
+                      <Button variant="outline" tone="muted" onClick={() => void toggleUsage(key.id)}>
+                        {usage?.id === key.id ? t('integrations.usage.hide') : t('integrations.usage.show')}
+                      </Button>
+                      {!key.revokedAt && (
+                        <Button variant="outline" tone="muted" onClick={() => revoke(key.id)} disabled={busy}>
+                          {t('integrations.list.revoke')}
+                        </Button>
+                      )}
+                    </span>
+                  </div>
+                  <p className="ui-caption">
+                    {t('integrations.list.keyId', { keyId: key.keyId })}.{' '}
+                    {key.createdBy &&
+                      `${t('integrations.list.createdBy', { name: key.createdBy.fullName, date: when(key.createdAt) })}. `}
+                    {key.lastUsedAt
+                      ? t('integrations.list.lastUsed', { date: when(key.lastUsedAt) })
+                      : t('integrations.list.neverUsed')}
+                  </p>
+                  <p className="ui-caption" data-api-key-usage-summary>
+                    {key.expiresAt
+                      ? t(status === 'EXPIRED' ? 'integrations.list.expiredAt' : 'integrations.list.expiresAt', {
+                          date: when(key.expiresAt),
+                        })
+                      : t('integrations.list.noExpiry')}
+                    .{' '}
+                    {t('integrations.list.requests', {
+                      count: key.requestsLastDays,
+                      days: API_KEY_USAGE_DAYS,
+                    })}
+                  </p>
+                  <p className="ui-caption">{key.permissions.map((p) => t(`permissions.${p}`)).join(', ')}</p>
+                  {usage?.id === key.id && (
+                    <section aria-label={t('integrations.usage.title')} className="flex flex-col gap-1">
+                      <h3 className="ui-heading">{t('integrations.usage.title')}</h3>
+                      {usage.total === 0 ? (
+                        <p className="ui-text-muted">{t('integrations.usage.empty')}</p>
+                      ) : (
+                        <ul className="ui-divide" data-api-key-usage>
+                          {usage.days
+                            .filter((d) => d.requests > 0)
+                            .map((d) => (
+                              <li key={d.day} className="py-1">
+                                {t('integrations.usage.day', { date: dayOf(d.day), requests: number(d.requests) })}
+                              </li>
+                            ))}
+                        </ul>
+                      )}
+                    </section>
                   )}
-                </div>
-                <p className="ui-caption">
-                  {t('integrations.list.keyId', { keyId: key.keyId })}.{' '}
-                  {key.createdBy &&
-                    `${t('integrations.list.createdBy', { name: key.createdBy.fullName, date: when(key.createdAt) })}. `}
-                  {key.lastUsedAt
-                    ? t('integrations.list.lastUsed', { date: when(key.lastUsedAt) })
-                    : t('integrations.list.neverUsed')}
-                </p>
-                <p className="ui-caption">{key.permissions.map((p) => t(`permissions.${p}`)).join(', ')}</p>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
       </Card>

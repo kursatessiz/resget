@@ -9,6 +9,7 @@ Restoranın kendi yazılımı (kasa, ERP, web sitesi) panelin kullandığı rest
 3. **Anahtar kişi gerektiren işi yapamaz.** `@SessionOnly()` uçları (anahtar oluşturma ve iptal) ve restoran kapsamı dışındaki oturum uçları (`me/*`, konsol) anahtarı reddeder. Anahtarla yapılan her işlem denetim kaydında onu oluşturan üyeye yazılır.
 4. **Plan düşerse anahtar durur, silinmez.** `api_access` taşımayan planda her anahtarlı çağrı `PLAN_FEATURE_REQUIRED` ile 403 döner; plan dönünce aynı anahtar çalışır.
 5. **Geçersiz anahtar oturuma düşmez.** `x-api-key` başlığı varsa yalnızca anahtar değerlendirilir; bozuk, bilinmeyen veya iptal edilmiş anahtar 401'dir, yanında bearer olsa bile.
+6. **Süresi dolan anahtar kendi koduyla reddedilir.** Anahtar oluşturulurken bir geçerlilik süresi alabilir; süre dolunca her çağrı 401 `API_KEY_EXPIRED` döner. Böylece entegrasyon, yanlış anahtar (`UNAUTHORIZED`) ile süresi dolmuş anahtarı ayırt eder. Süre uzatılmaz; yeni anahtar oluşturulur.
 
 ## Kullanım
 
@@ -19,11 +20,22 @@ Restoranın kendi yazılımı (kasa, ERP, web sitesi) panelin kullandığı rest
 
 ## Uçlar (`restaurants/:id/api-keys`, `integrations.manage`, `@RequirePlanFeature('api_access')`, yalnızca oturum)
 
-- `GET`: anahtarlar (ad, `keyId`, yetkiler, son kullanım, oluşturan, iptal zamanı); iptal edilenler listede kalır.
-- `POST { name, permissions[] }`: yeni anahtar; yanıt token'ı yalnızca bu kez içerir. Oluşturanın sahip olmadığı yetki 403.
+- `GET`: anahtarlar (ad, `keyId`, yetkiler, son kullanım, oluşturan, iptal zamanı, son geçerlilik `expiresAt`, son 30 gündeki istek sayısı `requestsLastDays`); iptal edilenler ve süresi dolanlar listede kalır.
+- `POST { name, permissions[], expiresInDays? }`: yeni anahtar; yanıt token'ı yalnızca bu kez içerir. Oluşturanın sahip olmadığı yetki 403.
+  - `expiresInDays` yalnızca 30, 90, 180 veya 365 olabilir (`API_KEY_EXPIRY_DAYS`); verilmezse veya `null` ise anahtar iptal edilene kadar çalışır. Başka bir değer 400 döner.
+- `GET :keyId/usage`: anahtarın son 30 günlük kullanımı (aşağıda "Kullanım"). `API_KEY_NOT_FOUND` 404.
 - `POST :keyId/revoke`: iptal; kullanan sistemler 401 almaya başlar. `API_KEY_NOT_FOUND` 404.
 
 `lastUsedAt` en çok dakikada bir yazılır; yoğun bir entegrasyon her çağrıda güncelleme üretmez.
+
+## Kullanım
+
+Her anahtarın istekleri UTC gününe göre sayılır (`restaurant_api_key_usage`: anahtar, gün, istek sayısı).
+
+- **Ne sayılır**: geçerli bir anahtarla gelen her istek, oran sınırına takılanlar dahil. Bozuk, bilinmeyen, iptal edilmiş veya süresi dolmuş anahtarla gelen istek sayılmaz.
+- **Nasıl yazılır**: sayaç süreç belleğinde tutulur ve dakikada bir toplu olarak eklenir. Liste ve rapor okunmadan önce bekleyen sayılar yazılır; süreç kapanırken de yazılır. Yazılamayan sayı kaybolmaz, bir sonraki turda yeniden denenir.
+- **Rapor**: `GET :keyId/usage` son 30 günü (bugün dahil, `API_KEY_USAGE_DAYS`) eskiden yeniye döner. Her gün `{ day: "YYYY-MM-DD", requests }` biçimindedir; isteksiz günler sıfırdır. Yanıt `total` toplamını da taşır.
+- **Çoklu örnek**: her API örneği kendi sayacını yazar; satır artırımla güncellendiği için toplam doğru kalır.
 
 ## Webhook'lar
 
@@ -39,14 +51,13 @@ Her anahtar dakikada `API_KEY_RATE_LIMIT` (varsayılan 600) istek yapabilir; aş
 
 ## Ekran
 
-`/panel/<slug>/entegrasyon` (`integrations.manage`; varsayılan rollerde yalnızca sahip): nasıl kullanılır kartı (temel adres, başlık adı), yeni anahtar formu (ad ve yetki kutuları), yalnızca oluşturma anında görünen token kartı, anahtar listesi ve iptal; webhook kartı (adres ve olaylar, bir kez görünen sır, deneme gönderimi, duraklat / sürdür, sil, son teslimler). Temel planda formlar kapalı ve plan notu görünür.
+`/panel/<slug>/entegrasyon` (`integrations.manage`; varsayılan rollerde yalnızca sahip): nasıl kullanılır kartı (temel adres, başlık adı), yeni anahtar formu (ad ve yetki kutuları), yalnızca oluşturma anında görünen token kartı, anahtar listesi ve iptal. Formda geçerlilik süresi seçilir (süresiz, 30, 90, 180 veya 365 gün). Listede her anahtarın durumu (etkin, süresi doldu, iptal edildi), son geçerlilik tarihi ve son 30 gündeki istek sayısı görünür; "Kullanım" düğmesi istek olan günleri açar; webhook kartı (adres ve olaylar, bir kez görünen sır, deneme gönderimi, duraklat / sürdür, sil, son teslimler). Temel planda formlar kapalı ve plan notu görünür.
 
 ## Testler
 
-API e2e `webhooks.e2e-spec.ts`: yerel bir alıcıya imzalı teslim ve imza doğrulaması, 500 yanıtında geri çekilmeli yeniden deneme ve sayaç, deneme gönderimi, duraklatmada kuyruk açılmaması, silme, anahtarla yönetim reddi. API e2e `api-keys.e2e-spec.ts`: oluşturma ve tek seferlik token, listede sır yok, verilen ve verilmeyen yetkiler, verilemeyen yetki, yalnızca oturum uçları, başka restoran, bozuk anahtar ve bearer ile birlikte, `me/*` reddi, Temel planda 403, iptal sonrası 401, bulunamayan anahtar. Playwright `api-keys.e2e.ts`: oluşturma, token kartı, iptal.
+API e2e `webhooks.e2e-spec.ts`: yerel bir alıcıya imzalı teslim ve imza doğrulaması, 500 yanıtında geri çekilmeli yeniden deneme ve sayaç, deneme gönderimi, duraklatmada kuyruk açılmaması, silme, anahtarla yönetim reddi. API e2e `api-keys.e2e-spec.ts`: oluşturma ve tek seferlik token, listede sır yok, verilen ve verilmeyen yetkiler, verilemeyen yetki, yalnızca oturum uçları, başka restoran, bozuk anahtar ve bearer ile birlikte, `me/*` reddi, Temel planda 403, iptal sonrası 401, bulunamayan anahtar; geçerlilik süresi ve süresi dolan anahtarda `API_KEY_EXPIRED`, izin verilmeyen süre, gün bazında sayım ve rapor, anahtarla rapor reddi. Playwright `api-keys.e2e.ts`: süreli oluşturma, token kartı, kullanım özeti ve raporu, iptal. Birim testi `packages/shared/src/api-keys.spec.ts`: süre seçenekleri, durum, UTC gün penceresi.
 
 ## Kalan
 
-- Anahtar başına kullanım sayacı ve raporu (bugün yalnızca `lastUsedAt` ve oran sınırı).
-- Anahtar son kullanma tarihi.
+- Süresi yaklaşan anahtar için sahibe hatırlatma (mesajlaşma motoru).
 - Webhook olaylarının genişlemesi (menü değişikliği, ödeme) ve alıcıya yeniden gönderme düğmesi.

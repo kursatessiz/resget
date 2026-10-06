@@ -132,4 +132,85 @@ describe('API keys (e2e)', () => {
       .expect(404)
       .expect('x-error-code', 'API_KEY_NOT_FOUND');
   });
+
+  it('counts requests per key and UTC day and reports them to the panel', async () => {
+    const created = await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/api-keys`)
+      .set(bearer(ownerToken, restaurantId))
+      .send({ name: 'E2E Counted', permissions: ['orders.view'], expiresInDays: 30 })
+      .expect(201);
+    const id = created.body.id as string;
+    const expiresAt = new Date(created.body.expiresAt as string).getTime();
+    expect(Math.abs(expiresAt - (Date.now() + 30 * 86_400_000))).toBeLessThan(60_000);
+    expect(created.body.requestsLastDays).toBe(0);
+    for (let i = 0; i < 3; i++) {
+      await ctx
+        .http()
+        .get(`/restaurants/${restaurantId}/orders`)
+        .set(API_KEY_HEADER, created.body.token as string)
+        .expect(200);
+    }
+
+    const list = await ctx
+      .http()
+      .get(`/restaurants/${restaurantId}/api-keys`)
+      .set(bearer(ownerToken, restaurantId))
+      .expect(200);
+    expect(list.body.find((k: { id: string }) => k.id === id).requestsLastDays).toBe(3);
+    const usage = await ctx
+      .http()
+      .get(`/restaurants/${restaurantId}/api-keys/${id}/usage`)
+      .set(bearer(ownerToken, restaurantId))
+      .expect(200);
+    expect(usage.body.days).toHaveLength(30);
+    expect(usage.body.days[29]).toEqual({ day: new Date().toISOString().slice(0, 10), requests: 3 });
+    expect(usage.body.total).toBe(3);
+    // A key reads no usage, and another restaurant's or an unknown key is not found.
+    await ctx
+      .http()
+      .get(`/restaurants/${restaurantId}/api-keys/${id}/usage`)
+      .set(API_KEY_HEADER, created.body.token as string)
+      .expect(403);
+    await ctx
+      .http()
+      .get(`/restaurants/${restaurantId}/api-keys/00000000-0000-4000-8000-000000000000/usage`)
+      .set(bearer(ownerToken, restaurantId))
+      .expect(404)
+      .expect('x-error-code', 'API_KEY_NOT_FOUND');
+  });
+
+  it('refuses a key past its date with its own code and offers only the listed lifetimes', async () => {
+    await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/api-keys`)
+      .set(bearer(ownerToken, restaurantId))
+      .send({ name: 'E2E Odd life', permissions: ['orders.view'], expiresInDays: 7 })
+      .expect(400);
+    const created = await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/api-keys`)
+      .set(bearer(ownerToken, restaurantId))
+      .send({ name: 'E2E Expiring', permissions: ['orders.view'] })
+      .expect(201);
+    expect(created.body.expiresAt).toBeNull();
+    await ctx.prisma.restaurantApiKey.update({
+      where: { id: created.body.id as string },
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    });
+    await ctx
+      .http()
+      .get(`/restaurants/${restaurantId}/orders`)
+      .set(API_KEY_HEADER, created.body.token as string)
+      .expect(401)
+      .expect('x-error-code', 'API_KEY_EXPIRED');
+    const list = await ctx
+      .http()
+      .get(`/restaurants/${restaurantId}/api-keys`)
+      .set(bearer(ownerToken, restaurantId))
+      .expect(200);
+    const expired = list.body.find((k: { id: string }) => k.id === created.body.id);
+    expect(expired.revokedAt).toBeNull();
+    expect(expired.requestsLastDays).toBe(0);
+  });
 });
