@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PaymentConnectionStatus } from '@resget/database';
-import { isPaidBeforePlacement, isTerminalOrderStatus } from '@resget/shared';
+import { isPaidBeforePlacement, isTerminalOrderStatus, paymentWebhookUrl } from '@resget/shared';
 import type {
   CheckoutSessionDTO,
   CollectPaymentInput,
@@ -297,8 +297,7 @@ export class CheckoutService {
    * nothing is written. Repeated notifications are idempotent.
    */
   private webhookUrl(kind: WebhookKind, connectionId: string): string {
-    const base = this.config.getOrThrow<string>('PUBLIC_API_URL').replace(/\/+$/, '');
-    return `${base}/webhooks/payments/${kind}/${connectionId}`;
+    return paymentWebhookUrl(this.config.getOrThrow<string>('PUBLIC_API_URL'), kind, connectionId);
   }
 
   async handleWebhook(

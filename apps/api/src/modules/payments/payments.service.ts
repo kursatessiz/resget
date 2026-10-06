@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PaymentConnectionStatus, PaymentMode } from '@resget/database';
-import { applyCommissionCredits, buildCommissionStatement, commissionPeriod } from '@resget/shared';
+import { applyCommissionCredits, buildCommissionStatement, commissionPeriod, paymentWebhookUrl } from '@resget/shared';
 import type {
   CardVaultAdapter,
   CommissionStatement,
@@ -20,6 +21,7 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly registry: PaymentsRegistry,
+    private readonly config: ConfigService,
   ) {}
 
   async settings(restaurantId: string): Promise<PaymentSettingsDTO> {
@@ -28,7 +30,9 @@ export class PaymentsService {
       select: {
         paymentMode: true,
         currency: true,
-        paymentConnection: { select: { providerCode: true, status: true, label: true, lastVerifiedAt: true } },
+        paymentConnection: {
+          select: { id: true, providerCode: true, status: true, label: true, lastVerifiedAt: true },
+        },
       },
     });
     if (!restaurant) throw notFound('NOT_FOUND', 'Restaurant not found');
@@ -44,6 +48,7 @@ export class PaymentsService {
             status: c.status,
             label: c.label,
             lastVerifiedAt: c.lastVerifiedAt?.toISOString() ?? null,
+            webhookUrl: paymentWebhookUrl(this.config.getOrThrow<string>('PUBLIC_API_URL'), 'pos', c.id),
           }
         : null,
       accruedCommissionMinor: accrued.totalMinor,

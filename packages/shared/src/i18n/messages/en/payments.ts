@@ -20,6 +20,7 @@ export const enPayments: Record<keyof typeof trPayments, string> = {
   'payments.connection.status.DISABLED': 'Disabled',
   'payments.connection.secretNote': 'POS credentials are stored encrypted and never shown again.',
   'payments.connection.required': 'An active connection is required to take orders in own-POS mode.',
+  'payments.connection.webhook': 'Notification address (when the provider asks for it in its own panel): {url}',
   'payments.commission.accrued': 'Commission accrued this month: {amount}',
   'payments.invoices.title': 'Commission invoices',
   'payments.invoices.period': 'Period',

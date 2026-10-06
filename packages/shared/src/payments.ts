@@ -74,6 +74,14 @@ export const UpdatePaymentModeSchema = z.object({ paymentMode: z.nativeEnum(Paym
 /** String form of the mode so Prisma's generated enum and the shared enum stay assignable. */
 export type PaymentModeValue = `${PaymentMode}`;
 
+/** The notification address of a payment connection: a restaurant's POS or meal-card account, or the platform's merchant. */
+export function paymentWebhookUrl(publicApiUrl: string, kind: 'pos' | 'meal-cards' | 'platform', ref: string): string {
+  // Trailing slashes are cut with a plain scan: a regular expression here would backtrack on a long run of them.
+  let end = publicApiUrl.length;
+  while (end > 0 && publicApiUrl[end - 1] === '/') end -= 1;
+  return `${publicApiUrl.slice(0, end)}/webhooks/payments/${kind}/${ref}`;
+}
+
 export interface PaymentSettingsDTO {
   paymentMode: PaymentModeValue;
   connection: {
@@ -82,6 +90,8 @@ export interface PaymentSettingsDTO {
     /** Masked identification of the connection, e.g. the merchant id's last characters. */
     label: string;
     lastVerifiedAt: string | null;
+    /** Where the provider sends its notifications; some providers want it set in their own panel (docs/ODEME.md). */
+    webhookUrl: string;
   } | null;
   /** Commission the platform will invoice for the current month so far (OWN_POS). */
   accruedCommissionMinor: number;
