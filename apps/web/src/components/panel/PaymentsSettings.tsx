@@ -202,6 +202,11 @@ export function PaymentsSettings({
         ) : (
           <p className="ui-text-muted">{t('payments.connection.none')}</p>
         )}
+        {connection && (
+          <p className="ui-caption" data-payment-webhook>
+            {t('payments.connection.webhook', { url: connection.webhookUrl })}
+          </p>
+        )}
         <p className="ui-caption">{t('payments.connection.required')}</p>
         {connecting ? (
           <form

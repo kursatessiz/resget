@@ -41,6 +41,7 @@ describe('Payment modes, POS connection and saved cards (e2e)', () => {
       .expect(200);
     expect(res.body.connection.status).toBe('ACTIVE');
     expect(res.body.connection.label).toBe('MOCK ****7781');
+    expect(res.body.connection.webhookUrl).toMatch(/\/webhooks\/payments\/pos\/[0-9a-f-]{36}$/);
     expect(JSON.stringify(res.body)).not.toContain('merchant-7781');
     const row = await ctx.prisma.paymentProviderConnection.findUniqueOrThrow({ where: { restaurantId } });
     expect(row.encryptedCredentials).not.toContain('merchant-7781');

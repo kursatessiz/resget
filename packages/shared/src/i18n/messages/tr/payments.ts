@@ -19,6 +19,7 @@ export const trPayments = {
   'payments.connection.status.DISABLED': 'Kapalı',
   'payments.connection.secretNote': 'POS bilgileri şifrelenerek saklanır ve bir daha gösterilmez.',
   'payments.connection.required': 'Kendi sanal POS modunda sipariş alabilmek için aktif bir bağlantı gerekir.',
+  'payments.connection.webhook': 'Bildirim adresi (sağlayıcı panelinde ayarlanması gerekiyorsa): {url}',
   'payments.commission.accrued': 'Bu ay biriken komisyon: {amount}',
   'payments.invoices.title': 'Komisyon faturaları',
   'payments.invoices.period': 'Dönem',
