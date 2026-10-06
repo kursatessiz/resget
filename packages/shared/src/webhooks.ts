@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { MenuItemAdminDTO } from './menu';
 
 /**
  * Outbound webhooks for API access (docs/API_ERISIMI.md, "Webhook'lar"): the
@@ -7,7 +8,7 @@ import { z } from 'zod';
  * that keeps failing is paused, never silently dropped.
  */
 
-export const WEBHOOK_EVENTS = ['order.updated', 'rating.created'] as const;
+export const WEBHOOK_EVENTS = ['order.updated', 'rating.created', 'menu.item.updated', 'menu.updated'] as const;
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
 
 export const WEBHOOK_SIGNATURE_HEADER = 'x-resget-signature';
@@ -76,6 +77,26 @@ export interface WebhookDeliveryDTO {
   nextAttemptAt: string | null;
   createdAt: string;
   sentAt: string | null;
+}
+
+/** `menu.item.updated`: one item was created, edited (price, availability, stock, options) or deleted by staff. */
+export interface MenuItemWebhookData {
+  change: 'CREATED' | 'UPDATED' | 'DELETED';
+  itemId: string;
+  /** The item as the panel sees it; null once deleted. */
+  item: MenuItemAdminDTO | null;
+}
+
+/** `menu.updated`: a change wider than one item; the receiver reads the menu again (GET /restaurants/:id/menu). */
+export interface MenuWebhookData {
+  change:
+    | 'CATEGORY_CREATED'
+    | 'CATEGORY_UPDATED'
+    | 'CATEGORY_DELETED'
+    | 'CATEGORIES_REORDERED'
+    | 'ITEMS_REORDERED'
+    | 'IMPORTED';
+  categoryId: string | null;
 }
 
 /** The body every delivery carries. */

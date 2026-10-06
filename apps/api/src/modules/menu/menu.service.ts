@@ -17,6 +17,8 @@ import type {
   MenuAdminDTO,
   MenuCategoryAdminDTO,
   MenuItemAdminDTO,
+  MenuItemWebhookData,
+  MenuWebhookData,
   ReplaceModifierGroupsInput,
   UpdateMenuCategoryInput,
   StorefrontCategoryDTO,
@@ -24,6 +26,7 @@ import type {
 } from '@resget/shared';
 import { FeatureFlagsService } from '../features/feature-flags.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
 
 const adminItemSelect = Prisma.validator<Prisma.MenuItemSelect>()({
@@ -95,7 +98,29 @@ export class MenuService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly features: FeatureFlagsService,
+    private readonly webhooks: WebhooksService,
   ) {}
+
+  // -- Webhooks (docs/API_ERISIMI.md): staff edits are pushed to the restaurant's systems; enqueueing never throws.
+
+  private async itemChanged(
+    restaurantId: string,
+    change: MenuItemWebhookData['change'],
+    itemId: string,
+    item: MenuItemAdminDTO | null,
+  ): Promise<void> {
+    const data: MenuItemWebhookData = { change, itemId, item };
+    await this.webhooks.enqueue(restaurantId, 'menu.item.updated', data);
+  }
+
+  private async menuChanged(
+    restaurantId: string,
+    change: MenuWebhookData['change'],
+    categoryId: string | null,
+  ): Promise<void> {
+    const data: MenuWebhookData = { change, categoryId };
+    await this.webhooks.enqueue(restaurantId, 'menu.updated', data);
+  }
 
   /** The guest-facing menu: visible categories, every item with its available option groups. */
   async menuOf(restaurantId: string): Promise<StorefrontCategoryDTO[]> {
@@ -179,7 +204,7 @@ export class MenuService {
 
   async createCategory(restaurantId: string, input: CreateMenuCategoryInput): Promise<MenuCategoryAdminDTO> {
     const sortOrder = input.sortOrder ?? (await this.nextCategoryOrder(restaurantId));
-    return toCategory(
+    const created = toCategory(
       await this.prisma.menuCategory.create({
         data: {
           restaurantId,
@@ -191,6 +216,8 @@ export class MenuService {
         select: adminCategorySelect,
       }),
     );
+    await this.menuChanged(restaurantId, 'CATEGORY_CREATED', created.id);
+    return created;
   }
 
   async updateCategory(
@@ -199,13 +226,15 @@ export class MenuService {
     input: UpdateMenuCategoryInput,
   ): Promise<MenuCategoryAdminDTO> {
     await this.requireCategory(restaurantId, categoryId);
-    return toCategory(
+    const updated = toCategory(
       await this.prisma.menuCategory.update({
         where: { id: categoryId },
         data: { ...input, availableHours: hoursInput(input.availableHours) },
         select: adminCategorySelect,
       }),
     );
+    await this.menuChanged(restaurantId, 'CATEGORY_UPDATED', categoryId);
+    return updated;
   }
 
   /** A category is deleted only when empty; items carry order history and are never dropped by accident. */
@@ -214,6 +243,7 @@ export class MenuService {
     const items = await this.prisma.menuItem.count({ where: { categoryId } });
     if (items > 0) throw conflict('MENU_CATEGORY_NOT_EMPTY', 'Category still has items');
     await this.prisma.menuCategory.delete({ where: { id: categoryId } });
+    await this.menuChanged(restaurantId, 'CATEGORY_DELETED', categoryId);
   }
 
   async reorderCategories(restaurantId: string, ids: string[]): Promise<MenuAdminDTO> {
@@ -225,6 +255,7 @@ export class MenuService {
     await this.prisma.$transaction(
       ids.map((id, index) => this.prisma.menuCategory.update({ where: { id }, data: { sortOrder: index + 1 } })),
     );
+    await this.menuChanged(restaurantId, 'CATEGORIES_REORDERED', null);
     return this.adminMenu(restaurantId);
   }
 
@@ -235,7 +266,7 @@ export class MenuService {
       select: { currency: true },
     });
     const sortOrder = input.sortOrder ?? (await this.nextItemOrder(input.categoryId));
-    return toItem(
+    const created = toItem(
       await this.prisma.menuItem.create({
         data: {
           restaurantId,
@@ -255,12 +286,18 @@ export class MenuService {
         select: adminItemSelect,
       }),
     );
+    await this.itemChanged(restaurantId, 'CREATED', created.id, created);
+    return created;
   }
 
   async updateItem(restaurantId: string, itemId: string, input: UpdateMenuItemInput): Promise<MenuItemAdminDTO> {
     await this.requireItem(restaurantId, itemId);
     if (input.categoryId) await this.requireCategory(restaurantId, input.categoryId);
-    return toItem(await this.prisma.menuItem.update({ where: { id: itemId }, data: input, select: adminItemSelect }));
+    const updated = toItem(
+      await this.prisma.menuItem.update({ where: { id: itemId }, data: input, select: adminItemSelect }),
+    );
+    await this.itemChanged(restaurantId, 'UPDATED', itemId, updated);
+    return updated;
   }
 
   /** An item that appears in any order stays (mark it sold out instead); order lines keep their snapshot either way. */
@@ -269,6 +306,7 @@ export class MenuService {
     const used = await this.prisma.orderItem.count({ where: { menuItemId: itemId } });
     if (used > 0) throw conflict('MENU_ITEM_IN_USE', 'Item is referenced by orders');
     await this.prisma.menuItem.delete({ where: { id: itemId } });
+    await this.itemChanged(restaurantId, 'DELETED', itemId, null);
   }
 
   async reorderItems(restaurantId: string, categoryId: string, ids: string[]): Promise<MenuCategoryAdminDTO> {
@@ -281,6 +319,7 @@ export class MenuService {
     await this.prisma.$transaction(
       ids.map((id, index) => this.prisma.menuItem.update({ where: { id }, data: { sortOrder: index + 1 } })),
     );
+    await this.menuChanged(restaurantId, 'ITEMS_REORDERED', categoryId);
     return toCategory(
       await this.prisma.menuCategory.findUniqueOrThrow({ where: { id: categoryId }, select: adminCategorySelect }),
     );
@@ -315,7 +354,11 @@ export class MenuService {
         });
       }
     });
-    return toItem(await this.prisma.menuItem.findUniqueOrThrow({ where: { id: itemId }, select: adminItemSelect }));
+    const updated = toItem(
+      await this.prisma.menuItem.findUniqueOrThrow({ where: { id: itemId }, select: adminItemSelect }),
+    );
+    await this.itemChanged(restaurantId, 'UPDATED', itemId, updated);
+    return updated;
   }
 
   private async requireCategory(restaurantId: string, categoryId: string): Promise<void> {
@@ -442,6 +485,7 @@ export class MenuService {
         }
       }
     });
+    await this.menuChanged(restaurantId, 'IMPORTED', null);
     return { dryRun: false, applied: true, ...summary };
   }
 

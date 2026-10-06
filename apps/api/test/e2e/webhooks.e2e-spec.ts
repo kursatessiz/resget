@@ -190,6 +190,105 @@ describe('Webhooks (e2e)', () => {
       .expect('x-error-code', 'WEBHOOK_NOT_FOUND');
   });
 
+  it('pushes staff menu edits and sends a failed delivery again on request', async () => {
+    respondWith = 200;
+    const created = await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/webhooks`)
+      .set(bearer(ownerToken, restaurantId))
+      .send({ url: `${baseUrl}/menu-hook`, events: ['menu.item.updated', 'menu.updated'] })
+      .expect(201);
+    const hookId = created.body.id as string;
+    const owner = bearer(ownerToken, restaurantId);
+
+    await ctx
+      .http()
+      .patch(`/restaurants/${restaurantId}/menu/items/${menuItemId}`)
+      .set(owner)
+      .send({ isAvailable: false })
+      .expect(200);
+    await ctx
+      .http()
+      .patch(`/restaurants/${restaurantId}/menu/items/${menuItemId}`)
+      .set(owner)
+      .send({ isAvailable: true })
+      .expect(200);
+    const category = await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/menu/categories`)
+      .set(owner)
+      .send({ name: 'E2E Webhook kategori' })
+      .expect(201);
+    await ctx
+      .http()
+      .delete(`/restaurants/${restaurantId}/menu/categories/${category.body.id as string}`)
+      .set(owner)
+      .expect(204);
+
+    const before = received.length;
+    await service.runPass();
+    const bodies = received
+      .slice(before)
+      .filter((r) => r.headers[WEBHOOK_DELIVERY_HEADER] !== undefined)
+      .map(
+        (r) =>
+          JSON.parse(r.body) as {
+            event: string;
+            data: { change: string; itemId?: string; categoryId?: string | null; item?: { isAvailable: boolean } };
+          },
+      );
+    const itemEvents = bodies.filter((b) => b.event === 'menu.item.updated');
+    expect(itemEvents.map((b) => [b.data.change, b.data.itemId, b.data.item?.isAvailable])).toEqual([
+      ['UPDATED', menuItemId, false],
+      ['UPDATED', menuItemId, true],
+    ]);
+    const menuEvents = bodies.filter((b) => b.event === 'menu.updated');
+    expect(menuEvents.map((b) => [b.data.change, b.data.categoryId])).toEqual([
+      ['CATEGORY_CREATED', category.body.id],
+      ['CATEGORY_DELETED', category.body.id],
+    ]);
+    // Order changes are not on this hook's list.
+    expect(bodies.some((b) => b.event === 'order.updated')).toBe(false);
+
+    const sent = await ctx.prisma.webhookDelivery.findFirstOrThrow({ where: { webhookId: hookId, status: 'SENT' } });
+    const redeliver = (deliveryId: string, status: number) =>
+      ctx
+        .http()
+        .post(`/restaurants/${restaurantId}/webhooks/${hookId}/deliveries/${deliveryId}/redeliver`)
+        .set(owner)
+        .expect(status);
+    expect((await redeliver(sent.id, 409)).headers['x-error-code']).toBe('WEBHOOK_REDELIVERY_NOT_ALLOWED');
+    expect((await redeliver('00000000-0000-4000-8000-000000000000', 404)).headers['x-error-code']).toBe(
+      'WEBHOOK_NOT_FOUND',
+    );
+    // A delivery that ran out of attempts goes back on the queue under the same id.
+    await ctx.prisma.webhookDelivery.update({
+      where: { id: sent.id },
+      data: { status: 'FAILED', attempts: 6, responseStatus: 500, lastError: 'HTTP 500' },
+    });
+    const queued = (await redeliver(sent.id, 200)).body as {
+      status: string;
+      attempts: number;
+      lastError: string | null;
+    };
+    expect(queued).toMatchObject({ status: 'PENDING', attempts: 0, lastError: null });
+    const mark = received.length;
+    await service.runPass();
+    expect(received.slice(mark).some((r) => r.headers[WEBHOOK_DELIVERY_HEADER] === sent.id)).toBe(true);
+    expect((await ctx.prisma.webhookDelivery.findUniqueOrThrow({ where: { id: sent.id } })).status).toBe('SENT');
+
+    // A paused endpoint takes no redelivery.
+    await ctx.prisma.webhookDelivery.update({ where: { id: sent.id }, data: { status: 'FAILED' } });
+    await ctx
+      .http()
+      .patch(`/restaurants/${restaurantId}/webhooks/${hookId}`)
+      .set(owner)
+      .send({ isActive: false })
+      .expect(200);
+    expect((await redeliver(sent.id, 409)).headers['x-error-code']).toBe('WEBHOOK_REDELIVERY_NOT_ALLOWED');
+    await ctx.http().delete(`/restaurants/${restaurantId}/webhooks/${hookId}`).set(owner).expect(204);
+  });
+
   it('refuses webhook management with an API key and limits a key per minute', async () => {
     const key = await ctx
       .http()

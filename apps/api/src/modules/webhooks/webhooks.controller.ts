@@ -69,6 +69,19 @@ export class WebhooksController {
     return this.webhooks.test(tenant.restaurantId, id);
   }
 
+  /** A failed delivery goes back on the queue under the same id (docs/API_ERISIMI.md, "Yeniden gönderme"). */
+  @Post(':webhookId/deliveries/:deliveryId/redeliver')
+  @HttpCode(200)
+  @RequirePermission('integrations.manage')
+  redeliver(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodParam('webhookId', UuidSchema) id: string,
+    @ZodParam('deliveryId', UuidSchema) deliveryId: string,
+  ): Promise<WebhookDeliveryDTO> {
+    return this.webhooks.redeliver(tenant.restaurantId, user.id, id, deliveryId);
+  }
+
   @Get(':webhookId/deliveries')
   @RequirePermission('integrations.manage')
   deliveries(

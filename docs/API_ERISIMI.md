@@ -39,10 +39,19 @@ Her anahtarın istekleri UTC gününe göre sayılır (`restaurant_api_key_usage
 
 ## Webhook'lar
 
-Restoranın yazılımı siparişleri çekmek yerine itilmesini de isteyebilir (`packages/shared/src/webhooks.ts`, `apps/api/src/modules/webhooks`). Adres ve olaylar panelden kaydedilir (`restaurants/:id/webhooks`, `integrations.manage`, Pro, yalnızca oturum: `GET`, `POST`, `PATCH :id` (adres, olaylar, duraklat / sürdür), `DELETE :id`, `POST :id/test`, `GET :id/deliveries`). İmza sırrı (`whsec_...`) yalnızca oluşturma yanıtında görünür; platform `CredentialCipher` ile şifreli saklar. Üretimde yalnızca `https` adres kabul edilir (`WEBHOOK_URL_INVALID`).
+Restoranın yazılımı siparişleri çekmek yerine itilmesini de isteyebilir (`packages/shared/src/webhooks.ts`, `apps/api/src/modules/webhooks`). Adres ve olaylar panelden kaydedilir (`restaurants/:id/webhooks`, `integrations.manage`, Pro, yalnızca oturum: `GET`, `POST`, `PATCH :id` (adres, olaylar, duraklat / sürdür), `DELETE :id`, `POST :id/test`, `GET :id/deliveries`, `POST :id/deliveries/:deliveryId/redeliver`). İmza sırrı (`whsec_...`) yalnızca oluşturma yanıtında görünür; platform `CredentialCipher` ile şifreli saklar. Üretimde yalnızca `https` adres kabul edilir (`WEBHOOK_URL_INVALID`).
 
-- **Olaylar**: `order.updated` (sipariş oluşturma dahil her durum değişikliği; gövde sipariş özeti, `OrderSummaryDTO`), `rating.created` (müşteri değerlendirmesi: sipariş kimliği ve kısa kodu, puan, yorum).
+- **Olaylar**:
+  - `order.updated`: sipariş oluşturma dahil her yayınlanan değişiklik. Gövde sipariş özetidir (`OrderSummaryDTO`); ödeme durumu (`payment`) ve iadeler (`refunds`) de bu özettedir. Bu yüzden ödeme değişiklikleri (tahsilat, iade, chargeback) ayrı bir olay değil, `order.updated` ile gelir.
+  - `rating.created`: müşteri değerlendirmesi (sipariş kimliği ve kısa kodu, puan, yorum).
+  - `menu.item.updated`: personelin bir ürünü eklemesi, değiştirmesi (fiyat, satışta / tükendi, stok sayısı, seçenek grupları) veya silmesi. Gövde `{ change: CREATED | UPDATED | DELETED, itemId, item }`; `item` panelin gördüğü ürün kaydıdır (`MenuItemAdminDTO`), silmede `null`.
+  - `menu.updated`: tek ürünü aşan değişiklik: kategori ekleme, değiştirme, silme, kategori veya ürün sıralaması, CSV içe aktarma. Gövde `{ change, categoryId }`. Alıcı menüyü yeniden okur (`GET /restaurants/:id/menu`).
+  - Siparişin stoktan düşmesi menü olayı üretmez; stok bilgisi sipariş akışında ve menü okumasında görünür.
 - **Teslim**: her olay için `webhook_deliveries` satırı açılır; `WebhooksRunner` 30 saniyede bir vadesi gelenleri gönderir (`WEBHOOK_RUNNER=off` kapatır, testte kapalıdır ve `runPass()` doğrudan çağrılır). İstek `POST`, gövde `{ id, event, createdAt, data }`, başlıklar `x-resget-event`, `x-resget-delivery`, `x-resget-signature: t=<unix saniye>,v1=<hex>`; imza `HMAC-SHA256(sır, "<t>.<gövde>")`. Alıcı 2xx dönerse `SENT`; aksi halde 1 dk, 5 dk, 30 dk, 2 sa ve 6 sa sonra yeniden denenir, altıncı başarısızlıkta `FAILED`. Adres 20 ardışık başarısız teslimden sonra kendini duraklatır (`isActive = false`); başarılı teslim sayacı sıfırlar. Duraklatılmış adrese kuyruk açılmaz.
+- **Yeniden gönderme**: altı denemesi biten (`FAILED`) bir teslim panelden "Yeniden gönder" ile kuyruğa geri alınır (`POST :id/deliveries/:deliveryId/redeliver`).
+  - Teslim aynı kimlikle, deneme sayısı sıfırlanarak `PENDING` olur ve ilk turda gönderilir. Alıcı daha önce 2xx dönmediği için aynı kimlik tekrar sayılmaz.
+  - Yalnızca etkin adresin başarısız teslimi yeniden gönderilir. Gönderilmiş, bekleyen teslim veya duraklatılmış adres `WEBHOOK_REDELIVERY_NOT_ALLOWED` (409) döner; bilinmeyen teslim `WEBHOOK_NOT_FOUND` (404).
+  - Her yeniden gönderme denetim kaydı bırakır (`webhook.redeliver`).
 - **Alıcı tarafı**: imzayı kendi sırrınızla aynı biçimde hesaplayıp sabit zamanlı karşılaştırın, `t` değerinin 5 dakikadan eski olmadığını kontrol edin (`WEBHOOK_SIGNATURE_TOLERANCE_SECONDS`), `x-resget-delivery` kimliğiyle tekrarları eleyin (yeniden deneme aynı kimlikle gelir).
 
 ## Oran sınırı
@@ -51,13 +60,12 @@ Her anahtar dakikada `API_KEY_RATE_LIMIT` (varsayılan 600) istek yapabilir; aş
 
 ## Ekran
 
-`/panel/<slug>/entegrasyon` (`integrations.manage`; varsayılan rollerde yalnızca sahip): nasıl kullanılır kartı (temel adres, başlık adı), yeni anahtar formu (ad ve yetki kutuları), yalnızca oluşturma anında görünen token kartı, anahtar listesi ve iptal. Formda geçerlilik süresi seçilir (süresiz, 30, 90, 180 veya 365 gün). Listede her anahtarın durumu (etkin, süresi doldu, iptal edildi), son geçerlilik tarihi ve son 30 gündeki istek sayısı görünür; "Kullanım" düğmesi istek olan günleri açar; webhook kartı (adres ve olaylar, bir kez görünen sır, deneme gönderimi, duraklat / sürdür, sil, son teslimler). Temel planda formlar kapalı ve plan notu görünür.
+`/panel/<slug>/entegrasyon` (`integrations.manage`; varsayılan rollerde yalnızca sahip): nasıl kullanılır kartı (temel adres, başlık adı), yeni anahtar formu (ad ve yetki kutuları), yalnızca oluşturma anında görünen token kartı, anahtar listesi ve iptal. Formda geçerlilik süresi seçilir (süresiz, 30, 90, 180 veya 365 gün). Listede her anahtarın durumu (etkin, süresi doldu, iptal edildi), son geçerlilik tarihi ve son 30 gündeki istek sayısı görünür; "Kullanım" düğmesi istek olan günleri açar; webhook kartı (adres ve olaylar, bir kez görünen sır, deneme gönderimi, duraklat / sürdür, sil, son teslimler ve başarısız teslimde "Yeniden gönder"). Temel planda formlar kapalı ve plan notu görünür.
 
 ## Testler
 
-API e2e `webhooks.e2e-spec.ts`: yerel bir alıcıya imzalı teslim ve imza doğrulaması, 500 yanıtında geri çekilmeli yeniden deneme ve sayaç, deneme gönderimi, duraklatmada kuyruk açılmaması, silme, anahtarla yönetim reddi. API e2e `api-keys.e2e-spec.ts`: oluşturma ve tek seferlik token, listede sır yok, verilen ve verilmeyen yetkiler, verilemeyen yetki, yalnızca oturum uçları, başka restoran, bozuk anahtar ve bearer ile birlikte, `me/*` reddi, Temel planda 403, iptal sonrası 401, bulunamayan anahtar; geçerlilik süresi ve süresi dolan anahtarda `API_KEY_EXPIRED`, izin verilmeyen süre, gün bazında sayım ve rapor, anahtarla rapor reddi. Playwright `api-keys.e2e.ts`: süreli oluşturma, token kartı, kullanım özeti ve raporu, iptal. Birim testi `packages/shared/src/api-keys.spec.ts`: süre seçenekleri, durum, UTC gün penceresi.
+API e2e `webhooks.e2e-spec.ts`: yerel bir alıcıya imzalı teslim ve imza doğrulaması, 500 yanıtında geri çekilmeli yeniden deneme ve sayaç, deneme gönderimi, duraklatmada kuyruk açılmaması, silme, anahtarla yönetim reddi; ürün ve kategori değişikliğinde menü olayları, başarısız teslimin aynı kimlikle yeniden gönderilmesi, gönderilmiş teslimde ve duraklatılmış adreste ret. API e2e `api-keys.e2e-spec.ts`: oluşturma ve tek seferlik token, listede sır yok, verilen ve verilmeyen yetkiler, verilemeyen yetki, yalnızca oturum uçları, başka restoran, bozuk anahtar ve bearer ile birlikte, `me/*` reddi, Temel planda 403, iptal sonrası 401, bulunamayan anahtar; geçerlilik süresi ve süresi dolan anahtarda `API_KEY_EXPIRED`, izin verilmeyen süre, gün bazında sayım ve rapor, anahtarla rapor reddi. Playwright `api-keys.e2e.ts`: süreli oluşturma, token kartı, kullanım özeti ve raporu, iptal. Birim testi `packages/shared/src/api-keys.spec.ts`: süre seçenekleri, durum, UTC gün penceresi.
 
 ## Kalan
 
 - Süresi yaklaşan anahtar için sahibe hatırlatma (mesajlaşma motoru).
-- Webhook olaylarının genişlemesi (menü değişikliği, ödeme) ve alıcıya yeniden gönderme düğmesi.

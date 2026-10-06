@@ -23,7 +23,7 @@ import type {
 } from '@resget/shared';
 import { CredentialCipher, DEV_CREDENTIAL_KEY, EnvKeyProvider } from '../../common/crypto/credential-cipher';
 import { PrismaService } from '../prisma/prisma.service';
-import { badRequest, notFound } from '../../common/api-error';
+import { badRequest, conflict, notFound } from '../../common/api-error';
 
 const hookSelect = Prisma.validator<Prisma.RestaurantWebhookSelect>()({
   id: true,
@@ -159,6 +159,34 @@ export class WebhooksService {
       take: 20,
     });
     return rows.map(toDeliveryDto);
+  }
+
+  /**
+   * Sends a failed delivery again, under the same id so the receiver can
+   * still drop a duplicate. Only an active hook takes it: a paused one would
+   * leave it waiting unseen.
+   */
+  async redeliver(restaurantId: string, userId: string, id: string, deliveryId: string): Promise<WebhookDeliveryDTO> {
+    const hook = await this.require(restaurantId, id);
+    const delivery = await this.prisma.webhookDelivery.findFirst({ where: { id: deliveryId, webhookId: hook.id } });
+    if (!delivery) throw notFound('WEBHOOK_NOT_FOUND', 'Delivery not found');
+    if (!hook.isActive) throw conflict('WEBHOOK_REDELIVERY_NOT_ALLOWED', 'The endpoint is paused');
+    const { count } = await this.prisma.webhookDelivery.updateMany({
+      where: { id: deliveryId, status: 'FAILED' },
+      data: { status: 'PENDING', attempts: 0, nextAttemptAt: new Date(), lastError: null, responseStatus: null },
+    });
+    if (count === 0) throw conflict('WEBHOOK_REDELIVERY_NOT_ALLOWED', 'Only a failed delivery is sent again');
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: userId,
+        restaurantId,
+        action: 'webhook.redeliver',
+        entity: 'webhook_delivery',
+        entityId: deliveryId,
+        meta: { webhookId: hook.id, event: delivery.event },
+      },
+    });
+    return toDeliveryDto(await this.prisma.webhookDelivery.findUniqueOrThrow({ where: { id: deliveryId } }));
   }
 
   // -- Queue ----------------------------------------------------------------------------------
