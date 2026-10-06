@@ -46,10 +46,42 @@ Restoran `DeliveryFeePolicy` seçer (`Restaurant.deliveryFeePolicy`):
 
 ## Yaşam döngüsü
 
-`DeliveryRequest` sipariş başına tektir: QUOTED -> REQUESTED -> ASSIGNED -> PICKED_UP -> DELIVERED (veya CANCELLED / FAILED). Nihai ücret teklif tutarından farklıysa (`finalFeeMinor`) hakedişe `ADJUSTMENT` satırı yazılır.
+`DeliveryRequest` sipariş başına tektir: QUOTED -> REQUESTED -> ASSIGNED -> PICKED_UP -> DELIVERED (veya CANCELLED / FAILED). Nihai ücret teklif tutarından farklıysa (`finalFeeMinor`) hakedişe `ADJUSTMENT` satırı yazılır. Bu mutabakat henüz yazılmadı (bkz. "Faz 2'ye bırakılanlar"); bugün nihai ücret yalnızca kayda geçer.
+
+## Kurye çağırma
+
+Kurye çağırma `courier_network` modülünün parçasıdır (açık, GA). Personel `dispatch.manage` izniyle sipariş ekranından çağırır.
+
+- **Ne zaman**: bütün koşullar sağlanmalıdır.
+  - Sipariş teslimat siparişidir ve `ACCEPTED`, `PREPARING` veya `READY` durumundadır. Ağlar hazırlık sürerken çağrılmayı bekler.
+  - Sipariş restoranın kendi kurye seferinde değildir.
+  - Siparişte etkin bir istek yoktur.
+  - Restoranın seçili, etkin ve adaptörü olan bir ağı vardır.
+  - Restoranın varsayılan teslimat modu ne olursa olsun, bir siparişi ağa vermek mümkündür.
+- **Çağrı**: `POST /restaurants/:id/orders/:orderId/courier-request` teklif alır ve hemen çağırır (`quote` -> `dispatch`).
+  - Teklif isteği: alış noktası şube (adres, konum, şube telefonu), bırakış noktası siparişin adres anlık görüntüsü. Paket değeri müşterinin ödediği tutar, hazır olma zamanı söz verilen hazır olma anıdır.
+  - İstek `REQUESTED` olur. Teklif ücreti, ETA'lar, sağlayıcı referansı ve takip adresi kaydedilir.
+  - İptal edilmiş veya başarısız bir isteğin yerine yeni çağrı aynı satırı yeniden kullanır.
+  - Siparişin adresinde konum yoksa veya teklif alınamazsa çağrı reddedilir (`COURIER_REQUEST_NOT_ALLOWED`, `COURIER_DISPATCH_FAILED`).
+- **İptal**: `POST .../courier-request/cancel` paket alınmadan önce ağa iptal gönderir ve isteği `CANCELLED` yapar. Restoranın iptal ettiği veya reddettiği siparişin etkin isteği kendiliğinden iptal edilir.
+- **Ağın bildirimleri**: `POST /webhooks/courier/:providerCode`. İmza adaptörde doğrulanır, bozuk imza 400 döner. İstek sağlayıcı referansıyla bulunur; bilinmeyen referans sessizce yok sayılır. Olaylar aynı sipariş durum makinesine bağlanır (`networkOrderSteps()`):
+
+| Olay | İstek | Sipariş |
+|---|---|---|
+| `ASSIGNED` | `ASSIGNED` | `READY` ise `HANDED_TO_COURIER` |
+| `PICKED_UP` | `PICKED_UP` | `OUT_FOR_DELIVERY`; mutfak henüz hazır demediyse önce `READY` |
+| `DELIVERED` | `DELIVERED`, varsa nihai ücret | `DELIVERED` (aradaki adımlarla) |
+| `CANCELLED` / `FAILED` | Aynı ad, neden kaydedilir | Kurye bacağındaysa `READY`'ye döner; restoran yeniden çağırır veya kendisi teslim eder |
+
+- **Bildirim kuralları**: olaylar geri gitmez. Örneğin `PICKED_UP`'tan sonra gelen `ASSIGNED` yok sayılır. Tekrarlanan olay etkisizdir (`nextDeliveryRequestStatus()`).
+- **Elle müdahale**: personel siparişi yine elle ilerletebilir. Bildirim kaybolursa bu bir yedektir.
+- **Müşteri**: takip sayfası istek etkinken ağın adını ve takip bağlantısını gösterir.
+- **Kurye bahşişi**: `DELIVERED` istek, bahşiş destekleyen ağda bahşişi mümkün kılar (`docs/BAHSIS.md`).
+- **Panel**: sipariş kartında "Kurye çağır" düğmesi, isteğin durumu, ağın adı, ETA ve "Kurye çağrısını iptal et" bulunur. Kurye ekranı son istekleri listeler.
 
 ## Faz 2'ye bırakılanlar
 
-- Gerçek ağ adaptörleri ve webhook imza doğrulaması (ülkeye göre seçilir).
+- Gerçek ağ adaptörleri (ülkeye göre seçilir; imza doğrulaması adaptörün parçasıdır).
+- Nihai kurye ücreti ile teklif arasındaki farkın hakedişe `ADJUSTMENT` olarak yazılması.
 - Kurye ilan panosu: Türkiye'de iş ve işçi bulmaya aracılık İŞKUR özel istihdam bürosu iznine tabidir; hukuki görüş alınmadan geliştirilmez.
 - Mahalle kurye havuzu (aynı bölgedeki restoranların kurye paylaşımı): daha ayırt edici ama operasyon yükü taşır; aynı hukuki görüşe bağlıdır.

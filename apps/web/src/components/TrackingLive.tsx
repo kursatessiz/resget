@@ -196,6 +196,27 @@ export function TrackingLive({
         </Card>
       )}
 
+      {tracking.courierNetwork && (
+        <Card data-courier-network>
+          <div className="flex flex-col gap-2">
+            <p>{t('tracking.courierNetwork', { name: tracking.courierNetwork.name })}</p>
+            {tracking.courierNetwork.trackingUrl && (
+              <div>
+                <LinkButton
+                  href={tracking.courierNetwork.trackingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="outline"
+                  tone="muted"
+                >
+                  {t('tracking.courierNetworkLink')}
+                </LinkButton>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
       {courier && (
         <Card title={t('tracking.courier', { name: courier.firstName })}>
           <div className="flex flex-col gap-2">

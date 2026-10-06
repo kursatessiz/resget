@@ -39,6 +39,8 @@ export const enTracking: Record<keyof typeof trTracking, string> = {
   'tracking.map.courier': '{name} (courier)',
   'tracking.map.destination': 'Delivery address',
   'tracking.items': 'Order contents',
+  'tracking.courierNetwork': 'A {name} courier is bringing your order.',
+  'tracking.courierNetworkLink': 'Track the courier',
   'tracking.rating.title': 'Rate your order',
   'tracking.rating.intro': 'Your score goes only to the restaurant and helps it improve its menu.',
   'tracking.rating.score': 'Score',

@@ -52,6 +52,7 @@ import { KitchenModule } from './modules/kitchen/kitchen.module';
 import { TabsModule } from './modules/tabs/tabs.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { TipsModule } from './modules/tips/tips.module';
+import { CourierRequestsModule } from './modules/courier-requests/courier-requests.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { SocialPublishingModule } from './modules/social-publishing/social-publishing.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
@@ -116,6 +117,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
     TabsModule,
     ReviewsModule,
     TipsModule,
+    CourierRequestsModule,
     AccountingModule,
     SocialPublishingModule,
     BillingModule,

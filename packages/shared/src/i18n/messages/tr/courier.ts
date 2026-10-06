@@ -42,5 +42,12 @@ export const trCourier = {
   'courier.requests.status.DELIVERED': 'Teslim edildi',
   'courier.requests.status.CANCELLED': 'İptal',
   'courier.requests.status.FAILED': 'Başarısız',
+  'courier.call.button': 'Kurye çağır',
+  'courier.call.cancel': 'Kurye çağrısını iptal et',
+  'courier.call.called': '{provider} kuryesi çağrıldı.',
+  'courier.call.cancelled': 'Kurye çağrısı iptal edildi.',
+  'courier.call.label': '{provider}: {status}',
+  'courier.call.eta': 'Alış {pickup} dk, teslim {dropoff} dk',
+  'courier.call.track': 'Ağın takip sayfası',
   'courier.separateFromCommission': 'Kurye ücreti platform komisyonundan ayrı bir hizmettir.',
 } as const satisfies Record<string, string>;

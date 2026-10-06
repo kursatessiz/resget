@@ -42,6 +42,7 @@ const tracking = (
   canClaim: false,
   tip: null,
   tipOffer: null,
+  courierNetwork: null,
 });
 
 const stop = (

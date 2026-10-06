@@ -11,6 +11,8 @@ export const trErrors = {
   'errors.TABLE_NOT_FOUND': 'Bu masa bulunamadı. Lütfen personele danışın.',
   'errors.MENU_UNAVAILABLE': 'Menü şu anda görüntülenemiyor.',
   'errors.COURIER_QUOTE_FAILED': 'Kurye teklifi alınamadı. Lütfen tekrar deneyin.',
+  'errors.COURIER_REQUEST_NOT_ALLOWED': 'Bu sipariş için şu anda kurye çağrılamıyor.',
+  'errors.COURIER_DISPATCH_FAILED': 'Kurye ağı çağrıyı kabul etmedi. Lütfen tekrar deneyin.',
   'errors.RATE_LIMITED': 'Çok fazla istek gönderildi. Lütfen biraz bekleyin.',
   'errors.PAYMENT_CONNECTION_REQUIRED': 'Bu mod için önce sanal POS bağlantısı gerekir.',
   'errors.ORDER_NOT_FOUND': 'Sipariş bulunamadı.',

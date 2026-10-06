@@ -1,9 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { ORDER_PREP_OPTIONS, formatMoney, orderActionsFor } from '@resget/shared';
+import {
+  COURIER_CALLABLE_ORDER_STATUSES,
+  ORDER_PREP_OPTIONS,
+  formatMoney,
+  isActiveDeliveryRequest,
+  orderActionsFor,
+} from '@resget/shared';
 import type { OrderDetailDTO, OrderStatusValue, OrderSummaryDTO, Translate } from '@resget/shared';
-import { Badge, Button, SelectField, TextField } from '@/components/ui';
+import { Badge, Button, LinkButton, SelectField, TextField } from '@/components/ui';
 import type { UiTone } from '@/components/ui/types';
 import { RefundPanel } from './RefundPanel';
 import type { RefundRequest } from './RefundPanel';
@@ -57,6 +63,8 @@ export function OrderCard({
   onRefund,
   onClaim,
   loadDetail,
+  courierNetwork = null,
+  onCourier,
 }: {
   order: OrderSummaryDTO;
   locale: string;
@@ -75,6 +83,10 @@ export function OrderCard({
   onClaim?: (order: OrderSummaryDTO, claimId: string, decision: ClaimDecision) => void;
   /** The full order (items and earlier refunds) for the refund form. */
   loadDetail?: (order: OrderSummaryDTO) => Promise<OrderDetailDTO>;
+  /** The restaurant's courier network when a call is possible (docs/KURYE.md); null hides the call. */
+  courierNetwork?: string | null;
+  /** Calls the network for this order or calls it off; set for members holding dispatch.manage. */
+  onCourier?: (order: OrderSummaryDTO, action: 'call' | 'cancel') => void;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<OrderAction | null>(null);
@@ -93,6 +105,16 @@ export function OrderCard({
   const offerRefund = canRefund && Boolean(onRefund) && Boolean(loadDetail) && refundable;
   const partlyRefunded = refundState === 'NONE' && order.payment.refundedMinor > 0;
   const offerClaim = canRefund && Boolean(onClaim) && Boolean(loadDetail) && order.openClaimId !== null;
+  const request = order.courierRequest;
+  const offerCall =
+    Boolean(onCourier) &&
+    courierNetwork !== null &&
+    order.fulfillment === 'DELIVERY' &&
+    COURIER_CALLABLE_ORDER_STATUSES.includes(order.status) &&
+    order.activeTrip === null &&
+    (!request || !isActiveDeliveryRequest(request.status));
+  const offerCallOff =
+    Boolean(onCourier) && request !== null && ['QUOTED', 'REQUESTED', 'ASSIGNED'].includes(request.status);
 
   const run = (action: OrderAction) => {
     if (action.needsPrep || action.needsReason) {
@@ -153,6 +175,48 @@ export function OrderCard({
         </div>
 
         {order.address && <p className="ui-caption">{order.address.addressLine}</p>}
+        {(request || offerCall) && (
+          <div className="flex flex-wrap items-center gap-2" data-courier-request={request?.status ?? 'NONE'}>
+            {request && (
+              <Badge
+                tone={
+                  isActiveDeliveryRequest(request.status) ? 'theme' : request.status === 'DELIVERED' ? 'muted' : 'warn'
+                }
+              >
+                {t('courier.call.label', {
+                  provider: request.providerName,
+                  status: t(`courier.requests.status.${request.status}`),
+                })}
+              </Badge>
+            )}
+            {request && isActiveDeliveryRequest(request.status) && request.pickupEtaMinutes !== null && (
+              <span className="ui-caption">
+                {t('courier.call.eta', { pickup: request.pickupEtaMinutes, dropoff: request.dropoffEtaMinutes ?? 0 })}
+              </span>
+            )}
+            {request?.trackingUrl && isActiveDeliveryRequest(request.status) && (
+              <LinkButton
+                href={request.trackingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="soft"
+                tone="muted"
+              >
+                {t('courier.call.track')}
+              </LinkButton>
+            )}
+            {offerCall && (
+              <Button variant="outline" disabled={busy} onClick={() => onCourier?.(order, 'call')}>
+                {t('courier.call.button')}
+              </Button>
+            )}
+            {offerCallOff && (
+              <Button variant="outline" tone="error" disabled={busy} onClick={() => onCourier?.(order, 'cancel')}>
+                {t('courier.call.cancel')}
+              </Button>
+            )}
+          </div>
+        )}
         {order.note && (
           <p className="ui-caption">
             {t('orders.note')}: {order.note}

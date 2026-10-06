@@ -29,6 +29,7 @@ import {
   scheduledPromisedReadyAt,
   schedulingSettingsFrom,
   canRateOrder,
+  isActiveDeliveryRequest,
   isAutoRefundStatus,
   canStartRefund,
   canFileClaim,
@@ -58,6 +59,7 @@ import type {
   OrderStatusValue,
   OrderSummaryDTO,
   OrderTrackingDTO,
+  DeliveryRequestSummaryDTO,
   OrderTransitionInput,
   OrdersQuery,
   SettlementLine,
@@ -126,6 +128,8 @@ const orderArgs = Prisma.validator<Prisma.OrderDefaultArgs>()({
     claims: { orderBy: { createdAt: 'desc' } },
     rating: true,
     npsResponse: { select: { score: true } },
+    // The courier network carrying the order, when one was called (docs/KURYE.md).
+    deliveryRequest: { include: { provider: { select: { name: true } } } },
     deliveryStops: {
       where: { status: { in: [...ACTIVE_STOP_STATUSES] }, trip: { status: { in: [...ACTIVE_TRIP_STATUSES] } } },
       include: { trip: { select: { id: true, status: true, courierMembershipId: true } } },
@@ -134,6 +138,29 @@ const orderArgs = Prisma.validator<Prisma.OrderDefaultArgs>()({
   },
 });
 export type OrderRow = Prisma.OrderGetPayload<typeof orderArgs>;
+
+/** A delivery request as the order screen and the courier screen show it. */
+export function deliveryRequestSummary(
+  orderId: string,
+  r: NonNullable<OrderRow['deliveryRequest']>,
+): DeliveryRequestSummaryDTO {
+  return {
+    id: r.id,
+    orderId,
+    orderShortCode: orderShortCode(orderId),
+    status: r.status,
+    quoteFeeMinor: r.quoteFeeMinor,
+    finalFeeMinor: r.finalFeeMinor,
+    currency: r.currency,
+    providerName: r.provider.name,
+    providerRef: r.providerRef,
+    trackingUrl: r.trackingUrl,
+    pickupEtaMinutes: r.pickupEtaMinutes,
+    dropoffEtaMinutes: r.dropoffEtaMinutes,
+    failureReason: r.failureReason,
+    createdAt: r.createdAt.toISOString(),
+  };
+}
 
 type Db = Prisma.TransactionClient | PrismaService;
 
@@ -1004,7 +1031,7 @@ export class OrdersService {
       row.status !== 'PENDING_PAYMENT' &&
       !TERMINAL_ORDER_STATUSES.includes(row.status) &&
       (await this.features.isEnabled('delivery_pin', row.restaurantId)) &&
-      !(await this.prisma.deliveryRequest.findFirst({ where: { orderId: row.id }, select: { id: true } }));
+      !row.deliveryRequest;
     const stop = row.deliveryStops[0];
     let courier: OrderTrackingDTO['courier'] = null;
     if (
@@ -1101,6 +1128,10 @@ export class OrdersService {
           row.payments.reduce((n, p) => n + refundableMinor(p), 0),
         ),
       ...tips,
+      courierNetwork:
+        row.deliveryRequest && isActiveDeliveryRequest(row.deliveryRequest.status)
+          ? { name: row.deliveryRequest.provider.name, trackingUrl: row.deliveryRequest.trackingUrl }
+          : null,
     };
   }
 
@@ -1162,6 +1193,7 @@ export class OrdersService {
         : null,
       openClaimId: row.claims.find((c) => isClaimWaiting(c.status))?.id ?? null,
       payment: this.paymentOf(row),
+      courierRequest: row.deliveryRequest ? deliveryRequestSummary(row.id, row.deliveryRequest) : null,
     };
   }
 
