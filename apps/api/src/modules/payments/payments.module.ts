@@ -14,6 +14,8 @@ import { RefundsService } from './refunds.service';
 import { ClaimsService } from './claims.service';
 import { ClaimsWatchdog } from './claims.watchdog';
 import { AdminClaimsController } from './admin-claims.controller';
+import { WalletsController } from './wallets.controller';
+import { WalletsService } from './wallets.service';
 
 @Module({
   imports: [AuthModule, OrdersModule],
@@ -25,6 +27,7 @@ import { AdminClaimsController } from './admin-claims.controller';
     PublicPaymentsController,
     PaymentWebhooksController,
     AdminClaimsController,
+    WalletsController,
   ],
   providers: [
     PaymentsRegistry,
@@ -35,6 +38,7 @@ import { AdminClaimsController } from './admin-claims.controller';
     RefundsService,
     ClaimsService,
     ClaimsWatchdog,
+    WalletsService,
   ],
   exports: [
     PaymentsRegistry,
@@ -44,6 +48,7 @@ import { AdminClaimsController } from './admin-claims.controller';
     RefundsService,
     ClaimsService,
     ClaimsWatchdog,
+    WalletsService,
   ],
 })
 export class PaymentsModule {}

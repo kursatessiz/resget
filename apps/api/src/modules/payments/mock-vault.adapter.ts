@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import type { CardVaultAdapter, SavedCardMetadata, VaultChargeRequest, VaultChargeResult } from '@resget/shared';
+import type {
+  CardVaultAdapter,
+  CardVaultProviderCode,
+  SavedCardMetadata,
+  VaultChargeRequest,
+  VaultChargeResult,
+} from '@resget/shared';
 
 /**
  * In-memory card vault for development and tests. Linking "succeeds" with
@@ -8,8 +14,10 @@ import type { CardVaultAdapter, SavedCardMetadata, VaultChargeRequest, VaultChar
  * cross-merchant charging.
  */
 export class MockVaultAdapter implements CardVaultAdapter {
-  readonly code = 'MOCK' as const;
   readonly crossMerchant = true;
+
+  /** Outside production the same stand-in answers for each platform wallet code (docs/CUZDAN.md). */
+  constructor(readonly code: CardVaultProviderCode = 'MOCK') {}
 
   async beginLink(
     userRef: string,
@@ -21,7 +29,7 @@ export class MockVaultAdapter implements CardVaultAdapter {
   async completeLink(userRef: string): Promise<Array<SavedCardMetadata & { token: string }>> {
     return [
       {
-        token: `mock-card-${userRef}`,
+        token: this.code === 'MOCK' ? `mock-card-${userRef}` : `mock-${this.code.toLowerCase()}-${userRef}`,
         brand: 'Mastercard',
         last4: '4242',
         expiryMonth: 12,

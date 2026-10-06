@@ -550,7 +550,7 @@ export class BillingService {
     const attempt = invoice.collectionAttempts + 1;
     let result: VaultChargeResult;
     try {
-      result = await this.registry.vault.charge({
+      result = await this.registry.vaultFor(card.provider).charge({
         token: this.registry.cipher.decrypt(card.encryptedToken),
         amountMinor: collectibleMinor(invoice),
         currency: invoice.currency,

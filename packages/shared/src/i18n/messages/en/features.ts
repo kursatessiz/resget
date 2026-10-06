@@ -149,6 +149,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.courier_tips.name': 'Courier tips',
   'features.courier_tips.description':
     'The customer tips the courier from the tracking page after delivery; the platform takes no commission, only the payment provider fee comes off, and a supporting courier network receives it.',
+  'features.platform_wallets.name': 'Platform wallets',
+  'features.platform_wallets.description':
+    'The customer links a Masterpass or bex account once and pays with the saved card at restaurants the platform collects for; the charge runs on the platform merchant.',
   'features.group_orders.name': 'Group orders',
   'features.group_orders.description':
     'A shared basket on the restaurant page: everyone who joins through the link adds their own choice, and the basket owner places one order and pays.',

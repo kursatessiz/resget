@@ -58,6 +58,7 @@ Anahtar, modülün işletme için var olup olmadığına karar verir. Plan (BASI
 | `partial_refunds` | Ödeme | açık |
 | `accounting_export` | Ödeme | kapalı (BETA) |
 | `payout_schedules` | Ödeme | kapalı (BETA, yalnızca `PLATFORM_PSP`) |
+| `platform_wallets` | Ödeme | kapalı (BETA; genel anahtar hesapta bağlamayı, restoran değeri kabulü açar; yalnızca `PLATFORM_PSP`) |
 | `own_courier_dispatch` | Teslimat | açık |
 | `courier_network` | Teslimat | açık |
 | `delivery_zones` | Teslimat | kapalı (BETA) |

@@ -66,7 +66,7 @@ export interface GroupMode {
 
 type PaymentChoice =
   | { method: 'TAB' }
-  | { method: 'CASH_ON_DELIVERY' | 'CARD_ON_DELIVERY' | 'ONLINE_CARD' }
+  | { method: 'CASH_ON_DELIVERY' | 'CARD_ON_DELIVERY' | 'ONLINE_CARD'; savedPaymentMethodId?: string }
   | { method: 'MEAL_CARD'; providerCode: string; atDoor: boolean };
 
 /**
@@ -230,8 +230,19 @@ export function Storefront({
         label: t('payments.method.CARD_ON_DELIVERY'),
         choice: { method: 'CARD_ON_DELIVERY' },
       });
-    if (payment.onlineCard)
+    if (payment.onlineCard) {
+      // The signed-in customer's wallet cards this restaurant takes come first (docs/CUZDAN.md).
+      for (const card of viewer?.walletCards ?? []) {
+        const wallet = payment.wallets.find((w) => w.code === card.provider);
+        if (!wallet) continue;
+        list.push({
+          id: `wallet-${card.id}`,
+          label: t('wallets.payWith', { wallet: wallet.name, brand: card.brand, last4: card.last4 }),
+          choice: { method: 'ONLINE_CARD', savedPaymentMethodId: card.id },
+        });
+      }
       list.push({ id: 'online', label: t('payments.method.ONLINE_CARD'), choice: { method: 'ONLINE_CARD' } });
+    }
     for (const card of payment.mealCardsOnline) {
       list.push({
         id: `mc-online-${card.providerCode}`,
@@ -247,7 +258,7 @@ export function Storefront({
       });
     }
     return list;
-  }, [payment, t, storefront.tab, fulfillment]);
+  }, [payment, t, storefront.tab, fulfillment, viewer]);
   const [paymentId, setPaymentId] = useState<string>('');
   const selectedPayment = paymentChoices.find((p) => p.id === paymentId) ?? paymentChoices[0] ?? null;
 

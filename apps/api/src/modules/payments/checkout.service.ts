@@ -123,6 +123,75 @@ export class CheckoutService {
     return { session, providerCode: code, paymentMode: 'PLATFORM_PSP' };
   }
 
+  /**
+   * Pays an order waiting in PENDING_PAYMENT with a card of a platform
+   * wallet (docs/CUZDAN.md). The charge runs at the platform's merchant,
+   * so the payment keeps the platform's provider (refunds go there) and the
+   * card it came from. Returns where the customer goes next: nowhere when
+   * captured, the 3-D Secure page, or the hosted page after a decline.
+   */
+  async chargeSavedCard(orderId: string, savedPaymentMethodId: string, returnUrl: string): Promise<string | null> {
+    const order = await this.prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
+      select: {
+        id: true,
+        status: true,
+        payments: { where: { status: 'PENDING' }, orderBy: { createdAt: 'desc' }, take: 1 },
+      },
+    });
+    const payment = order.payments[0];
+    if (order.status !== 'PENDING_PAYMENT' || !payment || payment.paymentMode !== 'PLATFORM_PSP') {
+      throw conflict('PAYMENT_STATE_INVALID', 'Order is not waiting for a platform payment');
+    }
+    const card = await this.prisma.savedPaymentMethod.findUniqueOrThrow({ where: { id: savedPaymentMethodId } });
+    const provider = this.platformProviderCode();
+    const result = await this.payments
+      .vaultFor(card.provider)
+      .charge({
+        token: this.payments.cipher.decrypt(card.encryptedToken),
+        amountMinor: payment.amountMinor,
+        currency: payment.currency,
+        merchantRef: 'platform',
+        orderRef: order.id,
+        returnUrl,
+      })
+      .catch((err: unknown) => {
+        this.logger.warn(`Wallet charge for order ${order.id} failed: ${(err as Error).message}`);
+        return null;
+      });
+    if (result?.status === 'CAPTURED') {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: 'CAPTURED',
+            provider,
+            providerRef: result.providerRef,
+            savedPaymentMethodId: card.id,
+            capturedAt: new Date(),
+          },
+        });
+        const row = await this.orders.loadRow(tx, order.id);
+        if (row.status === 'PENDING_PAYMENT') {
+          await this.orders.applyTransition(tx, row, 'PLACED', 'SYSTEM', null, { reason: 'wallet payment captured' });
+        }
+      });
+      this.realtime.publishMany(await this.orders.eventsForOrder(order.id));
+      return null;
+    }
+    if (result?.status === 'REQUIRES_3DS' && result.redirectUrl) {
+      // The capture arrives on the platform merchant's webhook like any platform card payment.
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: { provider, providerRef: result.providerRef, savedPaymentMethodId: card.id },
+      });
+      return result.redirectUrl;
+    }
+    // Declined: the same order is paid on the hosted page instead.
+    const session = await this.checkoutFor(order.id, returnUrl);
+    return session.session.redirectUrl;
+  }
+
   /** Validates a payment intent against what the restaurant accepts and decides whether the order waits for payment. */
   async resolveIntent(restaurantId: string, intent: OrderPaymentIntent): Promise<ResolvedPaymentIntent> {
     const accepted = await this.mealCards.acceptedMethods(restaurantId);
