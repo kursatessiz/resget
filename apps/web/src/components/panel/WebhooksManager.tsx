@@ -88,6 +88,16 @@ export function WebhooksManager({
       await bffJson<WebhookDeliveryDTO>(`${base}/${hook.id}/test`, { method: 'POST', body: '{}' });
       setNotice(t('integrations.webhooks.tested'));
     });
+  const redeliver = (hook: WebhookDTO, deliveryId: string) =>
+    act(async () => {
+      await bffJson<WebhookDeliveryDTO>(`${base}/${hook.id}/deliveries/${deliveryId}/redeliver`, {
+        method: 'POST',
+        body: '{}',
+      });
+      const rows = await bffJson<WebhookDeliveryDTO[]>(`${base}/${hook.id}/deliveries`);
+      setDeliveries((d) => ({ ...d, [hook.id]: rows }));
+      setNotice(t('integrations.webhooks.redelivered'));
+    });
   const showDeliveries = (hook: WebhookDTO) =>
     act(async () => {
       if (openDeliveries === hook.id) {
@@ -205,15 +215,26 @@ export function WebhooksManager({
                     <li className="ui-caption">{t('integrations.webhooks.deliveriesEmpty')}</li>
                   )}
                   {(deliveries[hook.id] ?? []).map((d) => (
-                    <li key={d.id} className="ui-caption">
-                      {t('integrations.webhooks.delivery', {
-                        event: d.event,
-                        status: t(`integrations.webhooks.status.${d.status}`),
-                        attempts: d.attempts,
-                        response: d.responseStatus ?? 0,
-                        date: when(d.createdAt),
-                      })}
-                      {d.lastError ? ` ${d.lastError}` : ''}
+                    <li
+                      key={d.id}
+                      className="ui-caption flex flex-wrap items-center gap-2"
+                      data-webhook-delivery={d.status}
+                    >
+                      <span>
+                        {t('integrations.webhooks.delivery', {
+                          event: d.event,
+                          status: t(`integrations.webhooks.status.${d.status}`),
+                          attempts: d.attempts,
+                          response: d.responseStatus ?? 0,
+                          date: when(d.createdAt),
+                        })}
+                        {d.lastError ? ` ${d.lastError}` : ''}
+                      </span>
+                      {d.status === 'FAILED' && hook.isActive && (
+                        <Button variant="outline" tone="muted" onClick={() => redeliver(hook, d.id)} disabled={busy}>
+                          {t('integrations.webhooks.redeliver')}
+                        </Button>
+                      )}
                     </li>
                   ))}
                 </ul>

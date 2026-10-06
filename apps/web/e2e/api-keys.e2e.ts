@@ -34,11 +34,13 @@ test.describe('API access (PRO)', () => {
     await page.goto(`/panel/${SEED.restaurantSlug}/entegrasyon`);
     const card = page.getByRole('region', { name: 'Webhook adresleri' });
     await card.getByLabel('Adres (https://...)').fill(url);
+    await card.getByLabel('Menü ürünü eklendi, değişti veya silindi').check();
     await card.getByRole('button', { name: 'Webhook ekle' }).click();
     await expect(card.getByRole('status')).toContainText('Webhook eklendi');
     await expect(card.locator('[data-webhook-secret]')).toContainText(/^whsec_/);
     const row = card.getByRole('listitem', { name: url });
     await expect(row).toContainText('Etkin');
+    await expect(row).toContainText('Menü ürünü eklendi, değişti veya silindi');
     await row.getByRole('button', { name: 'Duraklat' }).click();
     await expect(row).toContainText('Duraklatıldı');
     await row.getByRole('button', { name: 'Sil' }).click();
