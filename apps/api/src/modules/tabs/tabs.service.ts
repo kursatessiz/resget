@@ -22,6 +22,7 @@ import { MealCardsService } from '../payments/meal-cards.service';
 import { CheckoutService } from '../payments/checkout.service';
 import type { WebhookScope } from '../payments/checkout.service';
 import { PaymentsRegistry } from '../payments/payments.registry';
+import { LedgerService } from '../ledger/ledger.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -65,6 +66,7 @@ export class TabsService {
     private readonly config: ConfigService,
     private readonly checkout: CheckoutService,
     private readonly payments: PaymentsRegistry,
+    private readonly ledger: LedgerService,
   ) {
     this.checkout.addReferenceHandler((event, scope) => this.handleWebhook(event, scope));
   }
@@ -258,10 +260,8 @@ export class TabsService {
       });
       return 'FAILED';
     }
-    if (event.status !== 'CAPTURED') {
-      // A refund made in the provider's own panel is applied per order from the panel (docs/ACIK_HESAP.md).
-      this.logger.warn(`Tab payment ${payment.id}: ${event.status} notice left for staff`);
-      return 'IGNORED';
+    if (event.status === 'REFUNDED' || event.status === 'CHARGEBACK') {
+      return (await this.reverse(payment.id, event)) ? event.status : 'IGNORED';
     }
     if (event.amountMinor <= 0) throw badRequest('WEBHOOK_INVALID', 'Empty payment');
     const outcome = await this.prisma.$transaction(async (tx) => {
@@ -294,6 +294,81 @@ export class TabsService {
     if (outcome.excessMinor > 0) await this.refundExcess(payment.id, event.providerRef, outcome.excessMinor);
     for (const orderId of outcome.orderIds) this.realtime.publishMany(await this.orders.eventsForOrder(orderId));
     return 'CAPTURED';
+  }
+
+  /**
+   * The whole share went back outside the platform: refunded in the POS
+   * provider's own panel or taken back by the cardholder's bank. Every order
+   * part it paid is booked like a refund made from the panel (docs/ACIK_HESAP.md),
+   * once; an order with nothing left is closed as refunded.
+   */
+  private async reverse(paymentId: string, event: GatewayWebhookEvent): Promise<boolean> {
+    const chargeback = event.status === 'CHARGEBACK';
+    const now = new Date(event.occurredAt);
+    const orderIds = await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.tabPayment.updateMany({
+        where: { id: paymentId, status: { in: ['CAPTURED', 'PARTIALLY_REFUNDED'] } },
+        data: { status: chargeback ? 'CHARGED_BACK' : 'REFUNDED' },
+      });
+      if (count === 0) return null;
+      const share = await tx.tabPayment.findUniqueOrThrow({ where: { id: paymentId } });
+      // The provider's full refund also covered an excess the platform had not managed to give back.
+      if (share.excessMinor > 0 && !share.excessRefundedAt) {
+        await tx.tabPayment.update({ where: { id: paymentId }, data: { excessRefundedAt: now } });
+      }
+      if (!share.providerRef) return [];
+      const parts = await tx.payment.findMany({
+        where: {
+          restaurantId: share.restaurantId,
+          order: { tabId: share.tabId },
+          method: 'ONLINE_CARD',
+          provider: share.provider,
+          providerRef: share.providerRef,
+          status: { in: ['CAPTURED', 'PARTIALLY_REFUNDED'] },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+      for (const part of parts) {
+        const amountMinor = part.amountMinor - part.refundedMinor;
+        await tx.payment.update({
+          where: { id: part.id },
+          data: chargeback
+            ? { status: 'CHARGED_BACK' }
+            : {
+                status: 'REFUNDED',
+                refundedMinor: part.amountMinor,
+                refundedAt: now,
+                refundRequestedAt: null,
+                refundFailureCode: null,
+              },
+        });
+        // The restaurant bears it and the platform keeps no commission on what went back (docs/MUTABAKAT.md).
+        await this.ledger.recordRefund(tx, {
+          orderId: part.orderId,
+          paymentId: part.id,
+          source: chargeback ? 'CHARGEBACK' : 'PROVIDER',
+          amountMinor,
+          reason: chargeback ? 'chargeback reported by the provider' : 'refund reported by the provider',
+          now,
+        });
+        if (!chargeback) {
+          await this.orders.closeAsRefunded(tx, part.orderId, 'SYSTEM', null, 'refund reported by the provider');
+        }
+      }
+      await tx.auditLog.create({
+        data: {
+          restaurantId: share.restaurantId,
+          action: chargeback ? 'tab.payment_charged_back' : 'tab.payment_refunded',
+          entity: 'TabPayment',
+          entityId: paymentId,
+          meta: { amountMinor: share.amountMinor, orders: parts.length },
+        },
+      });
+      return [...new Set(parts.map((p) => p.orderId))];
+    });
+    if (!orderIds) return false;
+    for (const orderId of orderIds) this.realtime.publishMany(await this.orders.eventsForOrder(orderId));
+    return true;
   }
 
   /** Gives back what the bill no longer owed, on the restaurant's POS; a failure stays on the record. */
