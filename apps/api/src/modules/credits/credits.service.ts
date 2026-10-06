@@ -29,13 +29,13 @@ export class CreditsService {
       this.prisma.restaurant.findUniqueOrThrow({ where: { id: restaurantId }, select: { currency: true } }),
       this.prisma.savedPaymentMethod.findFirst({
         where: { id: input.paymentMethodId, userId: buyerUserId },
-        select: { id: true, encryptedToken: true },
+        select: { id: true, encryptedToken: true, provider: true },
       }),
     ]);
     if (!pkg || pkg.currency !== restaurant.currency) throw notFound('PACKAGE_NOT_FOUND', 'Package not found');
     if (!card) throw notFound('PAYMENT_METHOD_NOT_FOUND', 'Saved card not found');
 
-    const result = await this.registry.vault.charge({
+    const result = await this.registry.vaultFor(card.provider).charge({
       token: this.registry.cipher.decrypt(card.encryptedToken),
       amountMinor: pkg.priceMinor,
       currency: pkg.currency,

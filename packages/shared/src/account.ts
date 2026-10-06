@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { SavedPaymentMethodDTO } from './payments';
 import { GeoPointSchema } from './courier';
 import type { GeoPoint } from './courier';
 import type { FulfillmentTypeValue, OrderStatusValue } from './delivery';
@@ -81,4 +82,6 @@ export interface StorefrontViewerDTO {
   addresses: CustomerAddressDTO[];
   /** Balance at the restaurant the storefront asked about; null when none was asked or there is no program. */
   loyaltyPoints: number | null;
+  /** The customer's wallet cards this restaurant accepts (docs/CUZDAN.md); empty when none was asked. */
+  walletCards: SavedPaymentMethodDTO[];
 }

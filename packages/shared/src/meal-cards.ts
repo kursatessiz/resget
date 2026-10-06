@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { WalletDTO } from './wallets';
 import { PaymentMethod, PaymentMode } from './enums';
 import type { PaymentModeValue } from './payments';
 import type { GatewayWebhookEvent, HostedCheckoutSession } from './payments';
@@ -145,6 +146,8 @@ export interface AcceptedPaymentMethodsDTO {
   cardOnDelivery: boolean;
   /** Issuers whose physical cards are taken at the door. */
   mealCardsOnDelivery: { providerCode: MealCardProviderCode; name: string }[];
+  /** Platform wallets accepted here (docs/CUZDAN.md); only a restaurant the platform collects for takes them. */
+  wallets: WalletDTO[];
 }
 
 // -- Choosing a method for an order -----------------------------------------------------
@@ -161,9 +164,14 @@ export const OrderPaymentIntentSchema = z
     providerCode: MealCardProviderCodeSchema.optional(),
     /** MEAL_CARD only: hand the physical card to the courier instead of paying online now. */
     atDoor: z.boolean().optional(),
+    /** ONLINE_CARD only: pay with a card of a platform wallet the signed-in customer linked (docs/CUZDAN.md). */
+    savedPaymentMethodId: z.string().uuid().optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
+    if (value.savedPaymentMethodId && value.method !== 'ONLINE_CARD') {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['savedPaymentMethodId'], message: 'online card only' });
+    }
     if (value.method === 'MEAL_CARD' && !value.providerCode) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['providerCode'], message: 'required for a meal card' });
     }

@@ -33,6 +33,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { MenuService } from '../menu/menu.service';
 import { MealCardsService } from '../payments/meal-cards.service';
 import { CheckoutService } from '../payments/checkout.service';
+import { WalletsService } from '../payments/wallets.service';
 import { OrdersService } from '../orders/orders.service';
 import { CourierService } from '../courier/courier.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
@@ -73,6 +74,7 @@ export class StorefrontService {
     private readonly mealCards: MealCardsService,
     private readonly orders: OrdersService,
     private readonly checkout: CheckoutService,
+    private readonly wallets: WalletsService,
     private readonly courier: CourierService,
     private readonly loyalty: LoyaltyService,
     private readonly geocoding: GeocodingService,
@@ -338,6 +340,11 @@ export class StorefrontService {
     }
     const deliveryFeeMinor =
       input.fulfillment === 'DELIVERY' && input.address ? await this.deliveryFee(restaurant, branchId, input, zone) : 0;
+    // A wallet card belongs to the signed-in customer and only a restaurant that takes the wallet sees it (docs/CUZDAN.md).
+    const savedPaymentMethodId = input.payment?.savedPaymentMethodId;
+    if (savedPaymentMethodId) {
+      await this.wallets.assertUsable(restaurant.id, context.viewer?.id ?? null, savedPaymentMethodId);
+    }
 
     const create: CreateOrderInput = {
       branchId,
@@ -348,7 +355,7 @@ export class StorefrontService {
       items: input.items,
       address: input.address,
       deliveryFeeMinor,
-      payment: input.payment,
+      payment: input.payment ? { ...input.payment, savedPaymentMethodId: undefined } : undefined,
       note: input.note,
       qrSessionId: context.sessionId ?? undefined,
       marketingOptIn: input.marketingOptIn,
@@ -383,15 +390,25 @@ export class StorefrontService {
     const loyaltyPointsRedeemed = loyaltyUserId ? await this.loyalty.redeemedPointsOf(order.id) : 0;
     const token = order.trackingUrl.split('/t/')[1] ?? '';
     let checkoutUrl: string | null = null;
+    let status = order.status;
     if (order.status === 'PENDING_PAYMENT' && input.returnUrl) {
-      const session = await this.checkout.startPublicCheckout(token, input.returnUrl);
-      checkoutUrl = session.session.redirectUrl;
+      if (savedPaymentMethodId) {
+        checkoutUrl = await this.checkout.chargeSavedCard(order.id, savedPaymentMethodId, input.returnUrl);
+        // A captured wallet charge has already placed the order.
+        if (!checkoutUrl) {
+          status = (await this.prisma.order.findUniqueOrThrow({ where: { id: order.id }, select: { status: true } }))
+            .status;
+        }
+      } else {
+        const session = await this.checkout.startPublicCheckout(token, input.returnUrl);
+        checkoutUrl = session.session.redirectUrl;
+      }
     }
     return {
       trackingToken: token,
       trackingUrl: trackingUrl(this.config.getOrThrow<string>('PUBLIC_APP_URL'), token),
       shortCode: order.shortCode,
-      status: order.status,
+      status,
       fulfillment: order.fulfillment,
       chargedToCustomerMinor: order.chargedToCustomerMinor,
       deliveryFeeMinor: order.deliveryFeeMinor,

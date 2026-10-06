@@ -11,6 +11,7 @@ import type {
   UpdateAddressInput,
   UpdateProfileInput,
 } from '@resget/shared';
+import { WalletsService } from '../payments/wallets.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { GeocodingService } from '../geocoding/geocoding.service';
@@ -50,6 +51,7 @@ export class AccountService {
     private readonly config: ConfigService,
     private readonly loyalty: LoyaltyService,
     private readonly geocoding: GeocodingService,
+    private readonly wallets: WalletsService,
   ) {}
 
   async account(userId: string): Promise<CustomerAccountDTO> {
@@ -67,12 +69,13 @@ export class AccountService {
 
   /** What the storefront prefills for a signed-in visitor. */
   async viewer(userId: string, restaurantId: string | null = null): Promise<StorefrontViewerDTO> {
-    const [user, addresses, loyaltyPoints] = await Promise.all([
+    const [user, addresses, loyaltyPoints, walletCards] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { fullName: true, phone: true } }),
       this.addresses(userId),
       restaurantId ? this.loyalty.balanceOf(restaurantId, userId) : Promise.resolve(null),
+      restaurantId ? this.wallets.usableCardsAt(userId, restaurantId) : Promise.resolve([]),
     ]);
-    return { fullName: user.fullName, phone: user.phone, addresses, loyaltyPoints };
+    return { fullName: user.fullName, phone: user.phone, addresses, loyaltyPoints, walletCards };
   }
 
   async updateProfile(userId: string, input: UpdateProfileInput): Promise<CustomerAccountDTO> {

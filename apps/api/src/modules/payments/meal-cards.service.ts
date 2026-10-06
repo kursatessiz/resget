@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PaymentConnectionStatus } from '@resget/database';
-import { MEAL_CARD_PROVIDERS, isMealCardProviderCode, mealCardProvidersFor } from '@resget/shared';
+import { MEAL_CARD_PROVIDERS, isMealCardProviderCode, mealCardProvidersFor, WALLET_NAMES } from '@resget/shared';
 import type {
   AcceptedPaymentMethodsDTO,
   MealCardConnectionDTO,
@@ -115,9 +115,10 @@ export class MealCardsService {
     });
     if (!restaurant) throw notFound('NOT_FOUND', 'Restaurant not found');
     // Module switches (docs/OZELLIK_ANAHTARLARI.md): a switched-off method is simply not offered.
-    const [onlineOn, mealCardsOn] = await Promise.all([
+    const [onlineOn, mealCardsOn, walletsOn] = await Promise.all([
       this.features.isEnabled('online_payment', restaurantId),
       this.features.isEnabled('meal_cards', restaurantId),
+      this.features.isEnabled('platform_wallets', restaurantId),
     ]);
     const cards = mealCardsOn
       ? restaurant.mealCardConnections.filter((c) => isMealCardProviderCode(c.providerCode))
@@ -138,6 +139,11 @@ export class MealCardsService {
       cashOnDelivery: true,
       cardOnDelivery: true,
       mealCardsOnDelivery: cards.filter((c) => c.acceptsOnDelivery).map((c) => entry(c.providerCode)),
+      // A platform wallet is charged at the platform's merchant, so only platform-collected money takes one (docs/CUZDAN.md).
+      wallets:
+        onlineOn && walletsOn && restaurant.paymentMode === 'PLATFORM_PSP'
+          ? this.payments.walletCodes().map((code) => ({ code, name: WALLET_NAMES[code] }))
+          : [],
     };
   }
 

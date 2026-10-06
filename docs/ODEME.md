@@ -56,6 +56,8 @@ Arayüz `CardVaultAdapter`: `beginLink` (kasa kendi arayüzünde bağlama başla
 
 Müşteri uçları: `GET /me/payment-methods`, `POST /me/payment-methods/link`, `POST /me/payment-methods/link/complete`, `DELETE /me/payment-methods/:id`. Token asla yanıtta yoktur.
 
+Platform cüzdanları (Masterpass, bex) ile sipariş ödemesi `docs/CUZDAN.md` içindedir. Cüzdanlar `PaymentsRegistry.wallets` altında kod başına bir adaptördür. Kayıtlı kartın çekimi ve silinmesi kartın geldiği kasanın adaptörüyle yapılır (`vaultFor`). Cüzdan çekimi platformun üye işyerine gittiği için yalnızca `PLATFORM_PSP` restoranlarında sunulur.
+
 ## 3a. Yemek kartları
 
 Yemek kartlarında üye işyeri her zaman restorandır; restoran kabul ettiği kartları seçer, çevrim içi ödeme için kuruluşun API bilgilerini bağlar (POS bağlantısıyla aynı şifreleme ve doğrulama), kapıda kabul için yalnızca işaretler. Yemek kartı, nakit ve kapıda kart ödemeleri restoranın `paymentMode`'undan bağımsız olarak `OWN_POS` gibi hesaplanır (komisyon faturalanır, PSP ve tevkifat sıfır). Ödeme adımı (hosted oturum, imzalı webhook, kapıda tahsilat) ve uçlar: `docs/YEMEK_KARTI.md`.

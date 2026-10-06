@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PaymentConnectionStatus, PaymentMode } from '@resget/database';
 import { applyCommissionCredits, buildCommissionStatement, commissionPeriod } from '@resget/shared';
 import type {
+  CardVaultAdapter,
   CommissionStatement,
   ConnectOwnPosInput,
   PaymentSettingsDTO,
@@ -237,16 +238,20 @@ export class PaymentsService {
   }
 
   /** Stores the vault's tokens for the user; the token itself is encrypted, its fingerprint keeps the row unique. */
-  async completeCardLink(userId: string, callbackPayload: Record<string, string>): Promise<SavedPaymentMethodDTO[]> {
-    const cards = await this.registry.vault.completeLink(userId, callbackPayload);
+  async completeCardLink(
+    userId: string,
+    callbackPayload: Record<string, string>,
+    vault: CardVaultAdapter = this.registry.vault,
+  ): Promise<SavedPaymentMethodDTO[]> {
+    const cards = await vault.completeLink(userId, callbackPayload);
     const existingCount = await this.prisma.savedPaymentMethod.count({ where: { userId } });
     for (const [index, card] of cards.entries()) {
       const tokenHash = tokenFingerprint(card.token);
       await this.prisma.savedPaymentMethod.upsert({
-        where: { userId_provider_tokenHash: { userId, provider: this.registry.vault.code, tokenHash } },
+        where: { userId_provider_tokenHash: { userId, provider: vault.code, tokenHash } },
         create: {
           userId,
-          provider: this.registry.vault.code,
+          provider: vault.code,
           encryptedToken: this.registry.cipher.encrypt(card.token),
           keyVersion: this.registry.cipher.keyVersion,
           tokenHash,
@@ -266,7 +271,10 @@ export class PaymentsService {
   async removeSavedCard(userId: string, id: string): Promise<void> {
     const row = await this.prisma.savedPaymentMethod.findFirst({ where: { id, userId } });
     if (!row) throw notFound('NOT_FOUND', 'Card not found');
-    await this.registry.vault.forget(this.registry.cipher.decrypt(row.encryptedToken)).catch(() => undefined);
+    await this.registry
+      .vaultFor(row.provider)
+      .forget(this.registry.cipher.decrypt(row.encryptedToken))
+      .catch(() => undefined);
     await this.prisma.savedPaymentMethod.delete({ where: { id } });
   }
 }
