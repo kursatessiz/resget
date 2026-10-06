@@ -77,7 +77,7 @@ Kurye çağırma `courier_network` modülünün parçasıdır (açık, GA). Pers
 - **Elle müdahale**: personel siparişi yine elle ilerletebilir. Bildirim kaybolursa bu bir yedektir.
 - **Müşteri**: takip sayfası istek etkinken ağın adını ve takip bağlantısını gösterir.
 - **Kurye bahşişi**: `DELIVERED` istek, bahşiş destekleyen ağda bahşişi mümkün kılar (`docs/BAHSIS.md`).
-- **Panel**: sipariş kartında "Kurye çağır" düğmesi, isteğin durumu, ağın adı, ETA ve "Kurye çağrısını iptal et" bulunur. Kurye ekranı son istekleri listeler.
+- **Panel ve uygulama**: sipariş kartında "Kurye çağır" düğmesi, isteğin durumu, ağın adı, ETA ve "Kurye çağrısını iptal et" bulunur. Tablet uygulamasının sipariş ekranı aynı kuralla çalışır (`courierCallActions`, `docs/MOBIL.md`). Kurye ekranı son istekleri listeler.
 
 ## Faz 2'ye bırakılanlar
 

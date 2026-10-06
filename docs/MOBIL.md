@@ -100,6 +100,7 @@ iOS'ta Apple Haritalar anahtarsız çalışır. Android'de Google Maps SDK kulla
 
 - **Eylemler**: web sipariş ekranıyla aynı tablo (`orderActionsFor`, `packages/shared/src/order-actions.ts`): kabul (hazırlık süresi seçilir, `ORDER_PREP_OPTIONS`), ret ve iptal (müşteriye gösterilen gerekçe zorunlu), hazırlanıyor, hazır, gel al / masaya servis / yolda / teslim. Durum makinesi API'dedir; uygulama yalnızca izin verilen geçişi ister. Sefere bağlı sipariş sevk panosundan veya kuryeden ilerler.
 - **Yeni sipariş uyarısı**: liste 8 saniyede bir yenilenir; ilk yükleme mevcut siparişleri öğrenir, sonraki yüklemelerde yeni gelen her `PLACED` sipariş için cihaz titrer ve yerel bildirim (sesli) çıkar (`freshPlacedOrderIds`). Ek yerel bağımlılık yoktur (`expo-notifications`, React Native `Vibration`). Kabul süresi geçen siparişte kırmızı uyarı görünür; sunucu tarafındaki zaman aşımı alarmı (`docs/SIPARIS_VE_SEVK.md`) aynen çalışır.
+- **Kurye çağırma**: `dispatch.manage` izni olan personel, restoranın kurye ağı varsa teslimat siparişinin kartından kurye çağırır ve paket alınmadan önce çağrıyı iptal eder. İsteğin durumu kartta görünür. Kurallar web sipariş kartıyla aynıdır (`courierCallActions`, `docs/KURYE.md` "Kurye çağırma").
 - **Tablet**: tablet genişliğinde iki sütun (yeni / mutfakta ve hazır); telefonda tek liste, yeniler üstte.
 
 ## 4. Çalıştırma
