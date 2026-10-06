@@ -345,8 +345,13 @@ describe('Attribution (e2e)', () => {
       })
       .expect(201);
     createdRestaurants.push(created.body.id as string);
-    const signups = await conversionsOf({ restaurantId: platformId, type: 'restaurant_signup' });
-    expect(signups).toEqual([expect.objectContaining({ sourceId: created.body.id })]);
+    // Other suites may sign restaurants up while this platform tenant exists; only this test's sign-up is asserted.
+    const signups = await conversionsOf({
+      restaurantId: platformId,
+      type: 'restaurant_signup',
+      sourceId: created.body.id,
+    });
+    expect(signups).toHaveLength(1);
     const owner = await ctx.prisma.restaurantCustomer.findFirstOrThrow({
       where: { restaurantId: platformId, user: { phone: SIGNUP_PHONE } },
       select: { id: true, company: true },
@@ -397,7 +402,13 @@ describe('Attribution (e2e)', () => {
         .send({ paymentRef: `atif-${inv.id.slice(0, 8)}` })
         .expect(200);
     }
-    const payments = await conversionsOf({ restaurantId: platformId, type: 'first_payment' });
+    // Scoped to the restaurant created here: suites running in parallel (billing) may pay the seed restaurant's
+    // invoice while this platform tenant exists, which records that restaurant's own first_payment.
+    const payments = await conversionsOf({
+      restaurantId: platformId,
+      type: 'first_payment',
+      sourceId: created.body.id,
+    });
     expect(payments).toEqual([
       expect.objectContaining({ customerId: owner.id, valueMinor: 120, currency: 'TRY', sourceId: created.body.id }),
     ]);
