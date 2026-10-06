@@ -76,7 +76,10 @@ export type PaymentModeValue = `${PaymentMode}`;
 
 /** The notification address of a payment connection: a restaurant's POS or meal-card account, or the platform's merchant. */
 export function paymentWebhookUrl(publicApiUrl: string, kind: 'pos' | 'meal-cards' | 'platform', ref: string): string {
-  return `${publicApiUrl.replace(/\/+$/, '')}/webhooks/payments/${kind}/${ref}`;
+  // Trailing slashes are cut with a plain scan: a regular expression here would backtrack on a long run of them.
+  let end = publicApiUrl.length;
+  while (end > 0 && publicApiUrl[end - 1] === '/') end -= 1;
+  return `${publicApiUrl.slice(0, end)}/webhooks/payments/${kind}/${ref}`;
 }
 
 export interface PaymentSettingsDTO {
