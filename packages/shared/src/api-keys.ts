@@ -29,10 +29,23 @@ export const API_KEY_GRANTABLE_PERMISSIONS = [
 ] as const satisfies readonly PermissionKey[];
 export type ApiKeyPermission = (typeof API_KEY_GRANTABLE_PERMISSIONS)[number];
 
+/** Lifetimes a key may be given at creation; without one the key works until it is revoked. */
+export const API_KEY_EXPIRY_DAYS = [30, 90, 180, 365] as const;
+export type ApiKeyExpiryDays = (typeof API_KEY_EXPIRY_DAYS)[number];
+
+/** How many days of request counts the list and the usage report cover (UTC days, today included). */
+export const API_KEY_USAGE_DAYS = 30;
+
 export const CreateApiKeySchema = z
   .object({
     name: z.string().trim().min(2).max(60),
     permissions: z.array(z.enum(API_KEY_GRANTABLE_PERMISSIONS)).min(1).max(API_KEY_GRANTABLE_PERMISSIONS.length),
+    expiresInDays: z
+      .number()
+      .int()
+      .refine((days): days is ApiKeyExpiryDays => (API_KEY_EXPIRY_DAYS as readonly number[]).includes(days))
+      .nullable()
+      .optional(),
   })
   .strict();
 export type CreateApiKeyInput = z.infer<typeof CreateApiKeySchema>;
@@ -46,7 +59,38 @@ export interface ApiKeyDTO {
   lastUsedAt: string | null;
   createdAt: string;
   revokedAt: string | null;
+  /** After this moment the key gets 401 API_KEY_EXPIRED; null means it never expires. */
+  expiresAt: string | null;
+  /** Requests made with the key over the last API_KEY_USAGE_DAYS days. */
+  requestsLastDays: number;
   createdBy: { fullName: string } | null;
+}
+
+export type ApiKeyStatus = 'ACTIVE' | 'EXPIRED' | 'REVOKED';
+
+/** Revoked wins over expired: a revoked key stays revoked whatever its date. */
+export function apiKeyStatus(
+  key: { revokedAt: string | Date | null; expiresAt: string | Date | null },
+  now: Date,
+): ApiKeyStatus {
+  if (key.revokedAt) return 'REVOKED';
+  if (key.expiresAt && new Date(key.expiresAt).getTime() <= now.getTime()) return 'EXPIRED';
+  return 'ACTIVE';
+}
+
+/** A key's daily request counts, oldest first, one entry per UTC day (days without requests count zero). */
+export interface ApiKeyUsageDTO {
+  id: string;
+  days: { day: string; requests: number }[];
+  total: number;
+}
+
+/** The UTC calendar days of the usage window ending today, oldest first, as YYYY-MM-DD. */
+export function apiKeyUsageWindow(now: Date, days: number = API_KEY_USAGE_DAYS): string[] {
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Array.from({ length: days }, (_, i) =>
+    new Date(today - (days - 1 - i) * 86_400_000).toISOString().slice(0, 10),
+  );
 }
 
 /** The token is shown once, at creation; the platform keeps only a hash of the secret. */
