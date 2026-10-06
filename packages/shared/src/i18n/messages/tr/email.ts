@@ -45,6 +45,12 @@ export const trEmail = {
     'Merhaba,\n\nBu, {restaurant} için gönderilen bir deneme e-postasıdır. Bu e-postayı aldıysanız gönderim çalışıyor.',
   'email.template.campaign.subject': '{subject}',
   'email.template.campaign.body': '{body}',
+  'email.template.invoice.summary.subject': '{restaurant}: {period} komisyon özeti',
+  'email.template.invoice.summary.body':
+    'Merhaba,\n\n{restaurant} için {period} dönemi komisyon faturanız kesildi.\n\nTamamlanan sipariş: {orders}\nKomisyon: {commission}\nKomisyon KDV: {vat}\nHızlı hakediş ücretleri (KDV dahil): {fees}\nHakedişten önceden düşülen: {deducted}\nÖdenecek tutar: {amount}\nSon ödeme: {due}\n\nTutar kayıtlı tahsilat kartınızdan otomatik çekilir. Fatura ve sipariş dökümü panelde Finans sayfasındadır.',
+  'email.template.invoice.summarySettled.subject': '{restaurant}: {period} komisyon özeti',
+  'email.template.invoice.summarySettled.body':
+    'Merhaba,\n\n{restaurant} için {period} dönemi faturanız kesildi. Bu dönem ödenecek tutar yok.\n\nTamamlanan sipariş: {orders}\nKomisyon: {commission}\nKomisyon KDV: {vat}\nHızlı hakediş ücretleri (KDV dahil): {fees}\nHakedişten önceden düşülen: {deducted}\n\nFatura panelde Finans sayfasındadır.',
   'email.footer.transactional': 'Bu e-posta {restaurant} adına gönderildi.',
   'email.footer.commercial':
     '{restaurant}, {address}\nBu tür e-postaları almak istemiyorsanız aboneliğinizi buradan sonlandırabilirsiniz: {url}',

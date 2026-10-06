@@ -34,6 +34,7 @@ import { PaymentsService } from '../payments/payments.service';
 import { PayoutsService } from '../payouts/payouts.service';
 import { PaymentsRegistry } from '../payments/payments.registry';
 import { MessagingService } from '../messaging/messaging.service';
+import { EmailService } from '../email/email.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
 import { INVOICE_PROVIDER } from './invoice-provider';
 
@@ -105,6 +106,7 @@ export class BillingService {
     @Inject(INVOICE_PROVIDER) private readonly fiscal: InvoiceProviderAdapter,
     private readonly payouts: PayoutsService,
     private readonly attribution: AttributionService,
+    private readonly email: EmailService,
   ) {}
 
   // -- The daily job -----------------------------------------------------------------------
@@ -246,6 +248,7 @@ export class BillingService {
       issued += 1;
       // A fee-only invoice is already settled; there is nothing to ask the owner to pay.
       if (!settled) await this.notifyOwner(row, 'invoice.issued');
+      await this.emailSummary(row);
     }
     return { issued, skipped };
   }
@@ -643,6 +646,53 @@ export class BillingService {
     } catch (error) {
       this.logger.warn(
         `owner notice for invoice ${invoice.id} failed: ${error instanceof Error ? error.message : 'error'}`,
+      );
+    }
+  }
+
+  /**
+   * The monthly summary by email (docs/FATURALAMA.md): the invoice's lines
+   * to an owner who gave an address. Platform mail, transactional: it goes
+   * from the platform address, never from the restaurant's sender domain,
+   * and a failure only logs.
+   */
+  private async emailSummary(invoice: InvoiceRow): Promise<void> {
+    try {
+      const membership = await this.prisma.membership.findFirst({
+        where: { restaurantId: invoice.restaurantId, status: 'ACTIVE', roleTemplate: { isOwner: true } },
+        select: {
+          user: { select: { email: true, locale: true } },
+          restaurant: { select: { defaultLocale: true } },
+        },
+      });
+      const to = membership?.user.email;
+      if (!membership || !to) return;
+      const locale = membership.user.locale ?? membership.restaurant.defaultLocale;
+      const money = (amountMinor: number) => formatMoney({ amountMinor, currency: invoice.currency }, locale);
+      const amountDue = collectibleMinor(invoice);
+      await this.email.send({
+        restaurantId: null,
+        to,
+        kind: 'TRANSACTIONAL',
+        templateKey: amountDue > 0 ? 'invoice.summary' : 'invoice.summarySettled',
+        params: {
+          restaurant: invoice.restaurant.name,
+          period: new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
+            invoice.periodStart,
+          ),
+          orders: new Intl.NumberFormat(locale).format(invoice.orderCount),
+          commission: money(invoice.commissionMinor),
+          vat: money(invoice.vatMinor),
+          fees: money(invoice.payoutFeeMinor + invoice.payoutFeeVatMinor),
+          deducted: money(invoice.deductedMinor),
+          amount: money(amountDue),
+          due: invoice.dueAt ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(invoice.dueAt) : '',
+        },
+        locale,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `summary email for invoice ${invoice.id} failed: ${error instanceof Error ? error.message : 'error'}`,
       );
     }
   }
