@@ -1,5 +1,6 @@
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
+import { deleteTestRestaurants } from './support/cleanup';
 
 /** Launch tools (docs/PLATFORM_YONETIMI.md) and marketplace ranking (docs/VITRIN.md). */
 describe('Launch tools and marketplace ranking (e2e)', () => {
@@ -20,7 +21,7 @@ describe('Launch tools and marketplace ranking (e2e)', () => {
       select: { id: true, countryCode: true, currency: true, timezone: true, serviceAreaId: true },
     });
     demoId = demo.id;
-    await ctx.prisma.restaurant.deleteMany({ where: { slug: { in: ['e2e-kapali-lokanta', 'e2e-acik-lokanta'] } } });
+    await deleteTestRestaurants(ctx.prisma, { slug: { in: ['e2e-kapali-lokanta', 'e2e-acik-lokanta'] } });
     // Two listed neighbours with fixed hours: one never open, one always open, so the order does not depend on the clock.
     const allDay = Object.fromEntries(
       ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((d) => [d, [['00:00', '24:00']]]),
@@ -53,7 +54,7 @@ describe('Launch tools and marketplace ranking (e2e)', () => {
   });
 
   afterAll(async () => {
-    await ctx.prisma.restaurant.deleteMany({ where: { id: { in: [closedId, openId] } } });
+    await deleteTestRestaurants(ctx.prisma, { id: { in: [closedId, openId] } });
     await ctx.prisma.marketplaceInterest.deleteMany({
       where: { district: { in: [interestDistrict, neighbourDistrict] } },
     });

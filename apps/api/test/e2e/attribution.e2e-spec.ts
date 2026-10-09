@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { normalizePhone } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
+import { deleteTestRestaurants } from './support/cleanup';
 
 const BROWSER = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148';
 const CUSTOMER_PHONE = normalizePhone('05329990971')!;
@@ -99,7 +100,7 @@ describe('Attribution (e2e)', () => {
     itemId = (
       await ctx.prisma.menuItem.findFirstOrThrow({ where: { restaurantId, isAvailable: true }, select: { id: true } })
     ).id;
-    await ctx.prisma.restaurant.deleteMany({ where: { isPlatform: true } });
+    await deleteTestRestaurants(ctx.prisma, { isPlatform: true });
     const user = await ctx.prisma.user.findUnique({ where: { phone: CUSTOMER_PHONE }, select: { id: true } });
     if (user) await ctx.prisma.restaurantCustomer.deleteMany({ where: { restaurantId, userId: user.id } });
   });
@@ -110,12 +111,11 @@ describe('Attribution (e2e)', () => {
     await ctx.prisma.visitor.deleteMany({ where: { restaurantId } });
     const user = await ctx.prisma.user.findUnique({ where: { phone: CUSTOMER_PHONE }, select: { id: true } });
     if (user) await ctx.prisma.restaurantCustomer.deleteMany({ where: { restaurantId, userId: user.id } });
-    if (createdRestaurants.length)
-      await ctx.prisma.restaurant.deleteMany({ where: { id: { in: createdRestaurants } } });
+    if (createdRestaurants.length) await deleteTestRestaurants(ctx.prisma, { id: { in: createdRestaurants } });
     await ctx.prisma.featureFlag.deleteMany({
       where: { key: { in: ['attribution', 'marketing_platform', 'contacts_crm'] } },
     });
-    await ctx.prisma.restaurant.deleteMany({ where: { isPlatform: true } });
+    await deleteTestRestaurants(ctx.prisma, { isPlatform: true });
     await ctx.close();
   });
 

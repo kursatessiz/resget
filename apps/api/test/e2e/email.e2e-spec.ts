@@ -5,6 +5,7 @@ import { EMAIL_PROVIDER, MockEmailProvider } from '../../src/modules/email/email
 import { EmailService } from '../../src/modules/email/email.service';
 import { SnsVerifier } from '../../src/modules/email/sns-verifier';
 import { ConsentService } from '../../src/modules/consent/consent.service';
+import { deleteTestRestaurants } from './support/cleanup';
 
 const TOPIC = 'arn:aws:sns:eu-central-1:123456789012:resget-ses-feedback';
 const DOMAIN = 'lokanta-e2e.verified.test';
@@ -75,7 +76,7 @@ describe('Email channel (e2e)', () => {
     await ctx.prisma.featureFlag.deleteMany({
       where: { restaurantId, key: { in: ['email_channel', 'consent_v2'] } },
     });
-    await ctx.prisma.restaurant.delete({ where: { id: otherRestaurantId } });
+    await deleteTestRestaurants(ctx.prisma, { id: otherRestaurantId });
     delete process.env.SES_SNS_TOPIC_ARNS;
     await ctx.close();
   });

@@ -1,6 +1,7 @@
 import { normalizePhone } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
+import { deleteTestRestaurants } from './support/cleanup';
 
 const EDITOR_PHONE = normalizePhone('05329990961')!;
 
@@ -23,12 +24,12 @@ describe('Platform marketing access (e2e)', () => {
   beforeAll(async () => {
     ctx = await createTestApp();
     [adminToken, ownerToken] = await Promise.all([ctx.login(SEED.superAdminPhone), ctx.login(SEED.ownerPhone)]);
-    await ctx.prisma.restaurant.deleteMany({ where: { isPlatform: true } });
+    await deleteTestRestaurants(ctx.prisma, { isPlatform: true });
   });
 
   afterAll(async () => {
     await ctx.prisma.featureFlag.deleteMany({ where: { key: 'marketing_platform' } });
-    await ctx.prisma.restaurant.deleteMany({ where: { isPlatform: true } });
+    await deleteTestRestaurants(ctx.prisma, { isPlatform: true });
     await ctx.prisma.auditLog.deleteMany({ where: { action: { startsWith: 'platform.' } } });
     await ctx.close();
   });

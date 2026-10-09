@@ -1,6 +1,7 @@
 import { normalizePhone } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
+import { deleteTestRestaurants } from './support/cleanup';
 
 /** Restaurant self sign-up and the platform owner's console (docs/PLATFORM_YONETIMI.md). */
 describe('Sign-up and super admin (e2e)', () => {
@@ -32,8 +33,7 @@ describe('Sign-up and super admin (e2e)', () => {
   });
 
   afterAll(async () => {
-    if (createdRestaurantIds.length)
-      await ctx.prisma.restaurant.deleteMany({ where: { id: { in: createdRestaurantIds } } });
+    if (createdRestaurantIds.length) await deleteTestRestaurants(ctx.prisma, { id: { in: createdRestaurantIds } });
     await ctx.prisma.user.deleteMany({ where: { phone: { in: [newOwnerPhone, normalizePhone('05320000010')!] } } });
     if (areaId) await ctx.prisma.serviceArea.deleteMany({ where: { id: areaId } });
     await ctx.prisma.messageCreditPackage.deleteMany({ where: { code: 'e2e-sms-10' } });

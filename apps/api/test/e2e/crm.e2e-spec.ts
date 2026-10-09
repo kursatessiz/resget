@@ -1,6 +1,7 @@
 import { normalizePhone } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
+import { deleteTestRestaurants } from './support/cleanup';
 
 const PROSPECT_PHONE = normalizePhone('05329990971')!;
 const COURIER_PHONE = normalizePhone('05320000004')!;
@@ -35,7 +36,7 @@ describe('CRM core (e2e)', () => {
     await ctx.prisma.featureFlag.deleteMany({ where: { key: { in: ['contacts_crm', 'marketing_platform'] } } });
     await ctx.prisma.restaurantCustomer.deleteMany({ where: { restaurantId, user: { phone: PROSPECT_PHONE } } });
     await ctx.prisma.pipelineStage.deleteMany({ where: { restaurantId } });
-    await ctx.prisma.restaurant.deleteMany({ where: { isPlatform: true } });
+    await deleteTestRestaurants(ctx.prisma, { isPlatform: true });
     await ctx.close();
   });
 

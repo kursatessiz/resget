@@ -1,6 +1,7 @@
 import type { DistrictLandingDTO, PublicSitePageDTO, RestaurantSeoDTO, SitePageDTO, SitemapDTO } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
+import { deleteTestRestaurants } from './support/cleanup';
 
 /** Page engine and technical SEO (docs/SAYFA_MOTORU.md, docs/SEO.md): platform-only pages, switch, public reads. */
 describe('Page engine and SEO (e2e)', () => {
@@ -37,7 +38,7 @@ describe('Page engine and SEO (e2e)', () => {
   beforeAll(async () => {
     ctx = await createTestApp();
     [adminToken, ownerToken] = await Promise.all([ctx.login(SEED.superAdminPhone), ctx.login(SEED.ownerPhone)]);
-    await ctx.prisma.restaurant.deleteMany({ where: { isPlatform: true } });
+    await deleteTestRestaurants(ctx.prisma, { isPlatform: true });
     const setup = await ctx
       .http()
       .post('/admin/platform/setup')
@@ -58,7 +59,7 @@ describe('Page engine and SEO (e2e)', () => {
 
   afterAll(async () => {
     await ctx.prisma.featureFlag.deleteMany({ where: { key: { in: ['page_engine', 'marketing_platform'] } } });
-    await ctx.prisma.restaurant.deleteMany({ where: { isPlatform: true } });
+    await deleteTestRestaurants(ctx.prisma, { isPlatform: true });
     await ctx.prisma.auditLog.deleteMany({ where: { action: { startsWith: 'platform.' } } });
     await ctx.close();
   });

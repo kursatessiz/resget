@@ -1,6 +1,7 @@
 import { SEED, bearer, createTestApp } from './support/app';
 import { DOMAIN_VERIFIER, MockDomainVerifier } from '../../src/modules/domains/domain-verifier';
 import type { TestContext } from './support/app';
+import { deleteTestRestaurants } from './support/cleanup';
 
 /** Custom domains (docs/VITRIN.md): save, refuse the platform host, verify through the MOCK resolver, resolve, clear, plan gate. */
 describe('Custom domains (e2e)', () => {
@@ -28,7 +29,7 @@ describe('Custom domains (e2e)', () => {
     restaurantId = restaurant.id;
     subscriptionId = restaurant.subscription?.id ?? null;
     trialEndsAt = restaurant.subscription?.trialEndsAt ?? null;
-    await ctx.prisma.restaurant.deleteMany({ where: { slug: 'e2e-domain-other' } });
+    await deleteTestRestaurants(ctx.prisma, { slug: 'e2e-domain-other' });
     otherRestaurantId = (
       await ctx.prisma.restaurant.create({
         data: {
@@ -53,7 +54,7 @@ describe('Custom domains (e2e)', () => {
       where: { id: restaurantId },
       data: { customDomain: null, customDomainVerifiedAt: null },
     });
-    await ctx.prisma.restaurant.deleteMany({ where: { id: otherRestaurantId } });
+    await deleteTestRestaurants(ctx.prisma, { id: otherRestaurantId });
     if (subscriptionId)
       await ctx.prisma.restaurantSubscription.update({ where: { id: subscriptionId }, data: { trialEndsAt } });
     await ctx.close();

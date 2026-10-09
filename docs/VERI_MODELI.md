@@ -131,6 +131,8 @@ Sosyal yayın (`docs/SOSYAL_YAYIN.md`): gönderiler `social_posts` (kiracı, haz
 
 Yalnızca ileri yönlü; deploy'dan önce çalışır; bir sürüm boyunca geriye dönük uyumlu (önce genişlet, sonra daralt). CI, boş Postgres'e uygulayıp şema ile sapma olmadığını denetler. Yeni migration: `pnpm --filter @resget/database db:migrate --name <ad>` (yerel Postgres gerekir).
 
+Silme kuralı: kanunen saklanan para ve onay kayıtları zincirleme silinmez. `orders`, `payments`, `order_refunds`, `commission_invoices`, `ledger_entries`, `payouts`, `courier_tips` ve `tab_payments` restorana; `tab_payments` açık hesaba; `consents` kullanıcıya `ON DELETE RESTRICT` ile bağlıdır. Bu kayıtları taşıyan bir restoran, açık hesap veya kullanıcı veritabanından silinemez; ödeme, iade ve bahşiş siparişin parçası olarak siparişle birlikte kalır; uygulama zaten silmez (restoran pasife alınır, hesap silme kullanıcıyı anonimleştirir, `docs/KISISEL_VERI.md`). Elle yapılan bir `DELETE` de veritabanında reddedilir. Migration: `20261206000000_money_records_restrict_delete`.
+
 İleri tarihli sipariş (`docs/ILERI_TARIHLI_SIPARIS.md`): `orders.scheduledFor` siparişin saatidir (gel-alda hazır olma, teslimatta varış; hemen içinse boş, `restaurantId` ile dizinli); `restaurants.schedulingSettings` işletmenin saat ayarlarıdır (`SchedulingSettingsSchema`). Migration: `20261119000000_scheduled_orders`.
 
 Alerjenler (`docs/ALERJENLER.md`): `menu_items.allergens` ve `menu_items.dietaryTags` (katalogdaki anahtarlar, varsayılan boş dizi). Migration: `20261120000000_menu_allergens`.

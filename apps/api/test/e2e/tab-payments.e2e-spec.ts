@@ -72,6 +72,7 @@ describe('Open tab online share (e2e)', () => {
     branchId = table.branchId;
     itemId = restaurant.menuItems.find((m) => m.name === 'Izgara kofte')!.id;
     await ctx.prisma.order.deleteMany({ where: { restaurantId, customerNote: NOTE } });
+    await ctx.prisma.tabPayment.deleteMany({ where: { tab: { tableId } } });
     await ctx.prisma.tableTab.deleteMany({ where: { tableId } });
     await ctx.prisma.paymentProviderConnection.deleteMany({ where: { restaurantId } });
     await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { paymentMode: 'OWN_POS' } });
@@ -85,6 +86,7 @@ describe('Open tab online share (e2e)', () => {
 
   afterAll(async () => {
     await ctx.prisma.order.deleteMany({ where: { restaurantId, customerNote: NOTE } });
+    await ctx.prisma.tabPayment.deleteMany({ where: { tab: { tableId } } });
     await ctx.prisma.tableTab.deleteMany({ where: { tableId } });
     await ctx.prisma.paymentProviderConnection.deleteMany({ where: { restaurantId } });
     await ctx.prisma.featureFlag.deleteMany({ where: { restaurantId, key: 'table_tabs' } });

@@ -2,6 +2,7 @@ import { normalizePhone, ordersPerRestaurantPerDay } from '@resget/shared';
 import type { PlatformKpiDTO } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
+import { deleteTestRestaurants } from './support/cleanup';
 
 const VIEWER_PHONE = normalizePhone('05329990991')!;
 const BUYER_PHONE = normalizePhone('05329990992')!;
@@ -31,7 +32,7 @@ describe('Platform KPI board (e2e)', () => {
   beforeAll(async () => {
     ctx = await createTestApp();
     [adminToken, ownerToken] = await Promise.all([ctx.login(SEED.superAdminPhone), ctx.login(SEED.ownerPhone)]);
-    await ctx.prisma.restaurant.deleteMany({ where: { isPlatform: true } });
+    await deleteTestRestaurants(ctx.prisma, { isPlatform: true });
     await ctx.prisma.user.deleteMany({ where: { phone: { in: [VIEWER_PHONE, BUYER_PHONE, LEAD_PHONE] } } });
     const setup = await ctx
       .http()
@@ -58,11 +59,11 @@ describe('Platform KPI board (e2e)', () => {
   afterAll(async () => {
     if (orderIds.length) await ctx.prisma.order.deleteMany({ where: { id: { in: orderIds } } });
     await ctx.prisma.qrScanEvent.deleteMany({ where: { sessionId: { in: sessions } } });
-    if (signupId) await ctx.prisma.restaurant.delete({ where: { id: signupId } });
+    if (signupId) await deleteTestRestaurants(ctx.prisma, { id: signupId });
     await ctx.prisma.restaurantCustomer.deleteMany({ where: { user: { phone: { in: [BUYER_PHONE, LEAD_PHONE] } } } });
     await ctx.prisma.user.deleteMany({ where: { phone: { in: [VIEWER_PHONE, BUYER_PHONE, LEAD_PHONE] } } });
     await ctx.prisma.featureFlag.deleteMany({ where: { key: { in: ['marketing_platform', 'kpi_dashboard'] } } });
-    await ctx.prisma.restaurant.deleteMany({ where: { isPlatform: true } });
+    await deleteTestRestaurants(ctx.prisma, { isPlatform: true });
     await ctx.prisma.auditLog.deleteMany({ where: { action: { startsWith: 'platform.' } } });
     await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { timezone: originalTimezone } });
     await ctx.close();
