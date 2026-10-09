@@ -231,6 +231,18 @@ export function AccountPanel({ locale }: { locale: string }) {
                           })}
                         </span>
                       )}
+                      {b.tier && <span className="ui-caption">{t('loyalty.tiers.label', { tier: b.tier })}</span>}
+                      {b.nextTier && (
+                        <span className="ui-caption">
+                          {t('loyalty.tiers.next', {
+                            tier: b.nextTier.name,
+                            amount: formatMoney(
+                              { amountMinor: b.nextTier.remainingMinor, currency: b.currency },
+                              locale,
+                            ),
+                          })}
+                        </span>
+                      )}
                     </span>
                     <LinkButton href={`/${b.restaurant.slug}`} variant="outline" tone="muted">
                       {t('loyalty.account.order')}

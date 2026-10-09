@@ -246,6 +246,85 @@ describe('Loyalty (e2e)', () => {
     await ctx.http().put(`/restaurants/${restaurantId}/loyalty`).set(owner).send(program).expect(200);
   });
 
+  it('multiplies earned points by the spend tier and shows the tier to the customer and the restaurant', async () => {
+    const owner = bearer(ownerToken, restaurantId);
+    const lifetime = async (): Promise<number> =>
+      (
+        await ctx.prisma.restaurantCustomer.findFirstOrThrow({
+          where: { restaurantId, user: { phone } },
+          select: { lifetimeGrossMinor: true },
+        })
+      ).lifetimeGrossMinor;
+    const start = await lifetime();
+    const silverMin = Math.max(1, start);
+    const goldMin = start + 2 * itemPriceMinor + 1_000_000;
+
+    // Thresholds must rise.
+    await ctx
+      .http()
+      .put(`/restaurants/${restaurantId}/loyalty`)
+      .set(owner)
+      .send({
+        ...program,
+        tiers: [
+          { name: 'Gold', minSpendMinor: goldMin, earnMultiplierPct: 300 },
+          { name: 'Silver', minSpendMinor: silverMin, earnMultiplierPct: 200 },
+        ],
+      })
+      .expect(400);
+    const saved = await ctx
+      .http()
+      .put(`/restaurants/${restaurantId}/loyalty`)
+      .set(owner)
+      .send({
+        ...program,
+        tiers: [
+          { name: 'Silver', minSpendMinor: silverMin, earnMultiplierPct: 200 },
+          { name: 'Gold', minSpendMinor: goldMin, earnMultiplierPct: 300 },
+        ],
+      })
+      .expect(200);
+    expect(saved.body.tiers).toHaveLength(2);
+
+    const before = await balance();
+    const placed = await publicOrder({}).expect(201);
+    const orderId = await orderIdOf(placed.body.trackingToken);
+    await transition(orderId, 'ACCEPTED', { prepMinutes: 5 });
+    await transition(orderId, 'READY');
+    await transition(orderId, 'PICKED_UP');
+    const earned = Math.floor((Math.floor((2 * itemPriceMinor) / 100) * 200) / 100);
+    expect(await balance()).toBe(before + earned);
+    const row = await ctx.prisma.loyaltyTransaction.findFirstOrThrow({ where: { orderId, type: 'EARN' } });
+    expect(row.points).toBe(earned);
+    expect(row.memo).toContain('Silver');
+
+    const customerToken = await ctx.login(phone);
+    const viewer = await ctx
+      .http()
+      .get(`/me/viewer?restaurantId=${restaurantId}`)
+      .set(bearer(customerToken))
+      .expect(200);
+    expect(viewer.body.loyaltyTier).toEqual({ name: 'Silver', earnMultiplierPct: 200 });
+    const account = await ctx.http().get('/me/account').set(bearer(customerToken)).expect(200);
+    const mine = account.body.loyalty.find(
+      (b: { restaurant: { slug: string } }) => b.restaurant.slug === SEED.restaurantSlug,
+    );
+    expect(mine.tier).toBe('Silver');
+    expect(mine.nextTier).toEqual({ name: 'Gold', remainingMinor: goldMin - (await lifetime()) });
+
+    const list = await ctx.http().get(`/restaurants/${restaurantId}/customers?query=Sadik`).set(owner).expect(200);
+    expect(list.body.items[0].loyaltyTier).toBe('Silver');
+
+    // Without tiers everyone earns at the base rate again.
+    await ctx.http().put(`/restaurants/${restaurantId}/loyalty`).set(owner).send(program).expect(200);
+    const plain = await ctx
+      .http()
+      .get(`/me/viewer?restaurantId=${restaurantId}`)
+      .set(bearer(customerToken))
+      .expect(200);
+    expect(plain.body.loyaltyTier).toBeNull();
+  });
+
   it('lets staff adjust a balance within limits, shows it on the customer, and closes everything to BASIC', async () => {
     const customer = await ctx.prisma.restaurantCustomer.findFirstOrThrow({
       where: { restaurantId, user: { phone } },
