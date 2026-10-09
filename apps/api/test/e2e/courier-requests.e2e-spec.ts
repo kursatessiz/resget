@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+import type { PaymentMode } from '@resget/database';
 import type { CourierNetworkStatusDTO, OrderDetailDTO, OrderTrackingDTO } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
@@ -13,9 +14,14 @@ describe('Courier network requests (e2e)', () => {
   let restaurantId: string;
   let branchId: string;
   let itemId: string;
+  let originalMode: PaymentMode;
   const owner = () => bearer(ownerToken);
 
-  const order = async (name: string, fulfillment: 'DELIVERY' | 'PICKUP' = 'DELIVERY') => {
+  const order = async (
+    name: string,
+    fulfillment: 'DELIVERY' | 'PICKUP' = 'DELIVERY',
+    extra: Record<string, unknown> = {},
+  ) => {
     const res = await ctx
       .http()
       .post(`/restaurants/${restaurantId}/orders`)
@@ -39,6 +45,7 @@ describe('Courier network requests (e2e)', () => {
             }
           : { customer: { fullName: name, phone: '0532 999 06 07' } }),
         note: NOTE,
+        ...extra,
       })
       .expect(201);
     return res.body as OrderDetailDTO & { trackingUrl: string };
@@ -77,11 +84,16 @@ describe('Courier network requests (e2e)', () => {
     restaurantId = restaurant.id;
     branchId = restaurant.branches[0].id;
     itemId = restaurant.menuItems.find((m) => m.name === 'Izgara kofte')!.id;
+    originalMode = restaurant.paymentMode;
+    await ctx.prisma.ledgerEntry.deleteMany({ where: { order: { restaurantId, customerNote: NOTE } } });
     await ctx.prisma.order.deleteMany({ where: { restaurantId, customerNote: NOTE } });
   });
 
   afterAll(async () => {
+    // Ledger lines would outlive their orders and ride a later payout of the seeded restaurant.
+    await ctx.prisma.ledgerEntry.deleteMany({ where: { order: { restaurantId, customerNote: NOTE } } });
     await ctx.prisma.order.deleteMany({ where: { restaurantId, customerNote: NOTE } });
+    await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { paymentMode: originalMode } });
     await ctx.close();
   });
 
@@ -141,6 +153,8 @@ describe('Courier network requests (e2e)', () => {
       status: 'DELIVERED',
       finalFeeMinor: 4200,
     });
+    // The restaurant's own money: the final fee is between the restaurant and the network, not the payout.
+    expect(await ctx.prisma.ledgerEntry.count({ where: { orderId: created.id } })).toBe(0);
     const after = (await ctx.http().get(`/public/orders/${token}`).expect(200)).body as OrderTrackingDTO;
     expect(after.courierNetwork).toBeNull();
   });
@@ -182,5 +196,57 @@ describe('Courier network requests (e2e)', () => {
       if (status !== 'CANCELLED') await new Promise((resolve) => setTimeout(resolve, 100));
     }
     expect(status).toBe('CANCELLED');
+  });
+
+  it("corrects the payout by the network's final fee when the payout took the courier cost", async () => {
+    await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { paymentMode: 'PLATFORM_PSP' } });
+    const paidOnline = async (name: string) => {
+      const created = await order(name, 'DELIVERY', { payment: { method: 'ONLINE_CARD' } });
+      await ctx.prisma.payment.updateMany({
+        where: { orderId: created.id },
+        data: { status: 'CAPTURED', providerRef: `psp-courier-${created.id}`, capturedAt: new Date() },
+      });
+      // An order whose payout takes the courier's cost (the platform pays the network for the restaurant);
+      // no order path books one today, so the snapshot is set here (docs/KURYE.md, "Yaşam döngüsü").
+      await ctx.prisma.order.update({
+        where: { id: created.id },
+        data: {
+          status: 'PLACED',
+          courierCostMinor: 4000,
+          courierBearer: 'RESTAURANT',
+          restaurantPayableMinor: { decrement: 4000 },
+        },
+      });
+      await transition(created.id, 'ACCEPTED', { prepMinutes: 10 });
+      await call(created.id);
+      const ref = `mock-${created.id}`;
+      await event({ providerRef: ref, kind: 'ASSIGNED' });
+      await event({ providerRef: ref, kind: 'PICKED_UP' });
+      return { id: created.id, ref };
+    };
+    const adjustments = (orderId: string) =>
+      ctx.prisma.ledgerEntry.findMany({ where: { orderId, type: 'ADJUSTMENT' }, select: { amountMinor: true } });
+
+    // The network charged 6.00 more than the payout took: the restaurant bears it, once.
+    const dearer = await paidOnline('Ag Pahali');
+    await event({ providerRef: dearer.ref, kind: 'DELIVERED', finalFeeMinor: 4600 });
+    expect(await statusOf(dearer.id)).toBe('DELIVERED');
+    const taken = await ctx.prisma.ledgerEntry.findFirstOrThrow({
+      where: { orderId: dearer.id, type: 'COURIER_COST' },
+    });
+    expect(taken.amountMinor).toBe(-4000);
+    expect(await adjustments(dearer.id)).toEqual([{ amountMinor: -600 }]);
+    expect((await event({ providerRef: dearer.ref, kind: 'DELIVERED', finalFeeMinor: 4600 })).body.status).toBe(
+      'IGNORED',
+    );
+    expect(await adjustments(dearer.id)).toHaveLength(1);
+
+    // Cheaper than taken: the difference goes back to the restaurant. The same fee writes nothing.
+    const cheaper = await paidOnline('Ag Ucuz');
+    await event({ providerRef: cheaper.ref, kind: 'DELIVERED', finalFeeMinor: 3500 });
+    expect(await adjustments(cheaper.id)).toEqual([{ amountMinor: 500 }]);
+    const same = await paidOnline('Ag Ayni');
+    await event({ providerRef: same.ref, kind: 'DELIVERED', finalFeeMinor: 4000 });
+    expect(await adjustments(same.id)).toEqual([]);
   });
 });

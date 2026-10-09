@@ -8,9 +8,12 @@ import {
   CAMPAIGN_BEST_HOUR_LOOKBACK_DAYS,
   CONVERSION_EXCLUDED_ORDER_STATUSES,
   CampaignSegmentSchema,
+  abAutoAssignment,
   abVariantFor,
+  autoWinnerDecideAt,
   bestHourDueAt,
   campaignContentIssue,
+  pickAbWinner,
   preferredHourOf,
   usesCampaignsV2,
   createTranslator,
@@ -60,6 +63,10 @@ const campaignSelect = Prisma.validator<Prisma.CampaignSelect>()({
   variantBody: true,
   variantSubject: true,
   variantSharePct: true,
+  autoWinnerTestPct: true,
+  autoWinnerWaitHours: true,
+  winnerVariant: true,
+  winnerDecidedAt: true,
   sendTimeMode: true,
   attributionDays: true,
   scheduledAt: true,
@@ -247,6 +254,8 @@ export class CampaignsService {
         variantBody: input.variant?.body ?? null,
         variantSubject: input.variant?.subject ?? null,
         variantSharePct: input.variant?.sharePct ?? null,
+        autoWinnerTestPct: input.variant?.autoWinner?.testPct ?? null,
+        autoWinnerWaitHours: input.variant?.autoWinner?.waitHours ?? null,
         sendTimeMode: input.sendTimeMode,
         ...(input.attributionDays !== undefined ? { attributionDays: input.attributionDays } : {}),
         segment: input.segment,
@@ -304,6 +313,8 @@ export class CampaignsService {
               variantBody: input.variant?.body ?? null,
               variantSubject: input.variant?.subject ?? null,
               variantSharePct: input.variant?.sharePct ?? null,
+              autoWinnerTestPct: input.variant?.autoWinner?.testPct ?? null,
+              autoWinnerWaitHours: input.variant?.autoWinner?.waitHours ?? null,
             }
           : {}),
         ...(input.sendTimeMode !== undefined ? { sendTimeMode: input.sendTimeMode } : {}),
@@ -350,7 +361,7 @@ export class CampaignsService {
         status: r.status,
         errorCode: r.errorCode,
         sentAt: r.sentAt?.toISOString() ?? null,
-        variant: r.variant === 'B' ? 'B' : 'A',
+        variant: r.variant === 'B' || r.variant === 'HOLD' ? r.variant : 'A',
         dueAt: r.dueAt?.toISOString() ?? null,
         convertedAt: r.convertedAt?.toISOString() ?? null,
       })),
@@ -557,6 +568,7 @@ export class CampaignsService {
         segmentId: true,
         channel: true,
         variantSharePct: true,
+        autoWinnerTestPct: true,
         sendTimeMode: true,
         approvalStatus: true,
         restaurant: { select: { timezone: true } },
@@ -577,10 +589,62 @@ export class CampaignsService {
     });
     let sent = 0;
     for (const campaign of sending) {
+      // The automatic A/B winner is picked before the batch, so those waiting for it go out in the same pass.
+      if (campaign.autoWinnerTestPct && !campaign.winnerVariant) await this.decideWinner(campaign, now);
       if (!isWithinSendWindow(now, campaign.restaurant.timezone)) continue;
       sent += await this.sendBatch(campaign, now);
     }
     return sent;
+  }
+
+  /**
+   * Picks the better text of an automatic A/B test (docs/KAMPANYALAR.md) once the wait is over and every test
+   * recipient has been dealt with, and hands it to the recipients waiting for it. Written once: the winner is
+   * stamped only while none is set.
+   */
+  private async decideWinner(
+    campaign: Pick<CampaignRow, 'id' | 'restaurantId' | 'startedAt' | 'autoWinnerWaitHours'>,
+    now: Date,
+  ): Promise<void> {
+    if (!campaign.startedAt || !campaign.autoWinnerWaitHours) return;
+    if (autoWinnerDecideAt(campaign.startedAt, campaign.autoWinnerWaitHours) > now) return;
+    const testing = await this.prisma.campaignRecipient.count({
+      where: { campaignId: campaign.id, status: 'PENDING', variant: { in: ['A', 'B'] } },
+    });
+    if (testing > 0) return;
+    const tally = async (variant: CampaignVariant) => {
+      const where = { campaignId: campaign.id, variant, status: 'SENT' as const };
+      const [sent, converted] = await Promise.all([
+        this.prisma.campaignRecipient.count({ where }),
+        this.prisma.campaignRecipient.count({
+          where: {
+            ...where,
+            convertedOrderId: { not: null },
+            convertedOrder: { status: { notIn: [...CONVERSION_EXCLUDED_ORDER_STATUSES] } },
+          },
+        }),
+      ]);
+      return { sent, converted };
+    };
+    const [a, b] = await Promise.all([tally('A'), tally('B')]);
+    const winner = pickAbWinner(a, b);
+    await this.prisma.$transaction(async (tx) => {
+      const stamped = await tx.campaign.updateMany({
+        where: { id: campaign.id, winnerVariant: null },
+        data: { winnerVariant: winner, winnerDecidedAt: now },
+      });
+      if (stamped.count === 0) return;
+      const handed = await tx.campaignRecipient.updateMany({
+        where: { campaignId: campaign.id, variant: 'HOLD' },
+        data: { variant: winner },
+      });
+      await this.guards.audit(tx, campaign.restaurantId, null, 'campaign.ab_winner', campaign.id, {
+        winner,
+        a,
+        b,
+        handed: handed.count,
+      });
+    });
   }
 
   private async start(
@@ -591,6 +655,7 @@ export class CampaignsService {
       segmentId: string | null;
       channel: string;
       variantSharePct: number | null;
+      autoWinnerTestPct: number | null;
       sendTimeMode: string;
       approvalStatus: string;
       restaurant: { timezone: string };
@@ -627,7 +692,9 @@ export class CampaignsService {
           data: audience.map((c) => ({
             campaignId: campaign.id,
             customerId: c.id,
-            variant: abVariantFor(campaign.id, c.id, campaign.variantSharePct),
+            variant: campaign.autoWinnerTestPct
+              ? abAutoAssignment(campaign.id, c.id, campaign.autoWinnerTestPct)
+              : abVariantFor(campaign.id, c.id, campaign.variantSharePct),
             dueAt: due.get(c.id) ?? null,
           })),
           skipDuplicates: true,
@@ -681,6 +748,8 @@ export class CampaignsService {
       where: {
         campaignId: campaign.id,
         status: 'PENDING',
+        // Those waiting for the automatic A/B winner go once it is picked (decideWinner).
+        variant: { not: 'HOLD' },
         AND: [
           { OR: [{ dueAt: null }, { dueAt: { lte: now } }] },
           // A recipient another runner has claimed (sentAt set while PENDING) is left to it until the lease runs out.
@@ -965,6 +1034,17 @@ export class CampaignsService {
     if (a && b && a.sent > 0 && b.sent > 0 && a.conversionRateBps !== b.conversionRateBps) {
       leader = a.conversionRateBps > b.conversionRateBps ? 'A' : 'B';
     }
+    const autoWinner =
+      row.autoWinnerTestPct && row.autoWinnerWaitHours
+        ? {
+            testPct: row.autoWinnerTestPct,
+            waitHours: row.autoWinnerWaitHours,
+            decideAt: row.startedAt ? autoWinnerDecideAt(row.startedAt, row.autoWinnerWaitHours).toISOString() : null,
+            winner: winnerOf(row.winnerVariant),
+            decidedAt: row.winnerDecidedAt?.toISOString() ?? null,
+            holding: grouped.filter((g) => g.variant === 'HOLD').reduce((n, g) => n + g._count._all, 0),
+          }
+        : null;
     return {
       campaignId: row.id,
       currency: restaurant.currency,
@@ -972,6 +1052,7 @@ export class CampaignsService {
       tracked,
       variants: results,
       leader,
+      autoWinner,
     };
   }
 
@@ -1001,7 +1082,15 @@ export class CampaignsService {
       subject: row.subject,
       variant:
         row.variantBody && row.variantSharePct
-          ? { body: row.variantBody, subject: row.variantSubject, sharePct: row.variantSharePct }
+          ? {
+              body: row.variantBody,
+              subject: row.variantSubject,
+              sharePct: row.variantSharePct,
+              autoWinner:
+                row.autoWinnerTestPct && row.autoWinnerWaitHours
+                  ? { testPct: row.autoWinnerTestPct, waitHours: row.autoWinnerWaitHours }
+                  : null,
+            }
           : null,
       sendTimeMode: row.sendTimeMode === 'BEST_HOUR' ? 'BEST_HOUR' : 'FIXED',
       attributionDays: row.attributionDays,
@@ -1020,4 +1109,9 @@ export class CampaignsService {
       createdAt: row.createdAt.toISOString(),
     };
   }
+}
+
+/** The stored automatic winner, read back as a variant. */
+function winnerOf(value: string | null): CampaignVariant | null {
+  return value === 'A' || value === 'B' ? value : null;
 }

@@ -106,4 +106,15 @@ export const enCampaigns: Record<keyof typeof trCampaigns, string> = {
   'campaigns.v2.recipient.variant': 'Text {variant}',
   'campaigns.v2.recipient.due': 'Due: {date}',
   'campaigns.v2.recipient.converted': 'Ordered',
+  'campaigns.v2.recipient.holding': 'Waiting for the winning text',
+  'campaigns.v2.autoWinner': 'Pick the winner automatically and send it to the rest',
+  'campaigns.v2.autoWinner.testPct': 'Share of the audience in the test (percent)',
+  'campaigns.v2.autoWinner.waitHours': 'Wait before the winner is picked (hours)',
+  'campaigns.v2.autoWinner.help':
+    'The test share is split evenly between the two texts. Once the wait is over and the test has been sent, the text with the higher conversion rate per message goes to the rest of the audience; on a tie text A wins.',
+  'campaigns.v2.autoWinner.notStarted':
+    '{pct} percent of the audience will be tested; the winner is picked automatically.',
+  'campaigns.v2.autoWinner.pending.one': 'The winner is picked after {date}; {count} recipient is waiting.',
+  'campaigns.v2.autoWinner.pending.other': 'The winner is picked after {date}; {count} recipients are waiting.',
+  'campaigns.v2.autoWinner.decided': 'Winning text {variant} ({date}); it is being sent to those who waited.',
 };

@@ -104,4 +104,14 @@ export const trCampaigns = {
   'campaigns.v2.recipient.variant': 'Metin {variant}',
   'campaigns.v2.recipient.due': 'Gönderim: {date}',
   'campaigns.v2.recipient.converted': 'Sipariş verdi',
+  'campaigns.v2.recipient.holding': 'Kazanan metni bekliyor',
+  'campaigns.v2.autoWinner': 'Kazananı otomatik seç ve kalan kitleye gönder',
+  'campaigns.v2.autoWinner.testPct': 'Teste girecek kitle payı (yüzde)',
+  'campaigns.v2.autoWinner.waitHours': 'Kazanan seçilmeden önce bekleme (saat)',
+  'campaigns.v2.autoWinner.help':
+    'Test payı iki metne eşit bölünür. Bekleme bitince ve test gönderimi tamamlanınca gönderim başına dönüşüm oranı yüksek olan metin kalan kitleye gider; eşitlikte A metni kazanır.',
+  'campaigns.v2.autoWinner.notStarted': 'Kitlenin yüzde {pct} oranı teste girecek; kazanan otomatik seçilecek.',
+  'campaigns.v2.autoWinner.pending.one': 'Kazanan {date} sonrasında seçilecek; {count} alıcı bekliyor.',
+  'campaigns.v2.autoWinner.pending.other': 'Kazanan {date} sonrasında seçilecek; {count} alıcı bekliyor.',
+  'campaigns.v2.autoWinner.decided': 'Kazanan metin {variant} ({date}); bekleyen kitleye bu metin gönderiliyor.',
 } as const satisfies Record<string, string>;
