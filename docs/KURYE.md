@@ -30,7 +30,7 @@ cancel(providerRef)
 parseWebhook(body, headers) -> olay (ASSIGNED, PICKED_UP, DELIVERED, CANCELLED, FAILED), imza doğrulanır
 ```
 
-Bugün yalnızca `MOCK` adaptör vardır (mesafeye göre deterministik teklif; `apps/api/src/modules/courier/mock-courier.adapter.ts`). `CourierRegistry` adaptörleri koda göre tutar; `COURIER_PROVIDER` env değeri gerçek bir ağsa `COURIER_API_KEY` zorunludur.
+Bugün yalnızca `MOCK` adaptör vardır (mesafeye göre deterministik teklif; `apps/api/src/modules/courier/mock-courier.adapter.ts`) ve yalnızca üretim dışında kaydedilir: üretimde `MOCK` ağına teklif, çağrı ve bildirim adaptör bulunamadığı için reddedilir, sahte kurye çağrılmaz. `CourierRegistry` adaptörleri koda göre tutar; `COURIER_PROVIDER` env değeri gerçek bir ağsa üretimde `COURIER_API_KEY` ve `COURIER_WEBHOOK_SECRET` zorunludur.
 
 ## Müşteriye yansıyan ücret
 

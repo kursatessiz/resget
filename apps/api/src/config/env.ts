@@ -99,7 +99,10 @@ export const EnvSchema = z
       .string()
       .refine((v) => Buffer.from(v, 'base64').length === 32, 'must be base64 for exactly 32 bytes')
       .optional(),
-    /** Card vault the customers' cards are stored with (docs/ODEME.md). MOCK is refused in production. */
+    /**
+     * Card vault the customers' cards are stored with (docs/ODEME.md). In production card linking and charging
+     * are refused until the adapter for this value is registered (PaymentsRegistry); the platform still boots.
+     */
     CARD_VAULT_PROVIDER: z.enum(['MOCK', 'MASTERPASS', 'BEX']).default('MOCK'),
     MASTERPASS_CLIENT_ID: z.string().min(1).optional(),
     MASTERPASS_CLIENT_SECRET: z.string().min(1).optional(),
@@ -147,7 +150,10 @@ export const EnvSchema = z
     API_KEY_EXPIRY_NOTICES: z.enum(['on', 'off']).default('on'),
     /** Requests one API key may make per minute (docs/API_ERISIMI.md). */
     API_KEY_RATE_LIMIT: z.coerce.number().int().min(1).max(100000).default(600),
-    /** Regional commercial-message consent registry (Turkey: IYS); MOCK approves every opted-in number. */
+    /**
+     * Regional commercial-message consent registry (Turkey: IYS). MOCK approves every opted-in number outside
+     * production; in production covered channels send nothing until the real adapter is selected here.
+     */
     CONSENT_REGISTRY_PROVIDER: z.enum(['MOCK']).default('MOCK'),
     /** Fiscal document integrator for commission invoices; MOCK until a contract exists. */
     INVOICE_PROVIDER: z.enum(['MOCK']).default('MOCK'),
@@ -287,6 +293,20 @@ export const EnvSchema = z
         code: z.ZodIssueCode.custom,
         path: ['DOMAIN_VERIFIER'],
         message: 'MOCK is not allowed in production',
+      });
+    }
+    if (!env.CREDENTIAL_ENCRYPTION_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['CREDENTIAL_ENCRYPTION_KEY'],
+        message: 'required in production',
+      });
+    }
+    if (env.COURIER_PROVIDER !== 'MOCK' && !env.COURIER_WEBHOOK_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['COURIER_WEBHOOK_SECRET'],
+        message: 'required for a real courier provider in production',
       });
     }
     if (env.COURIER_PROVIDER !== 'MOCK' && !env.COURIER_API_KEY) {

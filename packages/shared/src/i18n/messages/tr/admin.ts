@@ -206,6 +206,7 @@ export const trAdmin = {
   'admin.system.provider.whatsapp': 'WhatsApp',
   'admin.system.provider.payment': 'Ödeme',
   'admin.system.provider.cardVault': 'Kart kasası',
+  'admin.system.provider.consentRegistry': 'İzin sicili (İYS)',
   'admin.system.provider.courier': 'Kurye ağı',
   'admin.system.provider.invoice': 'e-Fatura',
   'admin.system.provider.routing': 'Yol motoru',

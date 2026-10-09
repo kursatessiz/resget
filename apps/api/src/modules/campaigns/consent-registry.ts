@@ -20,3 +20,21 @@ export class MockConsentRegistry implements ConsentRegistryAdapter {
     return;
   }
 }
+
+/**
+ * The registry in production before the real adapter is contracted (Turkey: IYS). Covered channels are never
+ * cleared, so no commercial message reaches a number the authority has not confirmed (the runner records
+ * CONSENT_REGISTRY), and every decision stays unsynced so the real adapter registers the backlog on its first
+ * pass (ConsentSyncWatchdog). Uncovered channels and countries are not asked and are unaffected.
+ */
+export class UnavailableConsentRegistry implements ConsentRegistryAdapter {
+  readonly code = 'NONE';
+
+  async allowed(): Promise<Set<string>> {
+    return new Set();
+  }
+
+  async record(): Promise<void> {
+    throw new Error('No consent registry is connected yet');
+  }
+}

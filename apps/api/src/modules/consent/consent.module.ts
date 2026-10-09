@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
-import { CONSENT_REGISTRY, MockConsentRegistry } from '../campaigns/consent-registry';
+import { ConfigService } from '@nestjs/config';
+import { CONSENT_REGISTRY, MockConsentRegistry, UnavailableConsentRegistry } from '../campaigns/consent-registry';
 import { PublicRateLimitGuard } from '../storefront/public-rate-limit.guard';
 import { AdminConsentController, ConsentConfirmController, ConsentController } from './consent.controller';
 import { ConsentService } from './consent.service';
@@ -9,7 +10,9 @@ import { ConsentSyncWatchdog } from './consent.watchdog';
 /**
  * Commercial message consent (docs/RIZA.md). Global so orders, campaigns,
  * CRM, privacy and attribution share one history. The regional registry is
- * an adapter here; MOCK until IYS is contracted.
+ * an adapter here: MOCK outside production; in production nothing is cleared
+ * on covered channels until the IYS adapter is contracted and selected by
+ * CONSENT_REGISTRY_PROVIDER.
  */
 @Global()
 @Module({
@@ -19,7 +22,12 @@ import { ConsentSyncWatchdog } from './consent.watchdog';
     ConsentService,
     ConsentSyncWatchdog,
     PublicRateLimitGuard,
-    { provide: CONSENT_REGISTRY, useFactory: () => new MockConsentRegistry() },
+    {
+      provide: CONSENT_REGISTRY,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) =>
+        config.get<string>('NODE_ENV') === 'production' ? new UnavailableConsentRegistry() : new MockConsentRegistry(),
+    },
   ],
   exports: [ConsentService, CONSENT_REGISTRY],
 })

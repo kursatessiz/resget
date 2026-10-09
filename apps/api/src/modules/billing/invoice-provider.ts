@@ -21,3 +21,20 @@ export class MockInvoiceProvider implements InvoiceProviderAdapter {
     return;
   }
 }
+
+/**
+ * The integrator in production before a contract exists: no fiscal number is invented. Invoices are still cut,
+ * shown and collected; their fiscal document waits (fiscalRef stays empty) and the real adapter, selected by
+ * INVOICE_PROVIDER, issues the backlog on its first daily run (docs/FATURALAMA.md).
+ */
+export class UnavailableInvoiceProvider implements InvoiceProviderAdapter {
+  readonly code = 'NONE';
+
+  async issue(): Promise<FiscalInvoiceResult> {
+    throw new Error('No fiscal document integrator is connected yet');
+  }
+
+  async cancel(): Promise<void> {
+    return;
+  }
+}

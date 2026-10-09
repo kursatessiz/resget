@@ -1,14 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { WALLET_PROVIDERS } from '@resget/shared';
-import type { CardVaultAdapter, PaymentGatewayAdapter, WalletProviderCode } from '@resget/shared';
+import type {
+  CardVaultAdapter,
+  CardVaultProviderCode,
+  PaymentGatewayAdapter,
+  WalletProviderCode,
+} from '@resget/shared';
 import { CredentialCipher, DEV_CREDENTIAL_KEY, EnvKeyProvider } from '../../common/crypto/credential-cipher';
 import { IyzicoGatewayAdapter } from './gateways/iyzico-gateway.adapter';
 import { PaytrGatewayAdapter } from './gateways/paytr-gateway.adapter';
 import { MockGatewayAdapter } from './mock-gateway.adapter';
 import { MockVaultAdapter } from './mock-vault.adapter';
-
-/** Fixed development key; production refuses to boot without CREDENTIAL_ENCRYPTION_KEY (env.ts). */
+import { UnavailableVaultAdapter } from './unavailable-vault.adapter';
 
 /**
  * Gateways (where money goes), the card vault (where cards live) and the
@@ -24,14 +28,21 @@ export class PaymentsRegistry {
   readonly cipher: CredentialCipher;
 
   constructor(private readonly config: ConfigService) {
-    this.registerGateway(new MockGatewayAdapter());
+    const production = config.get<string>('NODE_ENV') === 'production';
+    // The test POS takes no money, so production never offers it to a restaurant (the panel hides it too).
+    if (!production) this.registerGateway(new MockGatewayAdapter());
     this.registerGateway(new IyzicoGatewayAdapter());
     this.registerGateway(new PaytrGatewayAdapter());
-    this.vault = new MockVaultAdapter();
-    // No real wallet adapter ships yet; development and tests get stand-ins so the flow runs end to end.
-    if (config.get<string>('NODE_ENV') !== 'production') {
+    // No real vault or wallet adapter ships yet. Development and tests get stand-ins so the flow runs end to end;
+    // production refuses card linking and charging until the contracted adapter is registered here for
+    // CARD_VAULT_PROVIDER (docs/ODEME.md 3), so a fake card can never mark an invoice paid.
+    this.vault = production
+      ? new UnavailableVaultAdapter(config.get<CardVaultProviderCode>('CARD_VAULT_PROVIDER') ?? 'MOCK')
+      : new MockVaultAdapter();
+    if (!production) {
       for (const code of WALLET_PROVIDERS) this.wallets.set(code, new MockVaultAdapter(code));
     }
+    // Production refuses to boot without CREDENTIAL_ENCRYPTION_KEY (env.ts); the fixed key is for development.
     this.cipher = new CredentialCipher(
       new EnvKeyProvider(config.get<string>('CREDENTIAL_ENCRYPTION_KEY') ?? DEV_CREDENTIAL_KEY),
     );

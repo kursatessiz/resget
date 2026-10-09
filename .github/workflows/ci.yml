@@ -228,6 +228,12 @@ jobs:
           persist-credentials: false
       - name: shellcheck
         run: shellcheck -x deploy/scripts/*.sh
+      - name: Caddyfile validate
+        # The same image the server runs; deploy.sh validates again before switching releases.
+        run: |
+          docker run --rm -v "$PWD/deploy/caddy:/etc/caddy:ro" \
+            -e WEB_DOMAIN=app.example.com -e API_DOMAIN=api.example.com -e ACME_EMAIL=ops@example.com \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
       - name: actionlint
         env:
           VERSION: 1.7.7

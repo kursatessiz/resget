@@ -39,7 +39,8 @@ export class PosService implements OnModuleInit {
     private readonly features: FeatureFlagsService,
     config: ConfigService,
   ) {
-    this.register(new MockPosAdapter());
+    // The test POS sends orders nowhere; production offers only real POS adapters.
+    if (config.get<string>('NODE_ENV') !== 'production') this.register(new MockPosAdapter());
     this.cipher = new CredentialCipher(
       new EnvKeyProvider(config.get<string>('CREDENTIAL_ENCRYPTION_KEY') ?? DEV_CREDENTIAL_KEY),
     );

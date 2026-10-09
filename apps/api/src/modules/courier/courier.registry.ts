@@ -4,15 +4,19 @@ import type { CourierProviderAdapter } from '@resget/shared';
 import { MockCourierAdapter } from './mock-courier.adapter';
 
 /**
- * Courier networks by code. Only MOCK ships today; a real network is added
- * here and in the CourierProvider table, never in the order flow.
+ * Courier networks by code. Only MOCK ships today, and only outside
+ * production: there a courier call or webhook for MOCK finds no network and
+ * is refused instead of faking a dispatch. A real network is added here and
+ * in the CourierProvider table, never in the order flow (docs/KURYE.md).
  */
 @Injectable()
 export class CourierRegistry {
   private readonly adapters = new Map<string, CourierProviderAdapter>();
 
   constructor(config: ConfigService) {
-    this.register(new MockCourierAdapter(config.get<string>('COURIER_WEBHOOK_SECRET')));
+    if (config.get<string>('NODE_ENV') !== 'production') {
+      this.register(new MockCourierAdapter(config.get<string>('COURIER_WEBHOOK_SECRET')));
+    }
   }
 
   register(adapter: CourierProviderAdapter): void {
