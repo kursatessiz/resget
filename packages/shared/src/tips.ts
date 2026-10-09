@@ -58,6 +58,10 @@ export const StartTipSchema = z
   .strict();
 export type StartTipInput = z.infer<typeof StartTipSchema>;
 
+/** A tip given back to the customer from the panel (docs/BAHSIS.md, "Panelden iade"): always the whole amount. */
+export const RefundTipSchema = z.object({ reason: z.string().trim().min(1).max(300) }).strict();
+export type RefundTipInput = z.infer<typeof RefundTipSchema>;
+
 export const TipsReportQuerySchema = z
   .object({ days: z.coerce.number().int().min(1).max(365).default(TIP_REPORT_DEFAULT_DAYS) })
   .strict();
@@ -119,6 +123,8 @@ export interface TipDTO {
   recipient: string;
   /** Set for a tip that goes through a courier network. */
   passThroughStatus: TipPassThroughStatus | null;
+  /** Why staff gave the tip back from the panel; null otherwise. */
+  refundReason: string | null;
 }
 
 /** The courier's own tips in the app (courier mode): only what this courier delivered. */

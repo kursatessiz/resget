@@ -17,7 +17,7 @@ export default async function CourierPage({ params }: { params: Promise<{ slug: 
         canEditSettings={can('restaurant.settings.manage')}
       />
       {membership.features.includes('courier_tips') && (
-        <CourierTipsPanel restaurantId={membership.restaurantId} locale={locale} />
+        <CourierTipsPanel restaurantId={membership.restaurantId} locale={locale} canRefund={can('orders.refund')} />
       )}
     </div>
   );
