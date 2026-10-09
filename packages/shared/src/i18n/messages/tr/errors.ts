@@ -170,6 +170,7 @@ export const trErrors = {
   'errors.REVIEW_ALREADY_REPORTED': 'Bu yorum zaten bildirildi.',
   'errors.PAYOUT_SCHEDULE_UNAVAILABLE': 'Bu hakediş takvimi işletmeniz için kullanılamıyor.',
   'errors.PAYOUT_NOTHING_DUE': 'Ödenecek bekleyen hakediş yok.',
+  'errors.PAYOUT_CONFLICT': 'Hakediş hazırlanırken bakiye değişti. Lütfen tekrar deneyin.',
   'errors.TIP_UNAVAILABLE': 'Bu sipariş için bahşiş verilemiyor.',
   'errors.TIP_ALREADY_PAID': 'Bu sipariş için bahşiş zaten verildi.',
   'errors.TIP_AMOUNT_INVALID': 'Bahşiş tutarı sınırların dışında.',

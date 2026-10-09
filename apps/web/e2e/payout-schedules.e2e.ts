@@ -1,9 +1,11 @@
+import { createHmac } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 import { SIGNUP_COUNTRIES } from '@resget/shared';
 import type { OrderDetailDTO, RestaurantCreatedDTO, RestaurantSettingsDTO } from '@resget/shared';
 import { ADMIN_STATE, bff } from './support/session';
 
 const OTP = process.env.OTP_TEST_CODE ?? '482915';
+const API_URL = 'http://localhost:4000';
 /** Not seeded: this scenario opens its own restaurant so its money touches no other test. */
 const OWNER_PHONE = '05320000037';
 
@@ -55,8 +57,27 @@ test.describe('Payout schedules', () => {
         fulfillment: 'PICKUP',
         items: [{ menuItemId: item.id, quantity: 2 }],
         customer: { fullName: 'Hakedis Musteri', phone: `05325${String(Date.now()).slice(-6)}` },
+        payment: { method: 'ONLINE_CARD' },
       },
     });
+    // Paid online through the platform merchant: only money the platform collected is paid out.
+    const body = JSON.stringify({
+      providerRef: `pw-payout-${Date.now()}`,
+      orderRef: order.id,
+      status: 'CAPTURED',
+      amountMinor: order.chargedToCustomerMinor,
+      currency: country.currency,
+      pspFeeMinor: null,
+      occurredAt: new Date().toISOString(),
+    });
+    const notice = await page.request.post(`${API_URL}/webhooks/payments/platform/MOCK`, {
+      headers: {
+        'content-type': 'application/json',
+        'x-mock-signature': createHmac('sha256', 'mock').update(body).digest('hex'),
+      },
+      data: body,
+    });
+    expect(notice.ok()).toBe(true);
     for (const step of [{ to: 'ACCEPTED', prepMinutes: 5 }, { to: 'READY' }, { to: 'PICKED_UP' }]) {
       await bff(page.request, `restaurants/${restaurant.id}/orders/${order.id}/transition`, {
         method: 'POST',

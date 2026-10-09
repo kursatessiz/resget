@@ -314,6 +314,41 @@ describe('Commission billing (e2e)', () => {
     expect(list.body.items.every((i: { status: string }) => i.status === 'PAID')).toBe(true);
   });
 
+  it('charges an invoice once when two collectors pay it at the same moment', async () => {
+    let p = { year: monthBefore.year, month: monthBefore.month };
+    for (let i = 0; i < 4; i += 1)
+      p = p.month === 1 ? { year: p.year - 1, month: 12 } : { year: p.year, month: p.month - 1 };
+    const period = commissionPeriod(p.year, p.month);
+    await ctx.prisma.commissionInvoice.deleteMany({ where: { restaurantId, periodStart: period.periodStart } });
+    const row = await ctx.prisma.commissionInvoice.create({
+      data: {
+        restaurantId,
+        ...period,
+        currency: 'TRY',
+        orderCount: 1,
+        baseMinor: 10000,
+        commissionMinor: 100,
+        vatMinor: 20,
+        totalMinor: 120,
+        status: 'ISSUED',
+        issuedAt: new Date(),
+        dueAt: new Date(Date.now() + 86_400_000),
+      },
+    });
+    invoiceIds.push(row.id);
+    const pay = () =>
+      ctx
+        .http()
+        .post(`/restaurants/${restaurantId}/billing/invoices/${row.id}/pay`)
+        .set(bearer(ownerToken))
+        .send({ returnUrl: 'https://app.example.com/finans' });
+    const results = await Promise.all([pay(), pay()]);
+    expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
+    const after = await ctx.prisma.commissionInvoice.findUniqueOrThrow({ where: { id: row.id } });
+    expect(after.status).toBe('PAID');
+    expect(after.collectionAttempts).toBe(1);
+  });
+
   it('keeps billing closed to a user without membership and the console to owners', async () => {
     await ctx.http().get(`/restaurants/${restaurantId}/billing`).set(bearer(guestToken)).expect(403);
     await ctx.http().get('/admin/billing/invoices').set(bearer(ownerToken)).expect(403);

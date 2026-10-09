@@ -174,6 +174,7 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.REVIEW_ALREADY_REPORTED': 'This review was already reported.',
   'errors.PAYOUT_SCHEDULE_UNAVAILABLE': 'This payout schedule is not available for your business.',
   'errors.PAYOUT_NOTHING_DUE': 'There is nothing waiting to be paid out.',
+  'errors.PAYOUT_CONFLICT': 'The balance changed while paying out. Please try again.',
   'errors.TIP_UNAVAILABLE': 'A tip cannot be given for this order.',
   'errors.TIP_ALREADY_PAID': 'A tip was already given for this order.',
   'errors.TIP_AMOUNT_INVALID': 'The tip amount is outside the limits.',

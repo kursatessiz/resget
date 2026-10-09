@@ -81,7 +81,9 @@ describe('payment intent and settlement mode', () => {
 
   it('settles everything the restaurant collects itself like OWN_POS', () => {
     expect(effectivePaymentModeFor('ONLINE_CARD', 'PLATFORM_PSP')).toBe('PLATFORM_PSP');
-    expect(effectivePaymentModeFor(null, 'PLATFORM_PSP')).toBe('PLATFORM_PSP');
+    // No intent: the restaurant took the money, the platform must not pay it out.
+    expect(effectivePaymentModeFor(null, 'PLATFORM_PSP')).toBe('OWN_POS');
+    expect(effectivePaymentModeFor(undefined, 'PLATFORM_PSP')).toBe('OWN_POS');
     expect(effectivePaymentModeFor('MEAL_CARD', 'PLATFORM_PSP')).toBe('OWN_POS');
     expect(effectivePaymentModeFor('CASH_ON_DELIVERY', 'PLATFORM_PSP')).toBe('OWN_POS');
     expect(effectivePaymentModeFor('CARD_ON_DELIVERY', 'OWN_POS')).toBe('OWN_POS');

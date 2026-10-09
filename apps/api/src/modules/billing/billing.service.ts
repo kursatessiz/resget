@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CommissionInvoiceStatus, Prisma } from '@resget/database';
 import {
@@ -317,7 +317,17 @@ export class BillingService {
     for (const invoice of candidates) {
       const card = invoice.restaurant.billingPaymentMethod;
       if (!card || !collectionIsDue(invoice, now)) continue;
-      const result = await this.charge(invoice, card, now, `${this.appUrl()}/panel/${invoice.restaurant.slug}/finans`);
+      // An invoice another collector claimed, paid or voided since the read is skipped.
+      const result = await this.charge(
+        invoice,
+        card,
+        now,
+        `${this.appUrl()}/panel/${invoice.restaurant.slug}/finans`,
+      ).catch((error: unknown) => {
+        if (error instanceof HttpException && error.getStatus() === HttpStatus.CONFLICT) return null;
+        throw error;
+      });
+      if (!result) continue;
       if (result.status === 'CAPTURED') collected += 1;
       else collectionFailed += 1;
     }
@@ -331,8 +341,9 @@ export class BillingService {
       select: invoiceSelect,
     });
     if (due.length === 0) return { overdue: 0, suspended: 0 };
+    // Only still-issued invoices turn overdue; one paid between the read and the write stays paid.
     await this.prisma.commissionInvoice.updateMany({
-      where: { id: { in: due.map((i) => i.id) } },
+      where: { id: { in: due.map((i) => i.id) }, status: CommissionInvoiceStatus.ISSUED },
       data: { status: CommissionInvoiceStatus.OVERDUE },
     });
     let suspended = 0;
@@ -458,7 +469,8 @@ export class BillingService {
   async markPaid(actorUserId: string, invoiceId: string, paymentRef: string): Promise<AdminInvoiceDTO> {
     const invoice = await this.requireInvoice(invoiceId);
     if (!invoiceIsOpen(invoice.status)) throw conflict('INVOICE_STATE_INVALID', 'Invoice is not open');
-    await this.settle(invoice, `transfer:${paymentRef}`, null, new Date());
+    if (!(await this.settle(invoice, `transfer:${paymentRef}`, null, new Date())))
+      throw conflict('INVOICE_STATE_INVALID', 'Invoice is not open');
     await this.audit(actorUserId, invoice.restaurantId, 'invoice.marked_paid', 'commission_invoice', invoice.id, {
       paymentRef,
     });
@@ -476,12 +488,14 @@ export class BillingService {
       throw conflict('INVOICE_STATE_INVALID', 'An invoice carrying payout fees already taken cannot be voided');
     const now = new Date();
     const memo = `void ${invoice.id}`;
-    await this.prisma.$transaction([
-      this.prisma.commissionInvoice.update({
-        where: { id: invoice.id },
+    await this.prisma.$transaction(async (tx) => {
+      // A payment that lands between the read and here keeps the invoice; it is never voided after it was paid.
+      const voided = await tx.commissionInvoice.updateMany({
+        where: { id: invoice.id, status: { in: [CommissionInvoiceStatus.ISSUED, CommissionInvoiceStatus.OVERDUE] } },
         data: { status: CommissionInvoiceStatus.VOID },
-      }),
-      this.prisma.ledgerEntry.createMany({
+      });
+      if (voided.count === 0) throw conflict('INVOICE_STATE_INVALID', 'Invoice cannot be voided');
+      await tx.ledgerEntry.createMany({
         data: [
           {
             restaurantId: invoice.restaurantId,
@@ -493,8 +507,8 @@ export class BillingService {
             memo,
           },
         ],
-      }),
-    ]);
+      });
+    });
     if (invoice.fiscalRef) {
       await this.fiscal
         .cancel(invoice.fiscalRef)
@@ -549,8 +563,21 @@ export class BillingService {
 
   // -- Internals -----------------------------------------------------------------------------
 
+  /**
+   * One charge of an open invoice. The attempt is claimed before the card is charged, so two collectors (the daily
+   * run, the console, the restaurant's pay button) cannot charge the same invoice twice; a lost claim is a conflict.
+   */
   private async charge(invoice: InvoiceRow, card: CardRow, now: Date, returnUrl: string): Promise<VaultChargeResult> {
     const attempt = invoice.collectionAttempts + 1;
+    const claimed = await this.prisma.commissionInvoice.updateMany({
+      where: {
+        id: invoice.id,
+        status: { in: [CommissionInvoiceStatus.ISSUED, CommissionInvoiceStatus.OVERDUE] },
+        collectionAttempts: invoice.collectionAttempts,
+      },
+      data: { collectionAttempts: attempt, lastCollectionAt: now },
+    });
+    if (claimed.count === 0) throw conflict('INVOICE_STATE_INVALID', 'Invoice is not open or is being collected');
     let result: VaultChargeResult;
     try {
       result = await this.registry.vaultFor(card.provider).charge({
@@ -574,22 +601,21 @@ export class BillingService {
     await this.prisma.commissionInvoice.update({
       where: { id: invoice.id },
       data: {
-        collectionAttempts: attempt,
-        lastCollectionAt: now,
         lastCollectionError: result.status === 'REQUIRES_3DS' ? 'REQUIRES_3DS' : (result.failureCode ?? 'FAILED'),
       },
     });
     return result;
   }
 
+  /** Marks an open invoice paid; an invoice settled meanwhile by another path keeps its first settlement. */
   private async settle(
     invoice: InvoiceRow,
     paymentRef: string,
     paymentMethodId: string | null,
     now: Date,
-  ): Promise<void> {
-    await this.prisma.commissionInvoice.update({
-      where: { id: invoice.id },
+  ): Promise<boolean> {
+    const paid = await this.prisma.commissionInvoice.updateMany({
+      where: { id: invoice.id, status: { in: [CommissionInvoiceStatus.ISSUED, CommissionInvoiceStatus.OVERDUE] } },
       data: {
         status: CommissionInvoiceStatus.PAID,
         paidAt: now,
@@ -598,9 +624,19 @@ export class BillingService {
         lastCollectionError: null,
       },
     });
+    if (paid.count === 0) {
+      // Money arrived for an invoice that is no longer open (paid by transfer or voided meanwhile): the console
+      // returns it by hand, so the event is kept in the audit log rather than lost.
+      this.logger.error(`invoice ${invoice.id} was not open when payment ${paymentRef} arrived`);
+      await this.audit(null, invoice.restaurantId, 'invoice.payment_unapplied', 'commission_invoice', invoice.id, {
+        paymentRef,
+      });
+      return false;
+    }
     await this.reinstateIfClear(invoice.restaurantId, null);
     // The restaurant's first paid invoice is the platform's first_payment conversion (docs/ATIF.md); recorded once.
     await this.attribution.onInvoicePaidSafely(invoice.restaurantId, collectibleMinor(invoice), invoice.currency);
+    return true;
   }
 
   /** Lifts the marketplace suspension once no invoice of the restaurant is overdue any more. */

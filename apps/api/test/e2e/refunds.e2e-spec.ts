@@ -68,6 +68,17 @@ describe('Refunds (e2e)', () => {
       .send(body)
       .expect(200);
   };
+  /** The platform merchant's notice: it alone settles money the platform collected (PLATFORM_PSP). */
+  const platformWebhook = (payload: Record<string, unknown>) => {
+    const body = JSON.stringify({ currency: 'TRY', pspFeeMinor: 0, occurredAt: new Date().toISOString(), ...payload });
+    return ctx
+      .http()
+      .post('/webhooks/payments/platform/MOCK')
+      .set('content-type', 'application/json')
+      .set('x-mock-signature', sign('mock', body))
+      .send(body)
+      .expect(200);
+  };
   /** An online card order captured on the restaurant's own POS with the given provider reference. */
   const paidOrder = async (providerRef: string, quantity = 1) => {
     const order = await createOrder({ method: 'ONLINE_CARD' }, quantity);
@@ -377,16 +388,17 @@ describe('Refunds (e2e)', () => {
       await complete(order.id);
       expect(await ctx.prisma.ledgerEntry.count({ where: { orderId: order.id, type: 'RESTAURANT_PAYABLE' } })).toBe(1);
 
-      // The PSP's notice (the platform PSP webhook arrives with its contract; the handler is the same).
       const notice = {
         providerRef: 'psp-chargeback-1',
         orderRef: order.id,
         status: 'CHARGEBACK',
         amountMinor: order.chargedToCustomerMinor,
       };
-      expect((await posWebhook(notice)).body.status).toBe('CHARGEBACK');
-      await posWebhook(notice);
-      await posWebhook({ ...notice, status: 'CAPTURED' });
+      // The restaurant's own POS cannot move money the platform collected.
+      expect((await posWebhook(notice)).body.status).toBe('IGNORED');
+      expect((await platformWebhook(notice)).body.status).toBe('CHARGEBACK');
+      await platformWebhook(notice);
+      await platformWebhook({ ...notice, status: 'CAPTURED' });
 
       const lines = await ctx.prisma.ledgerEntry.findMany({ where: { orderId: order.id, type: 'CHARGEBACK' } });
       expect(lines).toHaveLength(1);

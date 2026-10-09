@@ -273,6 +273,21 @@ export class LoyaltyService {
     return row ? -row.points : 0;
   }
 
+  /**
+   * Locks the customer's row and reads the balance under the lock: every balance write here sets the new balance
+   * and the history's balanceAfter from this read, so concurrent writers wait instead of overwriting each other.
+   */
+  private async lockCustomer(
+    tx: Prisma.TransactionClient,
+    customerId: string,
+  ): Promise<{ id: string; loyaltyPoints: number; loyaltyJoinedAt: Date | null }> {
+    await tx.$queryRaw`SELECT id FROM restaurant_customers WHERE id = ${customerId} FOR UPDATE`;
+    return tx.restaurantCustomer.findUniqueOrThrow({
+      where: { id: customerId },
+      select: { id: true, loyaltyPoints: true, loyaltyJoinedAt: true },
+    });
+  }
+
   /** A completed order earns on its items spend after the loyalty discount; the first one also pays the welcome bonus. Idempotent. */
   async recordCompletion(tx: Prisma.TransactionClient, orderId: string, now: Date = new Date()): Promise<number> {
     const order = await tx.order.findUnique({
@@ -282,13 +297,14 @@ export class LoyaltyService {
     if (!order || !order.customerUserId) return 0;
     const resolved = await this.resolve(tx, order.restaurantId);
     if (!resolved.active) return 0;
+    const customerRef = await tx.restaurantCustomer.findUnique({
+      where: { restaurantId_userId: { restaurantId: order.restaurantId, userId: order.customerUserId } },
+      select: { id: true },
+    });
+    if (!customerRef) return 0;
+    const customer = await this.lockCustomer(tx, customerRef.id);
     const earnedBefore = await tx.loyaltyTransaction.count({ where: { orderId, type: { in: ['EARN', 'WELCOME'] } } });
     if (earnedBefore > 0) return 0;
-    const customer = await tx.restaurantCustomer.findUnique({
-      where: { restaurantId_userId: { restaurantId: order.restaurantId, userId: order.customerUserId } },
-      select: { id: true, loyaltyPoints: true, loyaltyJoinedAt: true },
-    });
-    if (!customer) return 0;
     const earned = pointsEarnedFor(resolved.program, order.itemsGrossMinor - order.discountMinor);
     const welcome = customer.loyaltyJoinedAt ? 0 : resolved.program.welcomePoints;
     if (earned === 0 && welcome === 0) return 0;
@@ -333,6 +349,9 @@ export class LoyaltyService {
    * earned ones away (never below zero). One reversal per order.
    */
   async recordReversal(tx: Prisma.TransactionClient, orderId: string, now: Date = new Date()): Promise<number> {
+    const first = await tx.loyaltyTransaction.findFirst({ where: { orderId }, select: { customerId: true } });
+    if (!first) return 0;
+    const customer = await this.lockCustomer(tx, first.customerId);
     const movements = await tx.loyaltyTransaction.findMany({
       where: { orderId },
       select: { type: true, points: true, customerId: true, restaurantId: true },
@@ -343,10 +362,6 @@ export class LoyaltyService {
       .filter((m) => m.type === 'EARN' || m.type === 'WELCOME')
       .reduce((sum, m) => sum + m.points, 0);
     const { customerId, restaurantId } = movements[0];
-    const customer = await tx.restaurantCustomer.findUniqueOrThrow({
-      where: { id: customerId },
-      select: { loyaltyPoints: true },
-    });
     const delta = spent - Math.min(earned, customer.loyaltyPoints + spent);
     const balance = customer.loyaltyPoints + delta;
     await tx.restaurantCustomer.update({ where: { id: customerId }, data: { loyaltyPoints: balance } });
@@ -390,11 +405,12 @@ export class LoyaltyService {
     actorUserId: string,
   ): Promise<CustomerLoyaltyDTO> {
     await this.prisma.$transaction(async (tx) => {
-      const customer = await tx.restaurantCustomer.findFirst({
+      const owned = await tx.restaurantCustomer.findFirst({
         where: { id: customerId, restaurantId },
-        select: { id: true, loyaltyPoints: true },
+        select: { id: true },
       });
-      if (!customer) throw notFound('CUSTOMER_NOT_FOUND', 'Customer not found');
+      if (!owned) throw notFound('CUSTOMER_NOT_FOUND', 'Customer not found');
+      const customer = await this.lockCustomer(tx, owned.id);
       const balance = customer.loyaltyPoints + input.points;
       if (balance < 0) throw conflict('LOYALTY_INSUFFICIENT_POINTS', 'Balance would go negative');
       await tx.restaurantCustomer.update({ where: { id: customer.id }, data: { loyaltyPoints: balance } });
