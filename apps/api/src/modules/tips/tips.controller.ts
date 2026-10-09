@@ -1,8 +1,15 @@
 import { Controller, Get, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
-import { StartTipSchema, TipsReportQuerySchema, TrackingTokenSchema, UuidSchema } from '@resget/shared';
+import {
+  RefundTipSchema,
+  StartTipSchema,
+  TipsReportQuerySchema,
+  TrackingTokenSchema,
+  UuidSchema,
+} from '@resget/shared';
 import type {
   CourierTipsSummaryDTO,
+  RefundTipInput,
   StartTipInput,
   TipDTO,
   TipStartedDTO,
@@ -12,8 +19,8 @@ import type {
 import { ZodBody, ZodParam, ZodQuery } from '../../common/zod-body.pipe';
 import { forbidden } from '../../common/api-error';
 import { RequireFeature, RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
-import { Tenant } from '../auth/decorators/current-user.decorator';
-import type { TenantContext } from '../auth/tenant-context';
+import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
+import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { PublicRateLimitGuard, RateLimit } from '../storefront/public-rate-limit.guard';
 import { TipsService } from './tips.service';
 
@@ -51,6 +58,20 @@ export class TipsController {
   @RequireFeature('courier_tips')
   retry(@Tenant() tenant: TenantContext, @ZodParam('tipId', UuidSchema) tipId: string): Promise<TipDTO> {
     return this.tips.retryPassThrough(tenant.restaurantId, tipId);
+  }
+
+  /** Gives a collected tip back to the customer (docs/BAHSIS.md, "Panelden iade"). */
+  @Post(':tipId/refund')
+  @HttpCode(200)
+  @RequirePermission('orders.refund')
+  @RequireFeature('courier_tips')
+  refund(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodParam('tipId', UuidSchema) tipId: string,
+    @ZodBody(RefundTipSchema) body: RefundTipInput,
+  ): Promise<TipDTO> {
+    return this.tips.refund(tenant.restaurantId, tipId, body, user.id);
   }
 }
 
