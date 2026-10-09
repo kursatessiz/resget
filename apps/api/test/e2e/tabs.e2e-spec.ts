@@ -78,11 +78,13 @@ describe('Open tab (e2e)', () => {
     itemId = restaurant.menuItems.find((m) => m.name === 'Izgara kofte')!.id;
     [adminToken, ownerToken] = await Promise.all([ctx.login(SEED.superAdminPhone), ctx.login(SEED.ownerPhone)]);
     await ctx.prisma.order.deleteMany({ where: { restaurantId, customerNote: NOTE } });
+    await ctx.prisma.tabPayment.deleteMany({ where: { tab: { tableId } } });
     await ctx.prisma.tableTab.deleteMany({ where: { tableId } });
   });
 
   afterAll(async () => {
     await ctx.prisma.order.deleteMany({ where: { restaurantId, customerNote: NOTE } });
+    await ctx.prisma.tabPayment.deleteMany({ where: { tab: { restaurantId, createdAt: { gte: startedAt } } } });
     await ctx.prisma.tableTab.deleteMany({ where: { restaurantId, createdAt: { gte: startedAt } } });
     await ctx.prisma.featureFlag.deleteMany({ where: { restaurantId, key: 'table_tabs' } });
     await ctx.close();

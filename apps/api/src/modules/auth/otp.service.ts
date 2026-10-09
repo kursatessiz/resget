@@ -61,7 +61,12 @@ export class OtpService {
       where: { id: otp.id, usedAt: null, attempts: { lt: OTP_MAX_ATTEMPTS } },
       data: { attempts: { increment: 1 } },
     });
-    if (claimed.count === 0) throw forbidden('RATE_LIMITED', 'Too many attempts');
+    if (claimed.count === 0) {
+      // A parallel verification may have consumed the code in between: that is a spent code, not a locked one.
+      const current = await this.prisma.otpCode.findUnique({ where: { id: otp.id }, select: { usedAt: true } });
+      if (current?.usedAt) return false;
+      throw forbidden('RATE_LIMITED', 'Too many attempts');
+    }
 
     const expected = Buffer.from(otp.codeHash, 'hex');
     const actual = Buffer.from(this.hash(phone, code), 'hex');

@@ -1,6 +1,7 @@
 import type { ChurnCustomerDTO, ChurnOverviewDTO, RestaurantHealthPageDTO, SegmentPreviewDTO } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
+import { deleteTestRestaurants } from './support/cleanup';
 
 const DAY_MS = 86_400_000;
 const LOCAL_PHONES = ['05329990981', '05329990982', '05329990983', '05329990984', '05329990985'];
@@ -74,7 +75,7 @@ describe('Churn risk (e2e)', () => {
     if (orderIds.length) await ctx.prisma.order.deleteMany({ where: { id: { in: orderIds } } });
     await ctx.prisma.restaurantCustomer.deleteMany({ where: { id: { in: Object.values(customers) } } });
     await ctx.prisma.user.deleteMany({ where: { phone: { in: PHONES } } });
-    if (newRestaurantId) await ctx.prisma.restaurant.delete({ where: { id: newRestaurantId } });
+    if (newRestaurantId) await deleteTestRestaurants(ctx.prisma, { id: newRestaurantId });
     await ctx.prisma.featureFlag.deleteMany({
       where: { OR: [{ key: 'restaurant_health' }, { restaurantId, key: { in: ['churn_signals', 'segments_v2'] } }] },
     });

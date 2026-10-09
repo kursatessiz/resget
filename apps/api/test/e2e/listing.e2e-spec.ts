@@ -1,6 +1,7 @@
 import { normalizePhone } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
+import { deleteTestRestaurants } from './support/cleanup';
 
 /** Marketplace listing request and review (docs/PLATFORM_YONETIMI.md). */
 describe('Listing request and review (e2e)', () => {
@@ -34,7 +35,7 @@ describe('Listing request and review (e2e)', () => {
 
   afterAll(async () => {
     await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: original });
-    if (emptyRestaurantId) await ctx.prisma.restaurant.deleteMany({ where: { id: emptyRestaurantId } });
+    if (emptyRestaurantId) await deleteTestRestaurants(ctx.prisma, { id: emptyRestaurantId });
     await ctx.prisma.user.deleteMany({ where: { phone: newOwnerPhone } });
     await ctx.close();
   });

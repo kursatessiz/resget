@@ -2,6 +2,7 @@ import { normalizePhone, proExtension } from '@resget/shared';
 import type { MyPartnerReferralsDTO, RestaurantCreatedDTO, SubscriptionState } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
+import { deleteTestRestaurants } from './support/cleanup';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -125,7 +126,7 @@ describe('Restaurant referrals (e2e)', () => {
   });
 
   afterAll(async () => {
-    await ctx.prisma.restaurant.deleteMany({ where: { id: { in: createdRestaurants } } });
+    await deleteTestRestaurants(ctx.prisma, { id: { in: createdRestaurants } });
     await ctx.prisma.restaurant.update({ where: { id: referrerId }, data: { partnerCode: null } });
     await ctx.prisma.restaurantSubscription.update({
       where: { restaurantId: referrerId },

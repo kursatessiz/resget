@@ -3,6 +3,7 @@ import type { BlogIndexDTO, LlmsDTO, PublicSitePageDTO, SitePageDTO, SitemapDTO 
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
 import { IndexNowService } from '../../src/modules/site/indexnow.service';
+import { deleteTestRestaurants } from './support/cleanup';
 
 /** Blog, IndexNow and llms.txt (docs/BLOG.md, docs/SEO.md). */
 describe('Blog, IndexNow and llms (e2e)', () => {
@@ -40,7 +41,7 @@ describe('Blog, IndexNow and llms (e2e)', () => {
     ctx = await createTestApp();
     indexNow = ctx.app.get(IndexNowService);
     adminToken = await ctx.login(SEED.superAdminPhone);
-    await ctx.prisma.restaurant.deleteMany({ where: { isPlatform: true } });
+    await deleteTestRestaurants(ctx.prisma, { isPlatform: true });
     const setup = await ctx
       .http()
       .post('/admin/platform/setup')
@@ -54,7 +55,7 @@ describe('Blog, IndexNow and llms (e2e)', () => {
 
   afterAll(async () => {
     await ctx.prisma.featureFlag.deleteMany({ where: { key: { in: ['page_engine', 'blog', 'marketing_platform'] } } });
-    await ctx.prisma.restaurant.deleteMany({ where: { isPlatform: true } });
+    await deleteTestRestaurants(ctx.prisma, { isPlatform: true });
     await ctx.prisma.auditLog.deleteMany({ where: { action: { startsWith: 'platform.' } } });
     await ctx.close();
   });

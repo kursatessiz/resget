@@ -1,6 +1,7 @@
 import { ERROR_CODE_HEADER } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
+import { deleteTestRestaurants } from './support/cleanup';
 
 describe('Tenant isolation (e2e)', () => {
   let ctx: TestContext;
@@ -17,7 +18,7 @@ describe('Tenant isolation (e2e)', () => {
     const restaurant = await ctx.prisma.restaurant.findUniqueOrThrow({ where: { slug: SEED.restaurantSlug } });
     restaurantId = restaurant.id;
     // Leftovers of an earlier run against the same database.
-    await ctx.prisma.restaurant.deleteMany({ where: { slug: 'e2e-diger' } });
+    await deleteTestRestaurants(ctx.prisma, { slug: 'e2e-diger' });
     await ctx.prisma.otpCode.deleteMany({ where: { phone: counterPhone } });
     await ctx.prisma.user.deleteMany({ where: { phone: counterPhone } });
     const other = await ctx.prisma.restaurant.create({
@@ -47,7 +48,7 @@ describe('Tenant isolation (e2e)', () => {
   });
 
   afterAll(async () => {
-    await ctx.prisma.restaurant.deleteMany({ where: { id: otherRestaurantId } });
+    await deleteTestRestaurants(ctx.prisma, { id: otherRestaurantId });
     await ctx.prisma.otpCode.deleteMany({ where: { phone: counterPhone } });
     await ctx.prisma.user.deleteMany({ where: { phone: counterPhone } });
     await ctx.close();

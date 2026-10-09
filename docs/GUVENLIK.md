@@ -5,7 +5,7 @@ Platformun kimlik doğrulama ve dış dünyaya açık yüzeyindeki denetimleri t
 ## Giriş kodu (OTP)
 
 - Kod 5 dakika geçerlidir ve tek kullanımlıktır. Aynı telefona 5 dakikada en çok 3 kod istenir (`OtpService`).
-- Bir kod için en çok 5 deneme yapılır. Deneme, kod karşılaştırılmadan önce koşullu artırılarak ayrılır; aynı anda gönderilen tahminler sınırı aşamaz. Doğru kod da yalnızca bir kez oturum açar: aynı anda iki doğru doğrulamadan biri kazanır.
+- Bir kod için en çok 5 deneme yapılır. Deneme, kod karşılaştırılmadan önce koşullu artırılarak ayrılır; aynı anda gönderilen tahminler sınırı aşamaz. Doğru kod da yalnızca bir kez oturum açar: aynı anda iki doğru doğrulamadan biri kazanır, diğeri kullanılmış kod (401) yanıtı alır; deneme sınırı (403) yalnızca denemeler gerçekten bittiğinde döner.
 - İstemci adresi başına kod isteği ve doğrulama 10 dakikada `PUBLIC_OTP_RATE_LIMIT` (varsayılan 30) ile sınırlıdır; tek bir adres çok sayıda telefona kod gönderemez veya deneme yapamaz.
 
 ## İstemci adresi
