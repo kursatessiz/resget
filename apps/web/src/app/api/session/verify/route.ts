@@ -8,7 +8,7 @@ import {
   TableQrTokenSchema,
 } from '@resget/shared';
 import type { TokenPairDTO } from '@resget/shared';
-import { apiInternalBaseUrl, getServerEnv } from '@/lib/server-env';
+import { apiInternalBaseUrl, forwardedFor, getServerEnv } from '@/lib/server-env';
 import {
   ACCESS_TOKEN_COOKIE,
   QR_SESSION_COOKIE,
@@ -38,7 +38,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const qrSession = req.cookies.get(QR_SESSION_COOKIE)?.value;
   const upstream = await fetch(`${apiInternalBaseUrl()}/auth/otp/verify`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    // The visitor's address, so the API's per-client sign-in limit counts this visitor, not the web server.
+    headers: { 'content-type': 'application/json', ...forwardedFor(req.headers) },
     body: JSON.stringify({
       ...parsed.data,
       qrSessionId: parsed.data.qrToken && QrScanSessionSchema.safeParse(qrSession).success ? qrSession : undefined,

@@ -18,7 +18,7 @@ test.describe('Landing page', () => {
       applinks: { details: { appIDs: string[]; components: { '/': string }[] }[] };
     };
     expect(aasa.applinks.details[0].appIDs).toEqual(['ABCDE12345.com.resget.app']);
-    expect(aasa.applinks.details[0].components[0]['/']).toBe('/t/*');
+    expect(aasa.applinks.details[0].components.map((c) => c['/'])).toEqual(['/t/*', '/uygulama/*']);
 
     const android = await request.get('/.well-known/assetlinks.json');
     expect(android.status()).toBe(200);

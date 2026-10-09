@@ -1,8 +1,15 @@
+import { createHash, randomBytes } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { OtpPurpose } from '@resget/database';
-import { PERMISSION_KEYS, effectivePermissions, moduleNeedsPlan, platformRoleOf } from '@resget/shared';
-import type { AccessTokenClaims, MeDTO, TokenPairDTO } from '@resget/shared';
+import {
+  PERMISSION_KEYS,
+  SESSION_HANDOFF_TTL_SECONDS,
+  effectivePermissions,
+  moduleNeedsPlan,
+  platformRoleOf,
+} from '@resget/shared';
+import type { AccessTokenClaims, MeDTO, SessionHandoffDTO, TokenPairDTO } from '@resget/shared';
 import { FeatureFlagsService } from '../features/feature-flags.service';
 import { EntitlementsService, subscriptionForPlanSelect, subscriptionLike } from '../features/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -12,6 +19,10 @@ import { unauthorized } from '../../common/api-error';
 
 export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
 export const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
+/** Spent or expired handoff rows are kept this long, then removed when a new code is made. */
+const HANDOFF_RETENTION_MS = 24 * 60 * 60 * 1000;
+
+const handoffHash = (code: string): string => createHash('sha256').update(code).digest('hex');
 
 @Injectable()
 export class AuthService {
@@ -84,6 +95,36 @@ export class AuthService {
     });
     if (!user) throw unauthorized('Unknown user');
     return this.issueTokens(user.id, user.phone, user.isSuperAdmin);
+  }
+
+  /**
+   * A one-time code that carries this session into the browser
+   * (docs/GUVENLIK.md): only its hash is stored and it lives a minute.
+   */
+  async createHandoff(userId: string, now: Date = new Date()): Promise<SessionHandoffDTO> {
+    const code = randomBytes(32).toString('base64url');
+    const expiresAt = new Date(now.getTime() + SESSION_HANDOFF_TTL_SECONDS * 1000);
+    await this.prisma.sessionHandoff.deleteMany({
+      where: { expiresAt: { lt: new Date(now.getTime() - HANDOFF_RETENTION_MS) } },
+    });
+    await this.prisma.sessionHandoff.create({ data: { userId, codeHash: handoffHash(code), expiresAt } });
+    return { code, expiresAt: expiresAt.toISOString() };
+  }
+
+  /** Spends a handoff code once; an expired, used or unknown code, or a deleted account, is refused. */
+  async redeemHandoff(code: string, now: Date = new Date()): Promise<TokenPairDTO> {
+    const codeHash = handoffHash(code);
+    const claimed = await this.prisma.sessionHandoff.updateMany({
+      where: { codeHash, usedAt: null, expiresAt: { gt: now } },
+      data: { usedAt: now },
+    });
+    if (claimed.count !== 1) throw unauthorized('Invalid handoff code');
+    const handoff = await this.prisma.sessionHandoff.findUniqueOrThrow({
+      where: { codeHash },
+      select: { user: { select: { id: true, phone: true, isSuperAdmin: true, deletedAt: true } } },
+    });
+    if (handoff.user.deletedAt) throw unauthorized('Unknown user');
+    return this.issueTokens(handoff.user.id, handoff.user.phone, handoff.user.isSuperAdmin);
   }
 
   async me(userId: string): Promise<MeDTO> {

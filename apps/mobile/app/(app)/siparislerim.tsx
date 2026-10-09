@@ -1,12 +1,13 @@
 import { useCallback, useState } from 'react';
-import { Linking, View } from 'react-native';
+import { View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { formatMoney, trackingTokenFromLink } from '@resget/shared';
 import type { CustomerAccountDTO, CustomerOrderDTO, LoyaltyBalanceDTO } from '@resget/shared';
 import { Body, Button, Caption, Card, Notice, Screen, Title } from '@/components/ui';
+import { WalletsCard } from '@/components/wallets-card';
 import { ApiError } from '@/lib/api';
-import { WEB_BASE_URL } from '@/lib/config';
 import { deviceLocale, useT } from '@/lib/i18n';
+import { openWebPage } from '@/lib/web-handoff';
 import { useSession } from '@/state/session';
 import { useTheme } from '@/theme';
 
@@ -14,6 +15,8 @@ import { useTheme } from '@/theme';
  * The person's own orders as a customer, with live tracking in the app and
  * reordering on the restaurant's page, and the points they hold at each
  * restaurant (docs/SADAKAT.md, same balances as the web account page).
+ * Restaurant pages open signed in, so linked wallet cards are offered at
+ * payment (docs/CUZDAN.md, "Mobil uygulama").
  */
 export default function MyOrders() {
   const t = useT();
@@ -24,8 +27,10 @@ export default function MyOrders() {
   const [orders, setOrders] = useState<CustomerOrderDTO[] | null>(null);
   const [points, setPoints] = useState<LoyaltyBalanceDTO[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [reloads, setReloads] = useState(0);
 
   const load = useCallback(async () => {
+    setReloads((n) => n + 1);
     try {
       const [list, account] = await Promise.all([
         api.request<CustomerOrderDTO[]>('me/orders'),
@@ -46,12 +51,13 @@ export default function MyOrders() {
   );
 
   const when = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' });
-  const openRestaurant = (slug: string) => void Linking.openURL(`${WEB_BASE_URL}/${encodeURIComponent(slug)}`);
+  const openRestaurant = (slug: string) => void openWebPage(api, `/${encodeURIComponent(slug)}`);
   return (
     <Screen>
       <Title>{t('mobile.tabs.myOrders')}</Title>
       <Body muted>{t('mobile.customer.intro')}</Body>
       {error && <Notice tone="error">{error}</Notice>}
+      <WalletsCard api={api} reloadKey={reloads} />
       {points.length > 0 && (
         <Card title={t('loyalty.account.title')}>
           {points.map((balance) => (

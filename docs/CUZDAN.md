@@ -51,6 +51,17 @@ Sipariş sayfasında oturum açmış müşteri, restoran cüzdan kabul ediyorsa 
 - **Ödeme kaydı**: `provider` platformun ödeme sağlayıcısının kodudur, çünkü cüzdan çekimi platformun üye işyeri üzerinden geçer. İade de oradan yapılır (`docs/ODEME.md`, "İade"). Hangi cüzdan kartının kullanıldığı `savedPaymentMethodId` alanında durur.
 - **Siparişe etkisi**: hesap motoru, komisyon ve hakediş, diğer `PLATFORM_PSP` kart ödemeleriyle aynıdır.
 
+## Mobil uygulama
+
+Faz 0'da sipariş web sayfasında verilir (`docs/MOBIL.md`); uygulama cüzdanı kendi içinde bağlar ve sipariş sayfasını müşterinin oturumuyla açar. Böylece bağlanan kart ödeme seçeneklerinde hazır bulunur.
+
+- **Cüzdanlarım kartı**: uygulamanın "Siparişlerim" ekranında görünür. Görünme koşulu webdeki kartla aynıdır: `GET /me/wallets` en az bir cüzdan döndürmelidir. Kart, bağlı cüzdan kartlarını listeler ve her cüzdan için bir bağlama düğmesi gösterir. Kart kaldırma onay ister ve mevcut `DELETE /me/payment-methods/:id` ucunu çağırır.
+- **Bağlama**: uygulama `POST /me/wallets/:code/link` ucunu dönüş adresiyle çağırır. Dönüş adresi `<web adresi>/uygulama/cuzdan/<kod>` biçimindedir. Cüzdanın sayfası cihazın tarayıcısında açılır.
+- **Dönüş**: dönüş adresi evrensel bağlantıdır (iOS `associatedDomains`, Android doğrulanmış `intentFilters`). Bu yüzden cüzdan müşteriyi doğrudan uygulamaya geri getirir. Uygulama adresteki parametreleri `payload` olarak `POST /me/wallets/:code/link/complete` ucuna gönderir ve kartı listeler.
+- **Tarayıcıda kalırsa**: işletim sistemi bağlantıyı uygulamaya vermezse web aynı adreste bir geçiş sayfası gösterir. Sayfadaki "Uygulamaya dön" düğmesi aynı parametrelerle uygulamanın kendi şemasını açar (`resget://uygulama/cuzdan/<kod>`). Web bu sayfada bağlamayı kendisi tamamlamaz, çünkü kart uygulamadaki hesaba bağlanır.
+- **Ödeme**: uygulamadaki "Tekrar sipariş ver" ve işletme bağlantıları sipariş sayfasını tek kullanımlık oturum aktarımıyla açar (`docs/GUVENLIK.md`, "Uygulamadan web'e oturum aktarımı"). Müşteri web'de yeniden giriş yapmaz. Restoran cüzdan kabul ediyorsa cüzdan kartları ödeme seçeneklerinde görünür. Çekim, doğrulama ve hata kodları yukarıdaki "Müşteri: cüzdanla ödeme" bölümüyle aynıdır.
+- **Uygulama içi yerel ödeme ekranı**: müşteri modunun yerel sipariş ekranıyla (Faz 1) gelir. Gerçek Masterpass ve bex adaptörleri gelince mobil SDK'larının kullanılıp kullanılmayacağı adaptörle birlikte kararlaştırılır. Bugünkü akış tarayıcı üzerinden çalışır ve SDK gerektirmez.
+
 ## Uçlar
 
 | Uç | Yetki |
@@ -70,4 +81,4 @@ Hata kodları:
 
 - Masterpass ve bex adaptörleri: üye işyeri sözleşmeleri ve sağlayıcı belgeleriyle yazılır.
 - `OWN_POS` restoranlarının kendi POS'u üzerinden cüzdan: sahip kararı gerekir.
-- Mobil uygulamada cüzdan bağlama ve ödeme.
+- Uygulama içinde yerel sipariş ve ödeme ekranı (müşteri modu, Faz 1).
