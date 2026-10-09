@@ -459,15 +459,16 @@ export class OrdersService {
           select: { id: true, orderCount: true, firstOrderAt: true, lastOrderAt: true, churnRisk: true },
           update: {
             orderCount: { increment: 1 },
-            lastOrderAt: new Date(),
+            // The order's own instant, so a recount after a cancellation lands on the same value.
+            lastOrderAt: placedAt,
             lifetimeGrossMinor: { increment: settlement.itemsGrossMinor },
           },
           create: {
             restaurantId,
             userId: user.id,
             firstChannel: input.channel,
-            firstOrderAt: new Date(),
-            lastOrderAt: new Date(),
+            firstOrderAt: placedAt,
+            lastOrderAt: placedAt,
             orderCount: 1,
             lifetimeGrossMinor: settlement.itemsGrossMinor,
             marketingToken: randomUUID(),
@@ -850,6 +851,8 @@ export class OrdersService {
     // A cancelled order gives its coupon use back (docs/KUPONLAR.md).
     if ((COUPON_RELEASE_STATUSES as readonly string[]).includes(to)) await this.coupons.release(tx, order.id, now);
     if ((STOCK_RELEASE_STATUSES as readonly string[]).includes(to)) await this.releaseStock(tx, order.id);
+    // A cancelled order does not count as the customer's order (owner decision, docs/KAYIP_RISKI.md).
+    if ((STOCK_RELEASE_STATUSES as readonly string[]).includes(to)) await this.recountCustomer(tx, order.id, now);
     await tx.orderStatusHistory.create({
       data: { orderId: order.id, fromStatus: order.status, toStatus: to, actorUserId, reason: options.reason ?? null },
     });
@@ -923,6 +926,45 @@ export class OrdersService {
       });
       await tx.orderItem.update({ where: { id: line.id }, data: { stockTaken: 0 } });
     }
+  }
+
+  /**
+   * Rebuilds the customer's order counters at this restaurant from the orders that were not cancelled:
+   * count, gross, first and last order, and the churn class that follows from them. Counted from the rows,
+   * not decremented, so a repeated or concurrent cancellation can never drive them wrong.
+   */
+  private async recountCustomer(tx: Prisma.TransactionClient, orderId: string, now: Date): Promise<void> {
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      select: { restaurantId: true, customerUserId: true },
+    });
+    if (!order?.customerUserId) return;
+    const customer = await tx.restaurantCustomer.findUnique({
+      where: { restaurantId_userId: { restaurantId: order.restaurantId, userId: order.customerUserId } },
+      select: { id: true, churnRisk: true },
+    });
+    if (!customer) return;
+    const kept = await tx.order.aggregate({
+      where: {
+        restaurantId: order.restaurantId,
+        customerUserId: order.customerUserId,
+        status: { notIn: [...STOCK_RELEASE_STATUSES] },
+      },
+      _count: { _all: true },
+      _sum: { itemsGrossMinor: true },
+      _min: { placedAt: true },
+      _max: { placedAt: true },
+    });
+    const counters = {
+      orderCount: kept._count._all,
+      lifetimeGrossMinor: kept._sum.itemsGrossMinor ?? 0,
+      firstOrderAt: kept._min.placedAt,
+      lastOrderAt: kept._max.placedAt,
+    };
+    await tx.restaurantCustomer.update({
+      where: { id: customer.id },
+      data: { ...counters, churnRisk: customerChurnRisk(counters, now) },
+    });
   }
 
   /** What the acceptance window and the promised time of an order depend on. */

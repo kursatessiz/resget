@@ -64,7 +64,12 @@ export type OrderActor = 'RESTAURANT' | 'COURIER' | 'CUSTOMER' | 'SYSTEM';
 type TransitionTable = Partial<Record<OrderStatusValue, Partial<Record<OrderStatusValue, readonly OrderActor[]>>>>;
 
 const KITCHEN_TRANSITIONS: TransitionTable = {
-  PENDING_PAYMENT: { PLACED: ['SYSTEM', 'CUSTOMER'], CANCELLED_BY_CUSTOMER: ['CUSTOMER', 'SYSTEM'] },
+  // The restaurant may also call off an order still waiting for its payment (owner decision, docs/SIPARIS_VE_SEVK.md).
+  PENDING_PAYMENT: {
+    PLACED: ['SYSTEM', 'CUSTOMER'],
+    CANCELLED_BY_CUSTOMER: ['CUSTOMER', 'SYSTEM'],
+    CANCELLED_BY_RESTAURANT: ['RESTAURANT'],
+  },
   PLACED: {
     ACCEPTED: ['RESTAURANT'],
     REJECTED: ['RESTAURANT'],
