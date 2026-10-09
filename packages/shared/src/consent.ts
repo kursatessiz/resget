@@ -91,7 +91,10 @@ export function countryOfPhone(e164: string): string | null {
 export interface ConsentPolicy {
   dailyCap: number;
   weeklyCap: number;
-  /** Regions whose new consents count only after the confirmation link is followed. */
+  /**
+   * Regions where even a verified number's new consent counts only after the
+   * confirmation link; an unverified number always waits (docs/RIZA.md).
+   */
   doubleOptInRegions: readonly ConsentRegion[];
   /** Platform owner's switch: business contacts in Turkey may get commercial messages on IYS channels. */
   merchantExemption: boolean;
@@ -100,7 +103,7 @@ export interface ConsentPolicy {
 export const DEFAULT_CONSENT_POLICY: ConsentPolicy = {
   dailyCap: 1,
   weeklyCap: 3,
-  doubleOptInRegions: ['EU_UK'],
+  doubleOptInRegions: [],
   merchantExemption: false,
 };
 
@@ -185,9 +188,20 @@ export function effectiveConsentChannels(
   );
 }
 
-/** Whether a fresh consent from this region waits for its confirmation link. */
-export function needsDoubleOptIn(region: ConsentRegion, policy: ConsentPolicy): boolean {
-  return policy.doubleOptInRegions.includes(region);
+/**
+ * Whether a fresh consent waits for its confirmation link (owner's decision,
+ * docs/RIZA.md): a number nobody proved always does, in every region and
+ * whether or not consent v2 is on; a number proved with a sign-in code does
+ * only where the platform owner asked for it, and only with consent v2 on.
+ */
+export function needsDoubleOptIn(input: {
+  region: ConsentRegion;
+  policy: ConsentPolicy;
+  phoneVerified: boolean;
+  moduleEnabled: boolean;
+}): boolean {
+  if (!input.phoneVerified) return true;
+  return input.moduleEnabled && input.policy.doubleOptInRegions.includes(input.region);
 }
 
 /** Whether another campaign message would exceed the tenant's caps for this contact. */

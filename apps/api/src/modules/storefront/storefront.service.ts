@@ -395,6 +395,7 @@ export class StorefrontService {
       loyaltyUserId,
       couponCode: input.couponCode,
       source,
+      verifiedPhone: context.viewer?.phone,
     });
     await this.attribution.identifyOrderSafely(order.id, context.visitorId);
     const loyaltyPointsRedeemed = loyaltyUserId ? await this.loyalty.redeemedPointsOf(order.id) : 0;

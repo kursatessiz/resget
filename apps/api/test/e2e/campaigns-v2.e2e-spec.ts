@@ -116,7 +116,13 @@ describe('Campaigns v2 (e2e)', () => {
         select: { id: true },
       });
       customerIds.push(customer.id);
-      await consent.grant({ restaurantId, customerId: customer.id, channels: person.channels, source: 'SITE_FORM' });
+      await consent.grant({
+        restaurantId,
+        customerId: customer.id,
+        channels: person.channels,
+        source: 'SITE_FORM',
+        phoneVerified: true,
+      });
     }
   });
 

@@ -12,7 +12,11 @@ const IGNORED = normalizePhone('05329990982')!;
 const WHATSAPP_ONLY = normalizePhone('05329990983')!;
 const GERMAN = normalizePhone('+4915112349984')!;
 const MERCHANT = normalizePhone('05329990985')!;
-const PHONES = [LEGACY, IGNORED, WHATSAPP_ONLY, GERMAN, MERCHANT];
+const GUEST = normalizePhone('05329990986')!;
+const OTHER_NUMBER = normalizePhone('05329990987')!;
+const GERMAN_VERIFIED = normalizePhone('+4915112349987')!;
+const GERMAN_STRICT = normalizePhone('+4915112349988')!;
+const PHONES = [LEGACY, IGNORED, WHATSAPP_ONLY, GERMAN, MERCHANT, GUEST, OTHER_NUMBER, GERMAN_VERIFIED, GERMAN_STRICT];
 
 /** Consent v2 (docs/RIZA.md): per-channel boxes, effective channel, caps, double opt-in, opt-outs, merchant exemption. */
 describe('Consent v2 (e2e)', () => {
@@ -41,11 +45,11 @@ describe('Consent v2 (e2e)', () => {
       .set(bearer(adminToken))
       .send({ enabled })
       .expect(200);
-  const order = async (phone: string, consent: Record<string, unknown>) => {
-    const res = await ctx
-      .http()
-      .post(`/public/restaurants/${SEED.restaurantSlug}/orders`)
-      .set('x-forwarded-for', client)
+  /** `signedInAs`: the number whose session places the order; consent for it counts at once (docs/RIZA.md). */
+  const order = async (phone: string, consent: Record<string, unknown>, signedInAs: string | null = null) => {
+    const token = signedInAs ? await ctx.login(signedInAs) : null;
+    const req = ctx.http().post(`/public/restaurants/${SEED.restaurantSlug}/orders`).set('x-forwarded-for', client);
+    const res = await (token ? req.set(bearer(token)) : req)
       .send({
         fulfillment: 'PICKUP',
         items: [{ menuItemId: itemId, quantity: 1 }],
@@ -133,7 +137,7 @@ describe('Consent v2 (e2e)', () => {
   });
 
   it('with the module off, the legacy box means both channels and per-channel boxes are ignored', async () => {
-    const legacy = await order(LEGACY, { marketingOptIn: true });
+    const legacy = await order(LEGACY, { marketingOptIn: true }, LEGACY);
     expect([...legacy.consentChannels].sort()).toEqual(['SMS', 'WHATSAPP']);
     const rows = await ctx.prisma.contactConsent.findMany({ where: { customerId: legacy.id } });
     expect(rows.map((r) => [r.channel, r.granted, r.source]).sort()).toEqual([
@@ -143,13 +147,21 @@ describe('Consent v2 (e2e)', () => {
     const ignored = await order(IGNORED, { marketingChannels: ['WHATSAPP'] });
     expect(ignored.consentChannels).toEqual([]);
     expect(await ctx.prisma.contactConsent.count({ where: { customerId: ignored.id } })).toBe(0);
+
+    // A guest's number is unproved: even with the module off and in Turkey, the box waits for the SMS link.
+    const guest = await order(GUEST, { marketingOptIn: true });
+    expect(guest.consentChannels).toEqual([]);
+    const pending = await ctx.prisma.contactConsent.findMany({ where: { customerId: guest.id } });
+    expect(pending).toHaveLength(2);
+    expect(pending.every((r) => r.granted && r.confirmationRequestedAt !== null && r.confirmedAt === null)).toBe(true);
+    expect(await ctx.prisma.consentConfirmation.count({ where: { customerId: guest.id } })).toBe(1);
   });
 
   it('with the module on, only the ticked channel counts and a WhatsApp consent never becomes an SMS', async () => {
     await setSwitch('consent_v2', true);
     const menu = await ctx.http().get(`/public/restaurants/${SEED.restaurantSlug}/menu`).expect(200);
     expect(menu.body.consentV2).toBe(true);
-    const whatsappOnly = await order(WHATSAPP_ONLY, { marketingChannels: ['WHATSAPP'] });
+    const whatsappOnly = await order(WHATSAPP_ONLY, { marketingChannels: ['WHATSAPP'] }, WHATSAPP_ONLY);
     expect(whatsappOnly.consentChannels).toEqual(['WHATSAPP']);
 
     // WhatsApp switched off: the campaign goes as SMS, so only SMS consent reaches it.
@@ -165,7 +177,31 @@ describe('Consent v2 (e2e)', () => {
     expect(onWhatsapp.get(LEGACY)).toMatchObject({ status: 'SKIPPED', errorCode: 'FREQUENCY_CAP' });
   });
 
-  it('keeps a consent from a double opt-in region waiting until the link is pressed, once', async () => {
+  it('counts a verified number at once, unless the owner listed its region or the order is for another number', async () => {
+    const verified = await order(GERMAN_VERIFIED, { marketingChannels: ['SMS'] }, GERMAN_VERIFIED);
+    expect(verified.consentChannels).toEqual(['SMS']);
+    const forSomeoneElse = await order(OTHER_NUMBER, { marketingChannels: ['SMS'] }, WHATSAPP_ONLY);
+    expect(forSomeoneElse.consentChannels).toEqual([]);
+    expect(await ctx.prisma.consentConfirmation.count({ where: { customerId: forSomeoneElse.id } })).toBe(1);
+
+    const policy = `/admin/restaurants/${restaurantId}/consent-policy`;
+    await ctx
+      .http()
+      .put(policy)
+      .set(bearer(adminToken))
+      .send({ doubleOptInRegions: ['EU_UK'], merchantExemption: false })
+      .expect(200);
+    const strict = await order(GERMAN_STRICT, { marketingChannels: ['SMS'] }, GERMAN_STRICT);
+    expect(strict.consentChannels).toEqual([]);
+    await ctx
+      .http()
+      .put(policy)
+      .set(bearer(adminToken))
+      .send({ doubleOptInRegions: [], merchantExemption: false })
+      .expect(200);
+  });
+
+  it('keeps the consent of an unverified number waiting until the link is pressed, once', async () => {
     const german = await order(GERMAN, { marketingChannels: ['SMS'] });
     expect(german.consentChannels).toEqual([]);
     const [row] = await ctx.prisma.contactConsent.findMany({ where: { customerId: german.id } });

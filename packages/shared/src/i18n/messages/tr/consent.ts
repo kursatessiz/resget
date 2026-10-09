@@ -3,6 +3,8 @@ export const trConsent = {
   'consent.checkout.title': 'Kampanya ve indirim mesajları (isteğe bağlı)',
   'consent.checkout.SMS': 'SMS ile haberdar olmak istiyorum.',
   'consent.checkout.WHATSAPP': 'WhatsApp ile haberdar olmak istiyorum.',
+  'consent.checkout.confirmHint':
+    "Numaranıza bir onay SMS'i gönderilir; izniniz bağlantıdaki düğmeye bastığınızda geçerli olur. Giriş yapıp kendi numaranızla sipariş verirseniz onay gerekmez.",
 
   'consent.channel.SMS': 'SMS',
   'consent.channel.WHATSAPP': 'WhatsApp',
@@ -60,9 +62,9 @@ export const trConsent = {
 
   'consent.policy.title': 'Ticari ileti izni kuralları',
   'consent.policy.intro':
-    'Çift onay istenen bölgelerdeki numaralardan gelen yeni izin, SMS ile gönderilen onay bağlantısına basılana kadar sayılmaz.',
+    'Numarası doğrulanmamış kişinin (misafir sipariş, site formu, personelin girdiği sipariş) yeni izni her bölgede, SMS ile gönderilen onay bağlantısına basılana kadar sayılmaz. Aşağıda seçilen bölgelerde, kodla giriş yapıp kendi numarasıyla izin veren kişinin izni de onay bekler.',
   'consent.policy.moduleOff': 'Rıza v2 modülü bu kiracıda kapalı; kurallar modül açılınca uygulanır.',
-  'consent.policy.doubleOptIn': 'Çift onay istenen bölgeler',
+  'consent.policy.doubleOptIn': 'Doğrulanmış numaralar için de çift onay istenen bölgeler',
   'consent.policy.exemption': 'Türkiye tacir ve esnaf muafiyeti',
   'consent.policy.exemptionHelp':
     "Açıkken işletme olarak işaretli Türkiye kişilerine SMS, arama ve e-postayla önceden izin olmadan ticari ileti gidebilir; kişi İYS'ye tacir olarak kaydedilir ve her zaman reddedebilir. WhatsApp bu muafiyete dahil değildir.",

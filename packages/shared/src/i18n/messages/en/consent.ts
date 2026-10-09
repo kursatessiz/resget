@@ -4,6 +4,8 @@ export const enConsent: Record<keyof typeof trConsent, string> = {
   'consent.checkout.title': 'Campaign and discount messages (optional)',
   'consent.checkout.SMS': 'I want to hear about them by SMS.',
   'consent.checkout.WHATSAPP': 'I want to hear about them on WhatsApp.',
+  'consent.checkout.confirmHint':
+    'We will text your number a confirmation link; your consent counts once you press its button. No confirmation is needed if you sign in and order with your own number.',
 
   'consent.channel.SMS': 'SMS',
   'consent.channel.WHATSAPP': 'WhatsApp',
@@ -60,9 +62,9 @@ export const enConsent: Record<keyof typeof trConsent, string> = {
 
   'consent.policy.title': 'Commercial message consent rules',
   'consent.policy.intro':
-    'A new consent from a number in a double opt-in region counts only once the confirmation link sent by SMS is pressed.',
+    'A new consent from a number nobody verified (guest order, site form, order typed in by staff) counts only once the confirmation link sent by SMS is pressed, in every region. In the regions chosen below, consent from someone signed in with a code to their own number waits for confirmation too.',
   'consent.policy.moduleOff': 'The consent v2 module is off for this tenant; the rules apply once it is on.',
-  'consent.policy.doubleOptIn': 'Regions that need double opt-in',
+  'consent.policy.doubleOptIn': 'Regions that also need double opt-in for verified numbers',
   'consent.policy.exemption': 'Turkish merchant and tradesperson exemption',
   'consent.policy.exemptionHelp':
     'When on, business contacts in Turkey may get commercial messages by SMS, call and e-mail without prior consent; they are registered with IYS as merchants and can always refuse. WhatsApp is not covered.',

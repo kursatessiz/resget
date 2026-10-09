@@ -107,10 +107,18 @@ describe('commercial eligibility', () => {
 });
 
 describe('double opt-in and caps', () => {
-  it('asks for confirmation in the policy regions only', () => {
-    expect(needsDoubleOptIn('EU_UK', DEFAULT_CONSENT_POLICY)).toBe(true);
-    expect(needsDoubleOptIn('TR', DEFAULT_CONSENT_POLICY)).toBe(false);
-    expect(needsDoubleOptIn('TR', { ...DEFAULT_CONSENT_POLICY, doubleOptInRegions: ['TR'] })).toBe(true);
+  it('always asks an unverified number, and a verified one only where the owner chose, with the module on', () => {
+    const base = { policy: DEFAULT_CONSENT_POLICY, moduleEnabled: true };
+    expect(needsDoubleOptIn({ ...base, region: 'TR', phoneVerified: false })).toBe(true);
+    expect(needsDoubleOptIn({ ...base, region: 'EU_UK', phoneVerified: false, moduleEnabled: false })).toBe(true);
+    expect(needsDoubleOptIn({ ...base, region: 'EU_UK', phoneVerified: true })).toBe(false);
+    expect(DEFAULT_CONSENT_POLICY.doubleOptInRegions).toEqual([]);
+    const strict = { ...DEFAULT_CONSENT_POLICY, doubleOptInRegions: ['EU_UK'] as const };
+    expect(needsDoubleOptIn({ policy: strict, moduleEnabled: true, region: 'EU_UK', phoneVerified: true })).toBe(true);
+    expect(needsDoubleOptIn({ policy: strict, moduleEnabled: false, region: 'EU_UK', phoneVerified: true })).toBe(
+      false,
+    );
+    expect(needsDoubleOptIn({ policy: strict, moduleEnabled: true, region: 'TR', phoneVerified: true })).toBe(false);
   });
 
   it('stops at the daily or the weekly cap', () => {

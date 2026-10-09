@@ -2599,7 +2599,7 @@ model MarketingSettings {
   restaurantId       String   @id
   dailyCap           Int      @default(1)
   weeklyCap          Int      @default(3)
-  doubleOptInRegions String[] @default(["EU_UK"])
+  doubleOptInRegions String[] @default([])
   merchantExemption  Boolean  @default(false)
   updatedAt          DateTime @updatedAt
 
