@@ -255,6 +255,8 @@ export class BillingService {
 
   /** Fiscal documents for invoices that have none yet; a failed integrator call is retried on the next run. */
   private async fiscalizePending(): Promise<number> {
+    // No integrator yet (production before the contract): the documents wait for the real adapter.
+    if (this.fiscal.code === 'NONE') return 0;
     const pending = await this.prisma.commissionInvoice.findMany({
       where: { fiscalRef: null, status: { in: ['ISSUED', 'OVERDUE', 'PAID'] } },
       select: {

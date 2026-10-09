@@ -32,10 +32,10 @@ Tetikleyiciler: `pull_request`, `workflow_call` (release.yml çağırır), `work
 | `migrations` | Boş Postgres 16'ya `prisma migrate deploy`, şema ile migration'lar arasında sapma kontrolü (`migrate diff --exit-code`), seed |
 | `e2e` | API uçtan uca testleri (`apps/api/test/e2e`, supertest) migrate edilmiş ve seed'lenmiş Postgres'e karşı; `OTP_TEST_CODE` ile sabit OTP |
 | `web-e2e` | Playwright ile tarayıcı testleri (`apps/web/e2e`): açılış sayfası, masa QR menü sayfası, dil seçimi; API ve web sunucuları Playwright `webServer` ile ayağa kalkar; başarısızlıkta HTML rapor artifact'ı |
-| `scripts` | `shellcheck -x deploy/scripts/*.sh` ve `actionlint` |
+| `scripts` | `shellcheck -x deploy/scripts/*.sh`, sunucudaki aynı Caddy imajıyla `caddy validate` ve `actionlint` |
 | `images` | API ve web Dockerfile'larının derlenmesi (yalnızca PR'da; push edilmez) |
 
-Zafiyet denetimi istisnaları `package.json` içinde `pnpm.auditConfig.ignoreGhsas` listesindedir ve yalnızca yaması henüz yayımlanmamış, üretim bağımlılıklarına ulaşmayan duyurular için kullanılır (`pnpm audit --prod` temiz kalmalıdır). Mevcut istisnalar: `GHSA-vfj7-8cjw-p6xm` (`braces`, yalnızca jest üzerinden geliştirme bağımlılığı; `braces` düzeltme sürümü çıkınca kaldırılır) ve `GHSA-86w9-cpqp-85rv` (`node-forge`, yalnızca `@expo/cli` üzerinden geliştirme komut satırı; uygulama paketine girmez, yama çıkınca kaldırılır). `uuid` ve `decode-uri-component` için `pnpm.overrides` ile yamalı sürüm zorlanır.
+Zafiyet denetimi istisnaları `package.json` içinde `pnpm.auditConfig.ignoreGhsas` listesindedir ve yalnızca yaması henüz yayımlanmamış, üretim bağımlılıklarına ulaşmayan duyurular için kullanılır (`pnpm audit --prod` temiz kalmalıdır). Mevcut istisnalar: `GHSA-vfj7-8cjw-p6xm` (`braces`, yalnızca jest üzerinden geliştirme bağımlılığı; `braces` düzeltme sürümü çıkınca kaldırılır) ve `GHSA-86w9-cpqp-85rv` (`node-forge`, yalnızca `@expo/cli` üzerinden geliştirme komut satırı; uygulama paketine girmez, yama çıkınca kaldırılır). `uuid`, `decode-uri-component` ve `handlebars` (jest üzerinden gelen geliştirme bağımlılığı) için `pnpm.overrides` ile yamalı sürüm zorlanır.
 
 ### e2e testleri yerelde
 
@@ -87,16 +87,16 @@ Settings > Environments altında `preprod` ve `production`. Hepsi ortam seviyesi
 
 ### Ortam değişkenleri envanteri
 
-Tümü `.env.example` içinde; API `apps/api/src/config/env.ts` ile Zod doğrulaması yapar. `/opt/resget/.env` dosyasına yalnızca sahibin değer verdiği anahtarlar yazılır; geri kalanlar `deploy/docker-compose.prod.yml` tarafından türetilir (`DATABASE_URL`, `REDIS_URL`, `CORS_ORIGIN`, `PUBLIC_APP_URL`, `PUBLIC_API_URL`, `API_INTERNAL_URL`, `APP_RELEASE`). Yalnızca test için olan `OTP_TEST_CODE` compose'a bilerek aktarılmaz; üretimde reddedilir.
+Tümü `.env.example` içinde; API `apps/api/src/config/env.ts` ile Zod doğrulaması yapar. `/opt/resget/.env` dosyasına yalnızca sahibin değer verdiği anahtarlar yazılır; geri kalanlar `deploy/docker-compose.prod.yml` tarafından türetilir (`DATABASE_URL`, `REDIS_URL`, `CORS_ORIGIN`, `PUBLIC_APP_URL`, `PUBLIC_API_URL`, `API_INTERNAL_URL`, `APP_RELEASE`). Yalnızca test için olan `OTP_TEST_CODE` compose'a bilerek aktarılmaz; üretimde reddedilir. `env.ts` şemasındaki her anahtarın compose'un `api` servisinde listelendiği birim testiyle denetlenir (`env.spec.ts`); listede olmayan bir anahtar üretimde hiç ayarlanamayacağı için yeni anahtar eklemek compose'a da eklemeyi gerektirir. Üretimde `CREDENTIAL_ENCRYPTION_KEY` zorunludur; gerçek kurye ağı seçiliyse `COURIER_API_KEY` ve `COURIER_WEBHOOK_SECRET` de zorunludur. Sözleşmesi henüz olmayan entegrasyonların (kart kasası, e-Arşiv, İYS, kurye ağı) üretimdeki davranışı ve canlıya geçiş adımları `docs/CANLIYA_GECIS.md` içindedir.
 
 ## 4. `deploy.sh`: sunucuda neler oluyor
 
-1. `flock` ile tek deploy; aynı tag canlıysa çıkar.
+1. `flock` ile tek deploy; aynı tag canlıysa çıkar. Caddyfile, sunucudaki Caddy imajıyla doğrulanır (`caddy validate`); geçersizse hiçbir şey değişmeden durur.
 2. Postgres çalışıyorsa `backup.sh` (uzak kopya zorunlu değil; yerel dump geri dönüş içindir).
 3. Yeni imajları çeker; eksikse hiçbir şey değişmeden durur.
 4. Postgres ve Redis sağlıklı olana kadar bekler, `prisma migrate deploy` çalıştırır. Başarısızsa eski sürüm çalışmaya devam eder.
 5. Konteynerleri yeni imajla kaldırır; `healthcheck.sh` üç deneme yapar (API `/health` Postgres ve Redis ister, web `/`).
-6. Başarılıysa `releases/current` güncellenir, bir haftadan eski imajlar temizlenir. Başarısızsa `rollback.sh` önceki tag'e döner.
+6. Başarılıysa Caddy yeni Caddyfile ile yeniden yüklenir (dosya bind-mount olduğu için `up` tek başına değişikliği uygulamaz; yeniden yükleme başarısızsa önceki yapılandırma çalışmaya devam eder ve log'a yazılır), `releases/current` güncellenir, bir haftadan eski imajlar temizlenir. Başarısızsa `rollback.sh` önceki tag'e döner.
 
 Migration'lar geri alınmaz; şema değişiklikleri bir sürüm boyunca geriye dönük uyumlu tutulur.
 

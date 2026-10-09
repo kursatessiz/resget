@@ -50,7 +50,7 @@ Atlanan alıcı `SKIPPED` ve gerekçe koduyla kampanya ayrıntısında görünü
 
 ## Sicil (İYS) kaydı
 
-`ConsentRegistryAdapter.record()` kapsanan kanallardaki onaylı izinleri ve her reddi kaydeder; başarılı kayıtta satıra `registrySyncedAt` yazılır. Kayıt yazmadan hemen sonra denenir. Başarısız olanları `ConsentSyncWatchdog` 10 dakikada bir yeniden dener (testlerde kapalı). Bugün adaptör `MOCK`'tur ve kaydı işaretler. Gerçek İYS adaptöründe her restoran kendi İYS marka koduyla gönderici olacaktır; platform kiracısı platformun markasıdır.
+`ConsentRegistryAdapter.record()` kapsanan kanallardaki onaylı izinleri ve her reddi kaydeder; başarılı kayıtta satıra `registrySyncedAt` yazılır. Kayıt yazmadan hemen sonra denenir. Başarısız olanları `ConsentSyncWatchdog` 10 dakikada bir yeniden dener (testlerde kapalı). Üretim dışında adaptör `MOCK`'tur, her numarayı onaylar ve kaydı işaretler. Üretimde gerçek İYS adaptörü gelene kadar `UnavailableConsentRegistry` çalışır: kapsanan kanallarda hiçbir numara onaylanmaz (alıcı `CONSENT_REGISTRY` nedeniyle atlanır), kayıtlar `registrySyncedAt` boş bekler ve izleyici denemez; gerçek adaptör seçildiğinde (`CONSENT_REGISTRY_PROVIDER`) biriken kararları ilk turda kaydeder. Kapsanmayan kanal ve ülkeler etkilenmez, işlemsel mesajlar (sipariş bildirimi, OTP) ticari değildir ve bu kontrolden geçmez. Gerçek İYS adaptöründe her restoran kendi İYS marka koduyla gönderici olacaktır; platform kiracısı platformun markasıdır.
 
 ## Uçlar
 

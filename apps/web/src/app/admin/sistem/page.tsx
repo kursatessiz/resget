@@ -101,10 +101,12 @@ export default async function AdminSystemPage() {
               </span>
             </li>
           ))}
-          {(['payment', 'cardVault', 'courier', 'invoice', 'routing'] as const).map((key) => (
+          {(['payment', 'cardVault', 'courier', 'invoice', 'consentRegistry', 'routing'] as const).map((key) => (
             <li key={key} className="flex items-center justify-between gap-2">
               <span>{t(`admin.system.provider.${key}`)}</span>
-              <Badge tone={health.providers[key] === 'MOCK' ? 'warn' : 'muted'}>{health.providers[key]}</Badge>
+              <Badge tone={health.providers[key] === 'MOCK' || health.providers[key] === 'NONE' ? 'warn' : 'muted'}>
+                {health.providers[key]}
+              </Badge>
             </li>
           ))}
         </ul>

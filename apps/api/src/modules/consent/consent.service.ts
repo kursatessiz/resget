@@ -380,6 +380,8 @@ export class ConsentService {
    * retried by the watchdog.
    */
   async syncCustomer(customerId: string): Promise<number> {
+    // No registry connected yet (production before IYS): decisions wait unsynced for the real adapter.
+    if (this.registry.code === 'NONE') return 0;
     const customer = await this.prisma.restaurantCustomer.findUnique({
       where: { id: customerId },
       select: {
@@ -421,6 +423,7 @@ export class ConsentService {
 
   /** The watchdog's pass: contacts with decisions still waiting for the registry. */
   async syncPending(): Promise<number> {
+    if (this.registry.code === 'NONE') return 0;
     const waiting = await this.prisma.contactConsent.findMany({
       where: { registrySyncedAt: null, channel: { in: ['SMS', 'CALL', 'EMAIL'] } },
       distinct: ['customerId'],

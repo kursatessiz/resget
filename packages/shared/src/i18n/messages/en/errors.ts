@@ -179,6 +179,7 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.TIP_ALREADY_PAID': 'A tip was already given for this order.',
   'errors.TIP_AMOUNT_INVALID': 'The tip amount is outside the limits.',
   'errors.WALLET_UNAVAILABLE': 'This wallet card cannot be used here.',
+  'errors.VAULT_UNAVAILABLE': 'Saving a card is not available yet. You can pay by bank transfer meanwhile.',
   'errors.WALLET_SIGN_IN_REQUIRED': 'Sign in to pay with a wallet card.',
   'errors.PLAN_CODE_TAKEN': 'A plan with this code already exists.',
   'errors.PLAN_FALLBACK_LOCKED': 'The free fallback plan cannot be taken off sale or given a price.',

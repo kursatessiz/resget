@@ -8,7 +8,7 @@ Her POS bir `PosIntegrationAdapter`'dır (`packages/shared/src/pos.ts`): `verify
 
 | Kod | Ad | Durum |
 | --- | --- | --- |
-| `MOCK` | Test POS | Hazır (geliştirme ve testler) |
+| `MOCK` | Test POS | Hazır (yalnızca geliştirme ve testler; üretimde kayıtlı değildir, bağlantı reddedilir) |
 | `ROBOTPOS` | robotPOS | Partner anlaşması bekliyor |
 | `ADISYO` | Adisyo | Partner anlaşması bekliyor |
 | `SAMBAPOS` | SambaPOS | Partner anlaşması bekliyor |

@@ -175,6 +175,7 @@ export const trErrors = {
   'errors.TIP_ALREADY_PAID': 'Bu sipariş için bahşiş zaten verildi.',
   'errors.TIP_AMOUNT_INVALID': 'Bahşiş tutarı sınırların dışında.',
   'errors.WALLET_UNAVAILABLE': 'Bu cüzdan kartı burada kullanılamıyor.',
+  'errors.VAULT_UNAVAILABLE': 'Kart kaydı henüz açık değil. Bu sürede havaleyle ödeyebilirsiniz.',
   'errors.WALLET_SIGN_IN_REQUIRED': 'Cüzdan kartıyla ödemek için giriş yapın.',
   'errors.PLAN_CODE_TAKEN': 'Bu kodla bir plan zaten var.',
   'errors.PLAN_FALLBACK_LOCKED': 'Ücretsiz taban plan satıştan kaldırılamaz ve ücretli yapılamaz.',

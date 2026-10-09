@@ -52,7 +52,7 @@ Hangi kasanın önce bağlanacağı, pilot ilçedeki restoranların POS sağlay�
 
 Kart numarasını kendi veritabanımızda KMS ile şifreleyip saklamak bilinçli olarak reddedilmiştir: platformu tam PCI DSS kapsamına (SAQ D, yıllık denetim, ağ segmentasyonu) sokar ve bir sızıntıda kart verisi doğrudan bizim sorumluluğumuz olur. KMS burada kart için değil, POS bilgileri ve kasa token'ları için kullanılır.
 
-Arayüz `CardVaultAdapter`: `beginLink` (kasa kendi arayüzünde bağlama başlatır), `completeLink` (geri dönüşte token ve maskeli kart bilgisi), `charge` (token ile çekim; 3-D Secure gerekiyorsa yönlendirme), `forget`. Geliştirmede `MOCK`, üretimde `CARD_VAULT_PROVIDER=MASTERPASS` (MOCK üretimde reddedilir).
+Arayüz `CardVaultAdapter`: `beginLink` (kasa kendi arayüzünde bağlama başlatır), `completeLink` (geri dönüşte token ve maskeli kart bilgisi), `charge` (token ile çekim; 3-D Secure gerekiyorsa yönlendirme), `forget`. Geliştirmede `MOCK`, üretimde `CARD_VAULT_PROVIDER=MASTERPASS`. Kasa adaptörü sözleşmeyle gelir; o güne kadar üretimde kart bağlama ve çekim `VAULT_UNAVAILABLE` ile reddedilir (`UnavailableVaultAdapter`), sahte kart hiçbir faturayı ödenmiş göstermez ve faturalar havaleyle kapanır. Adaptör `PaymentsRegistry` içinde kaydedildiğinde başka değişiklik gerekmez (`docs/CANLIYA_GECIS.md`). Restoranın kendi POS'u için test POS'u (`MOCK`) da yalnızca üretim dışında sunulur.
 
 Müşteri uçları: `GET /me/payment-methods`, `POST /me/payment-methods/link`, `POST /me/payment-methods/link/complete`, `DELETE /me/payment-methods/:id`. Token asla yanıtta yoktur.
 

@@ -1,9 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { ConsentRegistryAdapter, InvoiceProviderAdapter } from '@resget/shared';
 import type { ComponentStatus, SystemHealthDTO } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { ProviderBalanceMonitor } from '../messaging/provider-balance.monitor';
+import { CONSENT_REGISTRY } from '../campaigns/consent-registry';
+import { INVOICE_PROVIDER } from '../billing/invoice-provider';
+import { CourierRegistry } from '../courier/courier.registry';
+import { PaymentsRegistry } from '../payments/payments.registry';
+import { UnavailableVaultAdapter } from '../payments/unavailable-vault.adapter';
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 86_400_000;
@@ -18,6 +24,10 @@ export class SystemHealthService {
     private readonly redis: RedisService,
     private readonly config: ConfigService,
     private readonly balances: ProviderBalanceMonitor,
+    private readonly payments: PaymentsRegistry,
+    private readonly couriers: CourierRegistry,
+    @Inject(INVOICE_PROVIDER) private readonly fiscal: InvoiceProviderAdapter,
+    @Inject(CONSENT_REGISTRY) private readonly consentRegistry: ConsentRegistryAdapter,
   ) {}
 
   async snapshot(now: Date = new Date()): Promise<SystemHealthDTO> {
@@ -70,6 +80,7 @@ export class SystemHealthService {
       this.balances.check(now),
     ]);
 
+    const courierCode = this.config.get<string>('COURIER_PROVIDER', 'MOCK');
     return {
       checkedAt: now.toISOString(),
       release: this.config.get<string>('APP_RELEASE', 'dev'),
@@ -85,9 +96,11 @@ export class SystemHealthService {
         sms: providers.sms,
         whatsapp: providers.whatsapp,
         payment: this.config.get<string>('PAYMENT_PROVIDER', 'MOCK'),
-        cardVault: this.config.get<string>('CARD_VAULT_PROVIDER', 'MOCK'),
-        courier: this.config.get<string>('COURIER_PROVIDER', 'MOCK'),
-        invoice: this.config.get<string>('INVOICE_PROVIDER', 'MOCK'),
+        // What actually answers, from the registered adapters: NONE while production has none (refused at use).
+        cardVault: this.payments.vault instanceof UnavailableVaultAdapter ? 'NONE' : this.payments.vault.code,
+        courier: this.couriers.get(courierCode) ? courierCode : 'NONE',
+        invoice: this.fiscal.code,
+        consentRegistry: this.consentRegistry.code,
         routing: this.config.get<string>('ROUTING_PROVIDER', 'HAVERSINE'),
       },
       activity: {

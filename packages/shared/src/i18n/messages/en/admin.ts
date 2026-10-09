@@ -207,6 +207,7 @@ export const enAdmin: Record<keyof typeof trAdmin, string> = {
   'admin.system.provider.whatsapp': 'WhatsApp',
   'admin.system.provider.payment': 'Payments',
   'admin.system.provider.cardVault': 'Card vault',
+  'admin.system.provider.consentRegistry': 'Consent registry (IYS)',
   'admin.system.provider.courier': 'Courier network',
   'admin.system.provider.invoice': 'e-Invoice',
   'admin.system.provider.routing': 'Routing engine',

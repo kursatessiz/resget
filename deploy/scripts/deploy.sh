@@ -2,14 +2,15 @@
 # Deploy a pre-built release tag. Never builds on the server.
 # Usage: deploy.sh <tag>      e.g. deploy.sh sha-<commit>
 #
-# 1. back up the database
-# 2. pull the new images (abort if missing, nothing has changed yet)
-# 3. run migrations (abort on failure, old release keeps serving)
-# 4. bootstrap platform defaults (idempotent: plans when missing; never
+# 1. validate the Caddyfile (abort if invalid, nothing has changed yet)
+# 2. back up the database
+# 3. pull the new images (abort if missing, nothing has changed yet)
+# 4. run migrations (abort on failure, old release keeps serving)
+# 5. bootstrap platform defaults (idempotent: plans when missing; never
 #    overwrites what the console changed; the first super admin is created
 #    by hand, see docs/CICD_GUIDE.md)
-# 5. start the new release and smoke test it (3 attempts)
-# 6. on failure roll back to the release that was running before
+# 6. start the new release and smoke test it (3 attempts), then reload Caddy
+# 7. on failure roll back to the release that was running before
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,6 +39,10 @@ fi
 
 log "Deploying ${TAG} (previous: ${PREVIOUS:-none})"
 
+# The Caddyfile is bind-mounted, so `up` never applies a changed one by itself: it is validated here, before
+# anything changes, and reloaded once the release is live. A running Caddy keeps its config if reload fails.
+compose run --rm --no-deps -T caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
 if compose ps --status running --services 2>/dev/null | grep -qx postgres; then
   # The local dump is what a rollback needs; a storage outage must not block the release.
   BACKUP_OFFSITE_REQUIRED=0 bash "${SCRIPT_DIR}/backup.sh"
@@ -61,6 +66,8 @@ compose run --rm --no-deps \
 compose up -d --remove-orphans --wait --wait-timeout 120 || true
 
 if bash "${SCRIPT_DIR}/healthcheck.sh"; then
+  compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile ||
+    log "Caddy reload failed; the previous proxy config keeps serving"
   [ -n "${PREVIOUS}" ] && echo "${PREVIOUS}" > "${RELEASE_DIR}/previous"
   echo "${TAG}" > "${RELEASE_DIR}/current"
   echo "$(date -u +%FT%TZ) ${TAG}" >> "${RELEASE_DIR}/history"

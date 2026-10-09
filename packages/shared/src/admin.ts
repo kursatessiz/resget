@@ -358,6 +358,8 @@ export interface SystemHealthDTO {
     cardVault: string;
     courier: string;
     invoice: string;
+    /** The commercial-message consent registry (Turkey: IYS); NONE when production has none connected yet. */
+    consentRegistry: string;
     routing: string;
   };
   activity: {
