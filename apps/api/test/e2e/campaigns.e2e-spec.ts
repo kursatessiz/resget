@@ -3,6 +3,8 @@ import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
 import type { ConsentRegistryAdapter } from '@resget/shared';
 import { CampaignsRunner } from '../../src/modules/campaigns/campaigns.runner';
+import { CampaignsService } from '../../src/modules/campaigns/campaigns.service';
+import { CommercialSenderService } from '../../src/modules/campaigns/commercial-sender.service';
 import { CONSENT_REGISTRY } from '../../src/modules/campaigns/consent-registry';
 
 /** PRO campaigns (docs/KAMPANYALAR.md): consent, segment, preview, batch send with credits, opt-out, quiet hours, plan gate. */
@@ -173,6 +175,59 @@ describe('Campaigns (e2e)', () => {
     });
     expect(logs).toBeGreaterThanOrEqual(detail.body.sentCount);
     walletBefore = wallet.balance;
+  });
+
+  it('two runners at once send each message once, and a preview counts the wallet of the channel really used', async () => {
+    const created = await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/campaigns`)
+      .set(bearer(ownerToken))
+      .send({ name: 'Paralel', channel: 'SMS', body: 'Yeni menumuz hazir.', segment: { minOrders: 1 } })
+      .expect(201);
+    campaignIds.push(created.body.id);
+    await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/campaigns/${created.body.id}/send`)
+      .set(bearer(ownerToken))
+      .send({})
+      .expect(200);
+    const service = ctx.app.get(CampaignsService);
+    const at = tomorrowNoon();
+    // Two API instances: the in-process runner flag does not protect against this, the database claims do.
+    await Promise.all([service.runPass(at), service.runPass(at)]);
+    await service.runPass(at);
+    const detail = await ctx
+      .http()
+      .get(`/restaurants/${restaurantId}/campaigns/${created.body.id}`)
+      .set(bearer(ownerToken))
+      .expect(200);
+    expect(detail.body.status).toBe('SENT');
+    expect(detail.body.sentCount).toBe(detail.body.audienceCount);
+    const wallet = await ctx.prisma.messageWallet.findUniqueOrThrow({
+      where: { restaurantId_channel: { restaurantId, channel: 'SMS' } },
+    });
+    expect(walletBefore - wallet.balance).toBe(detail.body.audienceCount);
+    walletBefore = wallet.balance;
+
+    const whatsapp = await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/campaigns`)
+      .set(bearer(ownerToken))
+      .send({ name: 'WhatsApp yedegi', channel: 'WHATSAPP', body: 'Yeni menumuz hazir.', segment: { minOrders: 1 } })
+      .expect(201);
+    campaignIds.push(whatsapp.body.id);
+    const preview = await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/campaigns/${whatsapp.body.id}/preview`)
+      .set(bearer(ownerToken))
+      .send({})
+      .expect(200);
+    // The wallet of the channel the campaign will really use: SMS while the WhatsApp module is off.
+    const effective = await ctx.app.get(CommercialSenderService).effectiveChannel(restaurantId, 'WHATSAPP');
+    const effectiveWallet = await ctx.prisma.messageWallet.findUnique({
+      where: { restaurantId_channel: { restaurantId, channel: effective } },
+    });
+    expect(preview.body.walletBalance).toBe(effectiveWallet?.balance ?? 0);
   });
 
   it('an opted-out customer is skipped and quiet hours hold the send until the window opens', async () => {

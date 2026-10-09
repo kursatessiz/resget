@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next';
 import { headers } from 'next/headers';
 import type { SitemapDTO } from '@resget/shared';
 import { hostOf, isPlatformHost } from '@/lib/hosts';
-import { apiInternalBaseUrl, publicSiteUrl } from '@/lib/server-env';
+import { apiInternalBaseUrl, publicSiteUrl, visitorHeaders } from '@/lib/server-env';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +14,10 @@ export const dynamic = 'force-dynamic';
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const host = hostOf((await headers()).get('host'));
   if (host && !isPlatformHost(host)) return [];
-  const res = await fetch(`${apiInternalBaseUrl()}/public/site/sitemap`, { cache: 'no-store' });
+  const res = await fetch(`${apiInternalBaseUrl()}/public/site/sitemap`, {
+    headers: await visitorHeaders(),
+    cache: 'no-store',
+  });
   if (!res.ok) return [];
   const { entries } = (await res.json()) as SitemapDTO;
   const base = publicSiteUrl();

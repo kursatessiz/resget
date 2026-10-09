@@ -367,6 +367,8 @@ export const ROBOTS_DISALLOW = [
   '/admin',
   '/pazarlama',
   '/hesabim',
+  '/hesap/',
+  '/*/grup/',
   '/giris',
   '/kayit',
   '/api',

@@ -231,6 +231,8 @@ export function MenuManager({
   }
 
   const categoryOptions = menu.categories.map((c) => ({ id: c.id, name: c.name }));
+  // A new item starts with the rate most of the menu already uses; the platform assumes no country's rate.
+  const usualVatBps = mostCommon(menu.categories.flatMap((c) => c.items.map((i) => i.vatRateBps)));
 
   return (
     <>
@@ -514,6 +516,7 @@ export function MenuManager({
               key={editing.item?.id ?? 'new'}
               t={t}
               currency={menu.currency}
+              defaultVatBps={usualVatBps}
               categories={categoryOptions}
               categoryId={category.id}
               item={editing.item}
@@ -556,6 +559,7 @@ interface GroupDraft {
 function ItemEditor({
   t,
   currency,
+  defaultVatBps,
   categories,
   categoryId,
   item,
@@ -572,6 +576,7 @@ function ItemEditor({
   withAllergens: boolean;
   withStock: boolean;
   currency: string;
+  defaultVatBps: number | null;
   categories: { id: string; name: string }[];
   categoryId: string;
   item: MenuItemAdminDTO | null;
@@ -583,7 +588,9 @@ function ItemEditor({
   const [name, setName] = useState(item?.name ?? '');
   const [description, setDescription] = useState(item?.description ?? '');
   const [price, setPrice] = useState(item ? majorAmountText(item.priceMinor, currency) : '');
-  const [vatPercent, setVatPercent] = useState(item ? String(item.vatRateBps / 100) : '10');
+  const [vatPercent, setVatPercent] = useState(
+    item ? String(item.vatRateBps / 100) : defaultVatBps !== null ? String(defaultVatBps / 100) : '',
+  );
   const [imageUrl, setImageUrl] = useState(item?.imageUrl ?? '');
   const [category, setCategory] = useState(item?.categoryId ?? categoryId);
   const [isAvailable, setIsAvailable] = useState(item?.isAvailable ?? true);
@@ -610,8 +617,10 @@ function ItemEditor({
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const priceMinor = parseMajorAmount(price, currency);
-    const vat = Number(vatPercent.replace(',', '.'));
-    if (priceMinor === null || priceMinor < 0 || !Number.isFinite(vat)) {
+    // A blank rate is a missing rate, not zero.
+    const vatText = vatPercent.trim().replace(',', '.');
+    const vat = vatText === '' ? Number.NaN : Number(vatText);
+    if (priceMinor === null || priceMinor < 0 || !Number.isFinite(vat) || vat < 0 || vat > 100) {
       setFormError(t('menu.manage.invalidPrice'));
       return;
     }
@@ -1033,4 +1042,13 @@ function ServingHoursEditor({
       </div>
     </form>
   );
+}
+
+/** The value seen most often, or null for an empty list. */
+function mostCommon(values: readonly number[]): number | null {
+  const counts = new Map<number, number>();
+  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+  let best: number | null = null;
+  for (const [value, count] of counts) if (best === null || count > (counts.get(best) ?? 0)) best = value;
+  return best;
 }

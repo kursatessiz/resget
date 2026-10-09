@@ -52,7 +52,12 @@ export function TrackingLive({
       }),
     [locale],
   );
-  const time = useMemo(() => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }), [locale]);
+  // The restaurant's clock, so the server render, the browser and a traveller's phone all show the same times.
+  const timeZone = tracking.restaurant.timezone;
+  const time = useMemo(
+    () => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', timeZone }),
+    [locale, timeZone],
+  );
   const km = useMemo(() => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }), [locale]);
 
   useEffect(() => {
@@ -167,6 +172,7 @@ export function TrackingLive({
                   day: 'numeric',
                   hour: '2-digit',
                   minute: '2-digit',
+                  timeZone,
                 }).format(new Date(tracking.scheduledFor)),
               })}
             </p>

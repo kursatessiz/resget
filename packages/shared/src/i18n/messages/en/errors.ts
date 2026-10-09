@@ -2,6 +2,8 @@ import type { trErrors } from '../tr/errors';
 
 export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.VALIDATION': 'The submitted data is invalid.',
+  'errors.INTERNAL': 'Something went wrong on our side. Please try again in a moment.',
+  'errors.ERROR': 'The request could not be completed. Please try again.',
   'errors.UNAUTHORIZED': 'Your session has ended. Please sign in again.',
   'errors.FORBIDDEN': 'You do not have permission to do this.',
   'errors.NOT_FOUND': 'Record not found.',
@@ -129,6 +131,7 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.SEND_LIMIT_EXCEEDED': 'This send goes over the set sending limit.',
   'errors.AI_NOT_CONFIGURED': 'The AI studio is not set up yet.',
   'errors.AI_BUDGET_EXHAUSTED': "This month's AI budget is used up; it renews when the new month starts.",
+  'errors.AI_BUSY': 'A draft is already being written for your business. Try again when it is ready.',
   'errors.AI_REFUSED': 'No draft could be written for this request; change the description and try again.',
   'errors.AI_FAILED': 'A draft could not be written right now; try again shortly.',
   'errors.SOCIAL_NOT_CONFIGURED': 'Social account connections are not set up yet.',

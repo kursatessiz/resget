@@ -88,7 +88,9 @@ describe('page engine and SEO helpers', () => {
   });
 
   it('keeps panels and one-time links out of search engines', () => {
-    expect(ROBOTS_DISALLOW).toEqual(expect.arrayContaining(['/panel', '/admin', '/pazarlama', '/t/', '/onay/']));
+    expect(ROBOTS_DISALLOW).toEqual(
+      expect.arrayContaining(['/panel', '/admin', '/pazarlama', '/t/', '/onay/', '/hesap/', '/*/grup/']),
+    );
     // Table QR pages stay crawlable so their canonical link to the restaurant page can be read.
     expect(ROBOTS_DISALLOW).not.toContain('/m/');
   });

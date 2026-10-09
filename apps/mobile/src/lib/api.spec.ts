@@ -72,4 +72,29 @@ describe('ApiClient', () => {
     });
     await expect(other.request('x')).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
   });
+
+  it('keeps the session when the refresh cannot reach the API or the API fails', async () => {
+    for (const refresh of [
+      async () => Promise.reject(new Error('offline')),
+      async () => new Response('', { status: 502 }),
+    ]) {
+      let signedOut = false;
+      const fetchImpl = (async (input: URL | RequestInfo) => {
+        if (String(input).endsWith('/auth/refresh')) return refresh();
+        return new Response('', { status: 401, headers: { 'x-error-code': 'UNAUTHORIZED' } });
+      }) as typeof fetch;
+      const tokens = new MemoryTokens(pair('old'));
+      const client = new ApiClient({
+        baseUrl: 'https://api.test',
+        tokens,
+        fetchImpl,
+        onSignedOut: () => {
+          signedOut = true;
+        },
+      });
+      await expect(client.request('auth/me')).rejects.toBeInstanceOf(ApiError);
+      expect(signedOut).toBe(false);
+      expect(tokens.tokens).not.toBeNull();
+    }
+  });
 });

@@ -89,3 +89,22 @@ export function publicSiteUrl(): string {
   const domain = getServerEnv().WEB_DOMAIN;
   return domain ? `https://${domain}` : 'http://localhost:3000';
 }
+
+/**
+ * The client address Caddy put on the incoming request, for a server-side call to the API on the visitor's behalf:
+ * without it the API sees the web container and every visitor shares one rate-limit bucket.
+ */
+export function forwardedFor(headers: Pick<Headers, 'get'>): Record<string, string> {
+  const value = headers.get('x-forwarded-for');
+  return value ? { 'x-forwarded-for': value } : {};
+}
+
+/** forwardedFor() of the current request, or nothing outside one (a build-time render has no visitor). */
+export async function visitorHeaders(): Promise<Record<string, string>> {
+  try {
+    const { headers } = await import('next/headers');
+    return forwardedFor(await headers());
+  } catch {
+    return {};
+  }
+}

@@ -12,6 +12,8 @@ const queue = new LocationQueue();
 let flusher: ReturnType<typeof setInterval> | null = null;
 let context: { api: ApiClient; restaurantId: string } | null = null;
 let lastSentAt: Date | null = null;
+/** The batch on the wire; a second flush waits for it instead of sending the same points again. */
+let sending: Promise<void> | null = null;
 
 interface TaskBody {
   locations?: Location.LocationObject[];
@@ -75,6 +77,7 @@ export async function startTracking(api: ApiClient, restaurantId: string): Promi
 export async function stopTracking(): Promise<void> {
   if (flusher) clearInterval(flusher);
   flusher = null;
+  if (sending) await sending;
   await flush();
   const running = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK).catch(() => false);
   if (running) await Location.stopLocationUpdatesAsync(LOCATION_TASK);
@@ -86,8 +89,21 @@ export function lastLocationSentAt(): Date | null {
   return lastSentAt;
 }
 
-/** Sends the oldest batch; keeps it on failure so an offline gap is replayed, not lost. */
-export async function flush(): Promise<void> {
+/**
+ * Sends the oldest batch; keeps it on failure so an offline gap is replayed, not lost.
+ * Only one batch is in flight: overlapping calls would post the same points twice
+ * and the second acknowledgement would drop points that were never sent.
+ */
+export function flush(): Promise<void> {
+  if (!sending) {
+    sending = sendBatch().finally(() => {
+      sending = null;
+    });
+  }
+  return sending;
+}
+
+async function sendBatch(): Promise<void> {
   if (!context || queue.size === 0) return;
   const batch = queue.nextBatch();
   try {

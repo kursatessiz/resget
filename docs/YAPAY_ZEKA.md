@@ -43,7 +43,7 @@ Zincirin tamamı reddederse `AI_REFUSED` döner; harcanan tokenlar yine bütçey
 ## Bütçe ve kayıt
 
 - `ai_budgets`: kiracı başına `monthlyTokenLimit`. Kayıt yoksa `AI_DEFAULT_MONTHLY_TOKENS` (varsayılan 200000) geçerlidir. 0 stüdyoyu o kiracı için durdurur.
-- Bütçe istekten önce denetlenir; bütçeyi bitiren son istek kendi boyu kadar (en çok bir istek) aşabilir. Bu bilinçli bir sınırdır.
+- Bütçe istekten önce denetlenir ve bir işletme için aynı anda tek taslak yazılır (ikincisi `AI_BUSY`); yanıt için istenen en çok çıktı, ayın kalan bütçesini geçmez. Bütçeyi bitiren son istek yalnızca girdi boyu kadar aşabilir.
 - `ai_usage`: her istek için tür, model, girdi ve çıktı token sayısı, çıkarılan öge sayısı, isteyen kullanıcı ve zaman. Açıklama ve taslak metni **saklanmaz**.
 - Konsol: restoran detay sayfasında "Yapay zeka bütçesi" kartı (sınır, bu ay kullanılan ve kalan). Uçlar `GET /admin/ai-budgets/:restaurantId` ve `PUT /admin/ai-budgets/:restaurantId { monthlyTokenLimit }`. Değişiklik denetim kaydına `ai_budget.update` olarak yazılır.
 

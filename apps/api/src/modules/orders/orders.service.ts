@@ -1055,7 +1055,7 @@ export class OrdersService {
     const [restaurant, branch, switches, feedback, tips] = await Promise.all([
       this.prisma.restaurant.findUnique({
         where: { id: row.restaurantId },
-        select: { name: true, logoUrl: true, themePrimary: true },
+        select: { name: true, logoUrl: true, themePrimary: true, timezone: true },
       }),
       this.prisma.branch.findUnique({ where: { id: row.branchId }, select: { phone: true } }),
       this.features.switchesFor(row.restaurantId),
@@ -1116,6 +1116,7 @@ export class OrdersService {
         logoUrl: restaurant?.logoUrl ?? null,
         themePrimary: restaurant?.themePrimary ?? '#0092CD',
         phone: branch?.phone ?? null,
+        timezone: restaurant?.timezone ?? 'UTC',
       },
       items: row.items.map((item) => ({
         id: item.id,
