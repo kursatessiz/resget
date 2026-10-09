@@ -393,7 +393,7 @@ export class RefundsService implements OnModuleInit, OnModuleDestroy {
     let providerRef: string | null = null;
     let code: RefundFailureCode | null = null;
     if (online) {
-      const target = await this.targetFor(restaurantId, payment);
+      const target = await this.refundTarget(restaurantId, payment);
       if (!target || !payment.providerRef) {
         code = 'REFUND_UNAVAILABLE';
       } else {
@@ -451,11 +451,12 @@ export class RefundsService implements OnModuleInit, OnModuleDestroy {
    * The adapter and credentials of the connection that captured the payment:
    * the restaurant's own POS or issuer account (whatever its current status,
    * a past payment can always go back while the credentials exist) or the
-   * platform's own merchant. Null when that connection is gone.
+   * platform's own merchant. Null when that connection is gone. Courier tips
+   * go back the same way (docs/BAHSIS.md, "Panelden iade").
    */
-  private async targetFor(
+  async refundTarget(
     restaurantId: string,
-    payment: CapturedPayment,
+    payment: Pick<CapturedPayment, 'method' | 'provider' | 'paymentMode'>,
   ): Promise<{
     refund: (providerRef: string, amountMinor: number) => Promise<{ ok: boolean; providerRef: string | null }>;
   } | null> {

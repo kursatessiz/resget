@@ -44,4 +44,11 @@ export const trTips = {
   'tips.report.empty': 'Bu dönemde bahşiş yok.',
   'tips.report.retry': 'Yeniden dene',
   'tips.report.retried': 'Bahşiş ağa aktarıldı.',
+  'tips.report.refund': 'İade et',
+  'tips.report.refundReason': 'İade nedeni',
+  'tips.report.refundWarning':
+    'Bahşişin tamamı müşteriye iade edilir. Kuryeye veya kurye ağına aktarılmış tutar geri alınmaz; bedeli işletmeniz taşır.',
+  'tips.report.refundConfirm': 'İadeyi onayla',
+  'tips.report.refunded': 'Bahşiş müşteriye iade edildi.',
+  'tips.report.refundedWith': 'İade nedeni: {reason}',
 } as const satisfies Record<string, string>;
