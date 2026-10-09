@@ -7,6 +7,7 @@ import {
   CAMPAIGN_EMAIL_BODY_MAX,
   CAMPAIGN_SEND_TIME_MODES,
   CAMPAIGN_SUBJECT_MAX,
+  CAMPAIGN_AUTO_WINNER,
   CAMPAIGN_VARIANT_SHARE,
   formatMoney,
 } from '@resget/shared';
@@ -87,6 +88,9 @@ export function CampaignsManager({
   const [variantBody, setVariantBody] = useState('');
   const [variantSubject, setVariantSubject] = useState('');
   const [variantShare, setVariantShare] = useState(String(CAMPAIGN_VARIANT_SHARE.default));
+  const [autoWinner, setAutoWinner] = useState(false);
+  const [testPct, setTestPct] = useState(String(CAMPAIGN_AUTO_WINNER.testPct.default));
+  const [waitHours, setWaitHours] = useState(String(CAMPAIGN_AUTO_WINNER.waitHours.default));
   const [sendTimeMode, setSendTimeMode] = useState<CampaignSendTimeMode>('FIXED');
   const [attributionDays, setAttributionDays] = useState(String(CAMPAIGN_ATTRIBUTION_DAYS.default));
   const [results, setResults] = useState<CampaignResultsDTO | null>(null);
@@ -209,6 +213,7 @@ export function CampaignsManager({
                   body: variantBody.trim(),
                   ...(channel === 'EMAIL' && variantSubject.trim() ? { subject: variantSubject.trim() } : {}),
                   sharePct: Number(variantShare),
+                  ...(autoWinner ? { autoWinner: { testPct: Number(testPct), waitHours: Number(waitHours) } } : {}),
                 },
               }
             : {}),
@@ -369,14 +374,45 @@ export function CampaignsManager({
                       maxLength={CAMPAIGN_SUBJECT_MAX}
                     />
                   )}
-                  <TextField
-                    label={t('campaigns.v2.variantShare')}
-                    type="number"
-                    min={CAMPAIGN_VARIANT_SHARE.min}
-                    max={CAMPAIGN_VARIANT_SHARE.max}
-                    value={variantShare}
-                    onChange={(e) => setVariantShare(e.target.value)}
-                  />
+                  <label className="flex items-center gap-2 md:col-span-2">
+                    <input
+                      type="checkbox"
+                      className="pui-checkbox"
+                      checked={autoWinner}
+                      onChange={(e) => setAutoWinner(e.target.checked)}
+                    />
+                    <span>{t('campaigns.v2.autoWinner')}</span>
+                  </label>
+                  {autoWinner ? (
+                    <>
+                      <TextField
+                        label={t('campaigns.v2.autoWinner.testPct')}
+                        help={t('campaigns.v2.autoWinner.help')}
+                        type="number"
+                        min={CAMPAIGN_AUTO_WINNER.testPct.min}
+                        max={CAMPAIGN_AUTO_WINNER.testPct.max}
+                        value={testPct}
+                        onChange={(e) => setTestPct(e.target.value)}
+                      />
+                      <TextField
+                        label={t('campaigns.v2.autoWinner.waitHours')}
+                        type="number"
+                        min={CAMPAIGN_AUTO_WINNER.waitHours.min}
+                        max={CAMPAIGN_AUTO_WINNER.waitHours.max}
+                        value={waitHours}
+                        onChange={(e) => setWaitHours(e.target.value)}
+                      />
+                    </>
+                  ) : (
+                    <TextField
+                      label={t('campaigns.v2.variantShare')}
+                      type="number"
+                      min={CAMPAIGN_VARIANT_SHARE.min}
+                      max={CAMPAIGN_VARIANT_SHARE.max}
+                      value={variantShare}
+                      onChange={(e) => setVariantShare(e.target.value)}
+                    />
+                  )}
                 </>
               )}
               <SelectField
@@ -728,6 +764,21 @@ export function CampaignsManager({
                           : t('campaigns.v2.results.noLeader')}
                       </p>
                     )}
+                    {results.autoWinner && (
+                      <p data-auto-winner>
+                        {results.autoWinner.winner && results.autoWinner.decidedAt
+                          ? t('campaigns.v2.autoWinner.decided', {
+                              variant: results.autoWinner.winner,
+                              date: when(results.autoWinner.decidedAt),
+                            })
+                          : results.autoWinner.decideAt
+                            ? t('campaigns.v2.autoWinner.pending', {
+                                date: when(results.autoWinner.decideAt),
+                                count: results.autoWinner.holding,
+                              })
+                            : t('campaigns.v2.autoWinner.notStarted', { pct: results.autoWinner.testPct })}
+                      </p>
+                    )}
                   </section>
                 )}
                 {detail?.id === c.id && (
@@ -740,7 +791,11 @@ export function CampaignsManager({
                           {r.errorCode ? ` (${r.errorCode})` : ''}
                           {campaignsV2 &&
                             c.variant &&
-                            `. ${t('campaigns.v2.recipient.variant', { variant: r.variant })}`}
+                            `. ${
+                              r.variant === 'HOLD'
+                                ? t('campaigns.v2.recipient.holding')
+                                : t('campaigns.v2.recipient.variant', { variant: r.variant })
+                            }`}
                           {campaignsV2 &&
                             r.dueAt &&
                             r.status === 'PENDING' &&

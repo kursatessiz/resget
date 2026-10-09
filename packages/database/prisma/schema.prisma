@@ -950,6 +950,11 @@ model Campaign {
   variantSubject            String?
   /// Share of the audience that receives variant B, in percent; null means no test.
   variantSharePct           Int?
+  /// Automatic winner (docs/KAMPANYALAR.md): test share and wait; the pick and when it was made.
+  autoWinnerTestPct         Int?
+  autoWinnerWaitHours       Int?
+  winnerVariant             String?
+  winnerDecidedAt           DateTime?
   /// FIXED or BEST_HOUR (CAMPAIGN_SEND_TIME_MODES in shared).
   sendTimeMode              String                 @default("FIXED")
   attributionDays           Int                    @default(3)
@@ -1310,7 +1315,7 @@ model CampaignRecipient {
   messageLogId     String?
   errorCode        String?
   sentAt           DateTime?
-  /// A or B (campaigns v2); A when the campaign has no test.
+  /// A or B (campaigns v2); A when the campaign has no test; HOLD while it waits for the automatic winner.
   variant          String                  @default("A")
   /// BEST_HOUR: the recipient is not sent before this moment.
   dueAt            DateTime?

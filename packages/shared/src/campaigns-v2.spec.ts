@@ -1,9 +1,14 @@
 import {
+  CAMPAIGN_AUTO_WINNER,
+  CampaignVariantInputSchema,
   CreateCampaignSchema,
+  abAutoAssignment,
   abVariantFor,
+  autoWinnerDecideAt,
   bestHourDueAt,
   campaignContentIssue,
   localHour,
+  pickAbWinner,
   preferredHourOf,
   usesCampaignsV2,
 } from './campaigns';
@@ -87,5 +92,39 @@ describe('campaigns v2 helpers', () => {
     const parsed = CreateCampaignSchema.parse({ ...base, channel: 'SMS', variant: { body: 'Ikinci metin' } });
     expect(parsed.variant?.sharePct).toBe(50);
     expect(parsed.sendTimeMode).toBe('FIXED');
+  });
+});
+
+describe('automatic A/B winner', () => {
+  it('tests about testPct of the audience, half on each text, and keeps the rest waiting', () => {
+    const sides = { A: 0, B: 0, HOLD: 0 };
+    for (let i = 0; i < 4000; i += 1) sides[abAutoAssignment('campaign-1', `customer-${i}`, 20)] += 1;
+    expect(sides.HOLD / 4000).toBeGreaterThan(0.75);
+    expect(sides.HOLD / 4000).toBeLessThan(0.85);
+    expect(Math.abs(sides.A - sides.B) / (sides.A + sides.B)).toBeLessThan(0.15);
+    // A retry never moves anybody.
+    expect(abAutoAssignment('campaign-1', 'customer-7', 20)).toBe(abAutoAssignment('campaign-1', 'customer-7', 20));
+  });
+
+  it('picks the higher conversion rate per sent message, A on a tie or with nothing sent', () => {
+    expect(pickAbWinner({ sent: 100, converted: 5 }, { sent: 50, converted: 3 })).toBe('B');
+    expect(pickAbWinner({ sent: 100, converted: 6 }, { sent: 50, converted: 3 })).toBe('A');
+    expect(pickAbWinner({ sent: 0, converted: 0 }, { sent: 0, converted: 0 })).toBe('A');
+    expect(pickAbWinner({ sent: 10, converted: 0 }, { sent: 0, converted: 0 })).toBe('A');
+    expect(pickAbWinner({ sent: 0, converted: 0 }, { sent: 10, converted: 1 })).toBe('B');
+  });
+
+  it('is due waitHours after the start', () => {
+    expect(autoWinnerDecideAt(new Date('2026-10-09T08:00:00Z'), 24).toISOString()).toBe('2026-10-10T08:00:00.000Z');
+  });
+
+  it('reads the automatic winner settings with their defaults', () => {
+    expect(CampaignVariantInputSchema.parse({ body: 'Yeni menu bugun', autoWinner: {} }).autoWinner).toEqual({
+      testPct: CAMPAIGN_AUTO_WINNER.testPct.default,
+      waitHours: CAMPAIGN_AUTO_WINNER.waitHours.default,
+    });
+    expect(CampaignVariantInputSchema.safeParse({ body: 'Yeni menu bugun', autoWinner: { testPct: 60 } }).success).toBe(
+      false,
+    );
   });
 });

@@ -27,6 +27,16 @@ export const CAMPAIGN_VARIANTS = ['A', 'B'] as const;
 export type CampaignVariant = (typeof CAMPAIGN_VARIANTS)[number];
 /** Share of the audience that receives variant B, in percent. */
 export const CAMPAIGN_VARIANT_SHARE = { min: 10, max: 90, default: 50 } as const;
+/**
+ * Automatic winner (docs/KAMPANYALAR.md): the share of the audience that tests, split evenly between the two texts,
+ * and how long after the start the winner is picked. The rest waits as HOLD and gets the winner.
+ */
+export const CAMPAIGN_AUTO_WINNER = {
+  testPct: { min: 10, max: 50, default: 20 },
+  waitHours: { min: 1, max: 72, default: 24 },
+} as const;
+/** A recipient's side: A or B, or HOLD while it waits for the automatic winner. */
+export type CampaignRecipientVariant = CampaignVariant | 'HOLD';
 /** Days after a message within which the recipient's first order is credited to the campaign. */
 export const CAMPAIGN_ATTRIBUTION_DAYS = { min: 1, max: 14, default: 3 } as const;
 /** Orders that never became a sale do not count as conversions (campaigns and flows). */
@@ -73,6 +83,24 @@ export const CampaignVariantInputSchema = z
       .min(CAMPAIGN_VARIANT_SHARE.min)
       .max(CAMPAIGN_VARIANT_SHARE.max)
       .default(CAMPAIGN_VARIANT_SHARE.default),
+    /** Test on part of the audience and send the better text to the rest; sharePct is not used then. */
+    autoWinner: z
+      .object({
+        testPct: z
+          .number()
+          .int()
+          .min(CAMPAIGN_AUTO_WINNER.testPct.min)
+          .max(CAMPAIGN_AUTO_WINNER.testPct.max)
+          .default(CAMPAIGN_AUTO_WINNER.testPct.default),
+        waitHours: z
+          .number()
+          .int()
+          .min(CAMPAIGN_AUTO_WINNER.waitHours.min)
+          .max(CAMPAIGN_AUTO_WINNER.waitHours.max)
+          .default(CAMPAIGN_AUTO_WINNER.waitHours.default),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 export type CampaignVariantInput = z.infer<typeof CampaignVariantInputSchema>;
@@ -173,6 +201,32 @@ export function abVariantFor(campaignId: string, customerId: string, sharePct: n
   return fnv1a(`${campaignId}:${customerId}`) % 100 < sharePct ? 'B' : 'A';
 }
 
+/** Automatic winner: testPct of the audience tests, half on each text; the rest waits for the winner. */
+export function abAutoAssignment(campaignId: string, customerId: string, testPct: number): CampaignRecipientVariant {
+  if (fnv1a(`${campaignId}:${customerId}`) % 100 >= testPct) return 'HOLD';
+  return fnv1a(`${campaignId}:${customerId}:side`) % 2 === 0 ? 'A' : 'B';
+}
+
+export interface AbTestTally {
+  sent: number;
+  converted: number;
+}
+
+/**
+ * The text with the higher conversion rate per sent message; A on a tie or when nothing was sent.
+ * Compared by cross-multiplication, so no rate is ever rounded.
+ */
+export function pickAbWinner(a: AbTestTally, b: AbTestTally): CampaignVariant {
+  if (b.sent === 0) return 'A';
+  if (a.sent === 0) return b.converted > 0 ? 'B' : 'A';
+  return b.converted * a.sent > a.converted * b.sent ? 'B' : 'A';
+}
+
+/** When the automatic winner may be picked: waitHours after the campaign started. */
+export function autoWinnerDecideAt(startedAt: Date, waitHours: number): Date {
+  return new Date(startedAt.getTime() + waitHours * 3_600_000);
+}
+
 /**
  * When a BEST_HOUR recipient is due: the next top of their preferred local
  * hour, moved inside the send window; now when that hour is the current one.
@@ -242,6 +296,8 @@ export interface CampaignVariantDTO {
   body: string;
   subject: string | null;
   sharePct: number;
+  /** Set when the better text is picked automatically after a test. */
+  autoWinner: { testPct: number; waitHours: number } | null;
 }
 
 export interface CampaignDTO {
@@ -277,7 +333,7 @@ export interface CampaignRecipientDTO {
   customerId: string;
   fullName: string;
   status: `${CampaignRecipientStatus}`;
-  variant: CampaignVariant;
+  variant: CampaignRecipientVariant;
   /** BEST_HOUR: when this recipient is due. */
   dueAt: string | null;
   convertedAt: string | null;
@@ -334,6 +390,17 @@ export interface CampaignResultsDTO {
   variants: CampaignVariantResultDTO[];
   /** The variant with the higher conversion rate once both have been sent; null on a tie or without a test. */
   leader: CampaignVariant | null;
+  /** The automatic winner's state, when the test picks it (docs/KAMPANYALAR.md). */
+  autoWinner: {
+    testPct: number;
+    waitHours: number;
+    /** When the pick is due; null before the campaign started. */
+    decideAt: string | null;
+    winner: CampaignVariant | null;
+    decidedAt: string | null;
+    /** Recipients still waiting for the winner. */
+    holding: number;
+  } | null;
 }
 
 export interface CampaignAudienceDTO {
