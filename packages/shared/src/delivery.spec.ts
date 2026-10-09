@@ -43,6 +43,14 @@ describe('order state machine', () => {
     expect(canTransitionOrder('DELIVERY', 'OUT_FOR_DELIVERY', 'ARRIVING', 'RESTAURANT')).toBe(false);
   });
 
+  it('lets the restaurant, and only the restaurant, call off an order waiting for its payment', () => {
+    for (const f of ['DELIVERY', 'PICKUP', 'DINE_IN'] as const) {
+      expect(canTransitionOrder(f, 'PENDING_PAYMENT', 'CANCELLED_BY_RESTAURANT', 'RESTAURANT')).toBe(true);
+      expect(canTransitionOrder(f, 'PENDING_PAYMENT', 'CANCELLED_BY_RESTAURANT', 'CUSTOMER')).toBe(false);
+      expect(canTransitionOrder(f, 'PENDING_PAYMENT', 'ACCEPTED', 'RESTAURANT')).toBe(false);
+    }
+  });
+
   it('lets a customer cancel only before the kitchen starts', () => {
     expect(canTransitionOrder('DELIVERY', 'PLACED', 'CANCELLED_BY_CUSTOMER', 'CUSTOMER')).toBe(true);
     expect(canTransitionOrder('DELIVERY', 'ACCEPTED', 'CANCELLED_BY_CUSTOMER', 'CUSTOMER')).toBe(true);

@@ -36,6 +36,7 @@ Sınıflar modül kapalıyken de hesaplanmaya devam eder (yalnızca restoranın 
 `/panel/<slug>/kayip-riski` (`customers.view`, modül açık, PRO):
 
 - Sınıf başına müşteri sayısı ve riskteki müşterilerin bugüne kadarki sipariş toplamı (geri kazanımın koruduğu değer).
+- Sınıf yalnızca iptal edilmemiş siparişlerden hesaplanır: reddedilen veya iptal edilen sipariş müşterinin sipariş sayısına, son siparişine ve toplam tutarına girmez (`docs/PANEL.md`, sayaçlar).
 - Geri kazanılacak müşteriler: Riskte, Dönmedi ve Kayıp sekmeleri; her sekmede en değerli 100 müşteri (ömür boyu tutara göre). Satırda sipariş sayısı, son sipariş ve kaç gün önce olduğu, olağan aralık, toplam tutar ve ticari ileti izni durumu görünür. Telefon yalnızca `customers.contact.view` izni olan kullanıcıya gösterilir; silinmiş hesaplar listelenmez.
 - Segmentler modülü açıksa ve kullanıcı kampanyaları görebiliyorsa, segment ekranına bağlantı.
 
