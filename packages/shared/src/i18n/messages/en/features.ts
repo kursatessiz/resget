@@ -59,6 +59,9 @@ export const enFeatures: Record<keyof typeof trFeatures, string> = {
   'features.email_channel.name': 'Email channel',
   'features.email_channel.description':
     'Email from your own domain (SPF, DKIM, DMARC checks), suppression of bounced and complaining addresses, test send.',
+  'features.email_tracking.name': 'Email open and click tracking',
+  'features.email_tracking.description':
+    'Opens through an invisible image and clicks through a platform link in campaign emails; no IP or browser is stored.',
   'features.segments_v2.name': 'Segments v2',
   'features.segments_v2.description':
     'Saved segments with an AND / OR rule language, dynamic and static segments, per-channel reach preview, target segment in campaigns.',

@@ -1,4 +1,5 @@
-import { Controller, Delete, Get, HttpCode, Patch, Post, Put, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import type { z } from 'zod';
 import {
   CampaignsQuerySchema,
@@ -9,6 +10,7 @@ import {
   SendCampaignSchema,
   UpdateCampaignSchema,
   UuidSchema,
+  TrackingTokenSchema,
 } from '@resget/shared';
 import type {
   AudienceCountDTO,
@@ -32,6 +34,7 @@ import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { PublicRateLimitGuard, RateLimit } from '../storefront/public-rate-limit.guard';
 import { CampaignsService } from './campaigns.service';
+import { EmailTrackingService } from './email-tracking.service';
 
 /** PRO campaigns of a restaurant (docs/KAMPANYALAR.md); every route needs the `campaigns` plan feature. */
 @Controller('restaurants/:restaurantId/campaigns')
@@ -216,5 +219,34 @@ export class MarketingOptOutController {
   @RateLimit({ bucket: 'funnel', limit: 60, windowSeconds: 600 })
   optOut(@ZodParam('token', UuidSchema) token: string): Promise<{ restaurantName: string }> {
     return this.campaigns.optOut(token);
+  }
+}
+
+/** A 1x1 transparent GIF. */
+const PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+
+/**
+ * Campaign email opens and clicks (docs/EPOSTA.md): public, rate limited, and the same answer for any token,
+ * so it tells nothing about which tokens exist.
+ */
+@Controller('public/email')
+@UseGuards(PublicRateLimitGuard)
+export class EmailTrackingController {
+  constructor(private readonly tracking: EmailTrackingService) {}
+
+  @Get('o/:token')
+  @RateLimit({ bucket: 'email-tracking', limit: 600, windowSeconds: 600 })
+  async open(@Param('token') token: string, @Res() res: Response): Promise<void> {
+    if (TrackingTokenSchema.safeParse(token).success) await this.tracking.recordOpen(token);
+    res.set({ 'Content-Type': 'image/gif', 'Cache-Control': 'no-store, max-age=0' }).status(200).send(PIXEL);
+  }
+
+  @Get('c/:token/:index')
+  @RateLimit({ bucket: 'email-tracking', limit: 600, windowSeconds: 600 })
+  async click(@Param('token') token: string, @Param('index') index: string, @Res() res: Response): Promise<void> {
+    const at = Number(index);
+    const valid = TrackingTokenSchema.safeParse(token).success && Number.isInteger(at) && at >= 0 && at < 100;
+    const destination = valid ? await this.tracking.resolveClick(token, at) : this.tracking.home();
+    res.set('Cache-Control', 'no-store').redirect(302, destination);
   }
 }

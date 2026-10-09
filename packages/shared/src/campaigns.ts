@@ -381,12 +381,19 @@ export interface CampaignVariantResultDTO {
   revenueMinor: number;
   /** conversions / sent, in basis points. */
   conversionRateBps: number;
+  /** Email with open and click tracking (docs/EPOSTA.md): recipients who opened or clicked, and per sent message. */
+  opens: number;
+  clicks: number;
+  openRateBps: number;
+  clickRateBps: number;
 }
 
 export interface CampaignResultsDTO {
   campaignId: string;
   currency: string;
   attributionDays: number;
+  /** True for an email campaign while open and click tracking is on; opens and clicks are zero otherwise. */
+  tracked: boolean;
   variants: CampaignVariantResultDTO[];
   /** The variant with the higher conversion rate once both have been sent; null on a tie or without a test. */
   leader: CampaignVariant | null;
