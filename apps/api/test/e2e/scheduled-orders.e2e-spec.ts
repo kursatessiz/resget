@@ -71,8 +71,9 @@ describe('Scheduled orders (e2e)', () => {
     const clock = localClock(new Date(), timezone);
     let start = Math.ceil((clock.minutes + 120) / 60) * 60;
     let day = WEEKDAY_KEYS.indexOf(clock.day);
+    // A window that would run past midnight moves to the next day, never to a negative minute.
     if (start + 180 > 1440) {
-      start -= 1440;
+      start = Math.max(0, start - 1440);
       day = (day + 1) % 7;
     }
     await ctx.prisma.branch.update({

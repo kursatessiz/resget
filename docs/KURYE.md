@@ -46,7 +46,12 @@ Restoran `DeliveryFeePolicy` seçer (`Restaurant.deliveryFeePolicy`):
 
 ## Yaşam döngüsü
 
-`DeliveryRequest` sipariş başına tektir: QUOTED -> REQUESTED -> ASSIGNED -> PICKED_UP -> DELIVERED (veya CANCELLED / FAILED). Nihai ücret teklif tutarından farklıysa (`finalFeeMinor`) hakedişe `ADJUSTMENT` satırı yazılır. Bu mutabakat henüz yazılmadı (bkz. "Faz 2'ye bırakılanlar"); bugün nihai ücret yalnızca kayda geçer.
+`DeliveryRequest` sipariş başına tektir: QUOTED -> REQUESTED -> ASSIGNED -> PICKED_UP -> DELIVERED (veya CANCELLED / FAILED). Ağ `DELIVERED` bildiriminde nihai ücreti (`finalFeeMinor`) gönderirse kayda geçer. Nihai ücretin hakedişe etkisi (sahibin kararı, 9 Ekim 2026):
+
+- Kurye maliyeti siparişin hakedişinden düşülmüşse (`PLATFORM_PSP` siparişi, defterde `COURIER_COST` satırı var; ağın ücretini platform restoran adına öder), nihai ücretle düşülen tutar arasındaki fark aynı işlemde bir `ADJUSTMENT` satırı olarak hakedişe yazılır: nihai ücret yüksekse eksi (restorandan düşülür), düşükse artı (restorana geri verilir). Satır sipariş başına bir kez yazılır, çünkü yalnızca isteği `DELIVERED` yapan bildirimle yazılır; tekrarlanan bildirim etkisizdir. Kurye ücretini platform üstlenmişse (`courierBearer` `PLATFORM`) defterde `COURIER_COST` satırı yoktur ve restorana fark yazılmaz.
+- Kurye maliyeti hakedişten düşülmemişse (`OWN_POS` siparişi veya ağın restorana doğrudan fatura ettiği anlaşma), fark restoran ile ağ arasındadır; platformun defterine bir şey yazılmaz.
+- Nihai ücret düşülen tutara eşitse veya ağ nihai ücret göndermezse satır yazılmaz.
+- Bugünkü durum: sipariş uçları kurye maliyeti almaz ve ağ restorana doğrudan fatura eder; bu yüzden hiçbir siparişin hakedişinden kurye maliyeti düşülmez ve düzeltme satırı oluşmaz. Platform ileride ağın ücretini restoran adına ödemeye başlarsa (ağ ile platform arasında sözleşme gerekir) teklif ücreti siparişin `courierCostMinor` alanına yazılır ve düzeltme kendiliğinden çalışır.
 
 ## Kurye çağırma
 
@@ -82,6 +87,5 @@ Kurye çağırma `courier_network` modülünün parçasıdır (açık, GA). Pers
 ## Faz 2'ye bırakılanlar
 
 - Gerçek ağ adaptörleri (ülkeye göre seçilir; imza doğrulaması adaptörün parçasıdır).
-- Nihai kurye ücreti ile teklif arasındaki farkın hakedişe `ADJUSTMENT` olarak yazılması.
 - Kurye ilan panosu: Türkiye'de iş ve işçi bulmaya aracılık İŞKUR özel istihdam bürosu iznine tabidir; hukuki görüş alınmadan geliştirilmez.
 - Mahalle kurye havuzu (aynı bölgedeki restoranların kurye paylaşımı): daha ayırt edici ama operasyon yükü taşır; aynı hukuki görüşe bağlıdır.
