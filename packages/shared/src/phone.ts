@@ -33,8 +33,10 @@ export function normalizePhone(input: string, defaultCountryCode = '90'): string
 
   // libphonenumber-js rejects some inputs its metadata does not cover
   // (e.g. a bare "00" international prefix without a recognised country);
-  // fall back to the original Turkish-only normalisation so existing
-  // Turkish behaviour never regresses.
+  // the original Turkish normalisation still reads those for Turkey. It
+  // accepts only a well-formed Turkish number, never an arbitrary string of
+  // digits, and it never applies Turkish rules to another country.
+  if (country !== 'TR') return null;
   return legacyTurkishNormalize(trimmed);
 }
 
@@ -68,9 +70,6 @@ function legacyTurkishNormalize(trimmed: string): string | null {
     digits = '90' + digits;
   }
 
-  if (digits.startsWith('90') && !/^905\d{9}$/.test(digits) && !/^90[2-4]\d{9}$/.test(digits)) {
-    return null;
-  }
-  if (digits.length < 8 || digits.length > 15) return null;
+  if (!/^905\d{9}$/.test(digits) && !/^90[2-4]\d{9}$/.test(digits)) return null;
   return `+${digits}`;
 }

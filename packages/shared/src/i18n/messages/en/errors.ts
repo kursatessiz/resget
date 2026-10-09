@@ -2,6 +2,8 @@ import type { trErrors } from '../tr/errors';
 
 export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.VALIDATION': 'The submitted data is invalid.',
+  'errors.INTERNAL': 'Something went wrong on our side. Please try again in a moment.',
+  'errors.ERROR': 'The request could not be completed. Please try again.',
   'errors.UNAUTHORIZED': 'Your session has ended. Please sign in again.',
   'errors.FORBIDDEN': 'You do not have permission to do this.',
   'errors.NOT_FOUND': 'Record not found.',

@@ -8,7 +8,7 @@ Web uygulaması mutlak adresleri `WEB_DOMAIN` ortam değişkeninden kurar (`http
 
 ## robots.txt
 
-Her zaman yayınlanır (`app/robots.ts`). Herkese izin verir, şu yolları dışarıda tutar (`ROBOTS_DISALLOW`): `/panel`, `/admin`, `/pazarlama`, `/hesabim`, `/giris`, `/kayit`, `/api`, `/t/` (sipariş takibi), `/j/` (davet), `/iptal/` (abonelikten çıkma), `/onay/` (çift onay). Site haritası satırı yalnızca platform alan adında bulunur. Masa QR sayfaları (`/m/<token>`) engellenmez: engellenen sayfa kanonik etiketini de okutamaz; bunun yerine her masa sayfası restoran sayfasını kanonik adres olarak gösterir ve arama motoru onları tek sayfada birleştirir.
+Her zaman yayınlanır (`app/robots.ts`). Herkese izin verir, şu yolları dışarıda tutar (`ROBOTS_DISALLOW`): `/panel`, `/admin`, `/pazarlama`, `/hesabim`, `/giris`, `/kayit`, `/api`, `/t/` (sipariş takibi), `/j/` (davet), `/iptal/` (abonelikten çıkma), `/onay/` (çift onay), `/hesap/` (masanın açık hesabı), `/*/grup/` (grup siparişi sepeti). Site haritası satırı yalnızca platform alan adında bulunur. Masa QR sayfaları (`/m/<token>`) engellenmez: engellenen sayfa kanonik etiketini de okutamaz; bunun yerine her masa sayfası restoran sayfasını kanonik adres olarak gösterir ve arama motoru onları tek sayfada birleştirir.
 
 ## sitemap.xml
 

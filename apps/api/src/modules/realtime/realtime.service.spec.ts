@@ -12,7 +12,7 @@ function tracking(status: string): RealtimeEvent {
     shortCode: 'ABC123',
     status: status as OrderTrackingDTO['status'],
     fulfillment: 'DELIVERY',
-    restaurant: { name: 'Demo', logoUrl: null, themePrimary: '#0092CD', phone: null },
+    restaurant: { name: 'Demo', logoUrl: null, themePrimary: '#0092CD', phone: null, timezone: 'Europe/Istanbul' },
     items: [],
     placedAt: new Date().toISOString(),
     scheduledFor: null,

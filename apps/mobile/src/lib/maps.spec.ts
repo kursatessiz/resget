@@ -22,7 +22,7 @@ const tracking = (
   shortCode: 'ABC123',
   status,
   fulfillment: 'DELIVERY',
-  restaurant: { name: 'R', logoUrl: null, themePrimary: '#000000', phone: null },
+  restaurant: { name: 'R', logoUrl: null, themePrimary: '#000000', phone: null, timezone: 'Europe/Istanbul' },
   items: [],
   placedAt: '2026-10-04T10:00:00.000Z',
   scheduledFor: null,

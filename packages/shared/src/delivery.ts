@@ -786,7 +786,14 @@ export interface OrderTrackingDTO {
   shortCode: string;
   status: OrderStatusValue;
   fulfillment: FulfillmentTypeValue;
-  restaurant: { name: string; logoUrl: string | null; themePrimary: string; phone: string | null };
+  restaurant: {
+    name: string;
+    logoUrl: string | null;
+    themePrimary: string;
+    phone: string | null;
+    /** IANA zone the times on the page are shown in: the restaurant's, whatever the server or the phone uses. */
+    timezone: string;
+  };
   /** Lines of the order; refundedQuantity is how many already went back (a claim asks for at most the rest). */
   items: { id: string; name: string; quantity: number; refundedQuantity: number }[];
   placedAt: string;
