@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { stripTrailingSlashes } from './validators';
 import type { CardVaultProviderCode, SavedPaymentMethodDTO } from './payments';
 
 /**
@@ -56,7 +57,7 @@ export const APP_URL_SCHEME = 'resget';
 export const APP_WALLET_RETURN_PATH = '/uygulama/cuzdan';
 
 export function appWalletReturnUrl(webBaseUrl: string, code: WalletProviderCode): string {
-  return `${webBaseUrl.replace(/\/+$/, '')}${APP_WALLET_RETURN_PATH}/${code}`;
+  return `${stripTrailingSlashes(webBaseUrl)}${APP_WALLET_RETURN_PATH}/${code}`;
 }
 
 /** The same return address on the app's scheme, used when the browser kept the universal link. */

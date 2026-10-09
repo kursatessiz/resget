@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { stripTrailingSlashes } from './validators';
 
 /**
  * One-time session handoff from the mobile app to the browser
@@ -24,5 +25,5 @@ export const SESSION_HANDOFF_PATH = '/api/session/handoff';
 
 export function sessionHandoffUrl(webBaseUrl: string, code: string, next: string): string {
   const query = `code=${encodeURIComponent(code)}&next=${encodeURIComponent(next)}`;
-  return `${webBaseUrl.replace(/\/+$/, '')}${SESSION_HANDOFF_PATH}?${query}`;
+  return `${stripTrailingSlashes(webBaseUrl)}${SESSION_HANDOFF_PATH}?${query}`;
 }

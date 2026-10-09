@@ -1,12 +1,12 @@
 import { Linking } from 'react-native';
-import { sessionHandoffUrl } from '@resget/shared';
+import { sessionHandoffUrl, stripTrailingSlashes } from '@resget/shared';
 import type { SessionHandoffDTO } from '@resget/shared';
 import type { ApiClient } from './api';
 import { WEB_BASE_URL } from './config';
 
 /** The address that opens `path` on the web: through the one-time handoff when a code was issued, plain otherwise. */
 export function webPageUrl(webBaseUrl: string, path: string, code: string | null): string {
-  return code ? sessionHandoffUrl(webBaseUrl, code, path) : `${webBaseUrl.replace(/\/+$/, '')}${path}`;
+  return code ? sessionHandoffUrl(webBaseUrl, code, path) : `${stripTrailingSlashes(webBaseUrl)}${path}`;
 }
 
 /**
