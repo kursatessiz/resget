@@ -277,7 +277,7 @@ describe('Email channel (e2e)', () => {
 
     await ctx.app
       .get(ConsentService)
-      .grant({ restaurantId, customerId: contact.id, channels: ['EMAIL'], source: 'SITE_FORM' });
+      .grant({ restaurantId, customerId: contact.id, channels: ['EMAIL'], source: 'SITE_FORM', phoneVerified: true });
     const before = outbox.length;
     expect(await email.send(request)).toMatchObject({ status: 'SENT', errorCode: null });
     const mail = outbox[before];

@@ -7,7 +7,7 @@ Ticari ileti (kampanya, duyuru) izni artık kanal başına ve geçmişiyle tutul
 | | Modül kapalı | Modül açık |
 |---|---|---|
 | Sipariş sırasında izin | Tek kutu ("SMS veya WhatsApp ile"), işaretlenirse iki kanala izin | Kanal başına ayrı, işaretsiz kutular (SMS, WhatsApp) |
-| Çift onay | Yok | Politikadaki bölgelerden gelen yeni izin onay bağlantısına basılana kadar sayılmaz |
+| Çift onay | Numarası doğrulanmamış kişinin izni onay bağlantısına basılana kadar sayılmaz | Aynısı; ayrıca süper admin bir bölge seçtiyse o bölgede doğrulanmış numaranın izni de onay bekler |
 | Gönderim sınırı | Yok | Müşteri başına günlük ve haftalık kampanya mesajı sınırı |
 | Tacir muafiyeti | Uygulanmaz | Süper admin açtıysa uygulanır |
 | Kişi kartı | İzin bölümü yok | Kanal başına durum, dayanak, kaynak, İYS durumu, geçmiş |
@@ -33,7 +33,11 @@ Atlanan alıcı `SKIPPED` ve gerekçe koduyla kampanya ayrıntısında görünü
 
 ## Çift onay
 
-- Politika (`marketing_settings.doubleOptInRegions`, varsayılan `EU_UK`) kişinin bölgesini içeriyorsa yeni izin `confirmationRequestedAt` ile bekler.
+Sahibin kararı (9 Ekim 2026): çift onay, numarası doğrulanmamış izin için her ülkede zorunludur; numarasını doğrulamış kişi ayrıca onaylamaz.
+
+- **Doğrulanmış numara**: izin, kişi kendi numarasıyla tek kullanımlık kodla (OTP) oturum açmışken o numara için verildiyse doğrulanmıştır. Oturum açmış müşteri siparişte kendi numarasını kullandığında kutu doğrudan sayılır; kod, numaranın sahibi olduğunu zaten kanıtlamıştır.
+- **Doğrulanmamış numara**: misafir sipariş, oturum açmış kişinin başka bir numaraya verdiği sipariş, personelin telefonla girdiği sipariş ve platform sitesindeki form. Yeni izin `confirmationRequestedAt` ile bekler ve onay bağlantısına basılana kadar hiçbir kampanya veya otomatik akış mesajı gitmez (`CONSENT_UNCONFIRMED`). Bu kural modül kapalıyken de uygulanır.
+- **Bölge politikası** (`marketing_settings.doubleOptInRegions`, varsayılan boş, modül açıkken): süper admin bir bölge seçerse o bölgedeki doğrulanmış numaraların izni de onay bekler. Varsayılan eskiden `EU_UK` idi; migration bu eski varsayılanı taşıyan kayıtları boşalttı.
 - İşlemsel bir SMS (`consent.confirm` şablonu) onay bağlantısı gönderir. Bu SMS, doğrulama kodu gibi platform trafiğidir; restoranın kredisinden düşmez. Bağlantı `/onay/<belirteç>`: 32 rastgele bayt, veritabanında yalnızca SHA-256 özeti tutulur, 7 gün geçerlidir, tek kullanımlıktır.
 - Sayfa açılınca onaylamaz; bağlantı önizlemeleri ve tarayıcılar bağlantıyı önceden açabilir. Kişi düğmeye basınca `POST /public/consent/confirm/:token` çağrılır. Yanıt nötrdür: `CONFIRMED` veya `INVALID`. Onayda kişinin bekleyen tüm izinlerine `confirmedAt` yazılır; IP ve cihaz bilgisi saklanmaz.
 - Bekleyen izin İYS'ye gönderilmez; onaydan sonra gönderilir.
@@ -60,7 +64,7 @@ Atlanan alıcı `SKIPPED` ve gerekçe koduyla kampanya ayrıntısında görünü
 | `GET /restaurants/:id/consent/customers/:customerId` (kanal başına durum ve geçmiş) | `customers.view` |
 | `POST .../customers/:customerId/opt-out` (`channels`, zorunlu `note`) | `customers.manage` |
 | `PUT .../customers/:customerId/business` (`isBusiness`) | `customers.manage` |
-| `GET`, `PUT /admin/restaurants/:id/consent-policy` (çift onay bölgeleri, tacir muafiyeti) | süper admin |
+| `GET`, `PUT /admin/restaurants/:id/consent-policy` (doğrulanmış numaralar için de çift onay istenen bölgeler, tacir muafiyeti) | süper admin |
 | `POST /public/consent/confirm/:token` | herkese açık, istemci başına 10 dakikada 20 |
 
 Restoran uçları `consent_v2` anahtarını ister (`FEATURE_DISABLED`). Sipariş uçları `marketingChannels` (`['SMS', 'WHATSAPP']` alt kümesi) alanını kabul eder; modül kapalıyken yok sayılır ve eski `marketingOptIn` geçerlidir. Platform aday formu ayrı, işaretsiz bir SMS izni kutusu taşır (`marketingConsent`, form sürümü `lead-form-1`).

@@ -117,7 +117,13 @@ describe('Campaigns v2 (e2e)', () => {
         select: { id: true },
       });
       customerIds.push(customer.id);
-      await consent.grant({ restaurantId, customerId: customer.id, channels: person.channels, source: 'SITE_FORM' });
+      await consent.grant({
+        restaurantId,
+        customerId: customer.id,
+        channels: person.channels,
+        source: 'SITE_FORM',
+        phoneVerified: true,
+      });
     }
   });
 
@@ -346,7 +352,7 @@ describe('Campaigns v2 (e2e)', () => {
     customerIds.push(customer.id);
     await ctx.app
       .get(ConsentService)
-      .grant({ restaurantId, customerId: customer.id, channels: ['EMAIL'], source: 'SITE_FORM' });
+      .grant({ restaurantId, customerId: customer.id, channels: ['EMAIL'], source: 'SITE_FORM', phoneVerified: true });
     await ctx.prisma.emailDomain.upsert({
       where: { domain: DOMAIN },
       update: { status: 'VERIFIED', verifiedAt: new Date() },

@@ -187,6 +187,8 @@ export interface CreateOrderOptions {
   couponCode?: string;
   /** The channel link a consumer order came from (docs/SIPARIS_BAGLANTILARI.md); the caller checks the module. */
   source?: OrderSource;
+  /** The signed-in customer's own number; checkout consent for it needs no confirmation link (docs/RIZA.md). */
+  verifiedPhone?: string;
 }
 
 /** Adds the courier tip state to the tracking page (docs/BAHSIS.md); set by the tips module. */
@@ -596,7 +598,13 @@ export class OrdersService {
     // Consent is only ever granted by the customer's own box (docs/RIZA.md); a failure costs a consent, never the order.
     if (consentCustomerId && (input.marketingOptIn || (input.marketingChannels?.length ?? 0) > 0)) {
       await this.consent
-        .grantFromCheckout(restaurantId, consentCustomerId, input.marketingOptIn, input.marketingChannels)
+        .grantFromCheckout(
+          restaurantId,
+          consentCustomerId,
+          input.marketingOptIn,
+          input.marketingChannels,
+          options.verifiedPhone !== undefined && contact?.phone === options.verifiedPhone,
+        )
         .catch((error: unknown) => this.logger.warn(`consent for order ${orderId} not recorded: ${String(error)}`));
     }
     this.realtime.publishMany(await this.eventsForOrder(orderId));

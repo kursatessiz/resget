@@ -112,7 +112,7 @@ Sevk ayarları `restaurants.dispatchSettings` JSON alanındadır (`DispatchSetti
 | `feedback_settings` | Restoranın değerlendirme sayfası bağlantısı, düşük puan eşiği ve NPS açık mı. Ayrıntılar: `docs/GERI_BILDIRIM.md`. |
 | `feedback_cases` | Düşük puanlı siparişin takip kaydı (sipariş başına bir): puan, yorum, durum `OPEN` / `RESOLVED`, not, çözen ve zaman. |
 | `nps_responses` | Siparişin müşterisinin NPS yanıtı (0 ile 10, sipariş başına bir) ve isteğe bağlı yorum. |
-| `marketing_settings` | Kiracının günlük ve haftalık sınırı, çift onay bölgeleri, tacir muafiyeti. |
+| `marketing_settings` | Kiracının günlük ve haftalık sınırı, doğrulanmış numaralar için de çift onay istenen bölgeler, tacir muafiyeti. |
 | `conversion_events` | İlk / tekrar sipariş, aday, restoran kaydı, ilk ödeme; `(restaurantId, sourceKind, sourceId)` tekil, tutar ve para birimi, atfedilen ziyaret. Ayrıntılar: `docs/ATIF.md`. |
 
 Kampanyalar v2 (`docs/KAMPANYALAR.md`): `campaigns` satırına `subject`, `variantBody`, `variantSubject`, `variantSharePct`, `sendTimeMode`, `attributionDays`; `campaign_recipients` satırına `variant`, `dueAt`, `convertedOrderId` (tekil, sipariş silinince boşalır), `convertedAt`, `revenueMinor` eklendi. Migration: `20261105000000_campaigns_v2`.

@@ -154,6 +154,8 @@ export function Storefront({
   const defaultAddress = viewer?.addresses.find((a) => a.isDefault) ?? viewer?.addresses[0] ?? null;
   const [fullName, setFullName] = useState(viewer?.fullName ?? '');
   const [phone, setPhone] = useState(viewer?.phone ?? '');
+  // Consent for the signed-in number counts at once; any other number confirms by SMS (docs/RIZA.md).
+  const ownNumber = viewer !== null && phone.trim() === viewer.phone;
   const [addressLine, setAddressLine] = useState(defaultAddress?.addressLine ?? '');
   const [city, setCity] = useState(defaultAddress?.city ?? '');
   const [district, setDistrict] = useState(defaultAddress?.district ?? '');
@@ -927,12 +929,22 @@ export function Storefront({
                     <span className="ui-caption">{t(`consent.checkout.${channel}`)}</span>
                   </label>
                 ))}
+                {marketingChannels.length > 0 && !ownNumber && (
+                  <p className="ui-caption" data-consent-confirm-hint>
+                    {t('consent.checkout.confirmHint')}
+                  </p>
+                )}
               </div>
             ) : (
               <label className="flex items-start gap-2 md:col-span-2">
                 <input type="checkbox" checked={marketingOptIn} onChange={(e) => setMarketingOptIn(e.target.checked)} />
                 <span className="ui-caption">{t('shop.customer.marketingOptIn')}</span>
               </label>
+            )}
+            {!storefront.consentV2 && marketingOptIn && !ownNumber && (
+              <p className="ui-caption md:col-span-2" data-consent-confirm-hint>
+                {t('consent.checkout.confirmHint')}
+              </p>
             )}
           </fieldset>
 

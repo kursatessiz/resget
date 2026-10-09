@@ -51,6 +51,8 @@ export interface GrantInput {
   channels: readonly ConsentChannel[];
   source: ConsentSource;
   formVersion?: string | null;
+  /** The consent came from someone signed in with a code sent to this very number (docs/RIZA.md). */
+  phoneVerified?: boolean;
 }
 
 export type RecipientCheck = IneligibleReason | 'FREQUENCY_CAP' | null;
@@ -64,8 +66,8 @@ function hashToken(token: string): string {
  * every write recomputes the contact's reachable channels so audiences are
  * one indexed query, and the send path re-checks the fresh history anyway.
  * With the consent_v2 module off, checkout consent is the legacy box (both
- * channels), there is no double opt-in and no frequency cap: the behaviour
- * the restaurant had before.
+ * channels) and there is no frequency cap; an unverified number's consent
+ * waits for its confirmation link either way.
  */
 @Injectable()
 export class ConsentService {
@@ -155,8 +157,8 @@ export class ConsentService {
   /**
    * The customer's own yes (checkout box, site form). A channel already
    * granted and counting is left alone, so every order does not add a row.
-   * With the module on, a number from a double opt-in region waits for its
-   * confirmation link, sent once for all the new channels.
+   * A number nobody proved waits for its confirmation link, sent once for
+   * all the new channels; a verified one waits only in the policy regions.
    */
   async grant(input: GrantInput): Promise<void> {
     if (input.channels.length === 0) return;
@@ -179,7 +181,12 @@ export class ConsentService {
       return !(state?.granted && state.legalBasis === 'CONSENT');
     });
     if (fresh.length === 0) return;
-    const pending = enabled && needsDoubleOptIn(region, policy);
+    const pending = needsDoubleOptIn({
+      region,
+      policy,
+      phoneVerified: input.phoneVerified === true,
+      moduleEnabled: enabled,
+    });
     const now = new Date();
     await this.prisma.contactConsent.createMany({
       data: fresh.map((channel) => ({
@@ -217,11 +224,12 @@ export class ConsentService {
     customerId: string,
     legacyOptIn: boolean | undefined,
     channels: readonly CheckoutConsentChannel[] | undefined,
+    phoneVerified = false,
   ): Promise<void> {
     const enabled = await this.enabled(restaurantId);
     const chosen: readonly ConsentChannel[] =
       enabled && channels !== undefined ? channels : legacyOptIn ? LEGACY_CHECKBOX_CHANNELS : [];
-    await this.grant({ restaurantId, customerId, channels: chosen, source: 'ORDER_CHECKBOX' });
+    await this.grant({ restaurantId, customerId, channels: chosen, source: 'ORDER_CHECKBOX', phoneVerified });
   }
 
   /**

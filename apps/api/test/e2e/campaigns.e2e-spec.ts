@@ -32,10 +32,13 @@ describe('Campaigns (e2e)', () => {
   const campaignIds: string[] = [];
   const orderIds: string[] = [];
 
-  const publicOrder = (phone: string, optIn: boolean, name: string) =>
-    ctx
-      .http()
-      .post(`/public/restaurants/${SEED.restaurantSlug}/orders`)
+  /** Consent from the customer's own signed-in number counts at once; a guest's waits for the SMS link (docs/RIZA.md). */
+  const publicOrder = async (phone: string, optIn: boolean, name: string) => {
+    const token = optIn ? await ctx.login(phone) : null;
+    // A sign-in creates the user without a name; the scenarios find recipients by it.
+    if (token) await ctx.prisma.user.update({ where: { phone }, data: { fullName: name } });
+    const req = ctx.http().post(`/public/restaurants/${SEED.restaurantSlug}/orders`);
+    return (token ? req.set(bearer(token)) : req)
       .send({
         fulfillment: 'PICKUP',
         items: [{ menuItemId, quantity: 1 }],
@@ -44,6 +47,7 @@ describe('Campaigns (e2e)', () => {
         ...(optIn ? { marketingOptIn: true } : {}),
       })
       .expect(201);
+  };
 
   beforeAll(async () => {
     ctx = await createTestApp();
