@@ -5,13 +5,16 @@ import { ThemeRoot } from '@/components/ThemeRoot';
 import { LinkButton } from '@/components/ui';
 import { consentRegime } from '@/lib/consent';
 import { getT } from '@/lib/i18n';
-import { apiInternalBaseUrl } from '@/lib/server-env';
+import { apiInternalBaseUrl, visitorHeaders } from '@/lib/server-env';
 
 const PILLARS = ['commission', 'qr', 'saas', 'courier'] as const;
 
 /** Whether the platform's own marketing measures this site and takes leads (docs/ATIF.md); off when unknown. */
 async function platformSite(): Promise<PlatformSiteDTO> {
-  const res = await fetch(`${apiInternalBaseUrl()}/public/platform/site`, { cache: 'no-store' }).catch(() => null);
+  const res = await fetch(`${apiInternalBaseUrl()}/public/platform/site`, {
+    headers: await visitorHeaders(),
+    cache: 'no-store',
+  }).catch(() => null);
   return res?.ok ? ((await res.json()) as PlatformSiteDTO) : { tracking: false, leadForm: false };
 }
 

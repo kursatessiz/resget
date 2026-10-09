@@ -15,6 +15,7 @@ import {
 export type ApiErrorCode =
   | 'PAYOUT_NOT_FOUND'
   | 'PAYOUT_STATE_INVALID'
+  | 'AI_BUSY'
   | 'ROLE_ESCALATION'
   | 'PAYOUT_CONFLICT'
   | 'VAULT_UNAVAILABLE'

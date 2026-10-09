@@ -229,17 +229,18 @@ export class PartnerReferralsService {
         rewardedAt: { gte: new Date(now.getTime() - PARTNER_REFERRAL_CAP_WINDOW_DAYS * DAY_MS) },
       },
     });
-    if (recent >= config.yearlyCapPerReferrer) {
-      await tx.partnerReferral.update({ where: { id: referral.id }, data: { status: 'CAPPED', rewardedAt: now } });
-      return;
-    }
+    const capped = recent >= config.yearlyCapPerReferrer;
+    // Claimed while still PENDING: two orders completing at once cannot both reward the referrer.
+    const claimed = await tx.partnerReferral.updateMany({
+      where: { id: referral.id, status: 'PENDING' },
+      data: capped
+        ? { status: 'CAPPED', rewardedAt: now }
+        : { status: 'REWARDED', rewardDays: config.referrerRewardDays, rewardedAt: now },
+    });
+    if (claimed.count === 0 || capped) return;
     if (config.referrerRewardDays > 0) {
       await this.addProDays(tx, referral.referrerRestaurantId, config.referrerRewardDays, now);
     }
-    await tx.partnerReferral.update({
-      where: { id: referral.id },
-      data: { status: 'REWARDED', rewardDays: config.referrerRewardDays, rewardedAt: now },
-    });
     await tx.auditLog.create({
       data: {
         restaurantId: referral.referrerRestaurantId,
