@@ -78,15 +78,13 @@ describe('Journeys (e2e)', () => {
   const customerOf = async (phone: string) =>
     ctx.prisma.restaurantCustomer.findFirstOrThrow({ where: { restaurantId, user: { phone } }, select: { id: true } });
   const grantSms = async (phone: string) =>
-    ctx.app
-      .get(ConsentService)
-      .grant({
-        restaurantId,
-        customerId: (await customerOf(phone)).id,
-        channels: ['SMS'],
-        source: 'SITE_FORM',
-        phoneVerified: true,
-      });
+    ctx.app.get(ConsentService).grant({
+      restaurantId,
+      customerId: (await customerOf(phone)).id,
+      channels: ['SMS'],
+      source: 'SITE_FORM',
+      phoneVerified: true,
+    });
   const runsOf = (journeyId: string) =>
     ctx.prisma.journeyRun.findMany({ where: { journeyId }, orderBy: { createdAt: 'asc' } });
   const create = async (body: Record<string, unknown>) => {
