@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { Prisma } from '@resget/database';
@@ -31,6 +31,7 @@ import {
   canRateOrder,
   isActiveDeliveryRequest,
   isAutoRefundStatus,
+  PENDING_PAYMENT_TIMEOUT_MINUTES,
   canStartRefund,
   canFileClaim,
   isClaimWaiting,
@@ -48,6 +49,7 @@ import {
 import { PaymentMode } from '@resget/shared';
 import type {
   AddressSnapshot,
+  RealtimeEvent,
   CreateOrderInput,
   GeoPoint,
   OrderActor,
@@ -706,6 +708,38 @@ export class OrdersService {
     return from;
   }
 
+  /**
+   * Cancels online orders still waiting for their payment after PENDING_PAYMENT_TIMEOUT_MINUTES (docs/ODEME.md):
+   * the cancellation gives back stock, the coupon use and spent points. The customer is not messaged; a payment
+   * that lands afterwards is refunded by the refund sweep. Returns how many were cancelled.
+   */
+  async expireUnpaid(now: Date = new Date()): Promise<number> {
+    const stale = await this.prisma.order.findMany({
+      where: {
+        status: 'PENDING_PAYMENT',
+        createdAt: { lt: new Date(now.getTime() - PENDING_PAYMENT_TIMEOUT_MINUTES * 60_000) },
+      },
+      ...orderArgs,
+      orderBy: { createdAt: 'asc' },
+      take: 100,
+    });
+    let expired = 0;
+    for (const row of stale) {
+      try {
+        await this.prisma.$transaction((tx) =>
+          this.applyTransition(tx, row, 'CANCELLED_BY_CUSTOMER', 'SYSTEM', null, { reason: 'payment not completed' }),
+        );
+      } catch (error) {
+        // Paid or cancelled meanwhile: the compare and swap refused it, which is the right outcome.
+        if (error instanceof HttpException && error.getStatus() === HttpStatus.CONFLICT) continue;
+        throw error;
+      }
+      expired += 1;
+      this.realtime.publishMany(await this.eventsForOrder(row.id));
+    }
+    return expired;
+  }
+
   /** HTTP entry point for restaurant staff: the trip owns the courier leg of an order that rides in one. */
   async transition(
     restaurantId: string,
@@ -912,13 +946,20 @@ export class OrdersService {
   // -- Events -------------------------------------------------------------------------
 
   /** The realtime events that describe the current state of an order, for every audience. */
-  async eventsForOrder(orderId: string): Promise<TopicEvent[]> {
+  /**
+   * The live events of an order's current state. A real change (`external`, the default) also reaches the
+   * restaurant's webhooks and the order listeners (POS sync); a courier position refresh only moves the ETA on
+   * screens and passes `external: false`, so integrations are not flooded every few seconds.
+   */
+  async eventsForOrder(orderId: string, options: { external?: boolean } = {}): Promise<TopicEvent[]> {
     const row = await this.prisma.order.findUnique({ where: { id: orderId }, ...orderArgs });
     if (!row) return [];
-    // Every published change also goes to the restaurant's webhooks (docs/API_ERISIMI.md); queued, never awaited.
-    await this.webhooks.enqueue(row.restaurantId, 'order.updated', this.toSummary(row, true));
-    for (const listener of this.orderListeners) {
-      void listener({ id: row.id, restaurantId: row.restaurantId, status: row.status }).catch(() => undefined);
+    if (options.external !== false) {
+      // Every published change also goes to the restaurant's webhooks (docs/API_ERISIMI.md); queued, never awaited.
+      await this.webhooks.enqueue(row.restaurantId, 'order.updated', this.toSummary(row, true));
+      for (const listener of this.orderListeners) {
+        void listener({ id: row.id, restaurantId: row.restaurantId, status: row.status }).catch(() => undefined);
+      }
     }
     const events: TopicEvent[] = [
       { topic: dispatchTopic(row.restaurantId), event: { type: 'order.updated', order: this.toSummary(row, true) } },
@@ -1147,6 +1188,30 @@ export class OrdersService {
         ? { lat: point.lat, lng: point.lng }
         : null;
     return { ...snapshot, point: safePoint };
+  }
+
+  /**
+   * The live events go out once with full contacts; a staff stream without `customers.contact.view` masks them
+   * here, exactly as the REST list does, so the phone number never reaches a role that may not see it.
+   */
+  static viewForContacts(canSeeContacts: boolean): (event: RealtimeEvent) => RealtimeEvent {
+    return (event) => {
+      if (canSeeContacts || event.type !== 'order.updated') return event;
+      const order = event.order;
+      return {
+        ...event,
+        order: {
+          ...order,
+          customer: {
+            ...order.customer,
+            phone: order.customer.phone ? maskPhoneForDisplay(order.customer.phone) : null,
+          },
+          address: order.address
+            ? { ...order.address, contactPhone: maskPhoneForDisplay(order.address.contactPhone) }
+            : null,
+        },
+      };
+    };
   }
 
   toSummary(row: OrderRow, canSeeContacts: boolean): OrderSummaryDTO {

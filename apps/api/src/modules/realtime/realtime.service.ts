@@ -53,12 +53,16 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
   private readonly instanceId = randomUUID();
   private lastId = 0;
   private subscriber: Redis | null = null;
+  private sweeper: NodeJS.Timeout | null = null;
 
   constructor(private readonly redis: RedisService) {
     this.emitter.setMaxListeners(0);
   }
 
   async onModuleInit(): Promise<void> {
+    // One topic per order: without this the buffers of finished orders would stay in memory until a restart.
+    this.sweeper = setInterval(() => this.sweep(), REPLAY_WINDOW_MS);
+    this.sweeper.unref();
     const client = this.redis.getClient();
     if (!client) return;
     try {
@@ -73,6 +77,7 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
+    if (this.sweeper) clearInterval(this.sweeper);
     await this.subscriber?.quit().catch(() => undefined);
   }
 
@@ -107,6 +112,8 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
     lastEventId?: string | null,
     initial: readonly RealtimeEvent[] = [],
     filter: (event: RealtimeEvent) => boolean = () => true,
+    /** Shapes each event for this listener (e.g. masks customer phones for a role without contact access). */
+    view: (event: RealtimeEvent) => RealtimeEvent = (event) => event,
   ): Observable<MessageEvent> {
     return new Observable<MessageEvent>((subscriber) => {
       const send = (envelope: RealtimeEnvelope) =>
@@ -114,7 +121,7 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
         subscriber.next({
           id: String(envelope.id),
           type: envelope.event.type,
-          data: envelope.event,
+          data: view(envelope.event),
           retry: REALTIME_RETRY_MILLIS,
         });
       for (const event of initial) {
@@ -156,6 +163,25 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
     if (envelope.id > this.lastId) this.lastId = envelope.id;
     this.remember(envelope);
     this.emitter.emit(envelope.topic, envelope);
+  }
+
+  /** Drops the replay buffers whose newest event is older than the replay window; returns how many went. */
+  sweep(now: number = Date.now()): number {
+    const cutoff = now - REPLAY_WINDOW_MS;
+    let dropped = 0;
+    for (const [topic, buffer] of this.buffers) {
+      const newest = buffer[buffer.length - 1];
+      if (!newest || newest.id <= cutoff) {
+        this.buffers.delete(topic);
+        dropped += 1;
+      }
+    }
+    return dropped;
+  }
+
+  /** Number of topics holding a replay buffer (for tests and health). */
+  bufferedTopicCount(): number {
+    return this.buffers.size;
   }
 
   private remember(envelope: RealtimeEnvelope): void {

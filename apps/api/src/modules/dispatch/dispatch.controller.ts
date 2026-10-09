@@ -19,6 +19,7 @@ import { RequireFeature, RequirePermission, RestaurantScoped } from '../auth/dec
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { RealtimeService, dispatchTopic } from '../realtime/realtime.service';
+import { OrdersService } from '../orders/orders.service';
 import { DispatchService } from './dispatch.service';
 
 const TripsListSchema = z.preprocess((raw) => {
@@ -51,7 +52,13 @@ export class DispatchController {
   @Sse('events')
   @RequirePermission('dispatch.view')
   events(@Tenant() tenant: TenantContext, @Headers('last-event-id') lastEventId?: string): Observable<MessageEvent> {
-    return this.realtime.stream(dispatchTopic(tenant.restaurantId), lastEventId);
+    return this.realtime.stream(
+      dispatchTopic(tenant.restaurantId),
+      lastEventId,
+      [],
+      undefined,
+      OrdersService.viewForContacts(contacts(tenant)),
+    );
   }
 
   @Get('trips')

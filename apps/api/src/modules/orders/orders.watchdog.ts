@@ -14,8 +14,9 @@ const MINUTE_MS = 60_000;
  * the row is stamped, the restaurant's screens receive a fresh order event
  * (the card turns red and the board sounds), and the owner is messaged once
  * on the platform's account. Nothing is rejected on the restaurant's behalf;
- * the customer keeps the order until a person decides. Off in tests and with
- * ORDER_WATCHDOG=off.
+ * the customer keeps the order until a person decides. The same pass cancels
+ * online orders whose payment never completed (OrdersService.expireUnpaid).
+ * Off in tests and with ORDER_WATCHDOG=off.
  */
 @Injectable()
 export class OrdersWatchdog implements OnModuleInit, OnModuleDestroy {
@@ -69,6 +70,8 @@ export class OrdersWatchdog implements OnModuleInit, OnModuleDestroy {
         this.realtime.publishMany(await this.orders.eventsForOrder(order.id));
         await this.notifyOwner(order, Math.round((now.getTime() - order.placedAt.getTime()) / MINUTE_MS));
       }
+      const expired = await this.orders.expireUnpaid(now);
+      if (expired > 0) this.logger.log(`cancelled ${expired} orders whose payment never completed`);
       return alarmed;
     } catch (error) {
       this.logger.error(`acceptance watchdog failed: ${error instanceof Error ? error.message : 'error'}`);

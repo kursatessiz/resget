@@ -48,10 +48,12 @@ Akış:
    - `MANUAL`: restoran sırayı belirler (`PUT /trips/:tripId/sequence { stopIds }`; kalan durakların bir permütasyonu olmalıdır).
    - `OPTIMIZED`: rota motoru en kısa açık yolu bulur (`POST /trips/:tripId/optimize`): en yakın komşu, ardından 2-opt iyileştirmesi (`optimizeStopOrder`). Çıkış noktası yola çıkmadan önce şube, yola çıktıktan sonra kuryenin son konumudur. Yola çıktıktan sonra kuryenin o an gittiği durak sabit kalır, yalnızca kalanlar yeniden sıralanır. Koordinatı olmayan adresler rotalanamaz ve listenin sonuna eklenir; ETA verilmez.
 3. **Teslim alma** (`POST .../pickup`): kurye paketleri aldığını onaylar; seferdeki her sipariş HANDED_TO_COURIER olur. Hazır olmayan bir sipariş varsa sefer başlamaz (`TRIP_STATE_INVALID`).
-4. **Yola çıkma** (`POST .../start`): teslim alma atlanmışsa önce yapılır; tüm siparişler OUT_FOR_DELIVERY, ilk durak EN_ROUTE, sefer IN_PROGRESS. Her durak için tahmini varış hesaplanır.
+4. **Yola çıkma** (`POST .../start`): teslim alma her seferinde yeniden uygulanır (zaten teslim edilenler atlanır), böylece teslim almadan sonra eklenen durak da HANDED_TO_COURIER olur; tüm siparişler OUT_FOR_DELIVERY, ilk durak EN_ROUTE, sefer IN_PROGRESS. Her durak için tahmini varış hesaplanır.
 5. **Varış** (`POST .../stops/:stopId/arrive` veya otomatik): durak ARRIVING, sipariş ARRIVING; müşteri "kapıda olun" mesajını görür.
-6. **Teslim** (`POST .../stops/:stopId/deliver`): durak ve sipariş DELIVERED, sıradaki PENDING durak EN_ROUTE olur. **Teslim edilemedi** (`POST .../stops/:stopId/fail { reason }`): durak FAILED, sipariş READY'ye döner, sefer sıradakiyle sürer. Teslimat kodu modülü açıkken kurye teslimde müşterinin kodunu girer (`docs/TESLIMAT_KODU.md`).
+6. **Teslim** (`POST .../stops/:stopId/deliver`): durak ve sipariş DELIVERED, sıradaki PENDING durak EN_ROUTE olur; müşteriye "teslim edildi" bildirimi (ücretsiz push) burada gider, duraktan çıkarmada gitmez. **Teslim edilemedi** (`POST .../stops/:stopId/fail { reason }`): durak FAILED, sipariş READY'ye döner, sefer sıradakiyle sürer. Teslimat kodu modülü açıkken kurye teslimde müşterinin kodunu girer (`docs/TESLIMAT_KODU.md`).
 7. Son durak kapanınca sefer COMPLETED olur, kuryenin konum kaydındaki sefer bağı kaldırılır.
+
+Bir sipariş aynı anda yalnızca bir aktif durakta olabilir: sefer oluşturma ve durak ekleme sipariş satırlarını kilitleyip denetimi işlem içinde yineler, aynı anda planlayan iki kişiden biri `ORDER_NOT_DISPATCHABLE` alır. Kurye ağına çağrılmış (aktif `DeliveryRequest`) sipariş kendi kuryenin seferine eklenemez.
 8. **İptal** (`POST .../cancel`): kalan duraklar REMOVED, kuryedeki siparişler READY'ye döner; teslim edilmiş olanlar değişmez.
 
 Kurye uçları `/restaurants/:id/courier/me/*` altındadır (`courier.deliver`): seferlerim, sefer detayı, pickup / start / arrive / deliver / fail, konum. Kurye yalnızca kendine atanan sefer üzerinde işlem yapabilir (`COURIER_NOT_ASSIGNED`). `dispatch.manage` iznine sahip personel aynı adımları sefer uçlarından kurye adına işleyebilir.
@@ -86,7 +88,7 @@ ETA, `ROUTING_PROVIDER` ile seçilen sağlayıcıdan gelir ve sipariş akışın
 
 ## 5. Canlı akış (SSE)
 
-Tek yönlü akış için Server-Sent Events kullanılır (`RealtimeService`): Caddy üzerinden ek altyapı gerektirmez, tarayıcıda `EventSource`, mobilde akışlı `fetch` ile çalışır. Çok örnekli çalışmada olaylar Redis pub/sub kanalıyla tüm API örneklerine dağıtılır. Her konu kısa bir tekrar tamponu tutar; `Last-Event-ID` ile yeniden bağlanan istemci kaçırdıklarını alır. Her olay varlığın tam halini taşır; bu yüzden olay kaçıran istemci bir sonraki olayla doğru duruma gelir. 25 saniyede bir kalp atışı gönderilir.
+Tek yönlü akış için Server-Sent Events kullanılır (`RealtimeService`): Caddy üzerinden ek altyapı gerektirmez, tarayıcıda `EventSource`, mobilde akışlı `fetch` ile çalışır. Çok örnekli çalışmada olaylar Redis pub/sub kanalıyla tüm API örneklerine dağıtılır. Her konu kısa bir tekrar tamponu tutar; `Last-Event-ID` ile yeniden bağlanan istemci kaçırdıklarını alır. Her olay varlığın tam halini taşır; bu yüzden olay kaçıran istemci bir sonraki olayla doğru duruma gelir. 25 saniyede bir kalp atışı gönderilir. Tekrar tamponları on dakikalık pencereden eski kalan konular için düzenli silinir; sipariş başına bir konu olduğundan tampon bellekte birikmez. Personel akışında `customers.contact.view` yetkisi olmayan role `order.updated` olaylarındaki telefonlar REST listesindeki gibi maskeli gider. Kurye konumu tazelendiğinde tahmini varışlar ekranlara gider, ama restoranın webhook'larına ve POS eşitlemesine yalnızca gerçek sipariş değişiklikleri gönderilir.
 
 | Uç | Kitle | Olaylar |
 |---|---|---|

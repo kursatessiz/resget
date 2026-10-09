@@ -51,9 +51,18 @@ export class BillingScheduler implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`billing run ${date}: ${JSON.stringify(report)}`);
     } catch (error) {
       this.logger.error(`billing run ${date} failed: ${error instanceof Error ? error.message : 'error'}`);
+      // The steps are idempotent: the next hourly tick tries again instead of waiting for tomorrow.
+      await this.release(date);
     } finally {
       this.running = false;
     }
+  }
+
+  private async release(date: string): Promise<void> {
+    if (this.lastRunDate === date) this.lastRunDate = null;
+    const client = this.redis.getClient();
+    if (!client) return;
+    await client.del(`billing:run:${date}`).catch(() => undefined);
   }
 
   private async acquire(date: string): Promise<boolean> {

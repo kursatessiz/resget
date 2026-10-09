@@ -8,6 +8,7 @@ import {
   canStartRefund,
   isOnlinePayment,
   isRefundClaimLive,
+  REFUND_RETRY_BACKOFF_MINUTES,
   isRefundRetryDue,
   itemsRefundMinor,
   refundableMinor,
@@ -273,6 +274,8 @@ export class RefundsService implements OnModuleInit, OnModuleDestroy {
           collectedByUserId: null,
           method: { in: ['ONLINE_CARD', 'MEAL_CARD'] },
           order: { status: { in: [...AUTO_REFUND_STATUSES] } },
+          // Payments past the last retry are left to the panel; they must not fill the batch and starve new ones.
+          refundAttempts: { lte: REFUND_RETRY_BACKOFF_MINUTES.length },
           OR: [
             { refundRequestedAt: null },
             { refundRequestedAt: { lt: new Date(now.getTime() - REFUND_CLAIM_STALE_MS) } },
