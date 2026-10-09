@@ -106,7 +106,9 @@ export class StaffService {
     return roles.map((r) => this.toRole(r));
   }
 
-  async createRole(restaurantId: string, input: CreateRoleInput): Promise<RoleTemplateDTO> {
+  async createRole(tenant: TenantContext, input: CreateRoleInput): Promise<RoleTemplateDTO> {
+    const restaurantId = tenant.restaurantId;
+    this.assertGrantable(tenant, input.permissions);
     try {
       const role = await this.prisma.roleTemplate.create({
         data: {
@@ -124,9 +126,17 @@ export class StaffService {
   }
 
   /** Default templates keep their key but their name and permissions are the owner's to change; the owner role is fixed. */
-  async updateRole(restaurantId: string, roleId: string, input: UpdateRoleInput): Promise<RoleTemplateDTO> {
+  async updateRole(tenant: TenantContext, roleId: string, input: UpdateRoleInput): Promise<RoleTemplateDTO> {
+    const restaurantId = tenant.restaurantId;
     const role = await this.requireRole(restaurantId, roleId);
     if (role.isOwner) throw conflict('ROLE_PROTECTED', 'The owner role cannot be changed');
+    if (input.permissions) {
+      this.assertGrantable(tenant, input.permissions);
+      // A manager never rewrites the role they hold themselves; the owner does.
+      if (!this.unrestricted(tenant) && (await this.holdsRole(tenant, roleId))) {
+        throw forbidden('ROLE_ESCALATION', 'Your own role is changed by the owner');
+      }
+    }
     try {
       const updated = await this.prisma.$transaction(async (tx) => {
         if (input.permissions) {
@@ -173,9 +183,14 @@ export class StaffService {
     if (membership.roleTemplate.isOwner && !tenant.isSuperAdmin) {
       throw conflict('STAFF_OWNER_PROTECTED', 'The owner membership cannot be changed');
     }
+    // A manager changes other people's access, never their own.
+    if (!this.unrestricted(tenant) && membership.id === tenant.membershipId) {
+      throw forbidden('ROLE_ESCALATION', 'Your own membership is changed by the owner');
+    }
     if (input.roleTemplateId) {
       const role = await this.requireRole(tenant.restaurantId, input.roleTemplateId);
       if (role.isOwner) throw conflict('ROLE_PROTECTED', 'The owner role cannot be assigned');
+      this.assertGrantable(tenant, role.permissions);
     }
     const updated = await this.prisma.membership.update({
       where: { id: membershipId },
@@ -265,6 +280,7 @@ export class StaffService {
   async createInvite(tenant: TenantContext, createdByUserId: string, input: CreateInviteInput): Promise<InviteDTO> {
     const role = await this.requireRole(tenant.restaurantId, input.roleTemplateId);
     if (role.isOwner) throw badRequest('ROLE_PROTECTED', 'The owner role cannot be invited');
+    this.assertGrantable(tenant, role.permissions);
     const existing = await this.prisma.membership.findFirst({
       where: { restaurantId: tenant.restaurantId, status: 'ACTIVE', user: { phone: input.phone } },
       select: { id: true },
@@ -381,6 +397,30 @@ export class StaffService {
   private translator(locale: string) {
     const messages = BUNDLED_MESSAGES[locale] ?? BUNDLED_MESSAGES[BASE_LOCALE];
     return createTranslator({ locale, messages, fallback: BUNDLED_MESSAGES[BASE_LOCALE] });
+  }
+
+  /** The owner and the platform administrator grant anything; anyone else only what they hold themselves. */
+  private unrestricted(tenant: TenantContext): boolean {
+    return tenant.isOwner || tenant.isSuperAdmin;
+  }
+
+  /**
+   * Refuses a role, an assignment or an invite that would hand out a permission the caller does not hold, so a
+   * manager with staff or role rights cannot widen anyone's access, their own included, beyond their own.
+   */
+  private assertGrantable(tenant: TenantContext, permissions: readonly string[]): void {
+    if (this.unrestricted(tenant)) return;
+    const beyond = permissions.filter((key) => !isPermissionKey(key) || !tenant.permissions.has(key));
+    if (beyond.length > 0) throw forbidden('ROLE_ESCALATION', `Cannot grant: ${beyond.join(', ')}`);
+  }
+
+  private async holdsRole(tenant: TenantContext, roleId: string): Promise<boolean> {
+    if (!tenant.membershipId) return false;
+    const own = await this.prisma.membership.findUnique({
+      where: { id: tenant.membershipId },
+      select: { roleTemplateId: true },
+    });
+    return own?.roleTemplateId === roleId;
   }
 
   private async requireRole(restaurantId: string, roleId: string): Promise<RoleTemplateDTO> {

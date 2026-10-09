@@ -99,7 +99,7 @@ export class StaffController {
     @Tenant() tenant: TenantContext,
     @ZodBody(CreateRoleSchema) body: z.infer<typeof CreateRoleSchema>,
   ): Promise<RoleTemplateDTO> {
-    return this.staff.createRole(tenant.restaurantId, body);
+    return this.staff.createRole(tenant, body);
   }
 
   @Patch('roles/:roleId')
@@ -109,7 +109,7 @@ export class StaffController {
     @ZodParam('roleId', UuidSchema) roleId: string,
     @ZodBody(UpdateRoleSchema) body: z.infer<typeof UpdateRoleSchema>,
   ): Promise<RoleTemplateDTO> {
-    return this.staff.updateRole(tenant.restaurantId, roleId, body);
+    return this.staff.updateRole(tenant, roleId, body);
   }
 
   @Delete('roles/:roleId')

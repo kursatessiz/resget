@@ -107,4 +107,27 @@ describe('Auth (e2e)', () => {
     const res = await ctx.http().post('/auth/otp/request').send({ phone }).expect(403);
     expect(res.body.code).toBe('RATE_LIMITED');
   });
+
+  it('counts parallel wrong guesses against the five attempts and consumes a code once', async () => {
+    const phone = guestPhone;
+    await ctx.prisma.otpCode.deleteMany({ where: { phone } });
+    await ctx.http().post('/auth/otp/request').send({ phone }).expect(200);
+    const guesses = await Promise.all(
+      Array.from({ length: 12 }, () => ctx.http().post('/auth/otp/verify').send({ phone, code: '000000' })),
+    );
+    expect(guesses.every((r) => r.status === 401 || r.status === 403)).toBe(true);
+    const row = await ctx.prisma.otpCode.findFirstOrThrow({ where: { phone }, orderBy: { createdAt: 'desc' } });
+    expect(row.attempts).toBe(5);
+    // The right code no longer helps once the attempts are spent.
+    const locked = await ctx.http().post('/auth/otp/verify').send({ phone, code: OTP_TEST_CODE }).expect(403);
+    expect(locked.body.code).toBe('RATE_LIMITED');
+
+    await ctx.prisma.otpCode.deleteMany({ where: { phone } });
+    await ctx.http().post('/auth/otp/request').send({ phone }).expect(200);
+    const twice = await Promise.all([
+      ctx.http().post('/auth/otp/verify').send({ phone, code: OTP_TEST_CODE }),
+      ctx.http().post('/auth/otp/verify').send({ phone, code: OTP_TEST_CODE }),
+    ]);
+    expect(twice.map((r) => r.status).sort()).toEqual([200, 401]);
+  });
 });

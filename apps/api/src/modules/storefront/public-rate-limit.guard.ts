@@ -18,8 +18,9 @@ export const RateLimit = (rule: RateLimitRule) => SetMetadata(RATE_LIMIT_KEY, ru
 /**
  * Per-client limit on unauthenticated writes (order placement, funnel
  * steps). Counts in Redis when it is configured so every API instance
- * shares the window; otherwise in process memory. The client is the first
- * forwarded address (Caddy sits in front) or the socket address.
+ * shares the window; otherwise in process memory. The client is the
+ * address Express derives with `trust proxy` (the one Caddy appended), never
+ * a value the client put in X-Forwarded-For itself.
  */
 @Injectable()
 export class PublicRateLimitGuard implements CanActivate {
@@ -44,7 +45,5 @@ export class PublicRateLimitGuard implements CanActivate {
 }
 
 function clientOf(request: Request): string {
-  const forwarded = request.headers['x-forwarded-for'];
-  const first = Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(',')[0];
-  return (first ?? request.ip ?? 'unknown').trim();
+  return request.ip ?? request.socket.remoteAddress ?? 'unknown';
 }

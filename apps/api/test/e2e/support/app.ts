@@ -48,6 +48,8 @@ export async function createTestApp(): Promise<TestContext> {
   const app = moduleRef.createNestApplication<NestExpressApplication>({ rawBody: true });
   app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
   app.useBodyParser('text', { type: 'text/plain', limit: JSON_BODY_LIMIT });
+  // As in main.ts: the client address is the last forwarded hop, so tests set X-Forwarded-For per client.
+  app.set('trust proxy', 1);
   app.useGlobalFilters(new ErrorCodeFilter());
   await app.init();
   const prisma = new PrismaClient();

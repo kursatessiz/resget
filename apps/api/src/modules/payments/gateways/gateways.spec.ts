@@ -28,7 +28,31 @@ const ORDER = '7b1a2f3c-4d5e-4f60-8a9b-0c1d2e3f4a5b';
 const NOW = new Date('2026-10-04T10:00:00.000Z');
 
 describe('iyzico gateway adapter', () => {
-  const credentials = { apiKey: 'api-key', secretKey: 'secret-key', baseUrl: 'https://sandbox.iyzico.test/' };
+  const credentials = { apiKey: 'api-key', secretKey: 'secret-key', baseUrl: 'https://sandbox-api.iyzipay.com/' };
+
+  it('sends credentials only to the iyzico live and sandbox hosts', async () => {
+    const { fetchImpl, calls } = fakeFetch([{ status: 'success' }]);
+    const adapter = new IyzicoGatewayAdapter({ fetchImpl, randomKey: () => 'rnd123', now: () => NOW });
+    const refused = await adapter.verifyCredentials({ ...credentials, baseUrl: 'http://169.254.169.254' });
+    expect(refused.ok).toBe(false);
+    expect(calls).toHaveLength(0);
+    await expect(
+      adapter.createHostedCheckout(
+        { ...credentials, baseUrl: 'https://internal.example' },
+        {
+          orderRef: ORDER,
+          amountMinor: 100,
+          currency: 'TRY',
+          returnUrl: 'https://web.test/t/abc',
+          customerPhone: '+905321234567',
+          customerName: 'Ayse Yilmaz',
+          customerIp: '10.0.0.1',
+          notifyUrl: 'https://api.test/webhooks/payments/pos/conn-1',
+        },
+      ),
+    ).rejects.toThrow();
+    expect(calls).toHaveLength(0);
+  });
 
   it('signs requests the IYZWSv2 way and opens a checkout form with the connection webhook as callback', async () => {
     const { fetchImpl, calls } = fakeFetch([
@@ -52,7 +76,7 @@ describe('iyzico gateway adapter', () => {
       expiresAt: new Date(NOW.getTime() + 1800_000).toISOString(),
     });
     const call = calls[0];
-    expect(call.url).toBe('https://sandbox.iyzico.test/payment/iyzipos/checkoutform/initialize/auth/ecom');
+    expect(call.url).toBe('https://sandbox-api.iyzipay.com/payment/iyzipos/checkoutform/initialize/auth/ecom');
     const body = JSON.parse(call.body) as {
       price: string;
       paidPrice: string;
@@ -93,7 +117,7 @@ describe('iyzico gateway adapter', () => {
     const { fetchImpl, calls } = fakeFetch([detail]);
     const adapter = new IyzicoGatewayAdapter({ fetchImpl, randomKey: () => 'r', now: () => NOW });
     const event = await adapter.parseWebhook(credentials, 'token=tok-1', {}, { return: 'https://web.test/t/abc' });
-    expect(calls[0].url).toBe('https://sandbox.iyzico.test/payment/iyzipos/checkoutform/auth/ecom/detail');
+    expect(calls[0].url).toBe('https://sandbox-api.iyzipay.com/payment/iyzipos/checkoutform/auth/ecom/detail');
     expect(JSON.parse(calls[0].body)).toEqual({ locale: 'tr', token: 'tok-1' });
     expect(event).toEqual({
       providerRef: 'tx-1',
