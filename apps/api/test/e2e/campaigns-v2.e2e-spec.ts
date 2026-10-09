@@ -1,4 +1,4 @@
-import { abVariantFor, bestHourDueAt, localHour, normalizePhone } from '@resget/shared';
+import { abAutoAssignment, abVariantFor, bestHourDueAt, localHour, normalizePhone } from '@resget/shared';
 import type { CampaignDTO, CampaignPreviewDTO, CampaignResultsDTO } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
@@ -330,5 +330,75 @@ describe('Campaigns v2 (e2e)', () => {
     const sent = await ctx.prisma.campaignRecipient.findFirstOrThrow({ where: { campaignId: campaign.id } });
     expect(sent.status).toBe('SENT');
     expect((await ctx.prisma.campaign.findUniqueOrThrow({ where: { id: campaign.id } })).status).toBe('SENT');
+  });
+
+  it('tests on part of the audience, picks the better text after the wait and sends it to those who waited', async () => {
+    const campaign = await create({
+      name: 'Kampanya otomatik kazanan',
+      channel: 'SMS',
+      body: 'Metin A: bu hafta kahve ikram',
+      variant: { body: 'Metin B: bu hafta tatli ikram', autoWinner: { testPct: 50, waitHours: 24 } },
+      segment: { tags: [MARK] },
+    });
+    expect(campaign.variant?.autoWinner).toEqual({ testPct: 50, waitHours: 24 });
+    await sendNow(campaign.id);
+    // The pass's clock becomes the campaign's start, from which the wait is counted.
+    const start = new Date();
+    await campaigns.runPass(start);
+    const started = await ctx.prisma.campaignRecipient.findMany({
+      where: { campaignId: campaign.id },
+      orderBy: { customerId: 'asc' },
+      select: { id: true, customerId: true, variant: true, status: true },
+    });
+    expect(started).toHaveLength(4);
+    // Each recipient lands where the stable split puts it; those waiting are not sent.
+    for (const r of started) {
+      expect(r.variant).toBe(abAutoAssignment(campaign.id, r.customerId, 50));
+      expect(r.status).toBe(r.variant === 'HOLD' ? 'PENDING' : 'SENT');
+    }
+
+    // A known split from here on: one tested on each text, two waiting; text B gets an order.
+    const [onA, onB, ...waiting] = started;
+    await ctx.prisma.campaignRecipient.update({
+      where: { id: onA.id },
+      data: { variant: 'A', status: 'SENT', sentAt: start },
+    });
+    await ctx.prisma.campaignRecipient.update({
+      where: { id: onB.id },
+      data: { variant: 'B', status: 'SENT', sentAt: start },
+    });
+    await ctx.prisma.campaignRecipient.updateMany({
+      where: { id: { in: waiting.map((r) => r.id) } },
+      data: { variant: 'HOLD', status: 'PENDING', sentAt: null, messageLogId: null },
+    });
+    await ctx.prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'SENDING' } });
+    const buyer = customerIds.indexOf(onB.customerId);
+    await publicOrder(PHONES[buyer], `Kampanya ${buyer + 1}`);
+    expect(
+      (await ctx.prisma.campaignRecipient.findUniqueOrThrow({ where: { id: onB.id } })).convertedOrderId,
+    ).not.toBeNull();
+
+    // Before the wait is over nothing is picked and nobody waiting is sent.
+    await campaigns.runPass(new Date(start.getTime() + 2 * 3_600_000));
+    const early = await results(campaign.id);
+    expect(early.autoWinner).toMatchObject({ testPct: 50, waitHours: 24, winner: null, holding: 2 });
+    expect(early.autoWinner?.decideAt).toBe(new Date(start.getTime() + 24 * 3_600_000).toISOString());
+
+    // After it: B wins on conversions and those waiting get B in the same pass; the campaign finishes.
+    const later = new Date(start.getTime() + 25 * 3_600_000);
+    await campaigns.runPass(later);
+    const decided = await results(campaign.id);
+    expect(decided.autoWinner).toMatchObject({ winner: 'B', holding: 0, decidedAt: later.toISOString() });
+    const handed = await ctx.prisma.campaignRecipient.findMany({
+      where: { id: { in: waiting.map((r) => r.id) } },
+      select: { variant: true, status: true },
+    });
+    expect(handed).toEqual([
+      { variant: 'B', status: 'SENT' },
+      { variant: 'B', status: 'SENT' },
+    ]);
+    await campaigns.runPass(new Date(later.getTime() + 60_000));
+    expect((await ctx.prisma.campaign.findUniqueOrThrow({ where: { id: campaign.id } })).status).toBe('SENT');
+    expect(await ctx.prisma.auditLog.count({ where: { action: 'campaign.ab_winner', entityId: campaign.id } })).toBe(1);
   });
 });
