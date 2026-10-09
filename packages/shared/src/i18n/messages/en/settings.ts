@@ -58,6 +58,9 @@ export const enSettings: Record<keyof typeof trSettings, string> = {
   'settings.domain.pending': 'Waiting for DNS',
   'settings.domain.instruction':
     'At your provider, point a CNAME record for {domain} to {target}. Propagation can take a few hours.',
+  'settings.domain.txtInstruction':
+    'To show the domain is yours, add a TXT record named {name} with this value: {value}',
+  'settings.domain.txtMissing': 'The ownership record (TXT) is not visible yet; the domain does not open without it.',
   'settings.domain.seen': 'Records seen at the last check: {records}',
   'settings.domain.seenNone': 'No records were seen at the last check.',
   'settings.domain.verifiedNow': 'Domain verified; your page now answers at {domain}.',

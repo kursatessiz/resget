@@ -514,8 +514,19 @@ export function SettingsForm({
                 {t('settings.domain.instruction', { domain: domainStatus.domain, target: domainStatus.target })}
               </p>
             )}
+            {domainStatus.challenge && !domainStatus.verifiedAt && (
+              <p className="ui-caption" data-domain-challenge>
+                {t('settings.domain.txtInstruction', {
+                  name: domainStatus.challenge.name,
+                  value: domainStatus.challenge.value,
+                })}
+              </p>
+            )}
             {domainStatus.domain && domainStatus.verifiedAt && !domainStatus.active && (
               <p className="ui-caption">{t('settings.domain.planLapsed')}</p>
+            )}
+            {domainStatus.lastCheck && domainStatus.lastCheck.ownershipProven === false && (
+              <p className="ui-caption">{t('settings.domain.txtMissing')}</p>
             )}
             {domainStatus.lastCheck && !domainStatus.lastCheck.ok && (
               <p className="ui-caption">

@@ -77,6 +77,9 @@ export const trErrors = {
   'errors.INVITE_PHONE_MISMATCH':
     'Bu davet başka bir telefon numarası için gönderilmiş. Davetin gönderildiği numarayla giriş yapın.',
   'errors.ROLE_PROTECTED': 'Sahip rolü değiştirilemez ve davet için kullanılamaz.',
+  'errors.ROLE_ESCALATION':
+    'Yalnızca kendinizde olan yetkileri verebilirsiniz; kendi rolünüzü yalnızca işletme sahibi değiştirir.',
+  'errors.PAYLOAD_TOO_LARGE': 'Dosya veya form çok büyük.',
   'errors.ROLE_IN_USE': 'Bu rol personel veya davetlerde kullanılıyor; önce onları başka bir role taşıyın.',
   'errors.ROLE_NAME_TAKEN': 'Bu adda bir rol zaten var.',
   'errors.STAFF_OWNER_PROTECTED': 'İşletme sahibinin üyeliği buradan değiştirilemez.',

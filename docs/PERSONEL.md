@@ -33,6 +33,7 @@ Devir, sahibin hesabını silebilmesinin de önkoşuludur (`docs/KISISEL_VERI.md
 
 - Her restoran `DEFAULT_ROLE_TEMPLATES` ile başlar (sahip, müdür, kasa, mutfak, kurye). Varsayılan şablonlar `templateKey` taşır ve adı `roles.default.<key>` mesajıyla gösterilir; adı ve izinleri sahibin düzenlemesine açıktır. Sahip şablonu değiştirilemez ve silinemez (`ROLE_PROTECTED`).
 - `POST / PATCH / DELETE /restaurants/:id/staff/roles` (`roles.manage`). Rol adı restoran içinde benzersizdir (`ROLE_NAME_TAKEN`). Personel veya açık davet kullanan rol silinemez (`ROLE_IN_USE`).
+- Yetki yükseltme yoktur (`ROLE_ESCALATION`): sahip ve platform yöneticisi dışında kimse kendinde olmayan bir yetkiyi bir role ekleyemez, öyle bir rolü bir üyeye atayamaz veya onunla davet açamaz; kendi rolünü ve kendi üyeliğini yalnızca sahip değiştirir.
 - İzin anahtarları yalnızca katalogdan gelir; bilinmeyen anahtar doğrulamada düşer. Yeni bir izin eklemek geriye uyumludur; anahtar yeniden adlandırmak `role_template_permissions` için migration gerektirir.
 
 ## Ekranlar

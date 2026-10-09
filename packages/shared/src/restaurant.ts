@@ -42,7 +42,12 @@ export interface CustomDomainDTO {
   /** Verified and the plan carries `custom_domain`; only then does the host serve the page. */
   active: boolean;
   /** Records the last verification saw, so the owner can compare with the registrar. */
-  lastCheck: { ok: boolean; seen: string[] } | null;
+  lastCheck: { ok: boolean; seen: string[]; ownershipProven?: boolean } | null;
+  /**
+   * The TXT record proving the host belongs to this restaurant (docs/VITRIN.md): pointing the host at the
+   * platform alone is not enough, so another business cannot claim a domain that already reaches us.
+   */
+  challenge: { name: string; value: string } | null;
 }
 
 export interface PublicDomainResolveDTO {

@@ -56,16 +56,22 @@ export class OtpService {
       orderBy: { createdAt: 'desc' },
     });
     if (!otp) return false;
-    if (otp.attempts >= OTP_MAX_ATTEMPTS) throw forbidden('RATE_LIMITED', 'Too many attempts');
+    // The attempt is claimed before the code is compared, so parallel guesses cannot exceed the limit.
+    const claimed = await this.prisma.otpCode.updateMany({
+      where: { id: otp.id, usedAt: null, attempts: { lt: OTP_MAX_ATTEMPTS } },
+      data: { attempts: { increment: 1 } },
+    });
+    if (claimed.count === 0) throw forbidden('RATE_LIMITED', 'Too many attempts');
 
     const expected = Buffer.from(otp.codeHash, 'hex');
     const actual = Buffer.from(this.hash(phone, code), 'hex');
     const matches = expected.length === actual.length && timingSafeEqual(expected, actual);
-    if (!matches) {
-      await this.prisma.otpCode.update({ where: { id: otp.id }, data: { attempts: { increment: 1 } } });
-      return false;
-    }
-    await this.prisma.otpCode.update({ where: { id: otp.id }, data: { usedAt: new Date() } });
-    return true;
+    if (!matches) return false;
+    // A code signs in once: of two parallel correct verifications only the first consumes it.
+    const consumed = await this.prisma.otpCode.updateMany({
+      where: { id: otp.id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+    return consumed.count === 1;
   }
 }

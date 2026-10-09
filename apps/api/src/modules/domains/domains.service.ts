@@ -6,7 +6,7 @@ import { FeatureFlagsService } from '../features/feature-flags.service';
 import { EntitlementsService } from '../features/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
-import { DOMAIN_VERIFIER } from './domain-verifier';
+import { DOMAIN_VERIFIER, domainChallenge } from './domain-verifier';
 import type { DomainVerifierAdapter } from './domain-verifier';
 
 const domainSelect = {
@@ -29,7 +29,7 @@ type DomainRow = Prisma.RestaurantGetPayload<{ select: typeof domainSelect }>;
 export class DomainsService {
   private readonly logger = new Logger(DomainsService.name);
   private readonly target: string;
-  private readonly lastChecks = new Map<string, { ok: boolean; seen: string[] }>();
+  private readonly lastChecks = new Map<string, { ok: boolean; seen: string[]; ownershipProven: boolean }>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -83,7 +83,10 @@ export class DomainsService {
     return this.toDto(row);
   }
 
-  /** Asks DNS where the host points; a CNAME to the platform host or the same A records count as verified. */
+  /**
+   * Asks DNS where the host points (a CNAME to the platform host or the same A records) and whether the owner
+   * proof is published; both are needed before the host serves the restaurant's page.
+   */
   async verify(restaurantId: string, actorUserId: string): Promise<CustomDomainDTO> {
     const row = await this.prisma.restaurant.findUnique({ where: { id: restaurantId }, select: domainSelect });
     if (!row) throw notFound('NOT_FOUND', 'Restaurant not found');
@@ -94,7 +97,10 @@ export class DomainsService {
       const ours = await this.verifier.addressesOf(this.target);
       ok = ours.length > 0 && seen.every((record) => ours.includes(record));
     }
-    this.lastChecks.set(restaurantId, { ok, seen });
+    const challenge = this.challengeOf(row.id, row.customDomain);
+    const ownershipProven = (await this.verifier.txt(challenge.name)).includes(challenge.value);
+    ok = ok && ownershipProven;
+    this.lastChecks.set(restaurantId, { ok, seen, ownershipProven });
     if (!ok) return this.toDto(row);
     const updated = await this.prisma.restaurant.update({
       where: { id: restaurantId },
@@ -129,6 +135,10 @@ export class DomainsService {
     return (await this.isServing(row)) ? row.slug : null;
   }
 
+  private challengeOf(restaurantId: string, host: string): { name: string; value: string } {
+    return domainChallenge(this.config.getOrThrow<string>('JWT_SECRET'), restaurantId, host);
+  }
+
   private async isServing(row: DomainRow): Promise<boolean> {
     return row.isActive && row.customDomainVerifiedAt !== null && (await this.plans.has(row.id, 'custom_domain'));
   }
@@ -138,6 +148,7 @@ export class DomainsService {
       domain: row.customDomain,
       verifiedAt: row.customDomainVerifiedAt?.toISOString() ?? null,
       target: this.target,
+      challenge: row.customDomain ? this.challengeOf(row.id, row.customDomain) : null,
       active: await this.isServing(row),
       lastCheck: this.lastChecks.get(row.id) ?? null,
     };

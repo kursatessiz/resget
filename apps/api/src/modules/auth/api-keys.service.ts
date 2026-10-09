@@ -215,7 +215,9 @@ export class ApiKeysService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Resolves a presented token; null for an unknown, malformed or revoked key,
-   * or one whose creator is gone. A valid key past its date throws 401
+   * or one whose creator is gone, deleted or no longer an active member. A key
+   * acts with at most its creator's current access: permissions their role
+   * lost since are dropped. A valid key past its date throws 401
    * API_KEY_EXPIRED so the integration can tell it apart from a wrong key.
    */
   async authenticate(token: string): Promise<ApiKeyPrincipal | null> {
@@ -231,11 +233,20 @@ export class ApiKeysService implements OnModuleInit, OnModuleDestroy {
     const expected = Buffer.from(row.secretHash, 'hex');
     const actual = Buffer.from(this.hash(row.keyId, parsed.secret), 'hex');
     if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
+    const creator = await this.prisma.membership.findFirst({
+      where: { userId: row.createdBy.id, restaurantId: row.restaurantId, status: 'ACTIVE', user: { deletedAt: null } },
+      select: { roleTemplate: { select: { isOwner: true, permissions: { select: { permissionKey: true } } } } },
+    });
+    if (!creator) return null;
+    const held = new Set(creator.roleTemplate.permissions.map((p) => p.permissionKey));
+    const permissions = (row.permissions as PermissionKey[]).filter(
+      (key) => creator.roleTemplate.isOwner || held.has(key),
+    );
     const principal: ApiKeyPrincipal = {
       id: row.id,
       keyId: row.keyId,
       restaurantId: row.restaurantId,
-      permissions: new Set(row.permissions as PermissionKey[]),
+      permissions: new Set(permissions),
       expiresAt: row.expiresAt,
       user: {
         id: row.createdBy.id,

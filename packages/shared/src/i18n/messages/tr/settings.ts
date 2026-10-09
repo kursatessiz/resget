@@ -56,6 +56,9 @@ export const trSettings = {
   'settings.domain.pending': 'DNS bekleniyor',
   'settings.domain.instruction':
     'Sağlayıcınızda {domain} için CNAME kaydını {target} adresine yönlendirin. Yayılması birkaç saat sürebilir.',
+  'settings.domain.txtInstruction':
+    'Alan adının size ait olduğunu göstermek için {name} adına şu değeri taşıyan bir TXT kaydı ekleyin: {value}',
+  'settings.domain.txtMissing': 'Sahiplik kaydı (TXT) henüz görünmüyor; alan adı bu kayıt olmadan açılmaz.',
   'settings.domain.seen': 'Son kontrolde görülen kayıtlar: {records}',
   'settings.domain.seenNone': 'Son kontrolde kayıt görülmedi.',
   'settings.domain.verifiedNow': 'Alan adı doğrulandı; sayfanız artık {domain} adresinde.',

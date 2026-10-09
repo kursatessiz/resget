@@ -27,6 +27,10 @@
     Referrer-Policy "strict-origin-when-cross-origin"
     -Server
   }
+  # The largest legitimate body is a social post image (8 MB); anything bigger stops here.
+  request_body {
+    max_size 10MB
+  }
   reverse_proxy web:3000 {
     header_up Host {host}
     header_up X-Real-IP {remote_host}
@@ -49,6 +53,10 @@ https:// {
     Referrer-Policy "strict-origin-when-cross-origin"
     -Server
   }
+  # The largest legitimate body is a social post image (8 MB); anything bigger stops here.
+  request_body {
+    max_size 10MB
+  }
   reverse_proxy web:3000 {
     header_up Host {host}
     header_up X-Real-IP {remote_host}
@@ -64,6 +72,10 @@ https:// {
   header {
     X-Content-Type-Options "nosniff"
     -Server
+  }
+  # The largest legitimate body is a social post image (8 MB); anything bigger stops here.
+  request_body {
+    max_size 10MB
   }
   reverse_proxy api:4000 {
     header_up Host {host}

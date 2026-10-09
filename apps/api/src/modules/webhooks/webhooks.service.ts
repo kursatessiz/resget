@@ -23,6 +23,7 @@ import type {
 } from '@resget/shared';
 import { CredentialCipher, DEV_CREDENTIAL_KEY, EnvKeyProvider } from '../../common/crypto/credential-cipher';
 import { PrismaService } from '../prisma/prisma.service';
+import { nonPublicUrlReason, resolvesToNonPublic } from '../../common/net/public-address';
 import { badRequest, conflict, notFound } from '../../common/api-error';
 
 const hookSelect = Prisma.validator<Prisma.RestaurantWebhookSelect>()({
@@ -248,6 +249,10 @@ export class WebhooksService {
     let status: number | null = null;
     let error: string | null = null;
     try {
+      // The name is resolved again right before the call, so a receiver whose DNS later points inside is refused.
+      if (this.config.get<string>('NODE_ENV') === 'production' && (await resolvesToNonPublic(delivery.webhook.url))) {
+        throw new Error('receiver resolves to a non-public address');
+      }
       const response = await this.fetchImpl(delivery.webhook.url, {
         method: 'POST',
         headers: {
@@ -307,10 +312,11 @@ export class WebhooksService {
     return false;
   }
 
+  /** In production a receiver is a public https address; tests deliver to a local receiver. */
   private assertUrl(url: string): void {
-    if (this.config.get<string>('NODE_ENV') === 'production' && !url.toLowerCase().startsWith('https://')) {
-      throw badRequest('WEBHOOK_URL_INVALID', 'Only https URLs are accepted in production');
-    }
+    if (this.config.get<string>('NODE_ENV') !== 'production') return;
+    const reason = nonPublicUrlReason(url);
+    if (reason) throw badRequest('WEBHOOK_URL_INVALID', `Receiver refused: ${reason}`);
   }
 
   private async require(restaurantId: string, id: string): Promise<HookRow> {
