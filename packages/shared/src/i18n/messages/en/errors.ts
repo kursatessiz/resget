@@ -80,6 +80,8 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.INVITE_PHONE_MISMATCH':
     'This invite was sent to a different phone number. Sign in with the number it was sent to.',
   'errors.ROLE_PROTECTED': 'The owner role cannot be changed or used for invites.',
+  'errors.ROLE_ESCALATION': 'You can only give access you have yourself, and only the owner changes your own role.',
+  'errors.PAYLOAD_TOO_LARGE': 'The file or form is too large.',
   'errors.ROLE_IN_USE': 'This role is used by staff or pending invites; move them to another role first.',
   'errors.ROLE_NAME_TAKEN': 'A role with this name already exists.',
   'errors.STAFF_OWNER_PROTECTED': 'The owner membership cannot be changed here.',

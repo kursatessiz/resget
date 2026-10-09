@@ -134,6 +134,48 @@ describe('API keys (e2e)', () => {
       .expect('x-error-code', 'API_KEY_NOT_FOUND');
   });
 
+  it('acts with no more than its creator holds today and stops when the creator leaves', async () => {
+    const phone = '+905320000042';
+    await ctx.prisma.user.deleteMany({ where: { phone } });
+    const role = await ctx.prisma.roleTemplate.create({
+      data: {
+        restaurantId,
+        name: 'E2E Anahtar Sahibi',
+        isOwner: false,
+        permissions: { create: [{ permissionKey: 'orders.view' }] },
+      },
+    });
+    const creator = await ctx.prisma.user.create({ data: { phone, fullName: 'E2E Anahtar' } });
+    const membership = await ctx.prisma.membership.create({
+      data: { userId: creator.id, restaurantId, roleTemplateId: role.id, status: 'ACTIVE', joinedAt: new Date() },
+    });
+    // Minted by the owner, then handed to a member whose role holds less (as after a demotion).
+    const mint = async (name: string) => {
+      const res = await ctx
+        .http()
+        .post(`/restaurants/${restaurantId}/api-keys`)
+        .set(bearer(ownerToken, restaurantId))
+        .send({ name, permissions: ['orders.view', 'menu.view'] })
+        .expect(201);
+      await ctx.prisma.restaurantApiKey.update({ where: { id: res.body.id }, data: { createdByUserId: creator.id } });
+      return res.body.token as string;
+    };
+    try {
+      const narrowed = await mint('E2E Daralan');
+      await ctx.http().get(`/restaurants/${restaurantId}/orders`).set(API_KEY_HEADER, narrowed).expect(200);
+      await ctx.http().get(`/restaurants/${restaurantId}/menu`).set(API_KEY_HEADER, narrowed).expect(403);
+
+      const orphaned = await mint('E2E Ayrilan');
+      await ctx.prisma.membership.update({ where: { id: membership.id }, data: { status: 'PASSIVE' } });
+      await ctx.http().get(`/restaurants/${restaurantId}/orders`).set(API_KEY_HEADER, orphaned).expect(401);
+    } finally {
+      await ctx.prisma.restaurantApiKey.deleteMany({ where: { createdByUserId: creator.id } });
+      await ctx.prisma.membership.deleteMany({ where: { id: membership.id } });
+      await ctx.prisma.user.deleteMany({ where: { id: creator.id } });
+      await ctx.prisma.roleTemplate.deleteMany({ where: { id: role.id } });
+    }
+  });
+
   it('counts requests per key and UTC day and reports them to the panel', async () => {
     const created = await ctx
       .http()

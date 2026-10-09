@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { InviteTokenSchema, PhoneSchema, QrScanSessionSchema, TableQrTokenSchema } from '@resget/shared';
 import type { MeDTO, TokenPairDTO } from '@resget/shared';
 import { ZodBody } from '../../common/zod-body.pipe';
+import { PublicRateLimitGuard, RateLimit } from '../storefront/public-rate-limit.guard';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -27,8 +28,11 @@ const RefreshSchema = z.object({ refreshToken: z.string().min(20) }).strict();
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
+  /** Codes are limited per phone in OtpService; per client address here, so one host cannot spray many phones. */
   @Post('otp/request')
   @HttpCode(200)
+  @UseGuards(PublicRateLimitGuard)
+  @RateLimit({ bucket: 'otp', limit: 30, windowSeconds: 600 })
   async requestCode(
     @ZodBody(RequestCodeSchema) body: z.infer<typeof RequestCodeSchema>,
   ): Promise<{ expiresAt: string }> {
@@ -38,6 +42,8 @@ export class AuthController {
 
   @Post('otp/verify')
   @HttpCode(200)
+  @UseGuards(PublicRateLimitGuard)
+  @RateLimit({ bucket: 'otp', limit: 30, windowSeconds: 600 })
   verifyCode(@ZodBody(VerifyCodeSchema) body: z.infer<typeof VerifyCodeSchema>): Promise<TokenPairDTO> {
     return this.auth.verifyLoginCode(body.phone, body.code, body.fullName, {
       qrToken: body.qrToken,

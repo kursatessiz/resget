@@ -41,6 +41,8 @@ async function request<T>(
       method: 'POST',
       headers: { accept: 'application/json', ...headers },
       body,
+      // A provider answers directly; a redirect is never followed to another host with the credentials.
+      redirect: 'manual',
       signal: controller.signal,
     });
     let parsed: T | null = null;

@@ -3,6 +3,7 @@ import {
   CONSENT_COOKIE,
   ERROR_CODE_HEADER,
   REQUEST_ID_HEADER,
+  SOCIAL_IMAGE_MAX_BYTES,
   VISITOR_COOKIE,
   VISITOR_HEADER,
   decodeConsent,
@@ -26,6 +27,16 @@ const HOP_BY_HOP = new Set([
   'content-length',
   'cookie',
 ]);
+
+/**
+ * The largest body passed on: the biggest upload (a social post image) with room for the multipart envelope.
+ * Anything larger is refused before it is read into memory; Caddy applies the same cap at the edge.
+ */
+const MAX_BODY_BYTES = SOCIAL_IMAGE_MAX_BYTES + 1024 * 1024;
+
+function tooLarge(): NextResponse {
+  return NextResponse.json({ code: 'PAYLOAD_TOO_LARGE', message: 'Request body too large' }, { status: 413 });
+}
 
 function sanitizePath(segments: string[]): string | null {
   if (segments.length === 0) return null;
@@ -56,7 +67,10 @@ async function handle(req: NextRequest, context: { params: Promise<{ path: strin
   const visitor = req.cookies.get(VISITOR_COOKIE)?.value;
   if (visitor && decodeConsent(req.cookies.get(CONSENT_COOKIE)?.value)?.analytics) headers.set(VISITOR_HEADER, visitor);
 
+  const declared = Number(req.headers.get('content-length') ?? '0');
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return tooLarge();
   const body = req.method === 'GET' || req.method === 'HEAD' ? undefined : await req.arrayBuffer();
+  if (body && body.byteLength > MAX_BODY_BYTES) return tooLarge();
   const upstream = await fetch(`${apiInternalBaseUrl()}/${apiPath}${req.nextUrl.search}`, {
     method: req.method,
     headers,

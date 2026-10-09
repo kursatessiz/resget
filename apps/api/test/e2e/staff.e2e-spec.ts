@@ -186,4 +186,86 @@ describe('Staff and roles (e2e)', () => {
     await ctx.http().delete(`/restaurants/${restaurantId}/staff/roles/${roleId}`).set(bearer(ownerToken)).expect(204);
     roleId = null;
   });
+
+  it('lets a manager grant only what they hold and never change their own access', async () => {
+    const managerPhone = normalizePhone('05320000041')!;
+    await ctx.prisma.user.deleteMany({ where: { phone: managerPhone } });
+    const managerRole = await ctx.prisma.roleTemplate.create({
+      data: {
+        restaurantId,
+        name: 'E2E Vardiya Sorumlusu',
+        isOwner: false,
+        permissions: {
+          create: ['staff.manage', 'roles.manage', 'orders.view'].map((permissionKey) => ({ permissionKey })),
+        },
+      },
+    });
+    const user = await ctx.prisma.user.create({ data: { phone: managerPhone, fullName: 'E2E Sorumlu' } });
+    const membership = await ctx.prisma.membership.create({
+      data: { userId: user.id, restaurantId, roleTemplateId: managerRole.id, status: 'ACTIVE', joinedAt: new Date() },
+    });
+    const created: string[] = [];
+    try {
+      const token = await ctx.login(managerPhone);
+      const base = `/restaurants/${restaurantId}/staff`;
+      await ctx
+        .http()
+        .post(`${base}/roles`)
+        .set(bearer(token))
+        .send({ name: 'E2E Kasa', permissions: ['orders.view', 'payments.manage'] })
+        .expect(403)
+        .expect('x-error-code', 'ROLE_ESCALATION');
+      const narrow = await ctx
+        .http()
+        .post(`${base}/roles`)
+        .set(bearer(token))
+        .send({ name: 'E2E Izleyici', permissions: ['orders.view'] })
+        .expect(201);
+      created.push(narrow.body.id as string);
+      await ctx
+        .http()
+        .patch(`${base}/roles/${narrow.body.id}`)
+        .set(bearer(token))
+        .send({ permissions: ['orders.view', 'menu.manage'] })
+        .expect(403)
+        .expect('x-error-code', 'ROLE_ESCALATION');
+      // Their own role and their own membership are the owner's to change.
+      await ctx
+        .http()
+        .patch(`${base}/roles/${managerRole.id}`)
+        .set(bearer(token))
+        .send({ permissions: ['staff.manage', 'roles.manage', 'orders.view'] })
+        .expect(403)
+        .expect('x-error-code', 'ROLE_ESCALATION');
+      await ctx
+        .http()
+        .patch(`${base}/members/${membership.id}`)
+        .set(bearer(token))
+        .send({ roleTemplateId: narrow.body.id })
+        .expect(403)
+        .expect('x-error-code', 'ROLE_ESCALATION');
+      // A role carrying more than the manager holds cannot be handed out by invite either.
+      const managerTemplate = await ctx.prisma.roleTemplate.findFirstOrThrow({
+        where: { restaurantId, templateKey: 'manager' },
+      });
+      await ctx
+        .http()
+        .post(`${base}/invites`)
+        .set(bearer(token))
+        .send({ fullName: 'E2E Aday', phone: '0532 999 04 41', roleTemplateId: managerTemplate.id, channel: 'SHOWN' })
+        .expect(403)
+        .expect('x-error-code', 'ROLE_ESCALATION');
+      // The owner is not limited.
+      await ctx
+        .http()
+        .patch(`${base}/roles/${managerRole.id}`)
+        .set(bearer(ownerToken))
+        .send({ permissions: ['staff.manage', 'roles.manage', 'orders.view', 'menu.view'] })
+        .expect(200);
+    } finally {
+      await ctx.prisma.membership.deleteMany({ where: { id: membership.id } });
+      await ctx.prisma.user.deleteMany({ where: { id: user.id } });
+      await ctx.prisma.roleTemplate.deleteMany({ where: { id: { in: [...created, managerRole.id] } } });
+    }
+  });
 });

@@ -2,6 +2,7 @@ export * from './enums';
 export * from './permissions';
 export * from './features';
 export * from './navigation';
+export * from './safe-path';
 export * from './money';
 export * from './settlement';
 export * from './plans';

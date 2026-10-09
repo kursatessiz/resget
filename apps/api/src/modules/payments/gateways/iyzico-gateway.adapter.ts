@@ -54,6 +54,11 @@ interface IyzicoWebhookBody {
 }
 
 const DEFAULT_BASE_URL = 'https://api.iyzipay.com';
+/**
+ * The only hosts a restaurant's iyzico credentials are sent to: live and sandbox. A free-form base URL would let
+ * a restaurant point the API at an internal address with its own request (server-side request forgery).
+ */
+export const IYZICO_BASE_URLS: readonly string[] = [DEFAULT_BASE_URL, 'https://sandbox-api.iyzipay.com'];
 const INITIALIZE_PATH = '/payment/iyzipos/checkoutform/initialize/auth/ecom';
 const CHECKOUT_DETAIL_PATH = '/payment/iyzipos/checkoutform/auth/ecom/detail';
 const PAYMENT_DETAIL_PATH = '/payment/detail';
@@ -91,7 +96,9 @@ export class IyzicoGatewayAdapter implements PaymentGatewayAdapter {
   }
 
   private baseUrl(credentials: Record<string, string>): string {
-    return (credentials.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+    const url = (credentials.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+    if (!IYZICO_BASE_URLS.includes(url)) throw new Error('iyzico base URL is not an iyzico host');
+    return url;
   }
 
   private async call<T>(credentials: Record<string, string>, path: string, payload: unknown): Promise<T | null> {
@@ -109,6 +116,8 @@ export class IyzicoGatewayAdapter implements PaymentGatewayAdapter {
   async verifyCredentials(
     credentials: Record<string, string>,
   ): Promise<{ ok: boolean; label: string; reason?: string }> {
+    const url = (credentials.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+    if (!IYZICO_BASE_URLS.includes(url)) return { ok: false, label: '', reason: 'Unknown iyzico address' };
     const answer = await this.call<{ status?: string; errorMessage?: string }>(credentials, BIN_CHECK_PATH, {
       locale: 'tr',
       binNumber: '554960',

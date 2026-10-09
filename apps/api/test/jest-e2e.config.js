@@ -6,6 +6,7 @@ module.exports = {
     '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.json' }],
   },
   testEnvironment: 'node',
+  setupFiles: ['<rootDir>/e2e/support/env.ts'],
   testTimeout: 30000,
   // The suites share one seeded Postgres database and clean up what they
   // create; running one file at a time keeps the seed data deterministic.

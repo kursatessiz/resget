@@ -66,6 +66,8 @@ export default defineConfig({
         JWT_SECRET: jwtSecret,
         OTP_TEST_CODE: otpTestCode,
         DOMAIN_VERIFIER: 'MOCK',
+        // Every scenario signs in from the same address; the per-client limit is covered by the API e2e suite.
+        PUBLIC_OTP_RATE_LIMIT: '100000',
         AI_PROVIDER: 'MOCK',
         META_PROVIDER: 'MOCK',
         // Lead Ads webhook deliveries in e2e/lead-ads.e2e.ts are signed with this test-only value.

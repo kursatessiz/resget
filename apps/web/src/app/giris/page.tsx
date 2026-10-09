@@ -1,15 +1,10 @@
 import { redirect } from 'next/navigation';
-import { InviteTokenSchema, TableQrTokenSchema } from '@resget/shared';
+import { InviteTokenSchema, TableQrTokenSchema, safeLocalPath } from '@resget/shared';
 import { ThemeRoot } from '@/components/ThemeRoot';
 import { SignInForm } from '@/components/SignInForm';
 import { Card } from '@/components/ui';
 import { getT } from '@/lib/i18n';
 import { getMe } from '@/lib/api-server';
-
-/** Only same-origin paths may be a return target; anything else goes to the panel. */
-function safeNext(value: string | undefined): string {
-  return value && value.startsWith('/') && !value.startsWith('//') ? value : '/panel';
-}
 
 export default async function SignInPage({
   searchParams,
@@ -17,7 +12,8 @@ export default async function SignInPage({
   searchParams: Promise<{ next?: string; kayit?: string; masa?: string; davet?: string }>;
 }) {
   const params = await searchParams;
-  const next = safeNext(params.next);
+  // Only a same-origin path may be the return target; anything else goes to the panel.
+  const next = safeLocalPath(params.next, '/panel');
   const me = await getMe();
   if (me) redirect(next);
   const register = params.kayit === '1';
