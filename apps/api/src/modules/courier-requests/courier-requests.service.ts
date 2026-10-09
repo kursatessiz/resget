@@ -21,6 +21,7 @@ import { FeatureFlagsService } from '../features/feature-flags.service';
 import { OrdersService } from '../orders/orders.service';
 import { OrderNotificationsService } from '../orders/order-notifications.service';
 import { CourierRegistry } from '../courier/courier.registry';
+import { LedgerService } from '../ledger/ledger.service';
 import { badRequest, conflict, forbidden, notFound } from '../../common/api-error';
 
 /** Order statuses whose active network delivery is called off with them. */
@@ -48,6 +49,7 @@ export class CourierRequestsService {
     private readonly orders: OrdersService,
     private readonly notifications: OrderNotificationsService,
     private readonly registry: CourierRegistry,
+    private readonly ledger: LedgerService,
   ) {
     this.orders.addOrderListener((order) => this.onOrderChanged(order));
   }
@@ -259,6 +261,11 @@ export class CourierRequestsService {
         });
         row = { ...row, status: step.to };
         steps.push(step.to);
+      }
+      // The network's final fee corrects what the payout took for the courier; this transaction marks the
+      // request DELIVERED, so it happens once (docs/KURYE.md, "Yaşam döngüsü"). The order is completed by now.
+      if (event.kind === 'DELIVERED' && event.finalFeeMinor !== undefined) {
+        await this.ledger.recordCourierFeeAdjustment(tx, request.orderId, event.finalFeeMinor);
       }
       return request.orderId;
     });
