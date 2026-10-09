@@ -321,6 +321,7 @@ model User {
   consents                   Consent[]
   restaurantCustomers        RestaurantCustomer[]
   otpCodes                   OtpCode[]
+  sessionHandoffs            SessionHandoff[]
   pushDevices                PushDevice[]
   savedPaymentMethods        SavedPaymentMethod[]
   invitesCreated             InviteToken[]        @relation("InviteCreatedBy")
@@ -358,6 +359,21 @@ model OtpCode {
 
   @@index([phone, purpose, createdAt])
   @@map("otp_codes")
+}
+
+/// One-time code that carries the app's session into the browser (docs/GUVENLIK.md). Only the SHA-256 of the code is stored.
+model SessionHandoff {
+  id        String    @id @default(uuid())
+  userId    String
+  codeHash  String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("session_handoffs")
 }
 
 // ---------------------------------------------------------------------------

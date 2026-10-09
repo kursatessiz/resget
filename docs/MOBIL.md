@@ -103,6 +103,11 @@ iOS'ta Apple Haritalar anahtarsız çalışır. Android'de Google Maps SDK kulla
 - **Kurye çağırma**: `dispatch.manage` izni olan personel, restoranın kurye ağı varsa teslimat siparişinin kartından kurye çağırır ve paket alınmadan önce çağrıyı iptal eder. İsteğin durumu kartta görünür. Kurallar web sipariş kartıyla aynıdır (`courierCallActions`, `docs/KURYE.md` "Kurye çağırma").
 - **Tablet**: tablet genişliğinde iki sütun (yeni / mutfakta ve hazır); telefonda tek liste, yeniler üstte.
 
+## 3c. Cüzdanlar ve sipariş sayfası
+
+- **Cüzdanlarım**: "Siparişlerim" ekranında, platform cüzdanları açıkken görünür. Kart Masterpass veya bex bağlar, bağlı kartları listeler ve kaldırır. Bağlama cihazın tarayıcısında yapılır, dönüş `/uygulama/cuzdan/<kod>` evrensel bağlantısıyla uygulamaya gelir (`app/uygulama/cuzdan/[code].tsx`). Akışın tamamı `docs/CUZDAN.md`, "Mobil uygulama" bölümündedir.
+- **Sipariş sayfasına geçiş**: "Tekrar sipariş ver" ve işletme bağlantıları sayfayı tek kullanımlık oturum aktarımıyla açar (`POST /auth/handoff`, `docs/GUVENLIK.md`). Kod alınamazsa sayfa oturumsuz açılır ve müşteri web'de giriş yapar.
+
 ## 4. Çalıştırma
 
 ```
@@ -111,7 +116,7 @@ pnpm turbo run build --filter=@resget/shared
 EXPO_PUBLIC_API_URL=http://<bilgisayar-ip>:4000 EXPO_PUBLIC_WEB_URL=http://<bilgisayar-ip>:3000 pnpm --filter @resget/mobile start
 ```
 
-Üretim derlemesinde `EXPO_PUBLIC_WEB_URL` https alan adıdır; `app.config.ts` bu alan adını iOS `associatedDomains` ve Android `intentFilters` olarak kaydeder, böylece `/t/<token>` bağlantıları uygulamada açılır. Web tarafı karşılığını `apps/web/src/lib/app-links.ts` üretir: `/.well-known/apple-app-site-association` (`IOS_APP_IDENTIFIER`, `TEAMID.bundle`) ve `/.well-known/assetlinks.json` (`ANDROID_PACKAGE_NAME`, `ANDROID_CERT_FINGERPRINTS`; SHA-256, virgülle ayrılmış). Değerler web sunucusunun ortamından istek anında okunur; boşken dosyalar 404 döner ve bağlantılar tarayıcıda açılır. Kimlikler mağaza hesapları açılınca `.env` dosyasına yazılır, imaj değişmez.
+Üretim derlemesinde `EXPO_PUBLIC_WEB_URL` https alan adıdır; `app.config.ts` bu alan adını iOS `associatedDomains` ve Android `intentFilters` olarak kaydeder, böylece `/t/<token>` takip bağlantıları ve `/uygulama/` altındaki dönüş bağlantıları (cüzdan bağlama) uygulamada açılır. Web tarafı karşılığını `apps/web/src/lib/app-links.ts` üretir: `/.well-known/apple-app-site-association` (`IOS_APP_IDENTIFIER`, `TEAMID.bundle`) ve `/.well-known/assetlinks.json` (`ANDROID_PACKAGE_NAME`, `ANDROID_CERT_FINGERPRINTS`; SHA-256, virgülle ayrılmış). Değerler web sunucusunun ortamından istek anında okunur; boşken dosyalar 404 döner ve bağlantılar tarayıcıda açılır. Kimlikler mağaza hesapları açılınca `.env` dosyasına yazılır, imaj değişmez.
 
 ### EAS derleme profilleri
 

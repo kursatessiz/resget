@@ -1,8 +1,16 @@
 import { Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
-import { InviteTokenSchema, PhoneSchema, QrScanSessionSchema, TableQrTokenSchema } from '@resget/shared';
-import type { MeDTO, TokenPairDTO } from '@resget/shared';
+import {
+  InviteTokenSchema,
+  PhoneSchema,
+  QrScanSessionSchema,
+  RedeemSessionHandoffSchema,
+  TableQrTokenSchema,
+} from '@resget/shared';
+import type { MeDTO, RedeemSessionHandoffInput, SessionHandoffDTO, TokenPairDTO } from '@resget/shared';
 import { ZodBody } from '../../common/zod-body.pipe';
+import { forbidden } from '../../common/api-error';
+import { RateLimiterService } from '../redis/rate-limiter.service';
 import { PublicRateLimitGuard, RateLimit } from '../storefront/public-rate-limit.guard';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -26,7 +34,10 @@ const RefreshSchema = z.object({ refreshToken: z.string().min(20) }).strict();
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly limiter: RateLimiterService,
+  ) {}
 
   /** Codes are limited per phone in OtpService; per client address here, so one host cannot spray many phones. */
   @Post('otp/request')
@@ -56,6 +67,25 @@ export class AuthController {
   @HttpCode(200)
   refresh(@ZodBody(RefreshSchema) body: z.infer<typeof RefreshSchema>): Promise<TokenPairDTO> {
     return this.auth.refresh(body.refreshToken);
+  }
+
+  /** The app opens the web with its session (docs/GUVENLIK.md); limited per user, an API key cannot ask. */
+  @Post('handoff')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async handoff(@CurrentUser() user: AuthUser): Promise<SessionHandoffDTO> {
+    if ((await this.limiter.hit(`rl:session-handoff:${user.id}`, 600)) > 30)
+      throw forbidden('RATE_LIMITED', 'Too many requests');
+    return this.auth.createHandoff(user.id);
+  }
+
+  /** Called by the web server's handoff route, which stores the tokens in httpOnly cookies. */
+  @Post('handoff/redeem')
+  @HttpCode(200)
+  @UseGuards(PublicRateLimitGuard)
+  @RateLimit({ bucket: 'session_handoff', limit: 60, windowSeconds: 600 })
+  redeemHandoff(@ZodBody(RedeemSessionHandoffSchema) body: RedeemSessionHandoffInput): Promise<TokenPairDTO> {
+    return this.auth.redeemHandoff(body.code);
   }
 
   @Get('me')

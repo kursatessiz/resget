@@ -376,4 +376,5 @@ export const ROBOTS_DISALLOW = [
   '/j/',
   '/iptal/',
   '/onay/',
+  '/uygulama/',
 ] as const;
