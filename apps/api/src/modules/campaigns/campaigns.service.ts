@@ -88,6 +88,9 @@ const HAS_EMAIL: Prisma.RestaurantCustomerWhereInput = {
  * the batch runner. Recipients are materialised when the campaign starts,
  * so a customer who opts out between two batches is skipped, never sent.
  */
+/** How long a claimed recipient is left to the runner that claimed it before another may take it over. */
+const RECIPIENT_LEASE_MS = 10 * 60_000;
+
 @Injectable()
 export class CampaignsService {
   private readonly logger = new Logger(CampaignsService.name);
@@ -361,10 +364,14 @@ export class CampaignsService {
     const audienceCount = await this.prisma.restaurantCustomer.count({
       where: await this.campaignAudienceWhere(restaurantId, row, now, channel),
     });
-    const wallet = await this.prisma.messageWallet.findUnique({
-      where: { restaurantId_channel: { restaurantId, channel: row.channel } },
-      select: { balance: true },
-    });
+    // The wallet of the channel the campaign will actually use (WhatsApp may fall back to SMS).
+    const wallet =
+      channel === 'EMAIL'
+        ? null
+        : await this.prisma.messageWallet.findUnique({
+            where: { restaurantId_channel: { restaurantId, channel } },
+            select: { balance: true },
+          });
     const balance = wallet?.balance ?? 0;
     const limit = await this.guards.check(restaurantId, audienceCount, now);
     // Email is never charged to a wallet (CLAUDE.md rule 9).
@@ -428,11 +435,13 @@ export class CampaignsService {
       if (blocker) throw conflict(blocker, 'No verified sending domain');
     }
     const scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : now;
-    const updated = await this.prisma.campaign.update({
-      where: { id: row.id },
+    // Only from the state read above: a campaign started or cancelled meanwhile is not queued again.
+    const queued = await this.prisma.campaign.updateMany({
+      where: { id: row.id, status: { in: [CampaignStatus.DRAFT, CampaignStatus.SCHEDULED] } },
       data: { status: CampaignStatus.SCHEDULED, scheduledAt, lastError: null },
-      select: campaignSelect,
     });
+    if (queued.count === 0) throw conflict('CAMPAIGN_STATE_INVALID', 'Campaign was already sent or cancelled');
+    const updated = await this.prisma.campaign.findUniqueOrThrow({ where: { id: row.id }, select: campaignSelect });
     await this.guards.audit(this.prisma, restaurantId, userId, 'campaign.send', row.id, {
       ...(audienceCount !== null ? { audienceCount } : {}),
       scheduledAt: scheduledAt.toISOString(),
@@ -552,13 +561,15 @@ export class CampaignsService {
     });
     for (const campaign of due) await this.start(campaign, now);
 
+    // Every sending campaign gets its batch; a fixed page would let campaigns waiting for their send window or
+    // for credits take every slot and starve the rest.
     const sending = await this.prisma.campaign.findMany({
       where: { status: CampaignStatus.SENDING },
       select: {
         ...campaignSelect,
         restaurant: { select: { name: true, countryCode: true, timezone: true, defaultLocale: true } },
       },
-      take: 20,
+      orderBy: { startedAt: 'asc' },
     });
     let sent = 0;
     for (const campaign of sending) {
@@ -582,11 +593,6 @@ export class CampaignsService {
     },
     now: Date,
   ): Promise<void> {
-    const started = await this.prisma.campaign.updateMany({
-      where: { id: campaign.id, status: CampaignStatus.SCHEDULED },
-      data: { status: CampaignStatus.SENDING, startedAt: now },
-    });
-    if (started.count === 0) return;
     const channel = await this.sender.effectiveChannel(campaign.restaurantId, campaign.channel as CampaignChannel);
     const audience = await this.prisma.restaurantCustomer.findMany({
       where: await this.campaignAudienceWhere(campaign.restaurantId, campaign, now, channel),
@@ -595,28 +601,37 @@ export class CampaignsService {
     // Checked again at start: approvals may have been switched on, or the audience grown, since it was queued.
     const held = await this.holdAtStart(campaign, audience.length, now);
     if (held) return;
-    if (audience.length > 0) {
-      const due =
-        campaign.sendTimeMode === 'BEST_HOUR'
-          ? await this.bestHourDue(
-              campaign.restaurantId,
-              campaign.restaurant.timezone,
-              audience.map((c) => c.id),
-              now,
-            )
-          : new Map<string, Date>();
-      await this.prisma.campaignRecipient.createMany({
-        data: audience.map((c) => ({
-          campaignId: campaign.id,
-          customerId: c.id,
-          variant: abVariantFor(campaign.id, c.id, campaign.variantSharePct),
-          dueAt: due.get(c.id) ?? null,
-        })),
-        skipDuplicates: true,
+    const due =
+      audience.length > 0 && campaign.sendTimeMode === 'BEST_HOUR'
+        ? await this.bestHourDue(
+            campaign.restaurantId,
+            campaign.restaurant.timezone,
+            audience.map((c) => c.id),
+            now,
+          )
+        : new Map<string, Date>();
+    // The status change and the recipients commit together: a campaign is never SENDING without its recipients
+    // (which the next batch would read as "nothing left" and mark sent), and only one starter wins.
+    const started = await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.campaign.updateMany({
+        where: { id: campaign.id, status: CampaignStatus.SCHEDULED },
+        data: { status: CampaignStatus.SENDING, startedAt: now, audienceCount: audience.length },
       });
-    }
-    await this.prisma.campaign.update({ where: { id: campaign.id }, data: { audienceCount: audience.length } });
-    if (audience.length === 0) await this.finish(campaign.id, now);
+      if (claimed.count === 0) return false;
+      if (audience.length > 0) {
+        await tx.campaignRecipient.createMany({
+          data: audience.map((c) => ({
+            campaignId: campaign.id,
+            customerId: c.id,
+            variant: abVariantFor(campaign.id, c.id, campaign.variantSharePct),
+            dueAt: due.get(c.id) ?? null,
+          })),
+          skipDuplicates: true,
+        });
+      }
+      return true;
+    });
+    if (started && audience.length === 0) await this.finish(campaign.id, now);
   }
 
   /** Puts a campaign that may not start back to draft with the reason; true when it was held. */
@@ -638,10 +653,11 @@ export class CampaignsService {
       }
     }
     if (!reason) return false;
-    await this.prisma.campaign.update({
-      where: { id: campaign.id },
+    const held = await this.prisma.campaign.updateMany({
+      where: { id: campaign.id, status: CampaignStatus.SCHEDULED },
       data: { status: CampaignStatus.DRAFT, startedAt: null, scheduledAt: null, lastError: reason },
     });
+    if (held.count === 0) return true;
     await this.guards.audit(this.prisma, campaign.restaurantId, null, 'campaign.held', campaign.id, {
       ...meta,
       reason,
@@ -656,8 +672,17 @@ export class CampaignsService {
     now: Date,
   ): Promise<number> {
     // BEST_HOUR recipients wait for their hour; the others are due at once.
+    const leaseCutoff = new Date(now.getTime() - RECIPIENT_LEASE_MS);
     const pending = await this.prisma.campaignRecipient.findMany({
-      where: { campaignId: campaign.id, status: 'PENDING', OR: [{ dueAt: null }, { dueAt: { lte: now } }] },
+      where: {
+        campaignId: campaign.id,
+        status: 'PENDING',
+        AND: [
+          { OR: [{ dueAt: null }, { dueAt: { lte: now } }] },
+          // A recipient another runner has claimed (sentAt set while PENDING) is left to it until the lease runs out.
+          { OR: [{ sentAt: null }, { sentAt: { lt: leaseCutoff } }] },
+        ],
+      },
       orderBy: { createdAt: 'asc' },
       take: CAMPAIGN_BATCH_SIZE,
       select: {
@@ -707,6 +732,16 @@ export class CampaignsService {
     );
     let sent = 0;
     for (const recipient of recipients) {
+      // Claim before anything is sent, so two runners never message (and charge) the same person twice.
+      const claimed = await this.prisma.campaignRecipient.updateMany({
+        where: {
+          id: recipient.id,
+          status: 'PENDING',
+          OR: [{ sentAt: null }, { sentAt: { lt: leaseCutoff } }],
+        },
+        data: { sentAt: now },
+      });
+      if (claimed.count === 0) continue;
       const refusal = checks.get(recipient.contact.customerId) ?? null;
       if (refusal !== null) {
         await this.markRecipient(recipient.id, campaign.id, 'SKIPPED', refusal);
@@ -728,7 +763,11 @@ export class CampaignsService {
         continue;
       }
       if (result.errorCode === 'INSUFFICIENT_CREDITS') {
-        // Stop here; the campaign resumes at the next pass once credits are bought.
+        // Stop here; the campaign resumes at the next pass once credits are bought. The claim is released.
+        await this.prisma.campaignRecipient.updateMany({
+          where: { id: recipient.id, status: 'PENDING' },
+          data: { sentAt: null },
+        });
         await this.prisma.campaign.update({ where: { id: campaign.id }, data: { lastError: 'INSUFFICIENT_CREDITS' } });
         return sent;
       }

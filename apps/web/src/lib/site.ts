@@ -9,14 +9,15 @@ import type {
   SitePageKind,
 } from '@resget/shared';
 import { getT } from '@/lib/i18n';
-import { apiInternalBaseUrl, publicSiteUrl } from '@/lib/server-env';
+import { apiInternalBaseUrl, publicSiteUrl, visitorHeaders } from '@/lib/server-env';
 
 /**
  * Public site reads (docs/SEO.md), deduplicated per request with React
  * cache so a page and its metadata share one API call. null means 404.
  */
 async function read<T>(path: string): Promise<T | null> {
-  const res = await fetch(`${apiInternalBaseUrl()}${path}`, { cache: 'no-store' });
+  // The visitor's address goes along: the site endpoints are rate limited per client.
+  const res = await fetch(`${apiInternalBaseUrl()}${path}`, { headers: await visitorHeaders(), cache: 'no-store' });
   if (res.status === 404 || res.status === 400) return null;
   if (!res.ok) throw new Error(`Site request ${path} failed with ${res.status}`);
   return (await res.json()) as T;

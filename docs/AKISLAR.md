@@ -63,7 +63,7 @@ Akış mesajları kampanya mesajlarıyla yarışır: müşterinin siparişi, her
 - `PATCH :id` (`campaigns.manage`): alanlar ve `status` (`ACTIVE` / `PAUSED`). E-posta akışı yalnızca gönderebilecekse açılır (`EMAIL_DOMAIN_NOT_VERIFIED`).
 - `DELETE :id` (`campaigns.manage`): akış ve kayıtları silinir.
 
-Çalıştırıcı (`JourneysRunner`) dakikada bir döner; testte ve `CAMPAIGN_RUNNER=off` ile kapalıdır.
+Çalıştırıcı (`JourneysRunner`) dakikada bir döner; testte ve `CAMPAIGN_RUNNER=off` ile kapalıdır. Her geçişte bekleyen kaydı olan her akış kendi partisini alır; kredisi biten, gönderim penceresi dışında kalan veya e-posta alan adı eksik akışlar başka akışların sırasını tutmaz. Kapalı modüldeki geri kazanım akışları da tarandı olarak işaretlenir, tarama sırasını tıkamaz.
 
 ## Ekranlar
 

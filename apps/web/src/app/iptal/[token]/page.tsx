@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { UuidSchema } from '@resget/shared';
 import { ThemeRoot } from '@/components/ThemeRoot';
 import { getT } from '@/lib/i18n';
-import { apiInternalBaseUrl } from '@/lib/server-env';
+import { apiInternalBaseUrl, visitorHeaders } from '@/lib/server-env';
 
 /** One-click opt-out from a campaign message (docs/KAMPANYALAR.md); opening the link is the action. */
 export default async function OptOutPage({ params }: { params: Promise<{ token: string }> }) {
@@ -11,6 +11,7 @@ export default async function OptOutPage({ params }: { params: Promise<{ token: 
   const { t } = await getT();
   const res = await fetch(`${apiInternalBaseUrl()}/public/marketing/opt-out/${token}`, {
     method: 'POST',
+    headers: await visitorHeaders(),
     cache: 'no-store',
   });
   const result = res.ok ? ((await res.json()) as { restaurantName: string }) : null;

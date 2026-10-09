@@ -49,8 +49,12 @@ const PICTOGRAPHS = /[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu;
  * what the user typed, asks the provider, cleans the drafts to the channel's
  * rules and records the tokens spent. Nothing is saved or sent from here.
  */
+/** The longest answer one request may ask for. */
+const MAX_OUTPUT_TOKENS = 4000;
+
 @Injectable()
 export class AiStudioService {
+  private readonly inFlight = new Set<string>();
   private readonly logger = new Logger(AiStudioService.name);
 
   constructor(
@@ -157,13 +161,37 @@ export class AiStudioService {
     /** The draft as the screen gets it, or null when it breaks the channel's rules. */
     shape: (raw: { subject: string; body: string }) => AiDraftDTO | null,
   ): Promise<AiDraftResultDTO> {
-    if (!this.provider) throw conflict('AI_NOT_CONFIGURED', 'No AI provider is configured');
+    const provider = this.provider;
+    if (!provider) throw conflict('AI_NOT_CONFIGURED', 'No AI provider is configured');
+    // One draft at a time per restaurant: parallel requests would each pass the budget check and together spend
+    // far beyond it.
+    if (this.inFlight.has(restaurantId)) throw conflict('AI_BUSY', 'A draft is already being written');
+    this.inFlight.add(restaurantId);
+    try {
+      return await this.runOnce(provider, restaurantId, userId, kind, redactions, prompt, count, shape);
+    } finally {
+      this.inFlight.delete(restaurantId);
+    }
+  }
+
+  private async runOnce(
+    provider: AiProvider,
+    restaurantId: string,
+    userId: string,
+    kind: AiDraftKind,
+    redactions: number,
+    prompt: string,
+    count: number,
+    shape: (raw: { subject: string; body: string }) => AiDraftDTO | null,
+  ): Promise<AiDraftResultDTO> {
     const before = await this.budget(restaurantId);
     if (before.remaining <= 0) throw conflict('AI_BUDGET_EXHAUSTED', 'The monthly AI budget is used up');
 
     let result: AiProviderResult;
     try {
-      result = await this.provider.draft({ system: SYSTEM, prompt, drafts: count, maxOutputTokens: 4000 });
+      // The answer may not spend more than what is left of the month.
+      const maxOutputTokens = Math.min(MAX_OUTPUT_TOKENS, before.remaining);
+      result = await provider.draft({ system: SYSTEM, prompt, drafts: count, maxOutputTokens });
     } catch (error) {
       if (error instanceof AiRefusedError) {
         await this.record(restaurantId, userId, kind, redactions, error.usage);
