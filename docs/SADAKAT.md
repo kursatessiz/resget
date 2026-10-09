@@ -19,6 +19,14 @@ Müşteri her tamamlanan siparişte puan kazanır, puanını bir sonraki sipari�
 | `minOrderMinor` | Puan harcamak için gereken en az ürün toplamı |
 | `maxDiscountBps` | İndirim ürün toplamının en çok bu payı olabilir; kalan puan bakiyede kalır |
 | `welcomePoints` | İlk tamamlanan siparişte bir kez verilen bonus |
+| `tiers` | Seviyeler (en çok 4): ad, gereken toplam harcama (`minSpendMinor`) ve kazanım çarpanı (`earnMultiplierPct`, yüzde 100 ile 500 arası); boş liste seviyesiz programdır |
+
+### Seviyeler (sahibin kararı, 9 Ekim 2026)
+
+- Restoran seviyeleri kendisi tanımlar (örneğin "Gümüş", "Altın"); ad kiracı verisidir ve çevrilmez. Seviyeler gereken harcamaya göre artan sırada olmalıdır, aynı eşik iki kez verilemez.
+- Müşterinin seviyesi o restorandaki toplam harcamasından gelir (`restaurant_customers.lifetimeGrossMinor`; reddedilen ve iptal edilen siparişler sayılmaz, `docs/PANEL.md`). Eşiği karşılanan en yüksek seviye geçerlidir; hiçbir eşiğe ulaşmamış müşteri seviyesizdir ve çarpanı yüzde 100'dür. Seviye ayrıca saklanmaz, her hesaplamada harcamadan bulunur (`loyaltyTierFor()`); bu yüzden iptal edilen bir sipariş seviyeyi de geri alır.
+- Tamamlanan siparişte kazanılan puan seviyenin çarpanıyla artar: `floor(pointsEarnedFor(...) * earnMultiplierPct / 100)` (`tieredPointsEarned()`). Seviye, siparişin kendisi dahil toplam harcamaya göre bulunur. Hoş geldin bonusu çarpılmaz. Kazanım satırının notunda seviye adı yazar.
+- Vitrin, giriş yapmış müşteriye seviyesini ve bu siparişle kazanacağı (çarpılmış) puanı gösterir; `/hesabim` ve uygulamadaki puan kartı seviye adını ve bir sonraki seviyeye kalan harcamayı gösterir. Panelde kural formunda seviye ekleme ve silme, müşteri listesinde seviye adı yer alır.
 
 Satır yoksa ekran para birimine göre varsayılan önerir: 1 birim harcamaya 1 puan, 100 puan 10 birim indirim, tavan yüzde 50, kapalı (`LOYALTY_PROGRAM_DEFAULTS`, `minorDigitsOf`). Hesap fonksiyonları: `pointsEarnedFor(rule, spendMinor)`, `redeemableFor(rule, balance, itemsGrossMinor)` (tam adım, tavan ve ürün toplamıyla sınırlı), `balanceValueMinor`.
 
@@ -59,4 +67,4 @@ Shared `loyalty.spec.ts` (kazanım adımları, tavan ve en az sipariş, şema). 
 
 ## Kalan
 
-- Kademeli program (gümüş / altın) ve ürün bazlı çarpanlar.
+- Ürün bazlı puan çarpanları.

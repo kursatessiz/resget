@@ -33,6 +33,8 @@ export interface CustomerDTO {
   marketingOptIn: boolean;
   /** Loyalty balance (docs/SADAKAT.md); 0 when the restaurant runs no program. */
   loyaltyPoints: number;
+  /** The customer's loyalty tier name, when the restaurant runs tiers. */
+  loyaltyTier: string | null;
   createdAt: string;
 }
 

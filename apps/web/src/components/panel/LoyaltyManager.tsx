@@ -1,7 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { formatMoney, majorAmountText, parseMajorAmount } from '@resget/shared';
+import {
+  LOYALTY_TIERS_MAX,
+  LOYALTY_TIER_MULTIPLIER,
+  formatMoney,
+  majorAmountText,
+  parseMajorAmount,
+} from '@resget/shared';
 import type { LoyaltyOverviewDTO, LoyaltyProgram, LoyaltyProgramDTO } from '@resget/shared';
 import { Badge, Button, Card, TextField } from '@/components/ui';
 import { ApiError, bffJson } from '@/lib/client-api';
@@ -17,6 +23,7 @@ interface Draft {
   maxDiscountPercent: string;
   welcomePoints: string;
   notifyEarned: boolean;
+  tiers: { name: string; minSpend: string; multiplierPct: string }[];
 }
 
 function draftOf(program: LoyaltyProgramDTO): Draft {
@@ -30,6 +37,11 @@ function draftOf(program: LoyaltyProgramDTO): Draft {
     maxDiscountPercent: String(program.maxDiscountBps / 100),
     welcomePoints: String(program.welcomePoints),
     notifyEarned: program.notifyEarned,
+    tiers: program.tiers.map((tier) => ({
+      name: tier.name,
+      minSpend: majorAmountText(tier.minSpendMinor, program.currency),
+      multiplierPct: String(tier.earnMultiplierPct),
+    })),
   };
 }
 
@@ -81,7 +93,26 @@ export function LoyaltyManager({
     const redeemValueMinor = parseMajorAmount(draft.redeemValue, currency);
     const minOrderMinor = parseMajorAmount(draft.minOrder, currency);
     const percent = Number(draft.maxDiscountPercent);
-    if (earnStepMinor === null || redeemValueMinor === null || minOrderMinor === null || !Number.isFinite(percent)) {
+    const tiers = draft.tiers.map((tier) => ({
+      name: tier.name.trim(),
+      minSpendMinor: parseMajorAmount(tier.minSpend, currency),
+      earnMultiplierPct: Number(tier.multiplierPct),
+    }));
+    const tiersValid = tiers.every(
+      (tier, i) =>
+        tier.name.length > 0 &&
+        tier.minSpendMinor !== null &&
+        tier.minSpendMinor > 0 &&
+        Number.isInteger(tier.earnMultiplierPct) &&
+        (i === 0 || (tier.minSpendMinor ?? 0) > (tiers[i - 1]!.minSpendMinor ?? 0)),
+    );
+    if (
+      earnStepMinor === null ||
+      redeemValueMinor === null ||
+      minOrderMinor === null ||
+      !Number.isFinite(percent) ||
+      !tiersValid
+    ) {
       setError(t('errors.VALIDATION'));
       return;
     }
@@ -95,6 +126,7 @@ export function LoyaltyManager({
       maxDiscountBps: Math.round(percent * 100),
       welcomePoints: Number(draft.welcomePoints),
       notifyEarned: draft.notifyEarned,
+      tiers: tiers.map((tier) => ({ ...tier, minSpendMinor: tier.minSpendMinor ?? 0 })),
     };
     setBusy(true);
     setError(null);
@@ -240,6 +272,69 @@ export function LoyaltyManager({
               />
               <span>{t('loyalty.program.notifyEarned')}</span>
             </label>
+            <fieldset className="flex flex-col gap-3" data-loyalty-tiers>
+              <legend className="ui-heading">{t('loyalty.tiers.title')}</legend>
+              <p className="ui-caption">{t('loyalty.tiers.help')}</p>
+              {draft.tiers.map((tier, i) => (
+                <div key={i} className="grid items-end gap-3 md:grid-cols-4" data-loyalty-tier={i}>
+                  <TextField
+                    label={t('loyalty.tiers.name')}
+                    value={tier.name}
+                    maxLength={30}
+                    disabled={!canManage || !isPro}
+                    onChange={(e) =>
+                      set({ tiers: draft.tiers.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)) })
+                    }
+                  />
+                  <TextField
+                    label={t('loyalty.tiers.minSpend', { currency: data?.program.currency ?? '' })}
+                    inputMode="decimal"
+                    value={tier.minSpend}
+                    disabled={!canManage || !isPro}
+                    onChange={(e) =>
+                      set({ tiers: draft.tiers.map((x, j) => (j === i ? { ...x, minSpend: e.target.value } : x)) })
+                    }
+                  />
+                  <TextField
+                    label={t('loyalty.tiers.multiplier')}
+                    type="number"
+                    inputMode="numeric"
+                    min={LOYALTY_TIER_MULTIPLIER.min}
+                    max={LOYALTY_TIER_MULTIPLIER.max}
+                    value={tier.multiplierPct}
+                    disabled={!canManage || !isPro}
+                    onChange={(e) =>
+                      set({
+                        tiers: draft.tiers.map((x, j) => (j === i ? { ...x, multiplierPct: e.target.value } : x)),
+                      })
+                    }
+                  />
+                  {canManage && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      tone="muted"
+                      disabled={!isPro}
+                      onClick={() => set({ tiers: draft.tiers.filter((_, j) => j !== i) })}
+                    >
+                      {t('loyalty.tiers.remove')}
+                    </Button>
+                  )}
+                </div>
+              ))}
+              {canManage && draft.tiers.length < LOYALTY_TIERS_MAX && (
+                <div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!isPro}
+                    onClick={() => set({ tiers: [...draft.tiers, { name: '', minSpend: '', multiplierPct: '150' }] })}
+                  >
+                    {t('loyalty.tiers.add')}
+                  </Button>
+                </div>
+              )}
+            </fieldset>
             {canManage && (
               <div>
                 <Button type="submit" disabled={busy || !isPro}>

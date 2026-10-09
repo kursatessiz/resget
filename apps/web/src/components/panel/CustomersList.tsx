@@ -201,6 +201,7 @@ export function CustomersList({
                     ? t('customers.firstChannel', { channel: t(`orders.channel.${customer.firstChannel}`) })
                     : t('customers.prospect')}
                   . {t('loyalty.customer.points', { points: loyalty[customer.id]?.points ?? customer.loyaltyPoints })}
+                  {customer.loyaltyTier && `. ${t('loyalty.tiers.label', { tier: customer.loyaltyTier })}`}
                 </p>
                 {open === customer.id && (
                   <div className="flex flex-col gap-3">

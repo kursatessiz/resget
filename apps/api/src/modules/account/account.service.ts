@@ -69,13 +69,14 @@ export class AccountService {
 
   /** What the storefront prefills for a signed-in visitor. */
   async viewer(userId: string, restaurantId: string | null = null): Promise<StorefrontViewerDTO> {
-    const [user, addresses, loyaltyPoints, walletCards] = await Promise.all([
+    const [user, addresses, loyaltyPoints, loyaltyTier, walletCards] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { fullName: true, phone: true } }),
       this.addresses(userId),
       restaurantId ? this.loyalty.balanceOf(restaurantId, userId) : Promise.resolve(null),
+      restaurantId ? this.loyalty.tierOf(restaurantId, userId) : Promise.resolve(null),
       restaurantId ? this.wallets.usableCardsAt(userId, restaurantId) : Promise.resolve([]),
     ]);
-    return { fullName: user.fullName, phone: user.phone, addresses, loyaltyPoints, walletCards };
+    return { fullName: user.fullName, phone: user.phone, addresses, loyaltyPoints, loyaltyTier, walletCards };
   }
 
   async updateProfile(userId: string, input: UpdateProfileInput): Promise<CustomerAccountDTO> {

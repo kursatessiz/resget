@@ -82,6 +82,8 @@ export interface StorefrontViewerDTO {
   addresses: CustomerAddressDTO[];
   /** Balance at the restaurant the storefront asked about; null when none was asked or there is no program. */
   loyaltyPoints: number | null;
+  /** The visitor's loyalty tier there (name and earn multiplier); null without tiers or below the first. */
+  loyaltyTier: { name: string; earnMultiplierPct: number } | null;
   /** The customer's wallet cards this restaurant accepts (docs/CUZDAN.md); empty when none was asked. */
   walletCards: SavedPaymentMethodDTO[];
 }

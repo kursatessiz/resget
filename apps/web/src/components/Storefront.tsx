@@ -13,8 +13,8 @@ import {
   CHECKOUT_CONSENT_CHANNELS,
   couponDiscountMinor,
   customerDeliveryFee,
-  pointsEarnedFor,
   redeemableFor,
+  tieredPointsEarned,
   formatMoney,
 } from '@resget/shared';
 import type { Allergen, OrderSource } from '@resget/shared';
@@ -285,7 +285,10 @@ export function Storefront({
   // Coupon (docs/KUPONLAR.md): a preview with the shared arithmetic; never combined with points.
   const couponDiscount = coupon && subtotal >= coupon.minBasketMinor ? couponDiscountMinor(coupon, subtotal) : 0;
   const discount = pointsDiscount + couponDiscount;
-  const pointsToEarn = loyalty ? pointsEarnedFor(loyalty, subtotal - discount) : 0;
+  const loyaltyTier = viewer?.loyaltyTier ?? null;
+  const pointsToEarn = loyalty
+    ? tieredPointsEarned(loyalty, subtotal - discount, loyaltyTier?.earnMultiplierPct ?? 100)
+    : 0;
 
   const applyCoupon = async () => {
     setCouponError(null);
@@ -763,6 +766,11 @@ export function Storefront({
           <div className="flex flex-col gap-2" data-loyalty>
             {points === null && <p className="ui-caption">{t('loyalty.shop.signInHint')}</p>}
             {points !== null && <p className="ui-caption">{t('loyalty.shop.balance', { points })}</p>}
+            {loyaltyTier && (
+              <p className="ui-caption" data-loyalty-tier>
+                {t('loyalty.tiers.yours', { tier: loyaltyTier.name, pct: loyaltyTier.earnMultiplierPct })}
+              </p>
+            )}
             {points !== null && redemption.points > 0 && !coupon && (
               <label className="flex items-center gap-2">
                 <input
