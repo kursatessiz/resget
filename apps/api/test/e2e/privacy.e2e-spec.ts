@@ -148,8 +148,8 @@ describe('Personal data rights (e2e)', () => {
     expect(await ctx.prisma.customerAddress.count({ where: { userId: user.id } })).toBe(0);
     const after = await ctx.prisma.restaurantCustomer.findUniqueOrThrow({ where: { id: customer.id } });
     expect(after).toMatchObject({ marketingOptIn: false, marketingToken: null, note: null, loyaltyPoints: 0 });
-    // Both orders still count in the restaurant's figures.
-    expect(after.orderCount).toBe(2);
+    // The completed order still counts in the restaurant's figures; the rejected one never does.
+    expect(after.orderCount).toBe(1);
     const adjustment = await ctx.prisma.loyaltyTransaction.findFirstOrThrow({
       where: { customerId: customer.id, type: 'ADJUSTMENT' },
     });

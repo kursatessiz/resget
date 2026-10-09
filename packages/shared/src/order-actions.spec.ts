@@ -11,6 +11,12 @@ describe('order actions', () => {
     ]);
   });
 
+  it('lets the restaurant call off an order still waiting for its payment, with a reason', () => {
+    expect(orderActionsFor(order('PENDING_PAYMENT'))).toEqual([
+      { to: 'CANCELLED_BY_RESTAURANT', labelKey: 'orders.cancel', tone: 'error', needsReason: true },
+    ]);
+  });
+
   it('ends a ready order by its fulfilment and leaves orders on a trip alone', () => {
     expect(orderActionsFor(order('READY', 'PICKUP')).map((a) => a.to)).toEqual(['PICKED_UP']);
     expect(orderActionsFor(order('READY', 'DINE_IN')).map((a) => a.to)).toEqual(['DELIVERED']);

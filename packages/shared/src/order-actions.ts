@@ -34,6 +34,8 @@ export function orderActionsFor(
     needsReason: true,
   };
   switch (order.status) {
+    case 'PENDING_PAYMENT':
+      return [cancel];
     case 'PLACED':
       return [
         { to: 'ACCEPTED', labelKey: 'orders.accept', needsPrep: true },
