@@ -293,6 +293,86 @@ describe('Meal cards, checkout, webhooks and collection at the door (e2e)', () =
     expect((await getOrder(created.body.id)).status).toBe('PLACED');
   });
 
+  it('a webhook settles only the payment of its own kind and never moves a captured payment back to failed', async () => {
+    const created = await createOrder({ method: 'ONLINE_CARD' });
+    expect(created.body.status).toBe('PENDING_PAYMENT');
+    const orderId = created.body.id as string;
+    const event = (status: string, providerRef: string) =>
+      JSON.stringify({
+        providerRef,
+        orderRef: orderId,
+        status,
+        amountMinor: created.body.chargedToCustomerMinor,
+        currency: 'TRY',
+        pspFeeMinor: null,
+        occurredAt: new Date().toISOString(),
+      });
+    // The meal card connection's own secret is valid, but this order is paid by the restaurant POS.
+    const mealCard = await ctx.prisma.mealCardConnection.findUniqueOrThrow({
+      where: { restaurantId_providerCode: { restaurantId, providerCode: 'MOCK' } },
+    });
+    const wrongKind = event('CAPTURED', 'issuer-tx-cross');
+    const ignored = await ctx
+      .http()
+      .post(`/webhooks/payments/meal-cards/${mealCard.id}`)
+      .set('content-type', 'application/json')
+      .set('x-mock-signature', sign('issuer-secret', wrongKind))
+      .send(wrongKind)
+      .expect(200);
+    expect(ignored.body.status).toBe('IGNORED');
+    expect((await getOrder(orderId)).status).toBe('PENDING_PAYMENT');
+
+    const pos = await ctx.prisma.paymentProviderConnection.findUniqueOrThrow({ where: { restaurantId } });
+    const captured = event('CAPTURED', 'pos-tx-2');
+    await ctx
+      .http()
+      .post(`/webhooks/payments/pos/${pos.id}`)
+      .set('content-type', 'application/json')
+      .set('x-mock-signature', sign('merchant-77', captured))
+      .send(captured)
+      .expect(200);
+    // A late FAILED for an earlier attempt arrives after the capture.
+    const failed = event('FAILED', 'pos-tx-1-late');
+    const late = await ctx
+      .http()
+      .post(`/webhooks/payments/pos/${pos.id}`)
+      .set('content-type', 'application/json')
+      .set('x-mock-signature', sign('merchant-77', failed))
+      .send(failed)
+      .expect(200);
+    expect(late.body.status).toBe('IGNORED');
+    const order = await getOrder(orderId);
+    expect(order.status).toBe('PLACED');
+    expect(order.payment).toMatchObject({ status: 'CAPTURED', dueMinor: 0 });
+  });
+
+  it('an order without a payment intent settles like OWN_POS in a PLATFORM_PSP restaurant', async () => {
+    await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { paymentMode: 'PLATFORM_PSP' } });
+    try {
+      const created = await ctx
+        .http()
+        .post(`/restaurants/${restaurantId}/orders`)
+        .set(bearer(ownerToken))
+        .send({
+          branchId,
+          channel: 'RESTAURANT_SITE',
+          fulfillment: 'DELIVERY',
+          items: [{ menuItemId: kofteId, quantity: 1 }],
+          address,
+          deliveryFeeMinor: 1000,
+          note: NOTE,
+        })
+        .expect(201);
+      const row = await ctx.prisma.order.findUniqueOrThrow({ where: { id: created.body.id } });
+      // The platform collected nothing, so it owes no payout: commission and VAT go on the month-end invoice.
+      expect(row.paymentMode).toBe('OWN_POS');
+      expect(row.pspFeeMinor).toBe(0);
+      expect(row.platformReceivableMinor).toBeGreaterThan(0);
+    } finally {
+      await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { paymentMode: 'OWN_POS' } });
+    }
+  });
+
   it('the courier records a meal card taken at the door for a stop of their own trip', async () => {
     const created = await createOrder({ method: 'MEAL_CARD', providerCode: 'MULTINET', atDoor: true });
     expect(created.body.status).toBe('PLACED');

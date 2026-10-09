@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PaymentConnectionStatus } from '@resget/database';
+import { PaymentConnectionStatus, Prisma } from '@resget/database';
 import { isPaidBeforePlacement, isTerminalOrderStatus, paymentWebhookUrl } from '@resget/shared';
 import type {
   CheckoutSessionDTO,
@@ -310,24 +310,30 @@ export class CheckoutService {
     let event: GatewayWebhookEvent;
     // Known from the connection; the platform's merchant serves every restaurant, so its payments name their own.
     let restaurantId: string | null;
+    // Which payments this connection may move: a restaurant's POS or issuer account never touches money the
+    // platform collects, and the platform merchant never touches a restaurant's own POS payment.
+    let scope: Prisma.PaymentWhereInput;
     try {
       if (kind === 'platform') {
         // Only the merchant the environment configures; production refuses MOCK there (apps/api/src/config/env.ts).
         const gateway = connectionId === this.platformProviderCode() ? this.payments.gateway(connectionId) : null;
         if (!gateway) throw new Error('Unknown platform provider');
         restaurantId = null;
+        scope = { paymentMode: 'PLATFORM_PSP', method: 'ONLINE_CARD' };
         event = await gateway.parseWebhook(this.payments.platformCredentials(connectionId), rawBody, headers, query);
       } else if (kind === 'meal-cards') {
         const connection = await this.mealCards.onlineCredentials(connectionId);
         const adapter = connection ? this.issuers.get(connection.providerCode) : null;
         if (!connection || !adapter) throw new Error('Unknown connection');
         restaurantId = connection.restaurantId;
+        scope = { restaurantId, method: 'MEAL_CARD', provider: connection.providerCode };
         event = await adapter.parseWebhook(connection.credentials, rawBody, headers);
       } else {
         const pos = await this.prisma.paymentProviderConnection.findUnique({ where: { id: connectionId } });
         const gateway = pos ? this.payments.gateway(pos.providerCode) : null;
         if (!pos || !gateway) throw new Error('Unknown connection');
         restaurantId = pos.restaurantId;
+        scope = { restaurantId, paymentMode: 'OWN_POS', method: 'ONLINE_CARD' };
         event = await gateway.parseWebhook(
           this.payments.cipher.decryptJson(pos.encryptedCredentials),
           rawBody,
@@ -356,13 +362,16 @@ export class CheckoutService {
     }
 
     const payment = await this.prisma.payment.findFirst({
-      where: restaurantId
-        ? { orderId: event.orderRef, restaurantId }
-        : { orderId: event.orderRef, paymentMode: 'PLATFORM_PSP', method: 'ONLINE_CARD' },
+      where: { orderId: event.orderRef, ...scope },
       orderBy: { createdAt: 'desc' },
     });
     if (!payment) return reply('IGNORED');
     if (payment.status === 'CAPTURED' && event.status === 'CAPTURED') return reply('CAPTURED');
+    // Notices may arrive out of order: a failed first attempt or an abandoned second session never undoes a
+    // capture, and a repeated success never undoes part of a refund.
+    if (event.status === 'FAILED' && payment.status !== 'PENDING' && payment.status !== 'FAILED')
+      return reply('IGNORED');
+    if (event.status === 'CAPTURED' && payment.status === 'PARTIALLY_REFUNDED') return reply('IGNORED');
     // A late capture notice never undoes a refund that already happened.
     if (payment.status === 'REFUNDED' && event.status !== 'REFUNDED') return reply('IGNORED');
     // After a chargeback the money is gone; later notices change nothing (a reversal is an ADJUSTMENT by the platform).
@@ -403,8 +412,9 @@ export class CheckoutService {
 
     const refundedNow = event.status === 'REFUNDED' && payment.status !== 'REFUNDED';
     const leftFrom = await this.prisma.$transaction(async (tx) => {
-      await tx.payment.update({
-        where: { id: payment.id },
+      // Compare and swap on the status read above: two notices racing apply once.
+      const swapped = await tx.payment.updateMany({
+        where: { id: payment.id, status: payment.status },
         data: {
           status: event.status === 'CHARGEBACK' ? 'CHARGED_BACK' : event.status,
           // A refund notice keeps the capture reference; a refund started on the platform already stored its own.
@@ -416,6 +426,7 @@ export class CheckoutService {
             : {}),
         },
       });
+      if (swapped.count === 0) return null;
       if (event.status === 'CAPTURED') {
         const order = await this.orders.loadRow(tx, payment.orderId);
         if (order.status === 'PENDING_PAYMENT') {

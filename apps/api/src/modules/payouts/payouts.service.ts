@@ -99,18 +99,21 @@ export class PayoutsService {
       if (!restaurant) continue;
       const schedule = await this.effectiveSchedule(restaurant, group.currency);
       const period = schedule.cadence === 'DAILY' ? day : week;
-      const exists = await this.prisma.payout.findFirst({
-        where: {
-          restaurantId: restaurant.id,
-          periodStart: period.periodStart,
-          currency: group.currency,
-          cadence: schedule.cadence,
-        },
-        select: { id: true },
-      });
-      if (exists) continue;
-      const payout = await this.prisma.$transaction((tx) =>
-        this.createPayout(tx, {
+      const payout = await this.prisma.$transaction(async (tx) => {
+        // Every writer of payout lines locks the restaurant row, so a roll and an instant payout never pay a line
+        // twice, and two overlapping rolls cannot both open the period.
+        await tx.$queryRaw`SELECT id FROM restaurants WHERE id = ${restaurant.id} FOR UPDATE`;
+        const exists = await tx.payout.findFirst({
+          where: {
+            restaurantId: restaurant.id,
+            periodStart: period.periodStart,
+            currency: group.currency,
+            cadence: schedule.cadence,
+          },
+          select: { id: true },
+        });
+        if (exists) return null;
+        return this.createPayout(tx, {
           restaurantId: restaurant.id,
           currency: group.currency,
           cadence: schedule.cadence,
@@ -118,8 +121,8 @@ export class PayoutsService {
           periodEnd: period.periodEnd,
           scheduledFor: addBusinessDays(period.periodEnd, schedule.settleBusinessDays),
           fee: schedule.fee,
-        }),
-      );
+        });
+      });
       if (!payout) continue;
       created += 1;
       totals.set(group.currency, (totals.get(group.currency) ?? 0) + payout.amountMinor);
@@ -219,7 +222,6 @@ export class PayoutsService {
         periodEnd: now,
         scheduledFor: addBusinessDays(now, option.settleBusinessDays),
         fee: { option, hasFast },
-        requirePositiveNet: true,
       });
       if (!created) throw conflict('PAYOUT_NOTHING_DUE', 'Nothing to pay out after the fee');
       await tx.auditLog.create({
@@ -336,7 +338,9 @@ export class PayoutsService {
 
   /**
    * One payout from the unassigned payable lines before the period end, with its fee taken as a PAYOUT_FEE line.
-   * Null when there is nothing to pay (or, when asked, nothing left after the fee).
+   * Null when there is nothing to pay or nothing left after the fee: a week of refunds pays nothing and its lines
+   * carry into the next period, netting against later money (docs/MUTABAKAT.md). The caller holds the restaurant
+   * row lock.
    */
   private async createPayout(
     tx: Prisma.TransactionClient,
@@ -348,15 +352,16 @@ export class PayoutsService {
       periodEnd: Date;
       scheduledFor: Date;
       fee: FeeContext | null;
-      requirePositiveNet?: boolean;
     },
   ): Promise<{ id: string; amountMinor: number; feeMinor: number } | null> {
-    const where = this.unassignedWhere(input.restaurantId, input.currency, input.periodEnd);
-    const sum = await tx.ledgerEntry.aggregate({ where, _sum: { amountMinor: true }, _count: { _all: true } });
-    if (sum._count._all === 0) return null;
-    const grossMinor = sum._sum.amountMinor ?? 0;
+    const lines = await tx.ledgerEntry.findMany({
+      where: this.unassignedWhere(input.restaurantId, input.currency, input.periodEnd),
+      select: { id: true, amountMinor: true },
+    });
+    if (lines.length === 0) return null;
+    const grossMinor = lines.reduce((total, line) => total + line.amountMinor, 0);
     const feeMinor = input.fee ? payoutFee(grossMinor, input.fee.option, input.fee.hasFast) : 0;
-    if (input.requirePositiveNet && grossMinor - feeMinor <= 0) return null;
+    if (grossMinor - feeMinor <= 0) return null;
     const payout = await tx.payout.create({
       data: {
         restaurantId: input.restaurantId,
@@ -370,7 +375,13 @@ export class PayoutsService {
       },
       select: { id: true },
     });
-    await tx.ledgerEntry.updateMany({ where, data: { payoutId: payout.id } });
+    const ids = lines.map((line) => line.id);
+    const assigned = await tx.ledgerEntry.updateMany({
+      where: { id: { in: ids }, payoutId: null, invoiceId: null },
+      data: { payoutId: payout.id },
+    });
+    // The payout amount is the sum of exactly these lines; a line taken elsewhere meanwhile rolls the payout back.
+    if (assigned.count !== ids.length) throw conflict('PAYOUT_CONFLICT', 'Payout lines changed while paying out');
     if (feeMinor > 0) {
       await tx.ledgerEntry.create({
         data: {

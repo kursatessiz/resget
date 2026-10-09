@@ -204,16 +204,18 @@ export interface MealCardSettingsDTO {
 
 /**
  * Which settlement mode an order follows. Only an online card payment can
- * be collected by the platform's PSP; cash, card at the door and every
- * meal card are collected by the restaurant itself, so they settle like
- * OWN_POS (commission invoiced, no PSP fee or withholding at the platform)
- * even for a PLATFORM_PSP restaurant.
+ * be collected by the platform's PSP; cash, card at the door, every meal
+ * card and an order with no payment intent at all (entered by staff, paid
+ * outside the platform) are collected by the restaurant itself, so they
+ * settle like OWN_POS (commission invoiced, no PSP fee or withholding at the
+ * platform) even for a PLATFORM_PSP restaurant. The platform never pays out
+ * money it did not collect.
  */
 export function effectivePaymentModeFor(
   method: PaymentMethodValue | null | undefined,
   restaurantMode: PaymentModeValue,
 ): PaymentModeValue {
-  if (method === 'ONLINE_CARD' || method === null || method === undefined) return restaurantMode;
+  if (method === 'ONLINE_CARD') return restaurantMode;
   return PaymentMode.OWN_POS;
 }
 

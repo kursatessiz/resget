@@ -42,6 +42,7 @@ Restoran haftalık veya günlük takvimi seçer (`PUT /restaurants/:id/finance/p
   - Günlük takvimdeki restoranlar için kapanan günü toplar.
   - Her ikisi restoran, dönem ve para birimi başına bir kez çalışır (idempotent).
 - **Anında**: restoran satırı kilitlenir (`SELECT ... FOR UPDATE`). Atanmamış bütün ödenecek satırlar o an toplanır, böylece aynı anda gelen iki istek aynı satırı iki kez ödeyemez.
+- **Kilit ve sıfır/eksi tutar**: günlük iş de restoran satırını aynı şekilde kilitler ve dönem için hakediş açılmış mı kilit altında yeniden bakar. Ücret düşüldükten sonra tutar sıfır veya eksiyse (örneğin yalnızca iade içeren gün veya hafta) hakediş açılmaz; satırlar sonraki döneme devreder (`docs/MUTABAKAT.md`).
 - **Ücret satırı**: ücret, hakedişe `PAYOUT_FEE` defter satırı olarak eksi işaretle bağlanır. Hakediş tutarı satırların toplamından ücret düşülmüş haldir. Plan ücretsizse veya ücret sıfırsa satır yazılmaz.
 
 ## Fatura

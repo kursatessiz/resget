@@ -83,7 +83,13 @@ describe('Ledger and payouts (e2e)', () => {
       .set(bearer(ownerToken))
       .send({ paymentMode: 'PLATFORM_PSP' })
       .expect(200);
-    const platform = await staffOrder();
+    // Money the platform collected online; a staff order without a payment settles like OWN_POS (docs/MUTABAKAT.md).
+    const platform = await staffOrder({ method: 'ONLINE_CARD' });
+    await ctx.prisma.payment.updateMany({
+      where: { orderId: platform.id },
+      data: { status: 'CAPTURED', providerRef: `psp-ledger-${platform.id}`, capturedAt: new Date() },
+    });
+    await ctx.prisma.order.update({ where: { id: platform.id }, data: { status: 'PLACED' } });
     const snapshot = await ctx.prisma.order.findUniqueOrThrow({
       where: { id: platform.id },
       select: { paymentMode: true, restaurantPayableMinor: true },
@@ -181,5 +187,60 @@ describe('Ledger and payouts (e2e)', () => {
       .send({ reason: 'late' })
       .expect(409);
     await ctx.http().get('/admin/payouts').set(bearer(ownerToken)).expect(403);
+  });
+  it('pays nothing for a week of refunds and nets the lines against the next money', async () => {
+    // A currency of its own keeps lines from parallel suites out of this restaurant's sums.
+    const currency = 'XTS';
+    const lineIds: string[] = [];
+    try {
+      const refund = await ctx.prisma.ledgerEntry.create({
+        data: {
+          restaurantId,
+          type: 'REFUND',
+          amountMinor: -5000,
+          currency,
+          occurredAt: new Date(),
+          memo: 'e2e refund week',
+        },
+      });
+      lineIds.push(refund.id);
+      const asOf = new Date();
+      asOf.setUTCDate(asOf.getUTCDate() + 7);
+      await ctx
+        .http()
+        .post('/admin/payouts/run')
+        .set(bearer(adminToken))
+        .send({ asOf: asOf.toISOString() })
+        .expect(200);
+      expect(await ctx.prisma.payout.count({ where: { restaurantId, currency } })).toBe(0);
+      expect((await ctx.prisma.ledgerEntry.findUniqueOrThrow({ where: { id: refund.id } })).payoutId).toBeNull();
+
+      const payable = await ctx.prisma.ledgerEntry.create({
+        data: {
+          restaurantId,
+          type: 'RESTAURANT_PAYABLE',
+          amountMinor: 8000,
+          currency,
+          occurredAt: new Date(),
+          memo: 'e2e next money',
+        },
+      });
+      lineIds.push(payable.id);
+      await ctx
+        .http()
+        .post('/admin/payouts/run')
+        .set(bearer(adminToken))
+        .send({ asOf: asOf.toISOString() })
+        .expect(200);
+      const payouts = await ctx.prisma.payout.findMany({ where: { restaurantId, currency } });
+      expect(payouts).toHaveLength(1);
+      payoutIds.push(payouts[0].id);
+      expect(payouts[0].amountMinor).toBe(3000);
+      const assigned = await ctx.prisma.ledgerEntry.count({ where: { id: { in: lineIds }, payoutId: payouts[0].id } });
+      expect(assigned).toBe(2);
+    } finally {
+      await ctx.prisma.ledgerEntry.deleteMany({ where: { id: { in: lineIds } } });
+      await ctx.prisma.payout.deleteMany({ where: { restaurantId, currency } });
+    }
   });
 });

@@ -15,6 +15,7 @@ import {
 export type ApiErrorCode =
   | 'PAYOUT_NOT_FOUND'
   | 'PAYOUT_STATE_INVALID'
+  | 'PAYOUT_CONFLICT'
   | 'ADDRESS_NOT_FOUND'
   | 'LISTING_NOT_READY'
   | 'ALREADY_LISTED'
