@@ -73,6 +73,16 @@ Metinler i18n anahtarlarıdır (`email.template.<anahtar>.subject|body`, `email.
 - **Abonelik onayı:** imzalı `SubscribeURL` yalnızca SNS host'undaysa çağrılır.
 - **İşleme:** `Bounce` (yalnızca `Permanent`) genel bastırmaya, `Complaint` mesajı gönderen kiracıya yazılır. Kiracı, sağlayıcı mesaj kimliğinden (`message_logs.providerRef`) bulunur.
 
+## Açılma ve tıklama ölçümü (`email_tracking`, varsayılan kapalı)
+
+Sahibin kararı (9 Ekim 2026). Yalnızca kampanya e-postaları ölçülür; işlemsel e-postalar ve deneme e-postası hiçbir zaman ölçülmez. Modül kapalıyken e-posta eskisi gibi gider. Ölçüm sağlayıcıdan bağımsızdır (SES olayları gerekmez).
+
+- **Alıcı belirteci:** ölçülen her gönderimde kampanya alıcısına tahmin edilemez bir belirteç verilir (`campaign_recipients.trackingToken`, 24 rastgele bayt). Bağlantılar yalnızca bu belirteci taşır; müşteri kimliği, adres veya telefon taşımaz.
+- **Açılma:** HTML gövdenin sonuna 1x1 görünmez görsel eklenir (`GET <PUBLIC_API_URL>/public/email/o/<belirteç>`). İlk açılma zamanı (`openedAt`) ve açılma sayısı (`openCount`) yazılır. Yanıt her durumda aynı görseldir; bilinmeyen belirteç ayırt edilmez. Bazı posta istemcileri görselleri kendiliğinden yükler (örneğin Apple Mail gizlilik koruması); açılma oranı bu yüzden yüksek çıkabilir, tıklama daha güvenilir ölçüdür.
+- **Tıklama:** kampanya metnindeki `http` ve `https` bağlantıları HTML gövdede ölçülen bağlantıya çevrilir (`GET <PUBLIC_API_URL>/public/email/c/<belirteç>/<sıra>`). Uç, alıcının aldığı metni (A veya B) kayıttan okur, bağlantıyı sırasıyla bulur ve oraya 302 ile yönlendirir; hedef hiçbir zaman istekten alınmaz, bu yüzden açık yönlendirme yoktur. Bilinmeyen belirteç veya sıra platformun ana sayfasına yönlenir. İlk tıklama zamanı (`clickedAt`) ve tıklama sayısı (`clickCount`) yazılır; açılmamış görünen alıcıda tıklama açılmayı da yazar. Düz metin bölüm ve abonelikten çıkma bağlantısı değişmez.
+- **Kişisel veri:** IP adresi, tarayıcı bilgisi veya konum saklanmaz; yalnızca alıcı satırında zaman ve sayılar tutulur. Uçlar istemci başına oran sınırlıdır.
+- **Sonuçlar:** e-posta kampanyasının sonuçlarında metin başına benzersiz açılma ve tıklama ile gönderilen mesaj başına oranları (baz puan) görünür (`docs/KAMPANYALAR.md`).
+
 ## Uçlar
 
 | Uç | İzin |
@@ -82,6 +92,7 @@ Metinler i18n anahtarlarıdır (`email.template.<anahtar>.subject|body`, `email.
 | `POST .../email/suppressions`, `DELETE .../suppressions/:id` | `integrations.manage` |
 | `POST .../email/test` (`to`) | `integrations.manage` |
 | `POST /webhooks/email/ses` | imzalı SNS, istemci başına dakikada 600 |
+| `GET /public/email/o/:token`, `GET /public/email/c/:token/:index` | herkese açık, istemci başına 10 dakikada 600 |
 
 Restoran uçları `email_channel` anahtarını ister.
 
@@ -100,7 +111,7 @@ Entegrasyon sayfasında "E-posta gönderici" kartı yer alır:
 
 ## Sonraki adımlar
 
-- Açılma ve tıklama ölçümü. E-posta kampanyaları kampanyalar v2 ile geldi (`docs/KAMPANYALAR.md`, `email.template.campaign`, tek tık çıkış adresi `/api/iptal/<token>`).
+- E-posta kampanyaları kampanyalar v2 ile geldi (`docs/KAMPANYALAR.md`, `email.template.campaign`, tek tık çıkış adresi `/api/iptal/<token>`).
 - E-posta ile çift onay.
 - Özel MAIL FROM alt alan adı.
 - Konsolda genel geri dönme listesi.

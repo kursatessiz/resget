@@ -59,6 +59,9 @@ export const trFeatures = {
   'features.email_channel.name': 'E-posta kanalı',
   'features.email_channel.description':
     'Kendi alan adından e-posta (SPF, DKIM, DMARC denetimi), geri dönen ve şikayet eden adreslerin bastırılması, deneme gönderimi.',
+  'features.email_tracking.name': 'E-posta açılma ve tıklama ölçümü',
+  'features.email_tracking.description':
+    'Kampanya e-postalarında görünmez görselle açılma, platformdan geçen bağlantıyla tıklama; IP ve tarayıcı saklanmaz.',
   'features.segments_v2.name': 'Segmentler v2',
   'features.segments_v2.description':
     'VE / VEYA kural diliyle kayıtlı segmentler, dinamik ve statik segment, kanal başına ulaşılabilirlik önizlemesi, kampanyada hedef segment.',
