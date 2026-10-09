@@ -46,4 +46,11 @@ export const enTips: Record<keyof typeof trTips, string> = {
   'tips.report.empty': 'No tips in this period.',
   'tips.report.retry': 'Retry',
   'tips.report.retried': 'The tip was sent to the network.',
+  'tips.report.refund': 'Refund',
+  'tips.report.refundReason': 'Reason for the refund',
+  'tips.report.refundWarning':
+    'The whole tip goes back to the customer. What was already paid to the courier or the courier network is not taken back; your business bears it.',
+  'tips.report.refundConfirm': 'Confirm refund',
+  'tips.report.refunded': 'The tip was refunded to the customer.',
+  'tips.report.refundedWith': 'Refund reason: {reason}',
 } as const satisfies Record<string, string>;

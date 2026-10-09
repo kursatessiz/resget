@@ -354,4 +354,59 @@ describe('Courier tips (e2e)', () => {
       .body as TipsReportDTO;
     expect(report.networks[0].failedPassThrough).toBe(0);
   });
+
+  it('refunds a collected tip from the panel once, through the account that took it', async () => {
+    await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { paymentMode: 'PLATFORM_PSP' } });
+    const refundTip = (tipId: string, body: Record<string, unknown>, auth = owner()) =>
+      ctx.http().post(`/restaurants/${restaurantId}/tips/${tipId}/refund`).set(auth).send(body);
+
+    // A provider that refuses: the tip stays collected and the reason comes back.
+    const declined = await deliveredOrder('Bahsis Iade Ret', 'OWN');
+    const declinedTip = (await startTip(declined.token, 2000)).body as TipStartedDTO;
+    await platformNotice({
+      providerRef: 'refund-decline-tip',
+      orderRef: declinedTip.tipId,
+      status: 'CAPTURED',
+      amountMinor: 2000,
+    });
+    const refused = await refundTip(declinedTip.tipId, { reason: 'wrong amount' }).expect(409);
+    expect(refused.body.code).toBe('TIP_REFUND_DECLINED');
+    expect((await ctx.prisma.courierTip.findUniqueOrThrow({ where: { id: declinedTip.tipId } })).status).toBe(
+      'CAPTURED',
+    );
+
+    const order = await deliveredOrder('Bahsis Iade', 'OWN');
+    const started = (await startTip(order.token, 2500)).body as TipStartedDTO;
+    await platformNotice({
+      providerRef: 'tip-r-1',
+      orderRef: started.tipId,
+      status: 'CAPTURED',
+      amountMinor: 2500,
+      pspFeeMinor: 100,
+    });
+    // A courier cannot give money back, and a reason is required.
+    await refundTip(started.tipId, { reason: 'x' }, bearer(await ctx.login(COURIER_PHONE))).expect(403);
+    await refundTip(started.tipId, { reason: ' ' }).expect(400);
+
+    const refunded = (await refundTip(started.tipId, { reason: 'customer asked' }).expect(200)).body as TipDTO;
+    expect(refunded).toMatchObject({ status: 'REFUNDED', refundReason: 'customer asked' });
+    expect((await tracking(order.token)).tip?.status).toBe('REFUNDED');
+    const again = await refundTip(started.tipId, { reason: 'twice' }).expect(409);
+    expect(again.body.code).toBe('TIP_REFUND_NOT_ALLOWED');
+    // The provider's own notice afterwards changes nothing; one reversal line, the fee stays with the provider.
+    await platformNotice({ providerRef: 'tip-r-1', orderRef: started.tipId, status: 'REFUNDED', amountMinor: 2500 });
+    const lines = await ctx.prisma.ledgerEntry.findMany({
+      where: { orderId: order.id },
+      orderBy: [{ occurredAt: 'asc' }, { amountMinor: 'desc' }],
+    });
+    expect(lines.map((l) => [l.type, l.amountMinor])).toEqual([
+      ['COURIER_TIP', 2500],
+      ['COURIER_TIP_FEE', -100],
+      ['COURIER_TIP', -2500],
+    ]);
+    const row = await ctx.prisma.courierTip.findUniqueOrThrow({ where: { id: started.tipId } });
+    expect(row.refundRequestedAt).toBeNull();
+    expect(row.refundedByUserId).not.toBeNull();
+    expect(await ctx.prisma.auditLog.count({ where: { action: 'tip.refunded', entityId: started.tipId } })).toBe(1);
+  });
 });

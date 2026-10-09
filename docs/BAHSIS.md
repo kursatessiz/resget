@@ -56,7 +56,8 @@ Bahşiş kuryenindir. Platform onu taşımaz ve kendine pay ayırmaz. Parayı he
 
 - **Ağa aktarım**: sonucu bahşiş satırında tutulur (`passThroughStatus`: `SENT`, `FAILED`). Başarısız aktarım panelden yeniden denenebilir (`POST /restaurants/:id/tips/:tipId/pass-through`, `courier.manage`).
 - **İade ve chargeback**: bunların bedelini restoran taşır (`docs/MUTABAKAT.md`, "İade ve chargeback"). `PLATFORM_PSP`'de bildirim gelince deftere brüt tutar kadar eksi `COURIER_TIP` satırı yazılır. PSP kesintisi geri gelmez.
-- **İade başlatma**: bu sürümde bahşiş panelden iade edilemez. İade, sağlayıcının panelinden yapılır ve bildirimi yukarıdaki gibi işlenir.
+- **Panelden iade** (sahibin kararı, 9 Ekim 2026): tahsil edilmiş (`CAPTURED`) bahşiş `/kurye` ekranındaki "Son bahşişler" listesinden gerekçeyle iade edilebilir (`POST /restaurants/:id/tips/:tipId/refund`, `orders.refund` izni). İade her zaman tutarın tamamıdır ve bahşişi tahsil eden bağlantı üzerinden yapılır: `OWN_POS`'ta restoranın POS'u, `PLATFORM_PSP`'de platformun hesabı. Aynı anda iki iade başlatılamaz (`refundRequestedAt` talebi; `REFUND_IN_PROGRESS`). Sağlayıcı kabul edince bahşiş `REFUNDED` olur; gerekçe, işlemi yapan kişi ve sağlayıcının iade referansı bahşiş satırında, ayrıca denetim kaydında tutulur. `PLATFORM_PSP`'de deftere brüt tutar kadar eksi `COURIER_TIP` satırı yazılır; PSP kesintisi geri gelmez. Sağlayıcı reddederse veya yanıt vermezse bahşiş `CAPTURED` kalır ve hata kodu döner (`REFUND_DECLINED`, `REFUND_PROVIDER_ERROR`, bağlantı yoksa `REFUND_UNAVAILABLE`). Kuryeye veya kurye ağına aktarılmış tutar platform tarafından geri alınmaz; bedeli restoran taşır ve ekran iade onayında bunu söyler. Sonradan gelen sağlayıcı iade bildirimi etkisizdir.
+- **Sağlayıcı panelinden iade**: sağlayıcının kendi panelinden yapılan iade bildirimle yukarıdaki gibi işlenir.
 - **Vergi**: bahşişin kuryeye ödenmesindeki vergi ve bordro yükümlülüğü restoranındır. Platform bahşiş için fatura kesmez.
 
 ## Bildirim
@@ -83,6 +84,7 @@ Kendi kurye, uygulamanın kurye ekranında yalnızca kendi bahşişlerini görü
 | `GET /restaurants/:id/tips` | `courier.manage`, `@RequireFeature('courier_tips')` |
 | `GET /restaurants/:id/tips/me` | `courier.deliver`, `@RequireFeature('courier_tips')` |
 | `POST /restaurants/:id/tips/:tipId/pass-through` | `courier.manage`, `@RequireFeature('courier_tips')` |
+| `POST /restaurants/:id/tips/:tipId/refund` | `orders.refund`, `@RequireFeature('courier_tips')` |
 | `POST /webhooks/payments/platform/:providerCode` | İmza doğrulaması |
 
 Hata kodları:
@@ -94,4 +96,3 @@ Hata kodları:
 ## Kalan
 
 - Gerçek kurye ağı adaptörlerinde bahşiş aktarımı: ağın API'si belgelendiğinde eklenir.
-- Panelden bahşiş iadesi.

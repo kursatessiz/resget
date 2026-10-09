@@ -3,6 +3,7 @@ import { Prisma } from '@resget/database';
 import type { CourierTip, CourierTipStatus } from '@resget/database';
 import {
   LedgerEntryType,
+  REFUND_CLAIM_STALE_MS,
   courierDisplayName,
   formatMoney,
   orderShortCode,
@@ -16,6 +17,7 @@ import type {
   GatewayWebhookEvent,
   NetworkTipsRowDTO,
   OrderTrackingDTO,
+  RefundTipInput,
   StartTipInput,
   TipDTO,
   TipStartedDTO,
@@ -29,6 +31,7 @@ import { FeatureFlagsService } from '../features/feature-flags.service';
 import { OrdersService } from '../orders/orders.service';
 import type { OrderRow } from '../orders/orders.service';
 import { CheckoutService } from '../payments/checkout.service';
+import { RefundsService } from '../payments/refunds.service';
 import type { WebhookScope } from '../payments/checkout.service';
 import { MealCardsService } from '../payments/meal-cards.service';
 import { CourierRegistry } from '../courier/courier.registry';
@@ -73,6 +76,7 @@ export class TipsService {
     private readonly features: FeatureFlagsService,
     private readonly orders: OrdersService,
     private readonly checkout: CheckoutService,
+    private readonly refunds: RefundsService,
     private readonly mealCards: MealCardsService,
     private readonly couriers: CourierRegistry,
     private readonly push: PushService,
@@ -310,36 +314,49 @@ export class TipsService {
 
   private async reverse(tip: CourierTip, event: GatewayWebhookEvent): Promise<'REFUNDED' | 'CHARGEBACK' | 'IGNORED'> {
     const status: CourierTipStatus = event.status === 'CHARGEBACK' ? 'CHARGED_BACK' : 'REFUNDED';
-    const at = new Date(event.occurredAt);
-    const reversed = await this.prisma.$transaction(async (tx) => {
-      const { count } = await tx.courierTip.updateMany({
-        where: { id: tip.id, status: 'CAPTURED' },
-        data: { status, reversedAt: at },
-      });
-      if (count === 0) return false;
-      // The restaurant bears refunds and chargebacks; the provider keeps its fee (docs/BAHSIS.md).
-      if (tip.paymentMode === 'PLATFORM_PSP') {
-        const current = await tx.courierTip.findUniqueOrThrow({ where: { id: tip.id } });
-        await tx.ledgerEntry.create({
-          data: {
-            restaurantId: tip.restaurantId,
-            orderId: tip.orderId,
-            type: LedgerEntryType.COURIER_TIP,
-            amountMinor: -current.amountMinor,
-            currency: tip.currency,
-            occurredAt: at,
-            memo: `tip ${orderShortCode(tip.orderId)} ${status === 'CHARGED_BACK' ? 'chargeback' : 'refund'}`,
-          },
-        });
-      }
-      return true;
-    });
+    const reversed = await this.prisma.$transaction((tx) =>
+      this.applyReversal(tx, tip, status, new Date(event.occurredAt), {}),
+    );
     if (!reversed) {
       const current = await this.prisma.courierTip.findUnique({ where: { id: tip.id }, select: { status: true } });
       return current?.status === status ? (event.status === 'CHARGEBACK' ? 'CHARGEBACK' : 'REFUNDED') : 'IGNORED';
     }
     await this.publish(tip.orderId);
     return event.status === 'CHARGEBACK' ? 'CHARGEBACK' : 'REFUNDED';
+  }
+
+  /**
+   * Moves a captured tip to REFUNDED or CHARGED_BACK once. The restaurant bears it; on the platform's account the
+   * gross comes back out of the next payout and the provider keeps its fee (docs/BAHSIS.md). False when the tip
+   * was not captured any more.
+   */
+  private async applyReversal(
+    tx: Prisma.TransactionClient,
+    tip: CourierTip,
+    status: CourierTipStatus,
+    at: Date,
+    extra: Prisma.CourierTipUpdateManyMutationInput,
+  ): Promise<boolean> {
+    const { count } = await tx.courierTip.updateMany({
+      where: { id: tip.id, status: 'CAPTURED' },
+      data: { ...extra, status, reversedAt: at },
+    });
+    if (count === 0) return false;
+    if (tip.paymentMode === 'PLATFORM_PSP') {
+      const current = await tx.courierTip.findUniqueOrThrow({ where: { id: tip.id } });
+      await tx.ledgerEntry.create({
+        data: {
+          restaurantId: tip.restaurantId,
+          orderId: tip.orderId,
+          type: LedgerEntryType.COURIER_TIP,
+          amountMinor: -current.amountMinor,
+          currency: tip.currency,
+          occurredAt: at,
+          memo: `tip ${orderShortCode(tip.orderId)} ${status === 'CHARGED_BACK' ? 'chargeback' : 'refund'}`,
+        },
+      });
+    }
+    return true;
   }
 
   /** Hand-over, the courier's push and the tracking page; none of them may undo the capture. */
@@ -422,6 +439,84 @@ export class TipsService {
     });
     if (count === 0) throw conflict('TIP_UNAVAILABLE', 'Nothing to hand over for this tip');
     await this.passThrough(tip.id);
+    const row = await this.prisma.courierTip.findUniqueOrThrow({ where: { id: tip.id }, include: REPORT_INCLUDE });
+    return toDto(row);
+  }
+
+  /**
+   * Gives a collected tip back to the customer through the connection that took it (docs/BAHSIS.md, "Panelden
+   * iade"): the whole amount, once. The claim keeps two staff clicks from refunding twice; a failed call leaves the
+   * tip collected and says why. What was already handed to the courier or the network is the restaurant's to bear.
+   */
+  async refund(restaurantId: string, tipId: string, input: RefundTipInput, actorUserId: string): Promise<TipDTO> {
+    const tip = await this.prisma.courierTip.findFirst({ where: { id: tipId, restaurantId } });
+    if (!tip) throw notFound('NOT_FOUND', 'Tip not found');
+    if (tip.status !== 'CAPTURED') throw conflict('TIP_REFUND_NOT_ALLOWED', 'Only a collected tip can go back');
+    const now = new Date();
+    const claimed = await this.prisma.courierTip.updateMany({
+      where: {
+        id: tip.id,
+        status: 'CAPTURED',
+        OR: [
+          { refundRequestedAt: null },
+          { refundRequestedAt: { lt: new Date(now.getTime() - REFUND_CLAIM_STALE_MS) } },
+        ],
+      },
+      data: { refundRequestedAt: now },
+    });
+    if (claimed.count === 0) {
+      const current = await this.prisma.courierTip.findUniqueOrThrow({ where: { id: tip.id } });
+      if (current.status === 'CAPTURED') throw conflict('TIP_REFUND_IN_PROGRESS', 'A refund is already in flight');
+      throw conflict('TIP_REFUND_NOT_ALLOWED', 'Only a collected tip can go back');
+    }
+
+    let failure: 'REFUND_UNAVAILABLE' | 'TIP_REFUND_DECLINED' | 'TIP_REFUND_PROVIDER_ERROR' | null = null;
+    let providerRef: string | null = null;
+    const target = await this.refunds.refundTarget(restaurantId, {
+      method: 'ONLINE_CARD',
+      provider: tip.provider,
+      paymentMode: tip.paymentMode,
+    });
+    if (!target || !tip.providerRef) {
+      failure = 'REFUND_UNAVAILABLE';
+    } else {
+      try {
+        const result = await target.refund(tip.providerRef, tip.amountMinor);
+        if (result.ok) providerRef = result.providerRef;
+        else failure = 'TIP_REFUND_DECLINED';
+      } catch (error) {
+        this.logger.warn(`Refund of tip ${tip.id} failed: ${error instanceof Error ? error.message : 'error'}`);
+        failure = 'TIP_REFUND_PROVIDER_ERROR';
+      }
+    }
+    if (failure) {
+      await this.prisma.courierTip.updateMany({
+        where: { id: tip.id, refundRequestedAt: now },
+        data: { refundRequestedAt: null },
+      });
+      throw conflict(failure, 'The tip refund did not go through');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const done = await this.applyReversal(tx, tip, 'REFUNDED', now, {
+        refundRequestedAt: null,
+        refundReason: input.reason,
+        refundedByUserId: actorUserId,
+        refundProviderRef: providerRef,
+      });
+      if (!done) return;
+      await tx.auditLog.create({
+        data: {
+          actorUserId,
+          restaurantId,
+          action: 'tip.refunded',
+          entity: 'CourierTip',
+          entityId: tip.id,
+          meta: { amountMinor: tip.amountMinor, currency: tip.currency, reason: input.reason },
+        },
+      });
+    });
+    await this.publish(tip.orderId);
     const row = await this.prisma.courierTip.findUniqueOrThrow({ where: { id: tip.id }, include: REPORT_INCLUDE });
     return toDto(row);
   }
@@ -530,5 +625,6 @@ function toDto(row: ReportRow): TipDTO {
     capturedAt: row.capturedAt?.toISOString() ?? null,
     recipient: row.courier?.user.fullName ?? row.deliveryRequest?.provider.name ?? '',
     passThroughStatus: row.passThroughStatus,
+    refundReason: row.refundReason,
   };
 }

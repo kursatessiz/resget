@@ -139,6 +139,17 @@ test.describe('Courier tips', () => {
     await expect(report.locator('[data-tips-totals]')).toContainText('1 bahşiş');
     await expect(report.getByRole('table', { name: 'Kuryeler' })).toContainText('Selim Bahsis');
 
+    // The owner gives it back from the list with a reason; the warning says what is not taken back.
+    const row = report.locator(`[data-tip-row="${tipId}"]`);
+    await row.getByRole('button', { name: 'İade et' }).click();
+    await expect(row.locator(`[data-tip-refund="${tipId}"]`)).toContainText('geri alınmaz');
+    await expect(row.getByRole('button', { name: 'İadeyi onayla' })).toBeDisabled();
+    await row.getByLabel('İade nedeni').fill('Müşteri yanlışlıkla verdi');
+    await row.getByRole('button', { name: 'İadeyi onayla' }).click();
+    await expect(report.getByRole('status')).toContainText('Bahşiş müşteriye iade edildi.');
+    await expect(report.locator(`[data-tip-row="${tipId}"]`)).toContainText('İade edildi');
+    await expect(report.locator(`[data-tip-row="${tipId}"]`)).toContainText('Müşteri yanlışlıkla verdi');
+
     await guestContext.close();
   });
 });
