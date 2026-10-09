@@ -64,6 +64,18 @@ export default function MyOrders() {
                   })}
                 </Caption>
               )}
+              {balance.tier && <Caption>{t('loyalty.tiers.label', { tier: balance.tier })}</Caption>}
+              {balance.nextTier && (
+                <Caption>
+                  {t('loyalty.tiers.next', {
+                    tier: balance.nextTier.name,
+                    amount: formatMoney(
+                      { amountMinor: balance.nextTier.remainingMinor, currency: balance.currency },
+                      locale,
+                    ),
+                  })}
+                </Caption>
+              )}
               <Button
                 label={t('loyalty.account.order')}
                 variant="outline"

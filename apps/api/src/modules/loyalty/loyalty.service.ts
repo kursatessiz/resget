@@ -2,11 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@resget/database';
 import {
   LOYALTY_PROGRAM_DEFAULTS,
+  LoyaltyProgramSchema,
   balanceValueMinor,
+  loyaltyTierFor,
   minorDigitsOf,
   orderShortCode,
-  pointsEarnedFor,
   redeemableFor,
+  tieredPointsEarned,
 } from '@resget/shared';
 import type {
   AdjustLoyaltyInput,
@@ -16,6 +18,7 @@ import type {
   LoyaltyProgram,
   LoyaltyProgramDTO,
   LoyaltyRedemption,
+  LoyaltyTier,
   LoyaltyTransactionDTO,
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -91,6 +94,7 @@ export class LoyaltyService {
           maxDiscountBps: row.loyaltyProgram.maxDiscountBps,
           welcomePoints: row.loyaltyProgram.welcomePoints,
           notifyEarned: row.loyaltyProgram.notifyEarned,
+          tiers: tiersOf(row.loyaltyProgram.tiers),
         }
       : {
           ...LOYALTY_PROGRAM_DEFAULTS,
@@ -145,10 +149,11 @@ export class LoyaltyService {
 
   async updateProgram(restaurantId: string, input: LoyaltyProgram, actorUserId: string): Promise<LoyaltyProgramDTO> {
     await this.prisma.$transaction(async (tx) => {
+      const data = { ...input, tiers: input.tiers as Prisma.InputJsonArray };
       await tx.loyaltyProgram.upsert({
         where: { restaurantId },
-        update: input,
-        create: { restaurantId, ...input },
+        update: data,
+        create: { restaurantId, ...data },
       });
       await tx.auditLog.create({
         data: {
@@ -157,7 +162,7 @@ export class LoyaltyService {
           action: 'loyalty.program.update',
           entity: 'loyalty_program',
           entityId: restaurantId,
-          meta: input,
+          meta: { ...input, tiers: input.tiers as Prisma.InputJsonArray },
         },
       });
     });
@@ -174,6 +179,18 @@ export class LoyaltyService {
   async storefrontRules(restaurantId: string): Promise<LoyaltyOverviewDTO['program'] | null> {
     const resolved = await this.resolve(this.prisma, restaurantId);
     return resolved.active ? this.toProgramDto(resolved) : null;
+  }
+
+  /** The signed-in visitor's tier at one restaurant (name and multiplier); null without tiers or below the first. */
+  async tierOf(restaurantId: string, userId: string): Promise<{ name: string; earnMultiplierPct: number } | null> {
+    const resolved = await this.resolve(this.prisma, restaurantId);
+    if (!resolved.active || resolved.program.tiers.length === 0) return null;
+    const customer = await this.prisma.restaurantCustomer.findUnique({
+      where: { restaurantId_userId: { restaurantId, userId } },
+      select: { lifetimeGrossMinor: true },
+    });
+    const tier = loyaltyTierFor(resolved.program.tiers, customer?.lifetimeGrossMinor ?? 0).current;
+    return tier ? { name: tier.name, earnMultiplierPct: tier.earnMultiplierPct } : null;
   }
 
   /** The signed-in visitor's balance at one restaurant; null without an active program. */
@@ -194,6 +211,7 @@ export class LoyaltyService {
       orderBy: { loyaltyPoints: 'desc' },
       select: {
         loyaltyPoints: true,
+        lifetimeGrossMinor: true,
         restaurant: { select: { ...programSelect, name: true, slug: true, logoUrl: true } },
       },
     });
@@ -203,6 +221,7 @@ export class LoyaltyService {
         return {
           restaurant: { name: row.restaurant.name, slug: row.restaurant.slug, logoUrl: row.restaurant.logoUrl },
           points: row.loyaltyPoints,
+          ...standingDto(resolved.active ? resolved.program.tiers : [], row.lifetimeGrossMinor),
           valueMinor: resolved.active ? balanceValueMinor(resolved.program, row.loyaltyPoints) : 0,
           currency: resolved.currency,
         };
@@ -303,9 +322,19 @@ export class LoyaltyService {
     });
     if (!customerRef) return 0;
     const customer = await this.lockCustomer(tx, customerRef.id);
+    // The tier comes from lifetime spend there, this order included (docs/SADAKAT.md, "Seviyeler").
+    const spent = await tx.restaurantCustomer.findUniqueOrThrow({
+      where: { id: customer.id },
+      select: { lifetimeGrossMinor: true },
+    });
+    const tier = loyaltyTierFor(resolved.program.tiers, spent.lifetimeGrossMinor).current;
     const earnedBefore = await tx.loyaltyTransaction.count({ where: { orderId, type: { in: ['EARN', 'WELCOME'] } } });
     if (earnedBefore > 0) return 0;
-    const earned = pointsEarnedFor(resolved.program, order.itemsGrossMinor - order.discountMinor);
+    const earned = tieredPointsEarned(
+      resolved.program,
+      order.itemsGrossMinor - order.discountMinor,
+      tier?.earnMultiplierPct ?? 100,
+    );
     const welcome = customer.loyaltyJoinedAt ? 0 : resolved.program.welcomePoints;
     if (earned === 0 && welcome === 0) return 0;
     let balance = customer.loyaltyPoints;
@@ -331,7 +360,7 @@ export class LoyaltyService {
         type: 'EARN',
         points: earned,
         balanceAfter: balance,
-        memo: `order ${orderShortCode(orderId)}`,
+        memo: tier ? `order ${orderShortCode(orderId)} (${tier.name})` : `order ${orderShortCode(orderId)}`,
         // One millisecond after the welcome row so the history reads in the order the balance moved.
         createdAt: welcome > 0 ? new Date(now.getTime() + 1) : now,
       });
@@ -451,4 +480,22 @@ export class LoyaltyService {
       createdAt: row.createdAt.toISOString(),
     };
   }
+}
+
+/** Stored tiers read back through the shared schema; anything unreadable is a program without tiers. */
+function tiersOf(value: Prisma.JsonValue): LoyaltyTier[] {
+  const parsed = LoyaltyProgramSchema.shape.tiers.safeParse(value);
+  return parsed.success ? parsed.data : [];
+}
+
+/** A balance's tier name and the spend missing to the next one. */
+function standingDto(
+  tiers: readonly LoyaltyTier[],
+  lifetimeSpendMinor: number,
+): Pick<LoyaltyBalanceDTO, 'tier' | 'nextTier'> {
+  const standing = loyaltyTierFor(tiers, lifetimeSpendMinor);
+  return {
+    tier: standing.current?.name ?? null,
+    nextTier: standing.next ? { name: standing.next.tier.name, remainingMinor: standing.next.remainingMinor } : null,
+  };
 }

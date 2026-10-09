@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@resget/database';
-import { maskPhoneForDisplay } from '@resget/shared';
-import type { CustomerDTO, CustomerPageDTO, CustomersQuery, UpdateCustomerInput } from '@resget/shared';
+import { LoyaltyProgramSchema, loyaltyTierFor, maskPhoneForDisplay } from '@resget/shared';
+import type { CustomerDTO, CustomerPageDTO, CustomersQuery, LoyaltyTier, UpdateCustomerInput } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { notFound } from '../../common/api-error';
 
@@ -25,6 +25,15 @@ type CustomerRow = Prisma.RestaurantCustomerGetPayload<{ select: typeof customer
 const DAY_MS = 86_400_000;
 
 /** The restaurant's own customer list (docs/PANEL.md); the SaaS lock-in and the audience of future campaigns. */
+const restaurantSelect = { currency: true, loyaltyProgram: { select: { tiers: true } } } as const;
+type RestaurantRow = Prisma.RestaurantGetPayload<{ select: typeof restaurantSelect }>;
+
+/** The restaurant's loyalty tiers (docs/SADAKAT.md, "Seviyeler"); none when unreadable or not set. */
+function tiersOf(value: Prisma.JsonValue | undefined): LoyaltyTier[] {
+  const parsed = LoyaltyProgramSchema.shape.tiers.safeParse(value ?? []);
+  return parsed.success ? parsed.data : [];
+}
+
 @Injectable()
 export class CustomersService {
   constructor(private readonly prisma: PrismaService) {}
@@ -53,7 +62,7 @@ export class CustomersService {
           : [{ lastOrderAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }];
     const since = new Date(Date.now() - 30 * DAY_MS);
     const [restaurant, rows, total, all, fresh, returning] = await Promise.all([
-      this.prisma.restaurant.findUniqueOrThrow({ where: { id: restaurantId }, select: { currency: true } }),
+      this.prisma.restaurant.findUniqueOrThrow({ where: { id: restaurantId }, select: restaurantSelect }),
       this.prisma.restaurantCustomer.findMany({
         where,
         orderBy,
@@ -67,7 +76,7 @@ export class CustomersService {
       this.prisma.restaurantCustomer.count({ where: { restaurantId, orderCount: { gt: 1 } } }),
     ]);
     return {
-      items: rows.map((row) => this.toDto(row, restaurant.currency, canSeeContacts)),
+      items: rows.map((row) => this.toDto(row, restaurant, canSeeContacts)),
       total,
       page: query.page,
       pageSize: query.pageSize,
@@ -77,14 +86,14 @@ export class CustomersService {
 
   async get(restaurantId: string, customerId: string, canSeeContacts: boolean): Promise<CustomerDTO> {
     const [restaurant, row] = await Promise.all([
-      this.prisma.restaurant.findUniqueOrThrow({ where: { id: restaurantId }, select: { currency: true } }),
+      this.prisma.restaurant.findUniqueOrThrow({ where: { id: restaurantId }, select: restaurantSelect }),
       this.prisma.restaurantCustomer.findFirst({
         where: { id: customerId, restaurantId, user: { deletedAt: null } },
         select: customerSelect,
       }),
     ]);
     if (!row) throw notFound('CUSTOMER_NOT_FOUND', 'Customer not found');
-    return this.toDto(row, restaurant.currency, canSeeContacts);
+    return this.toDto(row, restaurant, canSeeContacts);
   }
 
   /** Notes and tags: the restaurant's own words about its customer, never shown to the customer. */
@@ -109,7 +118,8 @@ export class CustomersService {
     return this.get(restaurantId, customerId, canSeeContacts);
   }
 
-  private toDto(row: CustomerRow, currency: string, canSeeContacts: boolean): CustomerDTO {
+  private toDto(row: CustomerRow, restaurant: RestaurantRow, canSeeContacts: boolean): CustomerDTO {
+    const currency = restaurant.currency;
     return {
       id: row.id,
       userId: row.userId,
@@ -125,6 +135,8 @@ export class CustomersService {
       note: row.note,
       marketingOptIn: row.marketingOptIn,
       loyaltyPoints: row.loyaltyPoints,
+      loyaltyTier:
+        loyaltyTierFor(tiersOf(restaurant.loyaltyProgram?.tiers), row.lifetimeGrossMinor).current?.name ?? null,
       createdAt: row.createdAt.toISOString(),
     };
   }
