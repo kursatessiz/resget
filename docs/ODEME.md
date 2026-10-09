@@ -64,7 +64,7 @@ Yemek kartlarında üye işyeri her zaman restorandır; restoran kabul ettiği k
 
 ## 3a1. Tamamlanmayan ödeme
 
-Çevrim içi ödemeli sipariş ödeme gelene kadar `PENDING_PAYMENT` durur ve stok, kupon kullanımı ve harcanan sadakat puanı ona ayrılmıştır. Ödeme `PENDING_PAYMENT_TIMEOUT_MINUTES` (45 dakika; sağlayıcıların barındırılan ödeme oturumundan, 30 dakika, uzun) içinde tamamlanmazsa sipariş izleyicisi (`OrdersWatchdog`, dakikada bir) siparişi `CANCELLED_BY_CUSTOMER` (aktör `SYSTEM`, gerekçe "payment not completed") yapar; ayrılanlar geri verilir, müşteriye mesaj gönderilmez. Zaman aşımından sonra gelen bir ödeme iade taramasıyla geri ödenir (3b).
+Çevrim içi ödemeli sipariş ödeme gelene kadar `PENDING_PAYMENT` durur ve stok, kupon kullanımı ve harcanan sadakat puanı ona ayrılmıştır. Ödeme `PENDING_PAYMENT_TIMEOUT_MINUTES` (45 dakika; sağlayıcıların barındırılan ödeme oturumundan, 30 dakika, uzun) içinde tamamlanmazsa sipariş izleyicisi (`OrdersWatchdog`, dakikada bir) siparişi `CANCELLED_BY_CUSTOMER` (aktör `SYSTEM`, gerekçe "payment not completed") yapar; ayrılanlar geri verilir, müşteriye mesaj gönderilmez. Restoran da bu bekleyen siparişi gerekçeyle iptal edebilir (`CANCELLED_BY_RESTAURANT`, `docs/SIPARIS_VE_SEVK.md`); ayrılanlar aynı şekilde geri verilir. Zaman aşımından veya iptalden sonra gelen bir ödeme iade taramasıyla geri ödenir (3b).
 
 ## 3b. İade
 

@@ -99,4 +99,84 @@ describe('Unpaid order expiry (e2e)', () => {
       'CANCELLED_BY_CUSTOMER',
     );
   });
+
+  it('lets the restaurant cancel an order waiting for its payment, with stock back and the counters rebuilt', async () => {
+    const phone = '0532 999 09 52';
+    const place = async (method: 'ONLINE_CARD' | 'CASH_ON_DELIVERY') =>
+      (
+        await ctx
+          .http()
+          .post(`/restaurants/${restaurantId}/orders`)
+          .set(bearer(ownerToken))
+          .send({
+            branchId,
+            channel: 'PHONE',
+            fulfillment: 'PICKUP',
+            items: [{ menuItemId: itemId, quantity: 1 }],
+            customer: { fullName: 'Iptal Sayac', phone },
+            note: NOTE,
+            payment: { method },
+          })
+          .expect(201)
+      ).body as { id: string; status: string };
+    const user = async () => ctx.prisma.user.findUniqueOrThrow({ where: { phone: '+905329990952' } });
+    const counters = async () =>
+      ctx.prisma.restaurantCustomer.findUniqueOrThrow({
+        where: { restaurantId_userId: { restaurantId, userId: (await user()).id } },
+        select: { orderCount: true, lifetimeGrossMinor: true, lastOrderAt: true },
+      });
+
+    // Earlier runs deleted their orders but not this customer's row; start from a clean one.
+    await ctx.prisma.restaurantCustomer.deleteMany({ where: { restaurantId, user: { phone: '+905329990952' } } });
+    const kept = await place('CASH_ON_DELIVERY');
+    const keptGross = (await ctx.prisma.order.findUniqueOrThrow({ where: { id: kept.id } })).itemsGrossMinor;
+    const before = await counters();
+    const unpaid = await place('ONLINE_CARD');
+    expect(unpaid.status).toBe('PENDING_PAYMENT');
+    expect((await counters()).orderCount).toBe(before.orderCount + 1);
+    const stockBefore = (await ctx.prisma.menuItem.findUniqueOrThrow({ where: { id: itemId } })).stockQuantity!;
+
+    // Only the restaurant's cancellation is offered; acceptance waits for the payment.
+    await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/orders/${unpaid.id}/transition`)
+      .set(bearer(ownerToken))
+      .send({ to: 'ACCEPTED', prepMinutes: 15 })
+      .expect(409);
+    await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/orders/${unpaid.id}/transition`)
+      .set(bearer(ownerToken))
+      .send({ to: 'CANCELLED_BY_RESTAURANT', reason: 'customer called to cancel' })
+      .expect(200);
+
+    const row = await ctx.prisma.order.findUniqueOrThrow({ where: { id: unpaid.id } });
+    expect(row.status).toBe('CANCELLED_BY_RESTAURANT');
+    expect(row.rejectReason).toBe('customer called to cancel');
+    expect((await ctx.prisma.menuItem.findUniqueOrThrow({ where: { id: itemId } })).stockQuantity).toBe(
+      stockBefore + 1,
+    );
+    // The cancelled order is out of every counter; the kept one is still there.
+    const after = await counters();
+    expect(after.orderCount).toBe(before.orderCount);
+    expect(after.lifetimeGrossMinor).toBe(before.lifetimeGrossMinor);
+    expect(after.lastOrderAt?.getTime()).toBe(before.lastOrderAt?.getTime());
+    expect(after.lifetimeGrossMinor).toBeGreaterThanOrEqual(keptGross);
+
+    // Cancelling the kept order empties the counters; the customer row stays for the books.
+    await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/orders/${kept.id}/transition`)
+      .set(bearer(ownerToken))
+      .send({ to: 'REJECTED', reason: 'closed' })
+      .expect(200);
+    const others = await ctx.prisma.order.count({
+      where: {
+        restaurantId,
+        customerUserId: (await user()).id,
+        status: { notIn: ['REJECTED', 'CANCELLED_BY_RESTAURANT', 'CANCELLED_BY_CUSTOMER'] },
+      },
+    });
+    expect((await counters()).orderCount).toBe(others);
+  });
 });
