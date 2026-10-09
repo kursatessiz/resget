@@ -126,7 +126,12 @@ export default function TrackingScreen() {
     );
   }
 
-  const time = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' });
+  // Promised times are the restaurant's clock, not the phone's.
+  const time = new Intl.DateTimeFormat(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    ...(tracking?.restaurant.timezone ? { timeZone: tracking.restaurant.timezone } : {}),
+  });
   const km = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
   const steps = tracking ? TRACKING_STEPS[tracking.fulfillment] : [];
   const reached = tracking ? trackingStepIndex(tracking.status, tracking.fulfillment) : -1;

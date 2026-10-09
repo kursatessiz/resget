@@ -16,6 +16,14 @@ import { AdminAiBudget } from './AdminAiBudget';
 import { AdminRestaurantEntitlements } from './AdminRestaurantEntitlements';
 import { planLabel } from '@/lib/plans';
 
+/** A typed number with a comma or point decimal; null for a blank or malformed box. */
+function numberOrNull(text: string): number | null {
+  const trimmed = text.trim().replace(',', '.');
+  if (trimmed === '') return null;
+  const value = Number(trimmed);
+  return Number.isFinite(value) ? value : null;
+}
+
 /** One restaurant in the console: listing, activity, commission and fees, service area and manual credit grants. */
 export function AdminRestaurantDetail({ id, locale }: { id: string; locale: string }) {
   const t = useT(locale);
@@ -76,13 +84,18 @@ export function AdminRestaurantDetail({ id, locale }: { id: string; locale: stri
   };
 
   const grantCredits = async () => {
+    const credits = numberOrNull(grant.credits);
+    if (credits === null || !Number.isInteger(credits) || credits <= 0) {
+      setError(t('errors.VALIDATION'));
+      return;
+    }
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
       const result = await bffJson<GrantCreditsResultDTO>(`${base}/credits`, {
         method: 'POST',
-        body: JSON.stringify({ channel: grant.channel, credits: Number(grant.credits), note: grant.note.trim() }),
+        body: JSON.stringify({ channel: grant.channel, credits, note: grant.note.trim() }),
       });
       setNotice(
         t('admin.restaurant.credits.done', {
@@ -259,15 +272,23 @@ export function AdminRestaurantDetail({ id, locale }: { id: string; locale: stri
         <div>
           <Button
             disabled={busy}
-            onClick={() =>
-              patch({
-                commissionBps: Math.round(Number(commission.replace(',', '.')) * 100),
-                pspPercentBps: Math.round(Number(pspPercent.replace(',', '.')) * 100),
-                pspFixedMinor: Math.round(Number(pspFixed)),
+            onClick={() => {
+              // A blank or malformed box is an error, never a zero rate (Number('') is 0).
+              const commissionPct = numberOrNull(commission);
+              const pspPct = numberOrNull(pspPercent);
+              const pspFixedValue = numberOrNull(pspFixed);
+              if (commissionPct === null || pspPct === null || pspFixedValue === null) {
+                setError(t('errors.VALIDATION'));
+                return;
+              }
+              void patch({
+                commissionBps: Math.round(commissionPct * 100),
+                pspPercentBps: Math.round(pspPct * 100),
+                pspFixedMinor: Math.round(pspFixedValue),
                 paymentMode,
                 serviceAreaId: areaId || null,
-              })
-            }
+              });
+            }}
           >
             {t('common.save')}
           </Button>

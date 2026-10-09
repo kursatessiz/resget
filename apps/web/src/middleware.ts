@@ -95,6 +95,9 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
       );
       return res;
     }
+    // The API restarting or briefly unreachable is not a sign-out: the session cookies stay and the next
+    // request tries the refresh again. Only a refresh the API refused ends the session.
+    if (!upstream || upstream.status >= 500) return NextResponse.next();
   }
 
   const signIn = new URL('/giris', req.url);

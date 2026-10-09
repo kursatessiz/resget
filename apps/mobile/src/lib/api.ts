@@ -1,6 +1,9 @@
 import { ERROR_CODE_HEADER } from '@resget/shared';
 import type { TokenPairDTO } from '@resget/shared';
 
+/** What a refresh attempt ended in: new tokens, a refusal (sign out), or no answer (keep the session). */
+type RefreshOutcome = 'renewed' | 'refused' | 'unavailable';
+
 /** A refused request with the machine code the API sent (docs/API_ERISIMI.md) so the screen can translate it. */
 export class ApiError extends Error {
   constructor(
@@ -31,7 +34,7 @@ export interface ApiClientOptions {
  */
 export class ApiClient {
   private readonly fetchImpl: typeof fetch;
-  private refreshing: Promise<boolean> | null = null;
+  private refreshing: Promise<RefreshOutcome> | null = null;
 
   constructor(private readonly options: ApiClientOptions) {
     this.fetchImpl = options.fetchImpl ?? fetch;
@@ -57,10 +60,15 @@ export class ApiClient {
       });
     };
     let response = await send();
-    if (response.status === 401 && auth && (await this.refresh())) response = await send();
+    let refreshed: RefreshOutcome | null = null;
+    if (response.status === 401 && auth) {
+      refreshed = await this.refresh();
+      if (refreshed === 'renewed') response = await send();
+    }
     if (!response.ok) {
       const code = response.headers.get(ERROR_CODE_HEADER) ?? (response.status === 401 ? 'UNAUTHORIZED' : 'ERROR');
-      if (response.status === 401 && auth) {
+      // Only a refresh the API refused ends the session; no network or a server error keeps the tokens.
+      if (response.status === 401 && auth && refreshed !== 'unavailable') {
         await this.options.tokens.write(null);
         this.options.onSignedOut?.();
       }
@@ -71,19 +79,20 @@ export class ApiClient {
   }
 
   /** One refresh at a time; concurrent 401s wait for the same outcome. */
-  private refresh(): Promise<boolean> {
+  private refresh(): Promise<RefreshOutcome> {
     if (!this.refreshing) {
-      this.refreshing = (async () => {
+      this.refreshing = (async (): Promise<RefreshOutcome> => {
         const tokens = await this.options.tokens.read();
-        if (!tokens) return false;
+        if (!tokens) return 'refused';
         const response = await this.fetchImpl(`${this.options.baseUrl}/auth/refresh`, {
           method: 'POST',
           headers: { 'content-type': 'application/json', accept: 'application/json' },
           body: JSON.stringify({ refreshToken: tokens.refreshToken }),
         }).catch(() => null);
-        if (!response || !response.ok) return false;
+        if (!response || response.status >= 500) return 'unavailable';
+        if (!response.ok) return 'refused';
         await this.options.tokens.write((await response.json()) as TokenPairDTO);
-        return true;
+        return 'renewed';
       })().finally(() => {
         this.refreshing = null;
       });

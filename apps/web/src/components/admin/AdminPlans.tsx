@@ -32,7 +32,8 @@ const EMPTY_PACKAGE: PackageDraft = {
   channel: 'SMS',
   credits: '500',
   priceMinor: '0',
-  currency: 'TRY',
+  // Typed by the platform owner for the market the package is sold in; no currency is assumed.
+  currency: '',
   isActive: true,
 };
 

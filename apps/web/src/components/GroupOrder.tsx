@@ -136,12 +136,23 @@ export function GroupOrder({
         .catch(fail),
     [token, me, fail],
   );
+  const placed = cart?.status === 'PLACED';
   useEffect(() => {
-    if (!ready) return undefined;
+    if (!ready || placed) return undefined;
     void load();
-    const timer = setInterval(() => void load(), 5_000);
-    return () => clearInterval(timer);
-  }, [ready, load]);
+    // A placed basket never changes again; a hidden tab catches up when it is shown.
+    const timer = setInterval(() => {
+      if (document.visibilityState !== 'hidden') void load();
+    }, 5_000);
+    const onShow = () => {
+      if (document.visibilityState === 'visible') void load();
+    };
+    document.addEventListener('visibilitychange', onShow);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onShow);
+    };
+  }, [ready, placed, load]);
 
   const join = async () => {
     try {

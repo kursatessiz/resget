@@ -1,6 +1,8 @@
 /** Machine-readable API error codes (x-error-code) and what the user sees for each. */
 export const trErrors = {
   'errors.VALIDATION': 'Gönderilen bilgiler geçersiz.',
+  'errors.INTERNAL': 'Bizim tarafımızda bir sorun oluştu. Lütfen biraz sonra tekrar deneyin.',
+  'errors.ERROR': 'İstek tamamlanamadı. Lütfen tekrar deneyin.',
   'errors.UNAUTHORIZED': 'Oturumunuz sona erdi. Lütfen tekrar giriş yapın.',
   'errors.FORBIDDEN': 'Bu işlem için yetkiniz yok.',
   'errors.NOT_FOUND': 'Kayıt bulunamadı.',

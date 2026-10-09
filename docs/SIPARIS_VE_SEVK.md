@@ -100,7 +100,7 @@ Web'de akış BFF üzerinden geçer (`/api/bff/...`); BFF gövdeyi tamponlamadan
 
 ## 6. Müşteri takip sayfası
 
-`https://<web>/t/<token>`: sunucuda `GET /public/orders/:token` ile çizilir, ardından `TrackingLive` bileşeni olay akışına bağlanır. Gösterilenler: adım çizelgesi (teslimat türüne göre), durum metni, söz verilen hazır olma / tahmini teslim saati, kurye bloğu (yalnızca kuryede veya yoldayken): kuryenin adı (yalnızca ad), uzaklık, önünde kaç teslimat olduğu ("kuryeniz önce yakındaki N teslimatı tamamlayacak"), harita (kurye ve teslimat noktası; yalnızca kurye yoldayken) ve haritada aç bağlantısı, sipariş içeriği, işletmeyi ara. Başka müşterinin adresi veya kimliği hiçbir zaman yer almaz; kurye konumu yalnızca sefer IN_PROGRESS iken verilir.
+`https://<web>/t/<token>`: sunucuda `GET /public/orders/:token` ile çizilir, ardından `TrackingLive` bileşeni olay akışına bağlanır. Gösterilenler: adım çizelgesi (teslimat türüne göre), durum metni, söz verilen hazır olma / tahmini teslim saati, kurye bloğu (yalnızca kuryede veya yoldayken): kuryenin adı (yalnızca ad), uzaklık, önünde kaç teslimat olduğu ("kuryeniz önce yakındaki N teslimatı tamamlayacak"), harita (kurye ve teslimat noktası; yalnızca kurye yoldayken) ve haritada aç bağlantısı, sipariş içeriği, işletmeyi ara. Başka müşterinin adresi veya kimliği hiçbir zaman yer almaz; kurye konumu yalnızca sefer IN_PROGRESS iken verilir. Saatler restoranın saat diliminde gösterilir (yanıttaki `restaurant.timezone`), müşterinin cihaz saat dilimi kullanılmaz.
 
 ### Harita
 
