@@ -97,6 +97,8 @@ export const trCampaigns = {
   'campaigns.v2.results.skipped': 'Atlanan: {count}, başarısız: {failed}',
   'campaigns.v2.results.conversions': 'Dönüşüm: {count} (oran {rate})',
   'campaigns.v2.results.revenue': 'Atfedilen ciro: {amount}',
+  'campaigns.v2.results.opens': 'Açan: {count} ({rate})',
+  'campaigns.v2.results.clicks': 'Bağlantıya tıklayan: {count} ({rate})',
   'campaigns.v2.results.leader': 'Şu an önde olan: metin {variant}',
   'campaigns.v2.results.noLeader': 'Henüz önde olan metin yok.',
   'campaigns.v2.recipient.variant': 'Metin {variant}',

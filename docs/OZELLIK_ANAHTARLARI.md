@@ -85,6 +85,7 @@ Anahtar, modülün işletme için var olup olmadığına karar verir. Plan (BASI
 | `attribution` | Pazarlama | kapalı (BETA) |
 | `consent_v2` | Pazarlama | kapalı (BETA) |
 | `email_channel` | Pazarlama | kapalı (BETA) |
+| `email_tracking` | Pazarlama | kapalı (BETA): kampanya e-postalarında açılma ve tıklama ölçümü (`docs/EPOSTA.md`) |
 | `segments_v2` | Pazarlama | kapalı (BETA) |
 | `campaigns_v2` | Pazarlama | kapalı (BETA) |
 | `journeys` | Pazarlama | kapalı (BETA) |

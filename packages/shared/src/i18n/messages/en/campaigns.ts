@@ -99,6 +99,8 @@ export const enCampaigns: Record<keyof typeof trCampaigns, string> = {
   'campaigns.v2.results.skipped': 'Skipped: {count}, failed: {failed}',
   'campaigns.v2.results.conversions': 'Conversions: {count} (rate {rate})',
   'campaigns.v2.results.revenue': 'Attributed revenue: {amount}',
+  'campaigns.v2.results.opens': 'Opened: {count} ({rate})',
+  'campaigns.v2.results.clicks': 'Clicked a link: {count} ({rate})',
   'campaigns.v2.results.leader': 'Currently ahead: text {variant}',
   'campaigns.v2.results.noLeader': 'No text is ahead yet.',
   'campaigns.v2.recipient.variant': 'Text {variant}',

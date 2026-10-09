@@ -1319,6 +1319,12 @@ model CampaignRecipient {
   convertedAt      DateTime?
   /// Items gross of that order at placement, in the restaurant currency's minor unit.
   revenueMinor     Int?
+  /// Email open and click tracking (docs/EPOSTA.md): the recipient's unguessable link token, first open and click.
+  trackingToken    String?                 @unique
+  openedAt         DateTime?
+  openCount        Int                     @default(0)
+  clickedAt        DateTime?
+  clickCount       Int                     @default(0)
   createdAt        DateTime                @default(now())
 
   campaign       Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)

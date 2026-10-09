@@ -211,16 +211,65 @@ export type EmailKind = 'TRANSACTIONAL' | 'COMMERCIAL';
 export const EMAIL_TEMPLATE_KEYS = ['test', 'campaign', 'invoice.summary', 'invoice.summarySettled'] as const;
 export type EmailTemplateKey = (typeof EMAIL_TEMPLATE_KEYS)[number];
 
-/** Turns plain text into safe HTML paragraphs: translations are never HTML (rule 15). */
-export function plainTextToHtml(text: string): string {
-  const escaped = text
+function escapeHtml(text: string): string {
+  return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-  return escaped
+}
+
+/** Turns plain text into safe HTML paragraphs: translations are never HTML (rule 15). */
+export function plainTextToHtml(text: string): string {
+  return escapeHtml(text)
     .split(/\n{2,}/)
     .map((paragraph) => `<p>${paragraph.replace(/\n/g, '<br>')}</p>`)
     .join('\n');
+}
+
+/** A web address in campaign text: http or https up to the next space; closing punctuation stays outside. */
+const LINK_PATTERN = /https?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)\]]/g;
+
+/**
+ * The web addresses of a campaign text in order (docs/EPOSTA.md, "Açılma ve tıklama ölçümü"). A tracked click
+ * names a link by its place in this list, so the destination is always read back from the stored text.
+ */
+export function extractEmailLinks(text: string): string[] {
+  return text.match(LINK_PATTERN) ?? [];
+}
+
+export interface EmailTracking {
+  /** The invisible image that records an open. */
+  openUrl: string;
+  /** The tracked address of the campaign text's link at this place in extractEmailLinks(). */
+  clickUrl: (index: number) => string;
+  /** The campaign text's links; any other address (the footer's unsubscribe link) is left as it is. */
+  links: string[];
+}
+
+/**
+ * Safe HTML like plainTextToHtml, with every address turned into a link: the campaign's own links go through
+ * the tracked address, the rest point at themselves, and the open image closes the body.
+ */
+export function trackedEmailHtml(text: string, tracking: EmailTracking): string {
+  const linkify = (paragraph: string): string => {
+    let html = '';
+    let last = 0;
+    for (const match of paragraph.matchAll(LINK_PATTERN)) {
+      const url = match[0];
+      const at = match.index ?? 0;
+      html += escapeHtml(paragraph.slice(last, at)).replace(/\n/g, '<br>');
+      const index = tracking.links.indexOf(url);
+      const href = index >= 0 ? tracking.clickUrl(index) : url;
+      html += `<a href="${escapeHtml(href)}">${escapeHtml(url)}</a>`;
+      last = at + url.length;
+    }
+    return html + escapeHtml(paragraph.slice(last)).replace(/\n/g, '<br>');
+  };
+  const body = text
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${linkify(paragraph)}</p>`)
+    .join('\n');
+  return `${body}\n<img src="${escapeHtml(tracking.openUrl)}" width="1" height="1" alt="" style="display:none">`;
 }

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
 import { CampaignStatus, Prisma } from '@resget/database';
 import {
   BASE_LOCALE,
@@ -40,6 +41,9 @@ import { FeatureFlagsService } from '../features/feature-flags.service';
 import { SegmentsService } from '../segments/segments.service';
 import { CommercialSenderService } from './commercial-sender.service';
 import { APPROVAL_RESET, CampaignGuardsService } from './campaign-guards.service';
+
+/** Bytes of a recipient's email tracking token (docs/EPOSTA.md): unguessable, carries nothing about the person. */
+const TRACKING_TOKEN_BYTES = 24;
 
 type SegmentRow = Prisma.CampaignSegmentPresetGetPayload<Record<string, never>>;
 
@@ -711,6 +715,8 @@ export class CampaignsService {
         return 0;
       }
     }
+    // Open and click tracking (docs/EPOSTA.md): campaign email only, and only while the module is on.
+    const tracked = channel === 'EMAIL' && (await this.features.isEnabled('email_tracking', campaign.restaurantId));
     const recipients = pending.map((r) => ({
       id: r.id,
       variant: r.variant,
@@ -748,6 +754,7 @@ export class CampaignsService {
         continue;
       }
       const content = this.contentFor(campaign, recipient.variant === 'B' ? 'B' : 'A');
+      const trackingToken = tracked ? await this.trackingTokenFor(recipient.id) : null;
       const result = await this.sender.deliver({
         restaurantId: campaign.restaurantId,
         restaurantName: campaign.restaurant.name,
@@ -756,6 +763,7 @@ export class CampaignsService {
         recipient: recipient.contact,
         body: content.body,
         subject: content.subject,
+        trackingToken,
       });
       if (result.status === 'SENT') {
         sent += 1;
@@ -781,6 +789,20 @@ export class CampaignsService {
     }
     if (pending.length < CAMPAIGN_BATCH_SIZE) await this.finish(campaign.id, now);
     return sent;
+  }
+
+  /** The recipient's tracking token, made once; a retry of the same recipient keeps its links. */
+  private async trackingTokenFor(recipientId: string): Promise<string> {
+    const token = randomBytes(TRACKING_TOKEN_BYTES).toString('base64url');
+    await this.prisma.campaignRecipient.updateMany({
+      where: { id: recipientId, trackingToken: null },
+      data: { trackingToken: token },
+    });
+    const row = await this.prisma.campaignRecipient.findUniqueOrThrow({
+      where: { id: recipientId },
+      select: { trackingToken: true },
+    });
+    return row.trackingToken ?? token;
   }
 
   private async markRecipient(
@@ -892,7 +914,8 @@ export class CampaignsService {
   async results(restaurantId: string, campaignId: string): Promise<CampaignResultsDTO> {
     await this.features.assertEnabled('campaigns_v2', restaurantId);
     const row = await this.requireCampaign(restaurantId, campaignId);
-    const [restaurant, grouped, converted] = await Promise.all([
+    const tracked = row.channel === 'EMAIL' && (await this.features.isEnabled('email_tracking', restaurantId));
+    const [restaurant, grouped, converted, engaged] = await Promise.all([
       this.prisma.restaurant.findUniqueOrThrow({ where: { id: restaurantId }, select: { currency: true } }),
       this.prisma.campaignRecipient.groupBy({
         by: ['variant', 'status'],
@@ -907,6 +930,11 @@ export class CampaignsService {
         },
         select: { variant: true, revenueMinor: true },
       }),
+      // Unique openers and clickers per text (docs/EPOSTA.md); a click without a recorded open counts as one.
+      this.prisma.campaignRecipient.findMany({
+        where: { campaignId: row.id, OR: [{ openedAt: { not: null } }, { clickedAt: { not: null } }] },
+        select: { variant: true, openedAt: true, clickedAt: true },
+      }),
     ]);
     const variants: CampaignVariant[] = row.variantSharePct ? ['A', 'B'] : ['A'];
     const results = variants.map((variant) => {
@@ -914,6 +942,9 @@ export class CampaignsService {
         grouped.filter((g) => g.variant === variant && g.status === status).reduce((n, g) => n + g._count._all, 0);
       const mine = converted.filter((c) => c.variant === variant);
       const sent = count('SENT');
+      const opened = engaged.filter((e) => e.variant === variant);
+      const opens = opened.length;
+      const clicks = opened.filter((e) => e.clickedAt !== null).length;
       return {
         variant,
         recipients: grouped.filter((g) => g.variant === variant).reduce((n, g) => n + g._count._all, 0),
@@ -923,6 +954,10 @@ export class CampaignsService {
         conversions: mine.length,
         revenueMinor: mine.reduce((n, c) => n + (c.revenueMinor ?? 0), 0),
         conversionRateBps: sent > 0 ? Math.round((mine.length * 10_000) / sent) : 0,
+        opens,
+        clicks,
+        openRateBps: sent > 0 ? Math.round((opens * 10_000) / sent) : 0,
+        clickRateBps: sent > 0 ? Math.round((clicks * 10_000) / sent) : 0,
       };
     });
     let leader: CampaignVariant | null = null;
@@ -934,6 +969,7 @@ export class CampaignsService {
       campaignId: row.id,
       currency: restaurant.currency,
       attributionDays: row.attributionDays,
+      tracked,
       variants: results,
       leader,
     };
