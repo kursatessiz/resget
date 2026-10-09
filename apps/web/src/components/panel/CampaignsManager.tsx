@@ -754,6 +754,12 @@ export function CampaignsManager({
                               amount: formatMoney({ amountMinor: v.revenueMinor, currency: results.currency }, locale),
                             })}
                           </span>
+                          {results.tracked && (
+                            <span className="ui-caption" data-email-engagement>
+                              {t('campaigns.v2.results.opens', { count: v.opens, rate: percent(v.openRateBps) })}.{' '}
+                              {t('campaigns.v2.results.clicks', { count: v.clicks, rate: percent(v.clickRateBps) })}
+                            </span>
+                          )}
                         </li>
                       ))}
                     </ul>

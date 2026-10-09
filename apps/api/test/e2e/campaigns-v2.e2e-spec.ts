@@ -6,6 +6,7 @@ import { CampaignsService } from '../../src/modules/campaigns/campaigns.service'
 import { ConsentService } from '../../src/modules/consent/consent.service';
 import { EMAIL_PROVIDER, MockEmailProvider } from '../../src/modules/email/email.provider';
 
+const TRACK_PHONE = normalizePhone('05329990977')!;
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
 const MARK = 'kmp2-e2e';
@@ -130,10 +131,10 @@ describe('Campaigns v2 (e2e)', () => {
     if (campaignIds.length) await ctx.prisma.campaign.deleteMany({ where: { id: { in: campaignIds } } });
     if (orderIds.length) await ctx.prisma.order.deleteMany({ where: { id: { in: orderIds } } });
     await ctx.prisma.restaurantCustomer.deleteMany({ where: { id: { in: customerIds } } });
-    await ctx.prisma.user.deleteMany({ where: { phone: { in: PHONES } } });
+    await ctx.prisma.user.deleteMany({ where: { phone: { in: [...PHONES, TRACK_PHONE] } } });
     await ctx.prisma.emailDomain.deleteMany({ where: { domain: DOMAIN } });
     await ctx.prisma.featureFlag.deleteMany({
-      where: { restaurantId, key: { in: ['campaigns_v2', 'email_channel'] } },
+      where: { restaurantId, key: { in: ['campaigns_v2', 'email_channel', 'email_tracking'] } },
     });
     await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { timezone: originalTimezone } });
     await ctx.prisma.messageWallet.update({ where: { id: walletId }, data: { balance: walletOriginal } });
@@ -336,6 +337,93 @@ describe('Campaigns v2 (e2e)', () => {
     const sent = await ctx.prisma.campaignRecipient.findFirstOrThrow({ where: { campaignId: campaign.id } });
     expect(sent.status).toBe('SENT');
     expect((await ctx.prisma.campaign.findUniqueOrThrow({ where: { id: campaign.id } })).status).toBe('SENT');
+  });
+
+  it('measures opens and clicks of a campaign email without storing anything about the device', async () => {
+    await enable('email_channel');
+    await enable('email_tracking');
+    const phone = TRACK_PHONE;
+    await ctx.prisma.user.deleteMany({ where: { phone } });
+    const user = await ctx.prisma.user.create({ data: { phone, fullName: 'Kampanya Olcum' } });
+    const customer = await ctx.prisma.restaurantCustomer.create({
+      data: { restaurantId, userId: user.id, tags: ['kmp2-track'], email: 'olcum.alici@ornek.test' },
+      select: { id: true },
+    });
+    customerIds.push(customer.id);
+    await ctx.app
+      .get(ConsentService)
+      .grant({ restaurantId, customerId: customer.id, channels: ['EMAIL'], source: 'SITE_FORM' });
+    await ctx.prisma.emailDomain.upsert({
+      where: { domain: DOMAIN },
+      update: { status: 'VERIFIED', verifiedAt: new Date() },
+      create: {
+        restaurantId,
+        domain: DOMAIN,
+        fromLocalPart: 'kampanya',
+        fromName: 'Demo Lokanta',
+        status: 'VERIFIED',
+        verifiedAt: new Date(),
+      },
+    });
+    const campaign = await create({
+      name: 'Kampanya olcum',
+      channel: 'EMAIL',
+      subject: 'Yeni menu',
+      body: 'Yeni menumuz burada: https://ornek.test/menu?kaynak=eposta. Bekleriz.',
+      segment: { tags: ['kmp2-track'] },
+    });
+    const outbox = ctx.app.get<MockEmailProvider>(EMAIL_PROVIDER).outbox;
+    const before = outbox.length;
+    await sendNow(campaign.id);
+    await campaigns.runPass(new Date());
+    const mail = outbox.slice(before).find((m) => m.to === 'olcum.alici@ornek.test')!;
+    expect(mail).toBeDefined();
+    const recipient = await ctx.prisma.campaignRecipient.findFirstOrThrow({ where: { campaignId: campaign.id } });
+    const token = recipient.trackingToken!;
+    expect(token).toMatch(/^[A-Za-z0-9_-]{32}$/);
+    // The plain text is untouched; the HTML carries the tracked link and the open image, never the unsubscribe link.
+    expect(mail.text).toContain('https://ornek.test/menu?kaynak=eposta');
+    expect(mail.html).toContain(`/public/email/c/${token}/0">https://ornek.test/menu?kaynak=eposta</a>`);
+    expect(mail.html).toContain(`/public/email/o/${token}"`);
+    expect(mail.html).not.toContain('/public/email/c/' + token + '/1');
+
+    const pixel = await ctx.http().get(`/public/email/o/${token}`).expect(200);
+    expect(pixel.headers['content-type']).toBe('image/gif');
+    await ctx
+      .http()
+      .get(`/public/email/o/${'x'.repeat(32)}`)
+      .expect(200)
+      .expect('content-type', 'image/gif');
+    const click = await ctx.http().get(`/public/email/c/${token}/0`).expect(302);
+    expect(click.headers.location).toBe('https://ornek.test/menu?kaynak=eposta');
+    // Only the stored text decides where a link leads.
+    const stray = await ctx.http().get(`/public/email/c/${token}/7`).expect(302);
+    expect(stray.headers.location).not.toContain('ornek.test');
+    const after = await ctx.prisma.campaignRecipient.findUniqueOrThrow({ where: { id: recipient.id } });
+    expect(after.openedAt).not.toBeNull();
+    expect(after.clickedAt).not.toBeNull();
+    expect(after).toMatchObject({ openCount: 2, clickCount: 1 });
+
+    const report = await results(campaign.id);
+    expect(report.tracked).toBe(true);
+    expect(report.variants[0]).toMatchObject({
+      sent: 1,
+      opens: 1,
+      clicks: 1,
+      openRateBps: 10_000,
+      clickRateBps: 10_000,
+    });
+
+    // Switched off: the link still leads on, nothing more is counted, and results stop showing it.
+    await ctx
+      .http()
+      .put(`/admin/restaurants/${restaurantId}/features/email_tracking`)
+      .set(bearer(adminToken))
+      .send({ enabled: false })
+      .expect(200);
+    await ctx.http().get(`/public/email/c/${token}/0`).expect(302);
+    expect((await ctx.prisma.campaignRecipient.findUniqueOrThrow({ where: { id: recipient.id } })).clickCount).toBe(1);
+    expect((await results(campaign.id)).tracked).toBe(false);
   });
 
   it('tests on part of the audience, picks the better text after the wait and sends it to those who waited', async () => {

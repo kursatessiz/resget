@@ -22,6 +22,17 @@ export const enLoyalty: Record<keyof typeof trLoyalty, string> = {
   'loyalty.program.welcomePoints': 'Welcome points on the first completed order',
   'loyalty.program.notifyEarned':
     'Tell the customer about points earned (uses a message credit when no app notification reaches them)',
+  'loyalty.tiers.title': 'Tiers',
+  'loyalty.tiers.help':
+    'A customer moves up to a tier once their orders, cancellations excluded, reach its threshold, and points earned are multiplied by the tier. Thresholds must rise; at most four tiers.',
+  'loyalty.tiers.name': 'Tier name',
+  'loyalty.tiers.minSpend': 'Total spend needed ({currency})',
+  'loyalty.tiers.multiplier': 'Points multiplier (percent)',
+  'loyalty.tiers.add': 'Add a tier',
+  'loyalty.tiers.remove': 'Remove',
+  'loyalty.tiers.yours': 'Your tier: {tier}. You earn points at {pct} percent.',
+  'loyalty.tiers.label': 'Tier: {tier}',
+  'loyalty.tiers.next': '{amount} more spend reaches {tier}.',
   'loyalty.program.save': 'Save',
   'loyalty.program.saved': 'Program saved.',
   'loyalty.stats.title': 'Status',

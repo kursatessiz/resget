@@ -1,8 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
-import { registryCovers } from '@resget/shared';
-import type { CampaignChannel, ConsentRegistryAdapter, FeatureKey, NotificationChannel } from '@resget/shared';
+import { extractEmailLinks, registryCovers } from '@resget/shared';
+import type {
+  CampaignChannel,
+  ConsentRegistryAdapter,
+  EmailTracking,
+  FeatureKey,
+  NotificationChannel,
+} from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { ConsentService } from '../consent/consent.service';
@@ -121,6 +127,8 @@ export class CommercialSenderService {
     recipient: CommercialRecipient;
     body: string;
     subject: string | null;
+    /** Email only: the recipient's tracking token when open and click tracking is on (docs/EPOSTA.md). */
+    trackingToken?: string | null;
   }): Promise<CommercialDelivery> {
     const { recipient } = input;
     const token = recipient.marketingToken ?? (await this.ensureToken(recipient.customerId));
@@ -136,6 +144,7 @@ export class CommercialSenderService {
         locale,
         customerId: recipient.customerId,
         unsubscribeUrl: this.unsubscribeUrl(token),
+        ...(input.trackingToken ? { tracking: this.trackingFor(input.trackingToken, input.body) } : {}),
       });
       return {
         status: mail.status,
@@ -155,6 +164,16 @@ export class CommercialSenderService {
     });
     if (result.status === 'SENT') return { status: 'SENT', errorCode: null, logId: result.logId };
     return { status: 'FAILED', errorCode: result.errorCode ?? 'FAILED', logId: result.logId };
+  }
+
+  /** The open image and the tracked links of one campaign email; the links are the campaign text's own. */
+  trackingFor(trackingToken: string, body: string): EmailTracking {
+    const api = this.config.getOrThrow<string>('PUBLIC_API_URL').replace(/\/+$/, '');
+    return {
+      openUrl: `${api}/public/email/o/${trackingToken}`,
+      clickUrl: (index) => `${api}/public/email/c/${trackingToken}/${index}`,
+      links: extractEmailLinks(body),
+    };
   }
 
   optOutUrl(token: string): string {

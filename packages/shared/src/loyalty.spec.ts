@@ -1,4 +1,11 @@
-import { LoyaltyProgramSchema, balanceValueMinor, pointsEarnedFor, redeemableFor } from './loyalty';
+import {
+  LoyaltyProgramSchema,
+  balanceValueMinor,
+  loyaltyTierFor,
+  pointsEarnedFor,
+  redeemableFor,
+  tieredPointsEarned,
+} from './loyalty';
 
 const rule = {
   enabled: true,
@@ -45,5 +52,51 @@ describe('loyalty arithmetic', () => {
     expect(LoyaltyProgramSchema.safeParse({ ...rule, maxDiscountBps: 0 }).success).toBe(false);
     expect(LoyaltyProgramSchema.safeParse({ ...rule, earnStepMinor: 10.5 }).success).toBe(false);
     expect(LoyaltyProgramSchema.safeParse({ ...rule, extra: true }).success).toBe(false);
+  });
+});
+
+describe('loyalty tiers', () => {
+  const tiers = [
+    { name: 'Gumus', minSpendMinor: 100_000, earnMultiplierPct: 150 },
+    { name: 'Altin', minSpendMinor: 500_000, earnMultiplierPct: 200 },
+  ];
+
+  it('finds the highest reached tier and what the next one still needs', () => {
+    expect(loyaltyTierFor(tiers, 0)).toEqual({ current: null, next: { tier: tiers[0], remainingMinor: 100_000 } });
+    expect(loyaltyTierFor(tiers, 100_000)).toEqual({
+      current: tiers[0],
+      next: { tier: tiers[1], remainingMinor: 400_000 },
+    });
+    expect(loyaltyTierFor(tiers, 900_000)).toEqual({ current: tiers[1], next: null });
+    expect(loyaltyTierFor([], 900_000)).toEqual({ current: null, next: null });
+  });
+
+  it('multiplies the base points and keeps whole points', () => {
+    const rule = { earnPoints: 1, earnStepMinor: 100 };
+    expect(tieredPointsEarned(rule, 2_550, 100)).toBe(25);
+    expect(tieredPointsEarned(rule, 2_550, 150)).toBe(37);
+    expect(tieredPointsEarned(rule, 2_550, 200)).toBe(50);
+  });
+
+  it('accepts tiers only in rising spend, at most four, and defaults to none', () => {
+    const base = {
+      enabled: true,
+      earnPoints: 1,
+      earnStepMinor: 100,
+      redeemPoints: 100,
+      redeemValueMinor: 1000,
+      minOrderMinor: 0,
+      maxDiscountBps: 5000,
+      welcomePoints: 0,
+    };
+    expect(LoyaltyProgramSchema.parse(base).tiers).toEqual([]);
+    expect(LoyaltyProgramSchema.safeParse({ ...base, tiers }).success).toBe(true);
+    expect(LoyaltyProgramSchema.safeParse({ ...base, tiers: [tiers[1], tiers[0]] }).success).toBe(false);
+    expect(
+      LoyaltyProgramSchema.safeParse({
+        ...base,
+        tiers: [1, 2, 3, 4, 5].map((n) => ({ name: `T${n}`, minSpendMinor: n * 100, earnMultiplierPct: 100 })),
+      }).success,
+    ).toBe(false);
   });
 });

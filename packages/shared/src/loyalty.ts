@@ -9,6 +9,22 @@ import { BasisPointsSchema, MinorAmountSchema, bpsOf } from './money';
  * balance and the discount never drift.
  */
 
+/** Bounds of a tier's earn multiplier, in percent of the base rule. */
+export const LOYALTY_TIER_MULTIPLIER = { min: 100, max: 500 } as const;
+
+/** A loyalty tier (docs/SADAKAT.md, "Seviyeler"): its name is restaurant data and never translated. */
+export const LoyaltyTierSchema = z
+  .object({
+    name: z.string().trim().min(1).max(30),
+    /** Lifetime spend at the restaurant (cancelled orders excluded) that reaches the tier, in minor units. */
+    minSpendMinor: z.number().int().min(1).max(1_000_000_000_000),
+    /** Points earned on an order are multiplied by this percentage (100 = as the base rule). */
+    earnMultiplierPct: z.number().int().min(LOYALTY_TIER_MULTIPLIER.min).max(LOYALTY_TIER_MULTIPLIER.max),
+  })
+  .strict();
+export type LoyaltyTier = z.infer<typeof LoyaltyTierSchema>;
+export const LOYALTY_TIERS_MAX = 4;
+
 export const LoyaltyProgramSchema = z
   .object({
     enabled: z.boolean(),
@@ -27,6 +43,14 @@ export const LoyaltyProgramSchema = z
     welcomePoints: z.number().int().min(0).max(1_000_000),
     /** Tell the customer about points earned on a completed order; a paid message unless a push reaches them. */
     notifyEarned: z.boolean().default(false),
+    /** Tiers in rising order of spend; empty is a program without tiers. */
+    tiers: z
+      .array(LoyaltyTierSchema)
+      .max(LOYALTY_TIERS_MAX)
+      .default([])
+      .refine((tiers) => tiers.every((tier, i) => i === 0 || tier.minSpendMinor > tiers[i - 1]!.minSpendMinor), {
+        message: 'tiers must rise in spend',
+      }),
   })
   .strict();
 export type LoyaltyProgram = z.infer<typeof LoyaltyProgramSchema>;
@@ -41,6 +65,7 @@ export const LOYALTY_PROGRAM_DEFAULTS: Readonly<
   maxDiscountBps: 5000,
   welcomePoints: 0,
   notifyEarned: false,
+  tiers: [],
 };
 
 export const UpdateLoyaltyProgramSchema = LoyaltyProgramSchema;
@@ -114,6 +139,9 @@ export interface StorefrontLoyaltyDTO {
 export interface LoyaltyBalanceDTO {
   restaurant: { name: string; slug: string; logoUrl: string | null };
   points: number;
+  /** The customer's tier there and how much more spend reaches the next one; null without tiers. */
+  tier: string | null;
+  nextTier: { name: string; remainingMinor: number } | null;
   /** What the balance is worth today under the restaurant's rule, or 0 when the program is off. */
   valueMinor: number;
   currency: string;
@@ -155,4 +183,27 @@ export function balanceValueMinor(
 ): number {
   if (!Number.isInteger(balance) || balance < rule.redeemPoints) return 0;
   return Math.floor(balance / rule.redeemPoints) * rule.redeemValueMinor;
+}
+
+export interface LoyaltyStanding {
+  /** The highest tier whose threshold the spend reaches; null below the first. */
+  current: LoyaltyTier | null;
+  /** The next tier up and the spend still missing; null at the top or without tiers. */
+  next: { tier: LoyaltyTier; remainingMinor: number } | null;
+}
+
+/** Where a customer stands among the restaurant's tiers, from their lifetime spend there. */
+export function loyaltyTierFor(tiers: readonly LoyaltyTier[], lifetimeSpendMinor: number): LoyaltyStanding {
+  let current: LoyaltyTier | null = null;
+  for (const tier of tiers) if (lifetimeSpendMinor >= tier.minSpendMinor) current = tier;
+  const upcoming = tiers.find((tier) => tier.minSpendMinor > lifetimeSpendMinor);
+  return {
+    current,
+    next: upcoming ? { tier: upcoming, remainingMinor: upcoming.minSpendMinor - lifetimeSpendMinor } : null,
+  };
+}
+
+/** Points a completed order earns at a tier: the base rule's points times the tier's percentage, whole points. */
+export function tieredPointsEarned(rule: EarnRule, spendMinor: number, earnMultiplierPct: number): number {
+  return Math.floor((pointsEarnedFor(rule, spendMinor) * earnMultiplierPct) / 100);
 }

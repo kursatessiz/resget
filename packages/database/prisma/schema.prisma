@@ -1324,6 +1324,12 @@ model CampaignRecipient {
   convertedAt      DateTime?
   /// Items gross of that order at placement, in the restaurant currency's minor unit.
   revenueMinor     Int?
+  /// Email open and click tracking (docs/EPOSTA.md): the recipient's unguessable link token, first open and click.
+  trackingToken    String?                 @unique
+  openedAt         DateTime?
+  openCount        Int                     @default(0)
+  clickedAt        DateTime?
+  clickCount       Int                     @default(0)
   createdAt        DateTime                @default(now())
 
   campaign       Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
@@ -1354,6 +1360,8 @@ model LoyaltyProgram {
   welcomePoints    Int      @default(0)
   /// Tell the customer about points earned on a completed order (paid message, push first; docs/SADAKAT.md).
   notifyEarned     Boolean  @default(false)
+  /// Tiers (LoyaltyTierSchema[] in shared, docs/SADAKAT.md "Seviyeler"); empty is a program without tiers.
+  tiers            Json     @default("[]")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
