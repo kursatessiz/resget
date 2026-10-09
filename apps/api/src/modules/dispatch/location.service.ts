@@ -142,7 +142,9 @@ export class LocationService {
     if (!arrived && now - last >= settings.locationBroadcastSeconds * 1000) {
       this.lastBroadcast.set(trip.id, now);
       const events =
-        remaining.length > 0 ? await Promise.all(remaining.map((s) => this.orders.eventsForOrder(s.orderId))) : [];
+        remaining.length > 0
+          ? await Promise.all(remaining.map((s) => this.orders.eventsForOrder(s.orderId, { external: false })))
+          : [];
       this.realtime.publishMany([
         {
           topic: dispatchTopic(restaurantId),

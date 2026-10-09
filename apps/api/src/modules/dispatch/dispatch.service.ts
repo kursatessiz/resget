@@ -5,6 +5,7 @@ import {
   DELIVERY_CODE_MAX_ATTEMPTS,
   dispatchSettingsFrom,
   estimateStopEtas,
+  isActiveDeliveryRequest,
   optimizeStopOrder,
   orderShortCode,
 } from '@resget/shared';
@@ -170,6 +171,8 @@ export class DispatchService {
       : null;
 
     const tripId = await this.prisma.$transaction(async (tx) => {
+      // Checked again under row locks: two dispatchers planning the same order at once cannot both win.
+      await this.lockDispatchable(tx, restaurantId, input.orderIds);
       const trip = await tx.deliveryTrip.create({
         data: {
           restaurantId,
@@ -251,8 +254,9 @@ export class DispatchService {
     const [order] = await this.dispatchableOrders(this.prisma, restaurantId, [orderId]);
     if (order.branchId !== trip.branchId) throw conflict('TRIP_STOP_INVALID', 'Order belongs to another branch');
     const point = this.orders.addressOf(order)?.point ?? null;
-    await this.prisma.$transaction([
-      this.prisma.deliveryStop.create({
+    await this.prisma.$transaction(async (tx) => {
+      await this.lockDispatchable(tx, restaurantId, [orderId]);
+      await tx.deliveryStop.create({
         data: {
           tripId,
           restaurantId,
@@ -261,9 +265,9 @@ export class DispatchService {
           lat: point?.lat,
           lng: point?.lng,
         },
-      }),
-      this.prisma.order.update({ where: { id: orderId }, data: { deliveryMode: 'RESTAURANT_COURIER' } }),
-    ]);
+      });
+      await tx.order.update({ where: { id: orderId }, data: { deliveryMode: 'RESTAURANT_COURIER' } });
+    });
     if (trip.sequenceMode === 'OPTIMIZED') await this.optimizeStops(restaurantId, tripId);
     else await this.refreshEstimates(restaurantId, tripId);
     await this.publishTrip(tripId);
@@ -295,7 +299,6 @@ export class DispatchService {
     });
     await this.refreshEstimates(restaurantId, tripId);
     await this.publishTrip(tripId, [], [stop.orderId]);
-    await this.notifications.notify(stop.orderId, 'DELIVERED');
     return this.getTrip(restaurantId, tripId);
   }
 
@@ -376,7 +379,8 @@ export class DispatchService {
       throw conflict('TRIP_STATE_INVALID', 'Trip needs a courier and must not have departed');
     if (trip.stops.length === 0) throw conflict('TRIP_STOP_INVALID', 'Trip has no stops');
     await this.prisma.$transaction(async (tx) => {
-      if (!trip.pickedUpAt) await this.handOver(tx, trip, actor);
+      // Always: a stop added after an earlier pickup still has to be handed over (idempotent for the rest).
+      await this.handOver(tx, trip, actor);
       for (const stop of trip.stops) {
         const order = await this.orders.loadRow(tx, stop.orderId);
         if (order.status === 'HANDED_TO_COURIER') {
@@ -436,6 +440,8 @@ export class DispatchService {
     });
     await this.refreshEstimates(restaurantId, tripId);
     await this.publishTrip(tripId, [], [stop.orderId]);
+    // The customer hears about the delivery when it happens, never when a stop is merely taken off a trip.
+    await this.notifications.notify(stop.orderId, 'DELIVERED');
     return this.getTrip(restaurantId, tripId);
   }
 
@@ -626,7 +632,21 @@ export class DispatchService {
     return trip;
   }
 
-  private async dispatchableOrders(db: PrismaService, restaurantId: string, orderIds: string[]) {
+  /** Locks the order rows and repeats the dispatchable check inside the caller's transaction. */
+  private async lockDispatchable(
+    tx: Prisma.TransactionClient,
+    restaurantId: string,
+    orderIds: string[],
+  ): Promise<void> {
+    await tx.$queryRaw`SELECT id FROM orders WHERE id IN (${Prisma.join(orderIds)}) FOR UPDATE`;
+    await this.dispatchableOrders(tx, restaurantId, orderIds);
+  }
+
+  private async dispatchableOrders(
+    db: PrismaService | Prisma.TransactionClient,
+    restaurantId: string,
+    orderIds: string[],
+  ) {
     if (new Set(orderIds).size !== orderIds.length) throw conflict('TRIP_STOP_INVALID', 'Duplicate order ids');
     const orders = await db.order.findMany({
       where: { id: { in: orderIds }, restaurantId },
@@ -641,6 +661,7 @@ export class DispatchService {
           select: { id: true },
           take: 1,
         },
+        deliveryRequest: { select: { status: true } },
       },
     });
     if (orders.length !== orderIds.length) throw notFound('ORDER_NOT_FOUND', 'An order was not found');
@@ -653,6 +674,9 @@ export class DispatchService {
       }
       if (order.deliveryStops.length > 0)
         throw conflict('ORDER_NOT_DISPATCHABLE', `Order ${order.id} is already in a trip`);
+      // A courier network already carries it (docs/KURYE.md); it cannot also ride with the own courier.
+      if (order.deliveryRequest && isActiveDeliveryRequest(order.deliveryRequest.status))
+        throw conflict('ORDER_NOT_DISPATCHABLE', `Order ${order.id} is with a courier network`);
     }
     return orderIds.map((id) => orders.find((o) => o.id === id)!);
   }

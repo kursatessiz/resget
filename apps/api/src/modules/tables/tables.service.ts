@@ -92,8 +92,10 @@ export class TablesService {
   }
 
   async funnel(restaurantId: string, from: Date, to: Date): Promise<QrFunnel> {
+    // The funnel needs each session's steps once, not every repeated row.
     const events = await this.prisma.qrScanEvent.findMany({
       where: { restaurantId, createdAt: { gte: from, lt: to } },
+      distinct: ['sessionId', 'outcome'],
       select: { sessionId: true, outcome: true },
     });
     return computeQrFunnel(events);

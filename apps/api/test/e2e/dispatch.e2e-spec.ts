@@ -484,4 +484,53 @@ describe('Orders, dispatch, courier and tracking (e2e)', () => {
       request.destroy();
     }
   });
+
+  it('plans an order into one trip only, even when two dispatchers try at the same moment', async () => {
+    const order = await readyOrder(NEAR, 'Ali');
+    const attempts = await Promise.all(
+      [0, 1].map(() =>
+        ctx
+          .http()
+          .post(`/restaurants/${restaurantId}/dispatch/trips`)
+          .set(bearer(ownerToken))
+          .send({ orderIds: [order.id] }),
+      ),
+    );
+    expect(attempts.map((r) => r.status).sort()).toEqual([201, 409]);
+    const created = attempts.find((r) => r.status === 201)!;
+    tripIds.push(created.body.id as string);
+    const stops = await ctx.prisma.deliveryStop.count({ where: { orderId: order.id, status: { not: 'REMOVED' } } });
+    expect(stops).toBe(1);
+  });
+
+  it('hands over a stop added after the pickup when the courier departs', async () => {
+    const firstOrder = await readyOrder(NEAR, 'Can');
+    const created = await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/dispatch/trips`)
+      .set(bearer(ownerToken))
+      .send({ orderIds: [firstOrder.id], courierMembershipId })
+      .expect(201);
+    const lateTripId = created.body.id as string;
+    tripIds.push(lateTripId);
+    await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/courier/me/trips/${lateTripId}/pickup`)
+      .set(bearer(courierToken))
+      .expect(200);
+    const late = await readyOrder(MID, 'Ece');
+    await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/dispatch/trips/${lateTripId}/stops`)
+      .set(bearer(ownerToken))
+      .send({ orderId: late.id })
+      .expect(201);
+    await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/courier/me/trips/${lateTripId}/start`)
+      .set(bearer(courierToken))
+      .expect(200);
+    expect((await getOrder(late.id)).status).toBe('OUT_FOR_DELIVERY');
+    expect((await getOrder(firstOrder.id)).status).toBe('OUT_FOR_DELIVERY');
+  });
 });

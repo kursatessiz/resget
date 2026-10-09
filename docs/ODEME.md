@@ -62,11 +62,16 @@ Platform cüzdanları (Masterpass, bex) ile sipariş ödemesi `docs/CUZDAN.md` i
 
 Yemek kartlarında üye işyeri her zaman restorandır; restoran kabul ettiği kartları seçer, çevrim içi ödeme için kuruluşun API bilgilerini bağlar (POS bağlantısıyla aynı şifreleme ve doğrulama), kapıda kabul için yalnızca işaretler. Yemek kartı, nakit ve kapıda kart ödemeleri restoranın `paymentMode`'undan bağımsız olarak `OWN_POS` gibi hesaplanır (komisyon faturalanır, PSP ve tevkifat sıfır). Ödeme adımı (hosted oturum, imzalı webhook, kapıda tahsilat) ve uçlar: `docs/YEMEK_KARTI.md`.
 
+## 3a1. Tamamlanmayan ödeme
+
+Çevrim içi ödemeli sipariş ödeme gelene kadar `PENDING_PAYMENT` durur ve stok, kupon kullanımı ve harcanan sadakat puanı ona ayrılmıştır. Ödeme `PENDING_PAYMENT_TIMEOUT_MINUTES` (45 dakika; sağlayıcıların barındırılan ödeme oturumundan, 30 dakika, uzun) içinde tamamlanmazsa sipariş izleyicisi (`OrdersWatchdog`, dakikada bir) siparişi `CANCELLED_BY_CUSTOMER` (aktör `SYSTEM`, gerekçe "payment not completed") yapar; ayrılanlar geri verilir, müşteriye mesaj gönderilmez. Zaman aşımından sonra gelen bir ödeme iade taramasıyla geri ödenir (3b).
+
 ## 3b. İade
 
 Para her zaman geldiği yoldan geri döner (`RefundsService`, kurallar `packages/shared/src/refunds.ts`):
 
 - **Çevrim içi ödeme** (kart veya çevrim içi yemek kartı) onu tahsil eden bağlantı üzerinden iade edilir: `OWN_POS`'ta restoranın kendi POS bağlantısının, yemek kartında kuruluş hesabının bilgileriyle (bağlantı sonradan pasife alınmış olsa bile bilgiler duruyorsa), `PLATFORM_PSP`'de platformun kendi üye işyeriyle. Adaptörün `refund(credentials, providerRef, amountMinor)` çağrısı kullanılır; iyzico'da `providerRef` ödeme işlem kimliği, PayTR'de `merchant_oid`'dir. Bağlantı yoksa `REFUND_UNAVAILABLE`: iade sağlayıcının panelinden yapılır.
+- **Yeniden deneme taraması** son geri çekilme adımını da tüketmiş ödemeleri seçmez; onlar panelden elle çözülür ve yeni iadelerin sırasını tutmaz.
 - **Kapıda alınan para** (nakit, kapıda kart, kapıda yemek kartı) restoranın kasasındadır; personel tutarı müşteriye elden verdikten sonra iadeyi onaylar, platform yalnızca kaydeder. Bu ödemeler asla kendiliğinden iade edilmez.
 - **İptalde otomatik iade**: `REJECTED`, `CANCELLED_BY_RESTAURANT` veya `CANCELLED_BY_CUSTOMER` geçişi işlendikten hemen sonra yakalanmış çevrim içi ödeme iade edilir. Başarısız deneme iptali geri almaz; ödeme `refundFailureCode` ile işaretlenir (`REFUND_DECLINED`, `REFUND_PROVIDER_ERROR`, `REFUND_UNAVAILABLE`), panelde görünür ve API içindeki tarama (dakikada bir, `REFUND_RETRY=off` ile kapanır) 5, 15, 60 ve 240 dakika arayla yeniden dener; son denemeden sonra karar personelindir. Müşteri iptal mesajının içinde ödemesinin iade edildiğini veya edileceğini okur; ayrı mesaj yoktur.
 - **Tamamlanmış siparişte iade** yalnızca personel isteğiyle olur: `POST /restaurants/:id/orders/:orderId/refund` (`orders.refund`, gövde `{ reason }`, gerekçe zorunlu). Müşteriye `order.refunded` mesajı gider. Gövdeye `items` veya `amountMinor` eklenirse kısmi iadedir (aşağıda).

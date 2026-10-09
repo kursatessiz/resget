@@ -51,6 +51,13 @@ export const OrderChannelValueSchema = z.enum(values(OrderChannel));
 export const DeliveryTripStatusValueSchema = z.enum(values(DeliveryTripStatus));
 export const StopSequenceModeValueSchema = z.enum(values(StopSequenceMode));
 
+/**
+ * An online order whose payment never completes is cancelled by the platform after this long (docs/ODEME.md),
+ * so an abandoned checkout does not hold stock, a coupon use or loyalty points. Longer than the providers' hosted
+ * session (30 minutes), so a payment finished at the last moment still lands first.
+ */
+export const PENDING_PAYMENT_TIMEOUT_MINUTES = 45;
+
 /** Who may trigger a transition. SYSTEM is the platform itself (payment capture, geofence, timeouts). */
 export type OrderActor = 'RESTAURANT' | 'COURIER' | 'CUSTOMER' | 'SYSTEM';
 

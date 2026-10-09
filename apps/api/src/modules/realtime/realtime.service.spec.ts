@@ -75,4 +75,14 @@ describe('RealtimeService', () => {
     subscription.unsubscribe();
     expect(service.listenerCount(topic)).toBe(0);
   });
+
+  it('forgets the replay buffer of a topic once its last event is older than the replay window', () => {
+    const realtime = new RealtimeService(noRedis);
+    realtime.publish(orderTopic('old'), tracking('PLACED'));
+    realtime.publish(orderTopic('live'), tracking('PLACED'));
+    expect(realtime.bufferedTopicCount()).toBe(2);
+    expect(realtime.sweep(Date.now())).toBe(0);
+    expect(realtime.sweep(Date.now() + 11 * 60_000)).toBe(2);
+    expect(realtime.bufferedTopicCount()).toBe(0);
+  });
 });
