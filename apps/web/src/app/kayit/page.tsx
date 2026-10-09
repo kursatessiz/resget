@@ -6,7 +6,7 @@ import { ThemeRoot } from '@/components/ThemeRoot';
 import { Card } from '@/components/ui';
 import { getMe } from '@/lib/api-server';
 import { getT } from '@/lib/i18n';
-import { apiInternalBaseUrl } from '@/lib/server-env';
+import { apiInternalBaseUrl, visitorHeaders } from '@/lib/server-env';
 
 /** Restaurant self sign-up: the phone that signs in becomes the owner (docs/PLATFORM_YONETIMI.md). */
 export default async function SignupPage({ searchParams }: { searchParams: Promise<{ davet?: string | string[] }> }) {
@@ -22,7 +22,10 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
   const { t, locale } = await getT();
   let invite: PartnerInviteDTO | null = null;
   if (partnerCode) {
-    const res = await fetch(`${apiInternalBaseUrl()}/public/partner-invites/${partnerCode}`, { cache: 'no-store' });
+    const res = await fetch(`${apiInternalBaseUrl()}/public/partner-invites/${partnerCode}`, {
+      headers: await visitorHeaders(),
+      cache: 'no-store',
+    });
     if (res.ok) invite = (await res.json()) as PartnerInviteDTO;
   }
   return (

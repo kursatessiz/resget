@@ -297,41 +297,52 @@ export class JourneysService {
       take: 20,
     });
     for (const journey of toScan) {
+      // Stamped even when the module is off, so switched-off flows do not hold the 20 scan slots for ever.
+      await this.prisma.journey.update({ where: { id: journey.id }, data: { lastScanAt: now } });
       if (!(await this.features.isEnabled('journeys', journey.restaurantId))) continue;
       await this.scanWinBack(journey, now);
-      await this.prisma.journey.update({ where: { id: journey.id }, data: { lastScanAt: now } });
     }
 
-    const due = await this.prisma.journeyRun.findMany({
-      where: { status: 'PENDING', dueAt: { lte: now }, journey: { status: 'ACTIVE' } },
-      orderBy: { dueAt: 'asc' },
-      take: JOURNEY_BATCH_SIZE * 4,
-      select: {
-        id: true,
-        createdAt: true,
-        journey: true,
-        order: {
-          select: {
-            status: true,
-            completedAt: true,
-            trackingToken: true,
-            rating: { select: { id: true } },
-          },
-        },
-        customer: {
-          select: {
-            id: true,
-            email: true,
-            marketingToken: true,
-            lastOrderAt: true,
-            user: { select: { phone: true, email: true, locale: true, fullName: true } },
-            restaurant: {
-              select: { name: true, countryCode: true, timezone: true, defaultLocale: true },
+    // Each flow with due runs gets its own batch: a fixed page of the oldest runs would let flows that cannot send
+    // (no credits, outside the send window, email domain missing) take every slot and starve the others.
+    const dueWhere = { status: 'PENDING' as const, dueAt: { lte: now }, journey: { status: 'ACTIVE' as const } };
+    const flowsDue = await this.prisma.journeyRun.groupBy({ by: ['journeyId'], where: dueWhere });
+    const due = (
+      await Promise.all(
+        flowsDue.map((flow) =>
+          this.prisma.journeyRun.findMany({
+            where: { ...dueWhere, journeyId: flow.journeyId },
+            orderBy: { dueAt: 'asc' },
+            take: JOURNEY_BATCH_SIZE,
+            select: {
+              id: true,
+              createdAt: true,
+              journey: true,
+              order: {
+                select: {
+                  status: true,
+                  completedAt: true,
+                  trackingToken: true,
+                  rating: { select: { id: true } },
+                },
+              },
+              customer: {
+                select: {
+                  id: true,
+                  email: true,
+                  marketingToken: true,
+                  lastOrderAt: true,
+                  user: { select: { phone: true, email: true, locale: true, fullName: true } },
+                  restaurant: {
+                    select: { name: true, countryCode: true, timezone: true, defaultLocale: true },
+                  },
+                },
+              },
             },
-          },
-        },
-      },
-    });
+          }),
+        ),
+      )
+    ).flat();
     const blocked = new Set<string>();
     let sent = 0;
     for (const run of due) {

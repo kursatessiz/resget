@@ -125,6 +125,7 @@ export const trErrors = {
   'errors.SEND_LIMIT_EXCEEDED': 'Bu gönderim tanımlı gönderim sınırını aşıyor.',
   'errors.AI_NOT_CONFIGURED': 'Yapay zeka stüdyosu henüz yapılandırılmadı.',
   'errors.AI_BUDGET_EXHAUSTED': 'Bu ayın yapay zeka bütçesi doldu; yeni ay başladığında yeniden kullanılabilir.',
+  'errors.AI_BUSY': 'İşletmeniz için bir taslak hazırlanıyor. Hazır olunca tekrar deneyin.',
   'errors.AI_REFUSED': 'Bu istek için taslak üretilemedi; açıklamayı değiştirip yeniden deneyin.',
   'errors.AI_FAILED': 'Taslak şu an üretilemedi; biraz sonra yeniden deneyin.',
   'errors.SOCIAL_NOT_CONFIGURED': 'Sosyal hesap bağlantısı henüz yapılandırılmadı.',
