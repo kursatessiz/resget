@@ -4,7 +4,9 @@ import {
   expectedEmailDomainRecords,
   maskEmail,
   normalizeEmail,
+  extractEmailLinks,
   plainTextToHtml,
+  trackedEmailHtml,
 } from './email';
 
 const tokens = ['abc123', 'def456', 'ghi789'];
@@ -75,5 +77,37 @@ describe('plain text to HTML', () => {
     expect(plainTextToHtml('Merhaba <b>"Ali"</b> & ekip\n\nIkinci\nsatir')).toBe(
       '<p>Merhaba &lt;b&gt;&quot;Ali&quot;&lt;/b&gt; &amp; ekip</p>\n<p>Ikinci<br>satir</p>',
     );
+  });
+});
+
+describe('email open and click tracking', () => {
+  const text =
+    'Yeni menu: https://ornek.test/menu?k=1. Tatli: https://ornek.test/tatli\n\nCikmak icin: https://app.test/api/iptal/abc';
+  const tracking = {
+    openUrl: 'https://api.test/public/email/o/tok',
+    clickUrl: (i: number) => `https://api.test/public/email/c/tok/${i}`,
+    links: extractEmailLinks('Yeni menu: https://ornek.test/menu?k=1. Tatli: https://ornek.test/tatli'),
+  };
+
+  it('finds the links in order and leaves closing punctuation outside', () => {
+    expect(tracking.links).toEqual(['https://ornek.test/menu?k=1', 'https://ornek.test/tatli']);
+    expect(extractEmailLinks('Bize yazin (https://ornek.test/iletisim).')).toEqual(['https://ornek.test/iletisim']);
+    expect(extractEmailLinks('Baglanti yok')).toEqual([]);
+  });
+
+  it("tracks the campaign's own links, keeps any other address as it is and adds the open image", () => {
+    const html = trackedEmailHtml(text, tracking);
+    expect(html).toContain('<a href="https://api.test/public/email/c/tok/0">https://ornek.test/menu?k=1</a>.');
+    expect(html).toContain('<a href="https://api.test/public/email/c/tok/1">https://ornek.test/tatli</a>');
+    expect(html).toContain('<a href="https://app.test/api/iptal/abc">https://app.test/api/iptal/abc</a>');
+    expect(html).toContain('<img src="https://api.test/public/email/o/tok" width="1" height="1"');
+  });
+
+  it('still escapes everything that is not a link', () => {
+    const html = trackedEmailHtml('<b>"Ali"</b> & https://ornek.test/a', {
+      ...tracking,
+      links: ['https://ornek.test/a'],
+    });
+    expect(html).toContain('&lt;b&gt;&quot;Ali&quot;&lt;/b&gt; &amp; <a href="https://api.test/public/email/c/tok/0">');
   });
 });

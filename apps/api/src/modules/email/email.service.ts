@@ -9,6 +9,7 @@ import {
   maskEmail,
   normalizeEmail,
   plainTextToHtml,
+  trackedEmailHtml,
 } from '@resget/shared';
 import type {
   AddEmailDomainInput,
@@ -20,6 +21,7 @@ import type {
   EmailSuppressionDTO,
   EmailSuppressionReason,
   EmailTemplateKey,
+  EmailTracking,
 } from '@resget/shared';
 import type { Prisma } from '@resget/database';
 import { PrismaService } from '../prisma/prisma.service';
@@ -42,6 +44,8 @@ export interface SendEmailRequest {
   /** Commercial mail: the contact whose EMAIL consent decides, and the one-click unsubscribe address. */
   customerId?: string;
   unsubscribeUrl?: string;
+  /** Commercial campaign mail with open and click tracking (docs/EPOSTA.md); the HTML part only. */
+  tracking?: EmailTracking;
 }
 
 export interface SendEmailResult {
@@ -173,7 +177,10 @@ export class EmailService {
       to,
       subject,
       text,
-      html: plainTextToHtml(text),
+      html:
+        request.tracking && request.kind === 'COMMERCIAL'
+          ? trackedEmailHtml(text, request.tracking)
+          : plainTextToHtml(text),
       headers,
     });
     return finish(result.status, result.errorCode, result.providerRef);

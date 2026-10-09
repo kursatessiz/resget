@@ -53,7 +53,7 @@ Modül açıkken kampanya aracına dört yetenek eklenir. Modül kapalıyken bu 
 
 Kampanya ve otomatik akış mesajları aynı göndericiden geçer (`CommercialSenderService`: etkin kanal, izin ve sınırlar, sicil, adres, kredi veya e-posta) ve dönüşümde yarışır: sipariş, kendi penceresindeki en son mesaja yazılır (`docs/AKISLAR.md`).
 
-`GET :id/results` (`campaigns.view`, modül açık): metin başına alıcı, gönderilen, başarısız, atlanan, dönüşüm, atfedilen ciro (minör birim) ve dönüşüm oranı (baz puan); iki metin de gönderildiyse oranı yüksek olan `leader`. Kazananın otomatik seçimi açıksa ayrıca `autoWinner` (test payı, bekleme süresi, karar zamanı, bekleyen alıcı sayısı, kazanan); kapalıysa kazanan otomatik seçilmez, karar işletmenindir.
+`GET :id/results` (`campaigns.view`, modül açık): metin başına alıcı, gönderilen, başarısız, atlanan, dönüşüm, atfedilen ciro (minör birim) ve dönüşüm oranı (baz puan); e-posta kampanyasında ve `email_tracking` açıkken ayrıca benzersiz açılma ve tıklama ile oranları (`tracked: true`, `docs/EPOSTA.md`); iki metin de gönderildiyse oranı yüksek olan `leader`. Kazananın otomatik seçimi açıksa ayrıca `autoWinner` (test payı, bekleme süresi, karar zamanı, bekleyen alıcı sayısı, kazanan); kapalıysa kazanan otomatik seçilmez, karar işletmenindir.
 
 Metin kuralları her iki yolda da aynıdır (`campaignContentIssue()`): SMS ve WhatsApp en çok 300 karakter ve konusuz, e-posta konulu. Oluştururken şema `VALIDATION` ile, düzenlerken servis birleştirilmiş kayıt üzerinden `CAMPAIGN_CONTENT_INVALID` ile reddeder.
 
@@ -67,4 +67,4 @@ Metin kuralları her iki yolda da aynıdır (`campaignContentIssue()`): SMS ve W
 ## Kalan
 
 - Gerçek İYS adaptörü ve İYS kayıt zorunluluğu belgesi; GDPR bölgeleri için eşdeğer sicil yok, yalnızca izin ve vazgeçme uygulanır.
-- Kampanya e-postalarında açılma ve tıklama ölçümü; Sadakat programı `docs/SADAKAT.md` ile geldi; segment kaydetme bu belgeyle geldi.
+- Sadakat programı `docs/SADAKAT.md` ile geldi; segment kaydetme bu belgeyle geldi.

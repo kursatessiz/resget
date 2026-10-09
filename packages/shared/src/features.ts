@@ -73,6 +73,7 @@ export const FEATURES = {
   attribution: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   consent_v2: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   email_channel: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
+  email_tracking: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   segments_v2: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   campaigns_v2: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
   journeys: { group: 'marketing', defaultEnabled: false, stage: 'BETA' },
