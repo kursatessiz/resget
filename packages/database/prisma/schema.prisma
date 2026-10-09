@@ -2060,6 +2060,11 @@ model CourierTip {
   providerRef         String?
   capturedAt          DateTime?
   reversedAt          DateTime?
+  /// Refund started from the panel (docs/BAHSIS.md): the claim, why, who, and the provider's refund reference.
+  refundRequestedAt   DateTime?
+  refundReason        String?
+  refundedByUserId    String?
+  refundProviderRef   String?
   passThroughStatus   TipPassThroughStatus?
   passThroughRef      String?
   passThroughAttempts Int                   @default(0)
