@@ -13,4 +13,10 @@ export const enWallets: Record<keyof typeof trWallets, string> = {
   'wallets.remove': 'Remove',
   'wallets.removed': 'The card was removed.',
   'wallets.payWith': 'Pay with {wallet}: {brand} •••• {last4}',
+  'wallets.app.returnTitle': 'Go back to the app',
+  'wallets.app.returnBody': 'Wallet linking finishes in the app. Open the app to continue.',
+  'wallets.app.open': 'Open the app',
+  'wallets.app.linking': 'Adding your cards.',
+  'wallets.app.removeConfirm': 'Remove this card?',
+  'wallets.app.back': 'Back to my orders',
 } as const satisfies Record<string, string>;

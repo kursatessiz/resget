@@ -3,6 +3,7 @@ export * from './permissions';
 export * from './features';
 export * from './navigation';
 export * from './safe-path';
+export * from './session-handoff';
 export * from './money';
 export * from './settlement';
 export * from './plans';

@@ -20,6 +20,7 @@ export const RESERVED_SLUGS = [
   'static',
   'assets',
   'health',
+  'uygulama',
 ] as const;
 
 /** URL slug of a restaurant: the public ordering page lives at /<slug>. */

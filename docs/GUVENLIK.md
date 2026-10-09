@@ -10,11 +10,22 @@ Platformun kimlik doğrulama ve dış dünyaya açık yüzeyindeki denetimleri t
 
 ## İstemci adresi
 
-Hız sınırları istemci adresini Express'in `trust proxy` ile çıkardığı değerden alır (`request.ip`): Caddy'nin eklediği adres. İstemcinin kendi gönderdiği `X-Forwarded-For` değeri sınırı aşmak için kullanılamaz. Web BFF gelen başlığı olduğu gibi API'ye iletir; API önünde tek vekil olarak Caddy güvenilir.
+Hız sınırları istemci adresini Express'in `trust proxy` ile çıkardığı değerden alır (`request.ip`): Caddy'nin eklediği adres. İstemcinin kendi gönderdiği `X-Forwarded-For` değeri sınırı aşmak için kullanılamaz. Web BFF ve sunucuda API'yi ziyaretçi adına çağıran rotalar (oturum açma, oturum aktarımı) gelen başlığı olduğu gibi API'ye iletir; API önünde tek vekil olarak Caddy güvenilir.
 
 ## Yönlendirme hedefleri
 
 Girişten sonra (`/giris?next=`) ve çıkıştan sonra gidilecek adres yalnızca bu sitedeki bir yoldur (`safeLocalPath`, `packages/shared/src/safe-path.ts`). `//alan`, `/\alan`, şema içeren adres ve sekme veya satır sonu gibi denetim karakterleri reddedilir.
+
+## Uygulamadan web'e oturum aktarımı
+
+Mobil uygulama sipariş sayfasını tarayıcıda açarken müşterinin oturumunu tek kullanımlık bir kodla taşır (`docs/CUZDAN.md`, "Mobil uygulama").
+
+- **Kod üretimi**: uygulama `POST /auth/handoff` ucunu kendi erişim jetonuyla çağırır. API anahtarı bu ucu kullanamaz. Kod 32 rastgele bayttır ve 60 saniye geçerlidir. Veritabanında yalnızca SHA-256 özeti tutulur (`SessionHandoff`).
+- **Kullanım**: tarayıcı `/api/session/handoff?code=...&next=/<yol>` adresini açar. Web sunucusu kodu `POST /auth/handoff/redeem` ucunda jetonlara çevirir ve httpOnly çerezlere yazar. Ardından `next` yoluna 303 ile yönlendirir. Kodlu adres sayfa olarak hiç çizilmez, bu yüzden başka bir siteye `Referer` ile sızmaz.
+- **Tek kullanım**: kod koşullu güncellemeyle harcanır. Aynı anda gelen iki kullanımdan biri kazanır. Süresi geçmiş, kullanılmış ya da silinmiş hesaba ait kod reddedilir. Bu durumda tarayıcı yine `next` yoluna gider ve oturumsuz devam eder.
+- **Hedef**: `next` yalnızca bu sitedeki bir yoldur (`safeLocalPath`, "Yönlendirme hedefleri").
+- **Hız sınırı**: istemci adresi başına kod kullanımı 10 dakikada 60 ile, kullanıcı başına kod üretimi 10 dakikada 30 ile sınırlıdır.
+- **Temizlik**: süresi bir günden önce dolmuş kayıtlar yeni kod üretilirken silinir.
 
 ## Dışarıya giden istekler
 
