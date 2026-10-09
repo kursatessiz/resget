@@ -97,9 +97,7 @@ export class StorefrontService {
     if (!table || !table.isActive || !table.restaurant.isActive) throw notFound('TABLE_NOT_FOUND', 'Table not found');
     await this.features.assertEnabled('table_qr', table.restaurant.id);
     if (sessionId) {
-      await this.prisma.qrScanEvent.create({
-        data: { restaurantId: table.restaurant.id, tableId: table.id, sessionId, outcome: QrScanOutcome.VIEWED_MENU },
-      });
+      await this.recordStep(table.restaurant.id, table.id, sessionId, QrScanOutcome.VIEWED_MENU);
     }
     return this.build(table.restaurant, { id: table.id, label: table.label }, table.branchId);
   }
@@ -120,9 +118,21 @@ export class StorefrontService {
     });
     if (!table || !table.isActive) throw notFound('TABLE_NOT_FOUND', 'Table not found');
     await this.features.assertEnabled('table_qr', table.restaurantId);
-    await this.prisma.qrScanEvent.create({
-      data: { restaurantId: table.restaurantId, tableId: table.id, sessionId, outcome: QrScanOutcome.STARTED_ORDER },
+    await this.recordStep(table.restaurantId, table.id, sessionId, QrScanOutcome.STARTED_ORDER);
+  }
+
+  /**
+   * One funnel row per session, table and step a day: the funnel counts sessions, so a menu reloaded or polled does
+   * not add rows (the table would otherwise grow with every page view), while a guest back on another day still
+   * counts in that day's funnel.
+   */
+  private async recordStep(restaurantId: string, tableId: string, sessionId: string, outcome: QrScanOutcome) {
+    const seen = await this.prisma.qrScanEvent.findFirst({
+      where: { restaurantId, tableId, sessionId, outcome, createdAt: { gte: new Date(Date.now() - 86_400_000) } },
+      select: { id: true },
     });
+    if (seen) return;
+    await this.prisma.qrScanEvent.create({ data: { restaurantId, tableId, sessionId, outcome } });
   }
 
   async areas(): Promise<MarketplaceAreaDTO[]> {

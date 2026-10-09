@@ -52,7 +52,13 @@ export class OrdersController {
   @Sse('events')
   @RequirePermission('orders.view')
   events(@Tenant() tenant: TenantContext, @Headers('last-event-id') lastEventId?: string): Observable<MessageEvent> {
-    return this.realtime.stream(dispatchTopic(tenant.restaurantId), lastEventId, [], (e) => e.type === 'order.updated');
+    return this.realtime.stream(
+      dispatchTopic(tenant.restaurantId),
+      lastEventId,
+      [],
+      (e) => e.type === 'order.updated',
+      OrdersService.viewForContacts(contacts(tenant)),
+    );
   }
 
   /** What the restaurant will receive for a basket, before an order exists: the transparency promise of the model. */

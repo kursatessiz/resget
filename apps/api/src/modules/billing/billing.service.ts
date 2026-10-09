@@ -114,12 +114,24 @@ export class BillingService {
   async runDaily(asOf: Date = new Date()): Promise<BillingRunReportDTO> {
     const { year, month } = previousCommissionPeriod(asOf);
     const period = commissionPeriod(year, month);
-    const issue = await this.issuePeriod(year, month, asOf);
-    const fiscalized = await this.fiscalizePending();
-    const collect = await this.collectDue(asOf);
-    const aged = await this.markOverdue(asOf);
+    // Every step is idempotent and independent: one failing does not skip the others, and the run reports the
+    // failure afterwards so the scheduler can try again within the day.
+    const failed: string[] = [];
+    const step = async <T>(name: string, run: () => Promise<T>, empty: T): Promise<T> => {
+      try {
+        return await run();
+      } catch (error) {
+        failed.push(name);
+        this.logger.error(`billing step ${name} failed: ${error instanceof Error ? error.message : 'error'}`);
+        return empty;
+      }
+    };
+    const issue = await step('issue', () => this.issuePeriod(year, month, asOf), { issued: 0, skipped: 0 });
+    const fiscalized = await step('fiscalize', () => this.fiscalizePending(), 0);
+    const collect = await step('collect', () => this.collectDue(asOf), { collected: 0, collectionFailed: 0 });
+    const aged = await step('overdue', () => this.markOverdue(asOf), { overdue: 0, suspended: 0 });
     // PLATFORM_PSP money: the closed week's payable lines roll into one payout per restaurant.
-    const payoutRun = await this.payouts.rollDue(asOf);
+    const payoutRun = await step<{ created: number }>('payouts', () => this.payouts.rollDue(asOf), { created: 0 });
     const report: BillingRunReportDTO = {
       asOf: asOf.toISOString(),
       periodStart: period.periodStart.toISOString(),
@@ -132,8 +144,14 @@ export class BillingService {
     };
     // The console's system page shows when the job last ran from this line.
     await this.prisma.auditLog.create({
-      data: { action: 'billing.run', entity: 'billing', entityId: report.periodStart, meta: { ...report } },
+      data: {
+        action: 'billing.run',
+        entity: 'billing',
+        entityId: report.periodStart,
+        meta: { ...report, ...(failed.length > 0 ? { failedSteps: failed } : {}) },
+      },
     });
+    if (failed.length > 0) throw new Error(`billing steps failed: ${failed.join(', ')}`);
     return report;
   }
 
