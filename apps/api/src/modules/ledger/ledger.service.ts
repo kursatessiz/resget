@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@resget/database';
 import {
+  LedgerEntryType,
   commissionReversalLines,
   orderLedgerLines,
   orderShortCode,
@@ -83,6 +84,45 @@ export class LedgerService {
       })),
     });
     return lines.length;
+  }
+
+  /**
+   * The courier network's final fee against what the order's payout already took for the courier
+   * (docs/KURYE.md, "Yaşam döngüsü"): the difference is one ADJUSTMENT line, negative when the network
+   * charged more. Nothing is written when the payout took no courier cost (OWN_POS, a network that bills
+   * the restaurant directly, or a courier the platform paid for). The caller writes it once per delivery,
+   * in the transaction that marks the request DELIVERED. Returns the adjustment, or null.
+   */
+  async recordCourierFeeAdjustment(
+    db: Db,
+    orderId: string,
+    finalFeeMinor: number,
+    now: Date = new Date(),
+  ): Promise<number | null> {
+    const booked = await db.ledgerEntry.aggregate({
+      where: { orderId, type: LedgerEntryType.COURIER_COST },
+      _sum: { amountMinor: true },
+    });
+    const takenMinor = -(booked._sum.amountMinor ?? 0);
+    if (takenMinor <= 0) return null;
+    const adjustmentMinor = takenMinor - finalFeeMinor;
+    if (adjustmentMinor === 0) return null;
+    const order = await db.order.findUniqueOrThrow({
+      where: { id: orderId },
+      select: { restaurantId: true, currency: true },
+    });
+    await db.ledgerEntry.create({
+      data: {
+        restaurantId: order.restaurantId,
+        orderId,
+        type: LedgerEntryType.ADJUSTMENT,
+        amountMinor: adjustmentMinor,
+        currency: order.currency,
+        occurredAt: now,
+        memo: `courier fee ${orderShortCode(orderId)}: taken ${takenMinor}, final ${finalFeeMinor}`,
+      },
+    });
+    return adjustmentMinor;
   }
 
   /**
