@@ -1,4 +1,6 @@
 import { Prisma } from '@resget/database';
+import type { GeoPoint } from '@resget/shared';
+import { GeocodingService } from '../../src/modules/geocoding/geocoding.service';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
 
@@ -15,6 +17,14 @@ describe('Delivery zone (e2e)', () => {
   // Seeded branch: 40.9867, 29.0263. About 0.5 km and 11 km away.
   const NEAR = { lat: 40.9905, lng: 29.0285 };
   const FAR = { lat: 41.08, lng: 29.0 };
+  // About 3.5 km from the branch (second band) and 3 km from NEAR.
+  const MIDDLE = { lat: 41.0182, lng: 29.0263 };
+  // About 300 m from NEAR.
+  const BESIDE_NEAR = { lat: 40.993, lng: 29.03 };
+  /** What the address text geocodes to; by default the point the customer sent, so the two agree. */
+  let geocoded: GeoPoint | null | 'SAME' = 'SAME';
+  let phoneSeq = 0;
+  let lastPoint: GeoPoint | null = null;
   const zone = {
     radiusMeters: 5000,
     minBasketMinor: 50000,
@@ -32,10 +42,14 @@ describe('Delivery zone (e2e)', () => {
       .set(bearer(adminToken))
       .send({ enabled })
       .expect(200);
-  const deliver = (point: { lat: number; lng: number }, quantity: number, expected: number) =>
-    ctx
+  const deliver = (point: { lat: number; lng: number } | null, quantity: number, expected: number) => {
+    // A number of its own per order, so the open-order cap per phone never decides these cases.
+    phoneSeq += 1;
+    lastPoint = point;
+    return ctx
       .http()
       .post(`/public/restaurants/${SEED.restaurantSlug}/orders`)
+      .set('x-forwarded-for', `10.84.0.${phoneSeq}`)
       .send({
         fulfillment: 'DELIVERY',
         items: [{ menuItemId: itemId, quantity }],
@@ -44,8 +58,8 @@ describe('Delivery zone (e2e)', () => {
           city: 'Istanbul',
           district: 'Kadikoy',
           contactName: 'Bolge Musteri',
-          contactPhone: '0532 999 09 31',
-          point,
+          contactPhone: `0532 998 ${String(phoneSeq).padStart(4, '0')}`,
+          ...(point ? { point } : {}),
         },
         payment: { method: 'CASH_ON_DELIVERY' },
       })
@@ -57,6 +71,7 @@ describe('Delivery zone (e2e)', () => {
         }
         return res;
       });
+  };
 
   beforeAll(async () => {
     ctx = await createTestApp();
@@ -68,6 +83,10 @@ describe('Delivery zone (e2e)', () => {
     restaurantId = restaurant.id;
     saved = { deliveryMode: restaurant.deliveryMode, deliveryFeePolicy: restaurant.deliveryFeePolicy };
     itemId = (await ctx.prisma.menuItem.findFirstOrThrow({ where: { restaurantId, name: 'Izgara kofte' } })).id;
+    // The address text geocodes to what each case says (the mock geocoder always answers near the branch).
+    jest
+      .spyOn(ctx.app.get(GeocodingService), 'pointFor')
+      .mockImplementation(async () => (geocoded === 'SAME' ? lastPoint : geocoded));
     // Own couriers so the distance bands price the delivery.
     await ctx.prisma.restaurant.update({
       where: { id: restaurantId },
@@ -143,6 +162,35 @@ describe('Delivery zone (e2e)', () => {
     created.push(order.id);
   });
 
+  it('refuses a delivery whose location cannot be established while the zone needs one', async () => {
+    geocoded = null;
+    try {
+      const res = await deliver(null, 2, 409);
+      expect(res.body.code).toBe('DELIVERY_LOCATION_REQUIRED');
+    } finally {
+      geocoded = 'SAME';
+    }
+  });
+
+  it('checks the radius and prices on the geocoded address when the given point is far from it', async () => {
+    try {
+      // A point next to the branch for an address that geocodes outside the radius.
+      geocoded = FAR;
+      expect((await deliver(NEAR, 2, 409)).body.code).toBe('DELIVERY_OUT_OF_ZONE');
+      // A point in the first band for an address in the second band pays the second band.
+      geocoded = MIDDLE;
+      expect((await deliver(NEAR, 2, 201)).body.deliveryFeeMinor).toBe(3000);
+      // Within the tolerance the customer's own pin decides.
+      geocoded = BESIDE_NEAR;
+      const close = await deliver(NEAR, 2, 201);
+      expect(close.body.deliveryFeeMinor).toBe(1500);
+      const order = await ctx.prisma.order.findUniqueOrThrow({ where: { trackingToken: close.body.trackingToken } });
+      expect((order.addressSnapshot as { point: GeoPoint }).point).toEqual(NEAR);
+    } finally {
+      geocoded = 'SAME';
+    }
+  });
+
   it('removes the zone with null', async () => {
     const cleared = await ctx
       .http()
@@ -157,5 +205,17 @@ describe('Delivery zone (e2e)', () => {
       2,
     );
     await setSwitch(null);
+  });
+
+  it('refuses a courier network delivery without a location instead of pricing a zero quote', async () => {
+    await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { deliveryMode: 'THIRD_PARTY_API' } });
+    geocoded = null;
+    try {
+      const res = await deliver(null, 1, 409);
+      expect(res.body.code).toBe('DELIVERY_LOCATION_REQUIRED');
+    } finally {
+      geocoded = 'SAME';
+      await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { deliveryMode: 'RESTAURANT_COURIER' } });
+    }
   });
 });

@@ -3,7 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { QrScanOutcome } from '@resget/database';
 import {
   DeliveryFeePolicySchema,
+  PUBLIC_ORDER_MAX_OPEN_PER_PHONE,
+  PUBLIC_ORDER_MAX_TOTAL_QUANTITY,
   customerDeliveryFee,
+  deliveryPricingPoint,
   zoneDeliveryFee,
   dispatchSettingsFrom,
   isOpenAt,
@@ -14,6 +17,7 @@ import {
 import type {
   CreateOrderInput,
   DeliveryZone,
+  GeoPoint,
   MarketplaceAreaDTO,
   MarketplaceDTO,
   MarketplaceInterestInput,
@@ -311,6 +315,16 @@ export class StorefrontService {
       visitorId: string | null;
     },
   ): Promise<PublicOrderResultDTO> {
+    // An unpaid public order takes counted stock and a coupon use at placement: one order holds at most so many
+    // portions (docs/VITRIN.md, "Açık sipariş sınırları"); the open orders per phone are counted in the order's
+    // transaction.
+    const portions = input.items.reduce((sum, line) => sum + line.quantity, 0);
+    if (portions > PUBLIC_ORDER_MAX_TOTAL_QUANTITY) {
+      throw conflict(
+        'ORDER_QUANTITY_LIMIT',
+        `A public order carries at most ${PUBLIC_ORDER_MAX_TOTAL_QUANTITY} portions`,
+      );
+    }
     // Paused or outside the hours: consumer orders wait (docs/SIPARIS_VE_SEVK.md, "Sipariş alma durumu").
     // A pre-order for an offered slot is taken while closed (docs/ILERI_TARIHLI_SIPARIS.md).
     if (input.scheduledFor) {
@@ -337,19 +351,26 @@ export class StorefrontService {
     if (input.tab && !context.tableId) throw conflict('ORDER_TRANSITION_INVALID', 'A tab belongs to a table');
 
     // The quote and the routing need a point; an address typed without one is geocoded first (docs/VITRIN.md).
-    if (input.fulfillment === 'DELIVERY' && input.address && !input.address.point) {
-      const branch = restaurant.branches.find((b) => b.id === branchId) ?? restaurant.branches[0];
-      const near = branch && branch.lat !== null && branch.lng !== null ? { lat: branch.lat, lng: branch.lng } : null;
-      input = {
-        ...input,
-        address: {
-          ...input.address,
-          point: await this.geocoding.pointFor(input.address, restaurant.countryCode, near),
-        },
-      };
+    // While a zone or a courier network prices the delivery, a point the customer sent is checked against the
+    // geocoded address text too: the radius and the fee are decided on the point that holds, the stored address
+    // keeps the customer's pin (docs/VITRIN.md, "Konum doğrulama").
+    let pricingPoint: GeoPoint | null = null;
+    if (input.fulfillment === 'DELIVERY' && input.address) {
+      const given = input.address.point ?? null;
+      const priced = zone !== null || restaurant.deliveryMode === 'THIRD_PARTY_API';
+      let geocoded: GeoPoint | null = null;
+      if (!given || (priced && this.geocoding.enabled)) {
+        const branch = restaurant.branches.find((b) => b.id === branchId) ?? restaurant.branches[0];
+        const near = branch && branch.lat !== null && branch.lng !== null ? { lat: branch.lat, lng: branch.lng } : null;
+        geocoded = await this.geocoding.pointFor(input.address, restaurant.countryCode, near);
+      }
+      if (!given) input = { ...input, address: { ...input.address, point: geocoded } };
+      pricingPoint = deliveryPricingPoint(given, geocoded);
     }
     const deliveryFeeMinor =
-      input.fulfillment === 'DELIVERY' && input.address ? await this.deliveryFee(restaurant, branchId, input, zone) : 0;
+      input.fulfillment === 'DELIVERY' && input.address
+        ? await this.deliveryFee(restaurant, branchId, input, zone, pricingPoint)
+        : 0;
     // A wallet card belongs to the signed-in customer and only a restaurant that takes the wallet sees it (docs/CUZDAN.md).
     const savedPaymentMethodId = input.payment?.savedPaymentMethodId;
     if (savedPaymentMethodId) {
@@ -396,6 +417,7 @@ export class StorefrontService {
       couponCode: input.couponCode,
       source,
       verifiedPhone: context.viewer?.phone,
+      maxOpenOrdersPerPhone: PUBLIC_ORDER_MAX_OPEN_PER_PHONE,
     });
     await this.attribution.identifyOrderSafely(order.id, context.visitorId);
     const loyaltyPointsRedeemed = loyaltyUserId ? await this.loyalty.redeemedPointsOf(order.id) : 0;
@@ -437,16 +459,19 @@ export class StorefrontService {
   }
 
   /**
-   * Own courier: the restaurant's policy on a zero quote. Courier network: the
-   * network's quote through the policy. A network cannot quote without
-   * coordinates on both ends; the policy then applies on a zero quote, which
-   * is the honest fee until the address is geocoded (docs/VITRIN.md).
+   * Own courier: the restaurant's policy on a zero quote, or the zone's band.
+   * Courier network: the network's quote through the policy. A zone or a
+   * network needs a point for the address; without one the order is refused
+   * with DELIVERY_LOCATION_REQUIRED instead of being priced on a zero quote or
+   * let past the radius (docs/VITRIN.md). A branch without coordinates keeps
+   * the policy fee, as the restaurant has not placed itself yet.
    */
   private async deliveryFee(
     restaurant: RestaurantRow,
     branchId: string,
     input: PublicOrderInput,
     zone: DeliveryZone | null,
+    point: GeoPoint | null,
   ): Promise<number> {
     const basketMinor = await this.basketMinor(restaurant.id, input);
     const policy = DeliveryFeePolicySchema.safeParse(restaurant.deliveryFeePolicy);
@@ -454,8 +479,11 @@ export class StorefrontService {
       where: { id: branchId },
       select: { addressLine: true, city: true, district: true, lat: true, lng: true, phone: true },
     });
+    if (!point && (zone || restaurant.deliveryMode === 'THIRD_PARTY_API')) {
+      throw conflict('DELIVERY_LOCATION_REQUIRED', 'The delivery address could not be located');
+    }
     // Delivery zone (docs/VITRIN.md): radius and minimum first, then the own-courier fee by distance band.
-    const distance = zone ? this.zones.distanceFrom(branch, input.address?.point) : null;
+    const distance = zone ? this.zones.distanceFrom(branch, point) : null;
     if (zone) this.zones.assertDeliverable(zone, distance, basketMinor);
     const fallback =
       zone && restaurant.deliveryMode !== 'THIRD_PARTY_API'
@@ -465,7 +493,7 @@ export class StorefrontService {
           : 0;
     if (restaurant.deliveryMode !== 'THIRD_PARTY_API') return fallback;
     const address = input.address;
-    if (!address || !address.point || branch.lat === null || branch.lng === null) return fallback;
+    if (!address || !point || branch.lat === null || branch.lng === null) return fallback;
     const quoted = await this.courier.quoteFor(
       restaurant.id,
       {
@@ -477,7 +505,7 @@ export class StorefrontService {
         },
         dropoff: {
           address: [address.addressLine, address.district, address.city].join(', '),
-          point: address.point,
+          point,
           contactName: address.contactName,
           contactPhone: address.contactPhone,
           note: address.note,
