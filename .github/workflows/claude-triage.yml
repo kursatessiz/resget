@@ -2,6 +2,9 @@ name: Claude issue triage
 
 # Haiku labels new issues. Anyone can open an issue on a public repository,
 # so the agent may only read the issue and add labels: no code, no comments.
+# The only write path is .github/scripts/triage-label.sh: it takes label names
+# only, targets the issue from TRIAGE_ISSUE_NUMBER (set below, never from
+# arguments) and accepts only existing labels listed in .github/triage-labels.txt.
 
 on:
   issues:
@@ -18,14 +21,20 @@ jobs:
     permissions:
       contents: read
       issues: write
-      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
           persist-credentials: false
 
+      # No id-token permission: with github_token supplied the action skips the
+      # OIDC app-token exchange, and authentication uses the API key or OAuth
+      # token. The action scrubs secrets from tool subprocesses when
+      # allowed_non_write_users is set; the script cap bounds label calls.
       - uses: anthropics/claude-code-action@8cf3482550831fb35a4fc3fbf7ca139cf8028b4c # v1.0.233
+        env:
+          TRIAGE_ISSUE_NUMBER: ${{ github.event.issue.number }}
+          CLAUDE_CODE_SCRIPT_CAPS: '{"triage-label.sh":2}'
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -37,10 +46,10 @@ jobs:
             1. Run `gh label list` to see the existing labels.
             2. Run `gh issue view ${{ github.event.issue.number }}`.
             3. Add at most three existing labels (type, area, priority) with
-               `gh issue edit ${{ github.event.issue.number }} --add-label`.
+               `.github/scripts/triage-label.sh <label> [<label> ...]`.
                If the issue reports a vulnerability, add only "security".
             Do nothing else.
           claude_args: >-
             --model claude-haiku-4-5-20251001
             --max-turns 6
-            --allowedTools "Bash(gh label list:*),Bash(gh issue view:*),Bash(gh issue edit:*)"
+            --allowedTools "Bash(gh label list:*),Bash(gh issue view:*),Bash(.github/scripts/triage-label.sh:*)"
