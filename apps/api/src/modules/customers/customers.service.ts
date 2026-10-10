@@ -48,7 +48,9 @@ export class CustomersService {
             user: {
               OR: [
                 { fullName: { contains: query.query, mode: 'insensitive' } },
-                { phone: { contains: query.query.replace(/\s+/g, '') } },
+                // The phone predicate is the number's own read access: without customers.contact.view the match set
+                // would reveal the masked digits one probe at a time, so those callers search by name only.
+                ...(canSeeContacts ? [{ phone: { contains: query.query.replace(/\s+/g, '') } }] : []),
               ],
             },
           }

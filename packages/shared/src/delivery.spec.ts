@@ -7,6 +7,7 @@ import {
   haversineLegs,
   haversineMeters,
   isTerminalOrderStatus,
+  maskTripContacts,
   optimizeStopOrder,
   orderShortCode,
   pathLengthMeters,
@@ -230,5 +231,29 @@ describe('stop reordering', () => {
     expect(reorderStopIds(['a', 'b'], 'a', 'a')).toEqual(['a', 'b']);
     expect(reorderStopIds(['a', 'b'], 'x', 'a')).toEqual(['a', 'b']);
     expect(reorderStopIds(['a', 'b'], 'a', 'x')).toEqual(['a', 'b']);
+  });
+});
+
+describe('maskTripContacts', () => {
+  const address = {
+    addressLine: 'Gizli Sok. No 1 D 2',
+    city: 'Istanbul',
+    district: 'Kadikoy',
+    contactName: 'Ayse',
+    contactPhone: '+905329990100',
+  };
+  const trip = {
+    id: 't1',
+    stops: [
+      { id: 's1', address },
+      { id: 's2', address: null },
+    ],
+  } as unknown as Parameters<typeof maskTripContacts>[0]; // test fixture: only the fields the function reads
+
+  it('masks every stop phone, keeps the address and does not touch the input', () => {
+    const masked = maskTripContacts(trip);
+    expect(masked.stops[0].address).toEqual({ ...address, contactPhone: '+9053******00' });
+    expect(masked.stops[1].address).toBeNull();
+    expect(trip.stops[0].address?.contactPhone).toBe('+905329990100');
   });
 });
