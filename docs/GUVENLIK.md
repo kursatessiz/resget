@@ -16,12 +16,21 @@ Hız sınırları istemci adresini Express'in `trust proxy` ile çıkardığı d
 
 Girişten sonra (`/giris?next=`) ve çıkıştan sonra gidilecek adres yalnızca bu sitedeki bir yoldur (`safeLocalPath`, `packages/shared/src/safe-path.ts`). `//alan`, `/\alan`, şema içeren adres ve sekme veya satır sonu gibi denetim karakterleri reddedilir.
 
+## Oturum kurma (giriş CSRF)
+
+Başka bir site, ziyaretçinin tarayıcısına kendi seçtiği hesabın oturumunu yerleştirememelidir. Oturum çerezi yazan web rotaları bunu tarayıcının `Sec-Fetch-Site` ve `Origin` başlıklarıyla denetler (`apps/web/src/lib/request-origin.ts`):
+
+- `POST /api/session/verify` yalnızca `Content-Type: application/json` gövdeyi kabul eder (415); `text/plain` bir form JSON taşıyamaz. `Sec-Fetch-Site` varsa `same-origin` olmalı, `Origin` varsa isteğin geldiği adresle aynı olmalıdır; değilse 403.
+- `GET /api/session/handoff` yalnızca uygulamanın kendisinin açtığı (`Sec-Fetch-Site: none`) ya da sitenin kendi sayfasından gelen (`same-origin`) gezinmede kodu harcar. Başka bir sitenin başlattığı gezinmede (`cross-site`, `same-site`) kod harcanmaz ve tarayıcı `next` yoluna oturumsuz gider.
+- İki başlığı da taşımayan istemciler (tarayıcı olmayan) bir kurbanın tarayıcısından gönderilemez ve geçer.
+
 ## Uygulamadan web'e oturum aktarımı
 
 Mobil uygulama sipariş sayfasını tarayıcıda açarken müşterinin oturumunu tek kullanımlık bir kodla taşır (`docs/CUZDAN.md`, "Mobil uygulama").
 
 - **Kod üretimi**: uygulama `POST /auth/handoff` ucunu kendi erişim jetonuyla çağırır. API anahtarı bu ucu kullanamaz. Kod 32 rastgele bayttır ve 60 saniye geçerlidir. Veritabanında yalnızca SHA-256 özeti tutulur (`SessionHandoff`).
 - **Kullanım**: tarayıcı `/api/session/handoff?code=...&next=/<yol>` adresini açar. Web sunucusu kodu `POST /auth/handoff/redeem` ucunda jetonlara çevirir ve httpOnly çerezlere yazar. Ardından `next` yoluna 303 ile yönlendirir. Kodlu adres sayfa olarak hiç çizilmez, bu yüzden başka bir siteye `Referer` ile sızmaz.
+- **Tarayıcı bağı**: kod yalnızca uygulamanın açtığı gezinmede harcanır ("Oturum kurma").
 - **Tek kullanım**: kod koşullu güncellemeyle harcanır. Aynı anda gelen iki kullanımdan biri kazanır. Süresi geçmiş, kullanılmış ya da silinmiş hesaba ait kod reddedilir. Bu durumda tarayıcı yine `next` yoluna gider ve oturumsuz devam eder.
 - **Hedef**: `next` yalnızca bu sitedeki bir yoldur (`safeLocalPath`, "Yönlendirme hedefleri").
 - **Hız sınırı**: istemci adresi başına kod kullanımı 10 dakikada 60 ile, kullanıcı başına kod üretimi 10 dakikada 30 ile sınırlıdır.
