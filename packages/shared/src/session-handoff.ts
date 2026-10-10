@@ -15,6 +15,13 @@ export const SessionHandoffCodeSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 export const RedeemSessionHandoffSchema = z.object({ code: SessionHandoffCodeSchema }).strict();
 export type RedeemSessionHandoffInput = z.infer<typeof RedeemSessionHandoffSchema>;
 
+/**
+ * Signing out ends the server-side session (docs/GUVENLIK.md "Oturumlar"). The bearer access token names it;
+ * the refresh token may be sent instead, for a sign-out after the access token has lapsed.
+ */
+export const LogoutSchema = z.object({ refreshToken: z.string().min(20).max(4096).optional() }).strict();
+export type LogoutInput = z.infer<typeof LogoutSchema>;
+
 export interface SessionHandoffDTO {
   code: string;
   expiresAt: string;

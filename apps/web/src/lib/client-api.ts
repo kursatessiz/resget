@@ -39,10 +39,19 @@ export async function bffUpload<T>(path: string, form: FormData, method: 'POST' 
 
 export type RealtimeStatus = 'connecting' | 'live' | 'reconnecting';
 
+/** First wait before a stream the browser gave up on is opened again; doubles up to the maximum. */
+const REOPEN_FIRST_MS = 2_000;
+const REOPEN_MAX_MS = 60_000;
+
 /**
  * Subscribes to one of the API's event streams through the BFF. The browser
  * reconnects by itself with Last-Event-ID; every event carries the full
- * entity, so the handler can simply replace what it has.
+ * entity, so the handler can simply replace what it has. The API closes a
+ * stream when the access token it was opened with expires or the
+ * subscriber's rights change (docs/SIPARIS_VE_SEVK.md); the reconnect then
+ * goes through the middleware, which refreshes the session first. When the
+ * browser gives up (an error answer instead of a stream), the stream is
+ * opened again after a growing pause.
  */
 export function useRealtime(path: string | null, onEvent: (event: RealtimeEvent) => void): RealtimeStatus {
   const [status, setStatus] = useState<RealtimeStatus>('connecting');
@@ -50,7 +59,7 @@ export function useRealtime(path: string | null, onEvent: (event: RealtimeEvent)
   handler.current = onEvent;
   useEffect(() => {
     if (!path || typeof EventSource === 'undefined') return undefined;
-    const source = new EventSource(`/api/bff/${path.replace(/^\//, '')}`);
+    const url = `/api/bff/${path.replace(/^\//, '')}`;
     const types: RealtimeEvent['type'][] = ['order.updated', 'trip.updated', 'courier.location', 'tracking.updated'];
     const listener = (message: MessageEvent<string>) => {
       try {
@@ -60,11 +69,30 @@ export function useRealtime(path: string | null, onEvent: (event: RealtimeEvent)
         // A malformed frame is ignored; the next event carries the full state again.
       }
     };
-    for (const type of types) source.addEventListener(type, listener as EventListener);
-    source.addEventListener('heartbeat', () => setStatus('live'));
-    source.onopen = () => setStatus('live');
-    source.onerror = () => setStatus('reconnecting');
-    return () => source.close();
+    let source: EventSource | null = null;
+    let reopen: ReturnType<typeof setTimeout> | null = null;
+    let delay = REOPEN_FIRST_MS;
+    const connect = () => {
+      const current = new EventSource(url);
+      source = current;
+      for (const type of types) current.addEventListener(type, listener as EventListener);
+      current.addEventListener('heartbeat', () => setStatus('live'));
+      current.onopen = () => {
+        delay = REOPEN_FIRST_MS;
+        setStatus('live');
+      };
+      current.onerror = () => {
+        setStatus('reconnecting');
+        if (current.readyState !== EventSource.CLOSED) return;
+        reopen = setTimeout(connect, delay);
+        delay = Math.min(delay * 2, REOPEN_MAX_MS);
+      };
+    };
+    connect();
+    return () => {
+      if (reopen) clearTimeout(reopen);
+      source?.close();
+    };
   }, [path]);
   return status;
 }

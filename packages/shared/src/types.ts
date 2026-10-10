@@ -11,6 +11,10 @@ export interface AccessTokenClaims {
   phone: string;
   isSuperAdmin: boolean;
   type: 'access' | 'refresh';
+  /** Server-side session (docs/GUVENLIK.md "Oturumlar"); absent only on tokens issued before sessions existed. */
+  sid?: string;
+  /** Refresh tokens only: the session generation this token may rotate from. */
+  gen?: number;
 }
 
 export interface AuthUserDTO {

@@ -72,3 +72,25 @@ export interface SocialAccountDTO {
 /** Outcome of the consent round trip, as the screen reads it from the query string. */
 export const OAUTH_RESULTS = ['connected', 'denied', 'error'] as const;
 export type OAuthResult = (typeof OAUTH_RESULTS)[number];
+
+/**
+ * Meta sends the browser back to the web app (docs/ENTEGRASYON_MERKEZI.md), never to the API: the web route
+ * passes the query on with the session of that browser, so only the person who started can finish.
+ */
+export const META_OAUTH_CALLBACK_PATH = '/api/oauth/meta/callback';
+
+/** What the web callback route forwards; each value as Meta sent it, absent when missing or repeated. */
+export const CompleteMetaConnectSchema = z
+  .object({
+    state: z.string().min(1).max(200),
+    code: z.string().min(1).max(2048).optional(),
+    error: z.string().min(1).max(200).optional(),
+  })
+  .strict();
+export type CompleteMetaConnectInput = z.infer<typeof CompleteMetaConnectSchema>;
+
+/** Where the browser goes next: one of the integration screens, or the panel, with the outcome. */
+export interface OAuthCompleteDTO {
+  returnPath: string;
+  result: OAuthResult;
+}

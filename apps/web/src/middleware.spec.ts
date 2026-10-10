@@ -73,3 +73,50 @@ describe('middleware custom-domain lookup', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
+
+/** The BFF keeps a long-open screen signed in (docs/MIMARI.md "Oturum"), and never turns an API call into a redirect. */
+describe('middleware on /api/bff', () => {
+  const originalFetch = global.fetch;
+  const bffFetch = jest.fn();
+
+  beforeEach(() => {
+    bffFetch.mockReset();
+    global.fetch = bffFetch as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  const bffRequest = (cookie?: string) =>
+    new NextRequest('http://resget.test/api/bff/restaurants/r1/orders/events', {
+      headers: cookie ? { host: 'resget.test', cookie } : { host: 'resget.test' },
+    });
+
+  it('lets an anonymous call through to the API', async () => {
+    const res = await middleware(bffRequest());
+    expect(res.headers.get('location')).toBeNull();
+    expect(bffFetch).not.toHaveBeenCalled();
+  });
+
+  it('refreshes a lapsed access cookie and hands the new token to the proxied call', async () => {
+    bffFetch.mockImplementation(
+      async () =>
+        new Response(
+          JSON.stringify({ accessToken: 'new.access.token', refreshToken: 'new.refresh.token', expiresInSeconds: 900 }),
+          { status: 200 },
+        ),
+    );
+    const res = await middleware(bffRequest('resget_refresh=old.refresh.token'));
+    expect(bffFetch).toHaveBeenCalledTimes(1);
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.headers.get('set-cookie')).toContain('resget_access=new.access.token');
+  });
+
+  it('clears the cookies of a refused refresh without redirecting', async () => {
+    bffFetch.mockImplementation(async () => new Response('', { status: 401 }));
+    const res = await middleware(bffRequest('resget_refresh=old.refresh.token'));
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.headers.get('set-cookie')).toMatch(/resget_refresh=;/);
+  });
+});

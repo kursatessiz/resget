@@ -1,11 +1,12 @@
-/** Pure logic and the edge middleware with a stubbed fetch; pages are covered by the Playwright suite. */
+/** Route handlers and other server-side logic of the web app; pages are exercised by the Playwright suite (e2e/). */
 module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
-  rootDir: 'src',
+  rootDir: '.',
+  roots: ['<rootDir>/src'],
   testRegex: '.*\\.spec\\.ts$',
-  moduleNameMapper: { '^@/(.*)$': '<rootDir>/$1' },
   transform: {
-    '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/../tsconfig.jest.json' }],
+    '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.jest.json' }],
   },
+  moduleNameMapper: { '^@/(.*)$': '<rootDir>/src/$1' },
   testEnvironment: 'node',
 };

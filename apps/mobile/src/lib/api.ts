@@ -78,6 +78,23 @@ export class ApiClient {
     return (await response.json()) as T;
   }
 
+  /**
+   * Signs out: the API ends this session (docs/GUVENLIK.md "Oturumlar") with the refresh token, which
+   * names it even after the access token has lapsed, then the stored tokens are dropped. No answer from
+   * the API still signs the device out.
+   */
+  async logout(): Promise<void> {
+    const tokens = await this.options.tokens.read();
+    if (tokens) {
+      await this.fetchImpl(`${this.options.baseUrl}/auth/logout`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({ refreshToken: tokens.refreshToken }),
+      }).catch(() => null);
+    }
+    await this.options.tokens.write(null);
+  }
+
   /** One refresh at a time; concurrent 401s wait for the same outcome. */
   private refresh(): Promise<RefreshOutcome> {
     if (!this.refreshing) {

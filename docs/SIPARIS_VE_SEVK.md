@@ -99,6 +99,15 @@ Tek yönlü akış için Server-Sent Events kullanılır (`RealtimeService`): Ca
 
 Web'de akış BFF üzerinden geçer (`/api/bff/...`); BFF gövdeyi tamponlamadan aktarır. Mobil istemci `Authorization` başlığıyla doğrudan API'ye bağlanır.
 
+### Canlı akış yetkisi
+
+Kimlik isteyen akışlarda (sipariş, sevk ve kurye akışları; `GET /restaurants/:id/orders/events` dahil) guard'lar yalnızca bağlantı açılırken çalışır; akış açık kaldıkça yetki ayrıca korunur (`@AuthorizedStream()`, `StreamAccessService`):
+
+- Akış, açıldığı erişim jetonunun süresi dolduğunda kapanır. API anahtarıyla açılan akışın jeton süresi yoktur.
+- Her `REALTIME_REAUTH_SECONDS` (varsayılan 60 saniye, `packages/shared`; API'de aynı adlı ortam değişkeniyle değiştirilebilir) guard'ların denetimleri güncel kayıtlara karşı yeniden yapılır: oturum sona ermemiş ve hesap silinmemiş olmalı ya da API anahtarı iptal edilmemiş, süresi dolmamış ve oluşturanın erişimi sürüyor olmalı; üyelik `ACTIVE` olmalı ve rol uç için gereken yetkiyi taşımalı; plan ve modül anahtarı açık olmalı. Biri tutmazsa akış kapanır ve kapanıştan sonraki olay o aboneye gitmez.
+- Denetim geçtiğinde akışın kiracı bağlamı güncel yetkilerle yenilenir; telefon maskelemesi her olayda bu bağlamdan okunur, `customers.contact.view` yetkisini kaybeden rol bir sonraki denetimden sonra maskeli numara görür.
+- İstemciler kapanan akışa yeniden bağlanır ve guard'lardan yeniden geçer. Tarayıcı `EventSource` kendiliğinden yeniden bağlanır; bu istek middleware'den geçtiği için dolmuş erişim jetonu önce yenilenir (`docs/MIMARI.md`, "Oturum"). Tarayıcı vazgeçerse (akış yerine hata yanıtı) `useRealtime` akışı artan aralıklarla (2 saniyeden 60 saniyeye) yeniden açar. Mobil uygulama sevk ekranında akış yerine düzenli okuma yapar (`docs/MOBIL.md`).
+
 ## 6. Müşteri takip sayfası
 
 `https://<web>/t/<token>`: sunucuda `GET /public/orders/:token` ile çizilir, ardından `TrackingLive` bileşeni olay akışına bağlanır. Gösterilenler: adım çizelgesi (teslimat türüne göre), durum metni, söz verilen hazır olma / tahmini teslim saati, kurye bloğu (yalnızca kuryede veya yoldayken): kuryenin adı (yalnızca ad), uzaklık, önünde kaç teslimat olduğu ("kuryeniz önce yakındaki N teslimatı tamamlayacak"), harita (kurye ve teslimat noktası; yalnızca kurye yoldayken) ve haritada aç bağlantısı, sipariş içeriği, işletmeyi ara. Başka müşterinin adresi veya kimliği hiçbir zaman yer almaz; kurye konumu yalnızca sefer IN_PROGRESS iken verilir. Saatler restoranın saat diliminde gösterilir (yanıttaki `restaurant.timezone`), müşterinin cihaz saat dilimi kullanılmaz.

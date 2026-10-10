@@ -9,6 +9,7 @@ import {
 } from '@resget/shared';
 import type { TokenPairDTO } from '@resget/shared';
 import { apiInternalBaseUrl, forwardedFor, getServerEnv } from '@/lib/server-env';
+import { SAME_ORIGIN_ONLY, isForeignRequest, isJsonRequest } from '@/lib/request-origin';
 import {
   ACCESS_TOKEN_COOKIE,
   QR_SESSION_COOKIE,
@@ -30,9 +31,17 @@ const BodySchema = z
 /**
  * Exchanges the OTP for tokens and stores them in httpOnly cookies. The
  * tokens never reach the browser's JavaScript; the BFF and the middleware
- * read the cookies on the server.
+ * read the cookies on the server. Only this site's own sign-in page may call
+ * it (docs/GUVENLIK.md "Oturum kurma"): a JSON body, sent same-origin, so
+ * another site cannot sign this browser into an account it chose.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  if (isForeignRequest(req.headers, req.nextUrl.host, SAME_ORIGIN_ONLY)) {
+    return NextResponse.json({ code: 'FORBIDDEN', message: 'Cross-site request' }, { status: 403 });
+  }
+  if (!isJsonRequest(req.headers)) {
+    return NextResponse.json({ code: 'VALIDATION', message: 'Expected a JSON body' }, { status: 415 });
+  }
   const parsed = BodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ code: 'VALIDATION', message: 'Invalid request' }, { status: 400 });
   const qrSession = req.cookies.get(QR_SESSION_COOKIE)?.value;

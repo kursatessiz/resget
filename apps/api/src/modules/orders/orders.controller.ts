@@ -14,6 +14,7 @@ import {
 import type { ModeSettlement, OrderDetailDTO, OrderSummaryDTO } from '@resget/shared';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/zod-body.pipe';
 import { RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
+import { AuthorizedStream } from '../auth/decorators/authorized-stream.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { RealtimeService, dispatchTopic } from '../realtime/realtime.service';
@@ -50,6 +51,7 @@ export class OrdersController {
 
   /** SSE for the orders screen: order.updated only, so kitchen roles without dispatch.view can follow live. */
   @Sse('events')
+  @AuthorizedStream()
   @RequirePermission('orders.view')
   events(@Tenant() tenant: TenantContext, @Headers('last-event-id') lastEventId?: string): Observable<MessageEvent> {
     return this.realtime.stream(
@@ -57,7 +59,8 @@ export class OrdersController {
       lastEventId,
       [],
       (e) => e.type === 'order.updated',
-      OrdersService.viewForContacts(contacts(tenant)),
+      // Read per event: the stream's access check keeps `tenant` current, so a lost permission masks at once.
+      (event) => OrdersService.viewForContacts(contacts(tenant))(event),
     );
   }
 

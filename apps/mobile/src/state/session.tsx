@@ -70,7 +70,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         await load();
       },
       async signOut() {
-        await secureTokens.write(null);
+        await api.logout();
         await writeLastRestaurant(null);
         setMe(null);
         setMembership(null);

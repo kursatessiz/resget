@@ -8,6 +8,7 @@
 |---|---|
 | `users` | Global, telefon benzersiz (E.164). Personel ve müşteri aynı tabloda. `isSuperAdmin` platform sahibi. `deletedAt`: kişi hesabını sildiğinde dolar; satır anonim mezar taşı olarak kalır, telefon `deleted:<id>` olur (`docs/KISISEL_VERI.md`). |
 | `otp_codes` | Karma kod, deneme sayacı, süre. |
+| `auth_sessions` | Sunucu tarafı oturum: giriş, oturum aktarımı veya eski jetonun ilk yenilemesiyle açılır; jetonlar kimliğini `sid` alanında taşır. `generation` her yenilemede artar, eski kuşağın yeniden kullanımı oturumu kapatır; `revokedAt` çıkış, yeniden kullanım veya hesap silmede dolar (`docs/GUVENLIK.md`, "Oturumlar"). |
 | `memberships` | (`userId`, `restaurantId`) benzersiz; durum INVITED/ACTIVE/PASSIVE; rol şablonu. |
 | `role_templates`, `role_template_permissions` | Restoran başına roller; `templateKey` varsayılan şablonu işaret eder; sahip şablonu değiştirilemez. |
 | `invite_tokens` | Personel daveti; 72 saat; kanal SHOWN/WHATSAPP/SMS. |

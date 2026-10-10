@@ -3,13 +3,13 @@ import { ConfigService } from '@nestjs/config';
 import { PublicRateLimitGuard } from '../storefront/public-rate-limit.guard';
 import { LiveMetaGraph, META_GRAPH, MockMetaGraph } from './meta-graph';
 import type { MetaGraph } from './meta-graph';
-import { OAuthCallbackController, SocialController } from './social.controller';
+import { OAuthCallbackController, OAuthCompleteController, SocialController } from './social.controller';
 import { SocialService } from './social.service';
 
 /** Integration hub (docs/ENTEGRASYON_MERKEZI.md); global so Lead Ads and publishing reach the connected accounts. */
 @Global()
 @Module({
-  controllers: [SocialController, OAuthCallbackController],
+  controllers: [SocialController, OAuthCompleteController, OAuthCallbackController],
   providers: [
     SocialService,
     PublicRateLimitGuard,

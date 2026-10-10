@@ -16,12 +16,34 @@ Hız sınırları istemci adresini Express'in `trust proxy` ile çıkardığı d
 
 Girişten sonra (`/giris?next=`) ve çıkıştan sonra gidilecek adres yalnızca bu sitedeki bir yoldur (`safeLocalPath`, `packages/shared/src/safe-path.ts`). `//alan`, `/\alan`, şema içeren adres ve sekme veya satır sonu gibi denetim karakterleri reddedilir.
 
+## Oturumlar
+
+Her giriş (OTP doğrulaması), her oturum aktarımı ve oturumsuz eski bir yenileme jetonunun ilk yenilenmesi sunucu tarafında bir oturum açar (`AuthSession`, `SessionsService`). Erişim (15 dakika) ve yenileme (30 gün) jetonları oturumun kimliğini `sid` alanında taşır; yenileme jetonu ayrıca oturumun kuşağını (`gen`) taşır.
+
+- **Döndürme**: `POST /auth/refresh` geçerli kuşaktaki yenileme jetonunu harcar ve oturumu bir sonraki kuşağa geçirir; yanıt yeni kuşağın jetonlarıdır. Bir önceki kuşağın jetonu döndürmeden sonra 30 saniye daha kabul edilir (aynı çerezle aynı anda yenileyen iki sekme veya middleware ile uçuştaki istek) ve geçerli kuşağın jetonlarını alır.
+- **Yeniden kullanım tespiti**: bundan eski bir yenileme jetonu gelirse jetonun bir kopyası başka birinin elindedir; oturumun tamamı sona erer, iki taraf da yeniden giriş yapar.
+- **Çıkış**: `POST /auth/logout` oturumu sona erdirir. Oturum erişim jetonundan (bearer) ya da erişim jetonu dolmuşsa gövdedeki yenileme jetonundan bulunur. Web'in çıkış rotası (`/api/session/logout`) çerezleri silmeden önce bu ucu çağırır; mobil uygulama çıkışta aynısını yapar. API'ye ulaşılamazsa çerezler ve cihazdaki jetonlar yine silinir.
+- **Anında kesme**: `JwtStrategy` her istekte oturumu kullanıcısıyla birlikte tek sorguda okur; sona ermiş oturumun erişim jetonu bir sonraki istekte 401 alır. Açık canlı akışlar da en geç `REALTIME_REAUTH_SECONDS` içinde kapanır (`docs/SIPARIS_VE_SEVK.md`, "Canlı akış yetkisi").
+- **Hesap silme**: hesabın bütün oturumları ve bekleyen aktarım kodları silme işleminin içinde sona erer (`docs/KISISEL_VERI.md`).
+- **Geçiş**: oturumlardan önce verilmiş (`sid` taşımayan) erişim jetonları süreleri dolana kadar çalışır; böyle bir yenileme jetonu ilk yenilemede yeni bir oturum alır.
+- **Temizlik**: son kullanımı bir yenileme jetonu ömründen bir gün daha eski oturumlar yeni oturum açılırken silinir.
+
+## Oturum kurma (giriş CSRF)
+
+Başka bir site, ziyaretçinin tarayıcısına kendi seçtiği hesabın oturumunu yerleştirememelidir. Oturum çerezi yazan web rotaları bunu tarayıcının `Sec-Fetch-Site` ve `Origin` başlıklarıyla denetler (`apps/web/src/lib/request-origin.ts`):
+
+- `POST /api/session/verify` yalnızca `Content-Type: application/json` gövdeyi kabul eder (415); `text/plain` bir form JSON taşıyamaz. `Sec-Fetch-Site` varsa `same-origin` olmalı, `Origin` varsa isteğin geldiği adresle aynı olmalıdır; değilse 403.
+- `GET /api/session/handoff` yalnızca uygulamanın kendisinin açtığı (`Sec-Fetch-Site: none`) ya da sitenin kendi sayfasından gelen (`same-origin`) gezinmede kodu harcar. Başka bir sitenin başlattığı gezinmede (`cross-site`, `same-site`) kod harcanmaz ve tarayıcı `next` yoluna oturumsuz gider.
+- İki başlığı da taşımayan istemciler (tarayıcı olmayan) bir kurbanın tarayıcısından gönderilemez ve geçer.
+
 ## Uygulamadan web'e oturum aktarımı
 
 Mobil uygulama sipariş sayfasını tarayıcıda açarken müşterinin oturumunu tek kullanımlık bir kodla taşır (`docs/CUZDAN.md`, "Mobil uygulama").
 
 - **Kod üretimi**: uygulama `POST /auth/handoff` ucunu kendi erişim jetonuyla çağırır. API anahtarı bu ucu kullanamaz. Kod 32 rastgele bayttır ve 60 saniye geçerlidir. Veritabanında yalnızca SHA-256 özeti tutulur (`SessionHandoff`).
 - **Kullanım**: tarayıcı `/api/session/handoff?code=...&next=/<yol>` adresini açar. Web sunucusu kodu `POST /auth/handoff/redeem` ucunda jetonlara çevirir ve httpOnly çerezlere yazar. Ardından `next` yoluna 303 ile yönlendirir. Kodlu adres sayfa olarak hiç çizilmez, bu yüzden başka bir siteye `Referer` ile sızmaz.
+- **Ayrı oturum**: tarayıcı uygulamanınkinden ayrı bir oturum alır; uygulamadan çıkış tarayıcıyı, tarayıcıdan çıkış uygulamayı kapatmaz. Sona ermiş bir oturum yeni kod üretemez.
+- **Tarayıcı bağı**: kod yalnızca uygulamanın açtığı gezinmede harcanır ("Oturum kurma").
 - **Tek kullanım**: kod koşullu güncellemeyle harcanır. Aynı anda gelen iki kullanımdan biri kazanır. Süresi geçmiş, kullanılmış ya da silinmiş hesaba ait kod reddedilir. Bu durumda tarayıcı yine `next` yoluna gider ve oturumsuz devam eder.
 - **Hedef**: `next` yalnızca bu sitedeki bir yoldur (`safeLocalPath`, "Yönlendirme hedefleri").
 - **Hız sınırı**: istemci adresi başına kod kullanımı 10 dakikada 60 ile, kullanıcı başına kod üretimi 10 dakikada 30 ile sınırlıdır.

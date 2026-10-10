@@ -44,7 +44,7 @@ test.describe('Integration hub', () => {
     await expect(card).toContainText('Henüz bağlı hesap yok.');
     await card.getByRole('button', { name: 'Meta ile bağlan' }).click();
 
-    // MOCK sends the browser through the API callback and back to this screen.
+    // MOCK sends the browser through the web callback route (with this session) and back to this screen.
     await page.waitForURL(new RegExp(`/panel/${restaurant.slug}/entegrasyon\\?meta=connected$`));
     await expect(card.locator('[data-social-result="connected"]')).toBeVisible();
     await expect(card.locator('[data-social-account]')).toHaveCount(2);

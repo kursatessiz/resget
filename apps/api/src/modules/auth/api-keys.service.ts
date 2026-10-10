@@ -233,6 +233,27 @@ export class ApiKeysService implements OnModuleInit, OnModuleDestroy {
     const expected = Buffer.from(row.secretHash, 'hex');
     const actual = Buffer.from(this.hash(row.keyId, parsed.secret), 'hex');
     if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
+    const principal = await this.principalOf(row);
+    if (!principal) return null;
+    if (this.verified.size >= VERIFIED_MAX) this.verified.clear();
+    this.verified.set(token, { principal, until: Date.now() + VERIFIED_TTL_MS });
+    return this.admit(principal);
+  }
+
+  /**
+   * The key as it stands now, for a stream opened with it (docs/SIPARIS_VE_SEVK.md): null once it is revoked
+   * or past its date, or its creator lost access. No request is counted and the cache is not used.
+   */
+  async current(id: string, now: Date = new Date()): Promise<ApiKeyPrincipal | null> {
+    const row = await this.prisma.restaurantApiKey.findUnique({ where: { id }, select: keySelect });
+    if (!row || row.revokedAt) return null;
+    if (row.expiresAt && row.expiresAt.getTime() <= now.getTime()) return null;
+    return this.principalOf(row);
+  }
+
+  /** A key acts with at most its creator's current access; null when the creator is gone or no longer active. */
+  private async principalOf(row: KeyRow): Promise<ApiKeyPrincipal | null> {
+    if (!row.createdBy) return null;
     const creator = await this.prisma.membership.findFirst({
       where: { userId: row.createdBy.id, restaurantId: row.restaurantId, status: 'ACTIVE', user: { deletedAt: null } },
       select: { roleTemplate: { select: { isOwner: true, permissions: { select: { permissionKey: true } } } } },
@@ -242,7 +263,7 @@ export class ApiKeysService implements OnModuleInit, OnModuleDestroy {
     const permissions = (row.permissions as PermissionKey[]).filter(
       (key) => creator.roleTemplate.isOwner || held.has(key),
     );
-    const principal: ApiKeyPrincipal = {
+    return {
       id: row.id,
       keyId: row.keyId,
       restaurantId: row.restaurantId,
@@ -255,9 +276,6 @@ export class ApiKeysService implements OnModuleInit, OnModuleDestroy {
         isSuperAdmin: false,
       },
     };
-    if (this.verified.size >= VERIFIED_MAX) this.verified.clear();
-    this.verified.set(token, { principal, until: Date.now() + VERIFIED_TTL_MS });
-    return this.admit(principal);
   }
 
   /** The last check for a verified key: its date, then the request is counted and lastUsedAt refreshed. */
