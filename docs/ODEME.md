@@ -77,7 +77,16 @@ Para her zaman geldiği yoldan geri döner (`RefundsService`, kurallar `packages
 - **Tamamlanmış siparişte iade** yalnızca personel isteğiyle olur: `POST /restaurants/:id/orders/:orderId/refund` (`orders.refund`, gövde `{ reason }`, gerekçe zorunlu). Müşteriye `order.refunded` mesajı gider. Gövdeye `items` veya `amountMinor` eklenirse kısmi iadedir (aşağıda).
 - **Tek seferde bir deneme**: her ödeme ağ geçidi çağrısından önce atomik olarak sahiplenilir (`refundRequestedAt`); iki ekran veya tarama aynı ödemeyi iki kez iade edemez. Yanıt vermeden kalan bir sahiplenme 5 dakika sonra bırakılır; sağlayıcılar zaten iade edilmiş işlemi reddeder.
 - Gövdesiz (yalnızca gerekçeli) iade siparişin kalan parasının tamamıdır. Siparişin yakalanmış parası kalmadığında sipariş `REFUNDED` olur; bu durum yalnızca iade ucu veya sağlayıcının iade bildirimiyle gelir, çıplak durum geçişiyle (`/transition`) gelmez (`REFUND_NOT_ALLOWED`).
-- Sağlayıcının kendi panelinden yapılan iade, imzalı `REFUNDED` bildirimiyle aynı şekilde kapanır; tekrarlanan bildirim etkisizdir, iadeden sonra gelen geç bir yakalama bildirimi yok sayılır.
+- Sağlayıcının kendi panelinden yapılan iade, imzalı `REFUNDED` bildirimiyle aynı şekilde kapanır; tekrarlanan bildirim etkisizdir, iadeden sonra gelen aynı işlemin geç yakalama bildirimi yok sayılır.
+
+### Mükerrer tahsilat
+
+Bir ödeme için birden fazla barındırılan oturum açılabilir (yeniden deneme, iki sekme); müşteri ikisini de öderse sağlayıcı iki ayrı işlem bildirir. Bildirimin tekrarı ile yeni bir işlem sağlayıcı referansıyla (`providerRef`) ayrılır (`isExtraCapture`, `CheckoutService`):
+
+- Yakalanmış (veya sonradan iade edilmiş, chargeback olmuş) bir ödemeye **aynı** `providerRef` ile gelen `CAPTURED` bildirimi tekrardır ve etkisizdir.
+- **Farklı** `providerRef` ile gelen `CAPTURED` bildirimi ikinci bir tahsilattır: siparişe, deftere ve hakedişe hiç girmez; ödemeyi tahsil eden hesap üzerinden (restoranın POS'u, yemek kartı kuruluşu veya platformun üye işyeri, 3b ile aynı seçim) hemen tutarın tamamıyla iade edilir ve uç nokta `CAPTURED` yanıtı verir. Bildirim `payment.extra_capture` denetim kaydıyla (sağlayıcı, referans, tutar, para birimi) sahiplenilir; aynı referansın yeniden teslimi ikinci iade başlatmaz (sahiplenme ödeme satırı kilitliyken yapılır). Sonuç `payment.extra_capture_refunded` (sağlayıcının iade referansıyla) veya `payment.extra_capture_refund_failed` (`REFUND_DECLINED`, `REFUND_PROVIDER_ERROR`, `REFUND_UNAVAILABLE`) kaydıyla kalır; başarısız iade otomatik yeniden denenmez, operatör denetim görüntüleyicisinden görüp sağlayıcının panelinden iade eder.
+- İki farklı işlemin bildirimi aynı anda gelirse ödemeyi ilk yakalayan kazanır, ikincisi aynı kurala göre iade edilir.
+- Sınır: PayTR'de `merchant_oid` her oturumda siparişin kimliğidir; iki ödeme aynı referansla bildirilirse platform onları ayıramaz.
 - Defter: `PLATFORM_PSP` ile tahsil edilmiş ve tamamlanmış siparişin iadesi bir sonraki hakedişten düşer, komisyonu aynı hakedişte geri döner (`docs/MUTABAKAT.md`); tamamlanmadan iade edilen sipariş restorana hiç alacak yazmadığı için defterde iz bırakmaz. İade ve chargeback tutarı sözleşme gereği restorana aittir ve bu işlemlerde platform komisyon almaz: `OWN_POS`'ta iade edilen sipariş açık ayın faturasına girmez, kesilmiş faturadaysa sonraki faturada mahsup edilir; `PLATFORM_PSP`'de komisyon ve KDV'si iadeyle aynı hakedişte geri verilir (`docs/MUTABAKAT.md`, "İade ve chargeback").
 
 ### Kısmi iade

@@ -20,7 +20,7 @@ Ofiste veya arkadaş grubunda tek sepette sipariş: biri restoranın sayfasında
 - **Yetki sınırları:**
   - Kimse başkasının seçimini değiştiremez (`403 GROUP_CART_FORBIDDEN`).
   - Sepeti kapatma ve siparişi verme yalnızca sahibe açıktır.
-- **Satır doğrulaması:** her satır yazılırken menüyle doğrulanır (bu restoranın ürünü, satışta, seçenekler menüdeki fiyatla; `resolveLineModifiers()`). Okurken fiyatlar bugünkü menüden hesaplanır. Satıştan kalkan bir satır "satışta değil" olarak işaretlenir ve sahibi çıkarır.
+- **Satır doğrulaması:** her satır yazılırken menüyle doğrulanır (bu restoranın ürünü, satışta, yani ürün ve menü bölümü açık, seçenekler menüdeki fiyatla; `resolveLineModifiers()`). Okurken fiyatlar bugünkü menüden hesaplanır. Satıştan kalkan bir satır "satışta değil" olarak işaretlenir ve sahibi çıkarır.
 - **Çift siparişe karşı:** sipariş verilmeden önce sepet tek bir koşullu yazımla `PLACED` olarak sahiplenilir; çift tıklama iki sipariş açamaz. Yerleştirme başarısız olursa (ör. ürün satıştan kalktı) sepet kapalı olarak geri verilir ve sahip düzeltip yeniden dener.
 - **Sınırlar:**
   - Sepet 6 saat açık kalır.

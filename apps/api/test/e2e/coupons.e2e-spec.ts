@@ -1,3 +1,4 @@
+import { normalizePhone } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
 
@@ -14,6 +15,10 @@ describe('Coupons (e2e)', () => {
   const PHONE_B = '05329990942';
   // A phone that never ordered here, fresh on every run (customer rows outlive the orders this spec deletes).
   const FRESH_PHONE = `0533${String(Date.now()).slice(-7)}`;
+  const FRESH_PHONE_2 = `0535${String(Date.now()).slice(-7)}`;
+
+  let clientSeq = 0;
+  const nextClient = () => `10.82.${Math.floor(clientSeq / 200)}.${(clientSeq++ % 200) + 1}`;
 
   const owner = () => bearer(ownerToken, restaurantId);
   const setSwitch = (enabled: boolean | null) =>
@@ -38,10 +43,13 @@ describe('Coupons (e2e)', () => {
         ...body,
       })
       .expect(expected);
-  const pickup = (phone: string, couponCode: string | undefined, expected: number, quantity = 2) =>
+  const pickup = (phone: string, couponCode: string | undefined, expected: number, quantity = 2, token?: string) =>
     ctx
       .http()
       .post(`/public/restaurants/${SEED.restaurantSlug}/orders`)
+      // A client address per order: these cases are about coupons, not the per-client order limit.
+      .set('x-forwarded-for', nextClient())
+      .set(token ? bearer(token) : {})
       .send({
         fulfillment: 'PICKUP',
         items: [{ menuItemId: itemId, quantity }],
@@ -140,11 +148,27 @@ describe('Coupons (e2e)', () => {
     });
   });
 
+  it('needs the signed-in phone for a coupon tied to the customer; a plain coupon stays anonymous', async () => {
+    await createCoupon({ code: 'E2E-KIMLIK', kind: 'AMOUNT', amountMinor: 2000, firstOrderOnly: true });
+    // Typing a number nobody proved is not enough for a first-order coupon.
+    const anonymous = await pickup(FRESH_PHONE_2, 'E2E-KIMLIK', 409);
+    expect(anonymous.body.code).toBe('COUPON_SIGN_IN_REQUIRED');
+    // Nor is ordering for another number while signed in.
+    const other = await pickup(FRESH_PHONE_2, 'E2E-KIMLIK', 409, 2, await ctx.login(normalizePhone(PHONE_A)!));
+    expect(other.body.code).toBe('COUPON_SIGN_IN_REQUIRED');
+    const signedIn = await pickup(FRESH_PHONE_2, 'E2E-KIMLIK', 201, 2, await ctx.login(normalizePhone(FRESH_PHONE_2)!));
+    expect(signedIn.body.discountMinor).toBe(2000);
+
+    await createCoupon({ code: 'E2E-HERKES', kind: 'AMOUNT', amountMinor: 500 });
+    const plain = await pickup(PHONE_B, 'E2E-HERKES', 201);
+    expect(plain.body.discountMinor).toBe(500);
+  });
+
   it('keeps first-order and per-customer rules and needs a phone', async () => {
     await createCoupon({ code: 'E2E-ILK', kind: 'AMOUNT', amountMinor: 2500, firstOrderOnly: true });
-    const returning = await pickup(PHONE_B, 'E2E-ILK', 409);
+    const returning = await pickup(PHONE_B, 'E2E-ILK', 409, 2, await ctx.login(normalizePhone(PHONE_B)!));
     expect(returning.body.code).toBe('COUPON_FIRST_ORDER_ONLY');
-    const fresh = await pickup(FRESH_PHONE, 'E2E-ILK', 201);
+    const fresh = await pickup(FRESH_PHONE, 'E2E-ILK', 201, 2, await ctx.login(normalizePhone(FRESH_PHONE)!));
     expect(fresh.body.discountMinor).toBe(2500);
 
     await createCoupon({ code: 'E2E-TEKRAR', kind: 'AMOUNT', amountMinor: 1000, perCustomerLimit: 1 });

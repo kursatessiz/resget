@@ -1,4 +1,11 @@
-import { DeliveryZoneSchema, deliveryZoneRefusal, zoneDeliveryFee } from './delivery-zone';
+import {
+  DELIVERY_POINT_MAX_DRIFT_METERS,
+  DeliveryZoneSchema,
+  deliveryPricingPoint,
+  deliveryZoneRefusal,
+  zoneDeliveryFee,
+} from './delivery-zone';
+import { haversineMeters } from './delivery';
 
 const zone = {
   radiusMeters: 5000,
@@ -34,5 +41,17 @@ describe('delivery zone', () => {
     expect(DeliveryZoneSchema.safeParse({ ...zone, bands: [...zone.bands].reverse() }).success).toBe(false);
     expect(DeliveryZoneSchema.safeParse({ ...zone, bands: [{ upToMeters: 2000, feeMinor: 1 }] }).success).toBe(false);
     expect(DeliveryZoneSchema.safeParse({ ...zone, radiusMeters: 100 }).success).toBe(false);
+  });
+
+  it('prices on the customer pin unless the address text geocodes too far from it', () => {
+    const pin = { lat: 40.9905, lng: 29.0285 };
+    const beside = { lat: 40.993, lng: 29.03 };
+    const far = { lat: 41.08, lng: 29.0 };
+    expect(haversineMeters(pin, beside)).toBeLessThan(DELIVERY_POINT_MAX_DRIFT_METERS);
+    expect(deliveryPricingPoint(pin, beside)).toEqual(pin);
+    expect(deliveryPricingPoint(pin, far)).toEqual(far);
+    expect(deliveryPricingPoint(pin, null)).toEqual(pin);
+    expect(deliveryPricingPoint(null, far)).toEqual(far);
+    expect(deliveryPricingPoint(null, null)).toBeNull();
   });
 });

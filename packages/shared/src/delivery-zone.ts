@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { MinorAmountSchema } from './money';
 import { customerDeliveryFee } from './courier';
-import type { DeliveryFeePolicy } from './courier';
+import type { DeliveryFeePolicy, GeoPoint } from './courier';
+import { haversineMeters } from './delivery';
 
 /**
  * Delivery zone (docs/VITRIN.md, "Teslimat bölgesi"): how far the restaurant
@@ -14,6 +15,12 @@ import type { DeliveryFeePolicy } from './courier';
 export const DELIVERY_RADIUS_MIN_METERS = 500;
 export const DELIVERY_RADIUS_MAX_METERS = 50_000;
 export const DELIVERY_BANDS_MAX = 8;
+/**
+ * A point the customer sends is trusted for the radius and the fee only while
+ * it lies this close to where the address text geocodes; farther away, the
+ * geocoded point decides (docs/VITRIN.md, "Konum doğrulama").
+ */
+export const DELIVERY_POINT_MAX_DRIFT_METERS = 1000;
 
 const BandSchema = z
   .object({
@@ -55,8 +62,9 @@ export type DeliveryZoneRefusal = 'OUT_OF_ZONE' | 'BELOW_MINIMUM';
 
 /**
  * Whether a delivery to this distance with this basket is accepted. A
- * distance of null (no point for the address) is not refused here; the API
- * geocodes before it asks.
+ * distance of null (no point for the address, or a branch without
+ * coordinates) is not refused here: the API geocodes first and refuses an
+ * address it cannot place with DELIVERY_LOCATION_REQUIRED before it asks.
  */
 export function deliveryZoneRefusal(
   zone: DeliveryZone,
@@ -84,4 +92,17 @@ export function zoneDeliveryFee(
   if (policy?.mode === 'FREE_ABOVE' && basketMinor >= policy.thresholdMinor) return 0;
   const band = zone.bands.find((b) => distanceMeters <= b.upToMeters) ?? zone.bands[zone.bands.length - 1];
   return band.feeMinor;
+}
+
+/**
+ * The point a consumer delivery is checked and priced on: the customer's own
+ * pin, unless the address text geocodes farther than
+ * DELIVERY_POINT_MAX_DRIFT_METERS from it, then the geocoded point. Null only
+ * when neither exists. The stored address keeps the customer's pin for the
+ * courier either way.
+ */
+export function deliveryPricingPoint(given: GeoPoint | null, geocoded: GeoPoint | null): GeoPoint | null {
+  if (!given) return geocoded;
+  if (!geocoded) return given;
+  return haversineMeters(given, geocoded) > DELIVERY_POINT_MAX_DRIFT_METERS ? geocoded : given;
 }

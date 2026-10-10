@@ -143,6 +143,7 @@ describe('Courier tips (e2e)', () => {
     await ctx.prisma.ledgerEntry.deleteMany({ where: { orderId: { in: orders.map((o) => o.id) } } });
     await ctx.prisma.order.deleteMany({ where: { restaurantId, customerNote: NOTE } });
     await ctx.prisma.deliveryTrip.deleteMany({ where: { id: { in: tripIds } } });
+    await ctx.prisma.auditLog.deleteMany({ where: { restaurantId, action: { startsWith: 'tip.extra_capture' } } });
     await ctx.prisma.paymentProviderConnection.deleteMany({ where: { restaurantId } });
     await ctx.prisma.featureFlag.deleteMany({ where: { restaurantId, key: 'courier_tips' } });
     await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { paymentMode: original } });
@@ -408,5 +409,34 @@ describe('Courier tips (e2e)', () => {
     expect(row.refundRequestedAt).toBeNull();
     expect(row.refundedByUserId).not.toBeNull();
     expect(await ctx.prisma.auditLog.count({ where: { action: 'tip.refunded', entityId: started.tipId } })).toBe(1);
+  });
+
+  it('gives back a second, distinct capture of a collected tip and records it once', async () => {
+    const order = await deliveredOrder('Bahsis Cift', 'OWN');
+    const started = (await startTip(order.token, 2000)).body as TipStartedDTO;
+    const notice = { orderRef: started.tipId, status: 'CAPTURED', amountMinor: 2000 };
+    const extraRows = () =>
+      ctx.prisma.auditLog.findMany({
+        where: { entityId: started.tipId, action: { startsWith: 'tip.extra_capture' } },
+        orderBy: { createdAt: 'asc' },
+      });
+    await platformNotice({ ...notice, providerRef: 'tip-dup-1' });
+    expect((await platformNotice({ ...notice, providerRef: 'tip-dup-1' })).body.status).toBe('CAPTURED');
+    expect(await extraRows()).toHaveLength(0);
+
+    // Another paid session for the same tip: refunded on the account that took it, and a redelivery does nothing more.
+    expect((await platformNotice({ ...notice, providerRef: 'tip-dup-2' })).body.status).toBe('CAPTURED');
+    expect((await platformNotice({ ...notice, providerRef: 'tip-dup-2' })).body.status).toBe('CAPTURED');
+    const rows = await extraRows();
+    expect(rows.map((r) => r.action)).toEqual(['tip.extra_capture', 'tip.extra_capture_refunded']);
+    expect(rows[0].meta).toMatchObject({ providerRef: 'tip-dup-2', amountMinor: 2000 });
+    expect(await ctx.prisma.courierTip.findUniqueOrThrow({ where: { id: started.tipId } })).toMatchObject({
+      status: 'CAPTURED',
+      providerRef: 'tip-dup-1',
+      amountMinor: 2000,
+    });
+    // The extra money never reached the payout.
+    const lines = await ctx.prisma.ledgerEntry.findMany({ where: { orderId: order.id, type: 'COURIER_TIP' } });
+    expect(lines.map((l) => l.amountMinor)).toEqual([2000]);
   });
 });

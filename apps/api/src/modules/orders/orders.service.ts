@@ -190,6 +190,11 @@ export interface CreateOrderOptions {
   source?: OrderSource;
   /** The signed-in customer's own number; checkout consent for it needs no confirmation link (docs/RIZA.md). */
   verifiedPhone?: string;
+  /**
+   * Public orders only: how many open, not yet accepted orders (PENDING_PAYMENT or PLACED) the ordering phone may
+   * already hold at the restaurant (OPEN_ORDERS_LIMIT, docs/VITRIN.md). Staff-entered orders pass none.
+   */
+  maxOpenOrdersPerPhone?: number;
 }
 
 /** Adds the courier tip state to the tracking page (docs/BAHSIS.md); set by the tips module. */
@@ -329,6 +334,7 @@ export class OrdersService {
         isAvailable: true,
         currency: true,
         stockQuantity: true,
+        category: { select: { isActive: true } },
         modifierGroups: {
           orderBy: { sortOrder: 'asc' },
           select: {
@@ -348,7 +354,9 @@ export class OrdersService {
     const lines = input.items.map((line, position) => {
       const item = byId.get(line.menuItemId);
       if (!item) throw notFound('NOT_FOUND', `Menu item ${line.menuItemId} not found`);
-      if (!item.isAvailable) throw conflict('MENU_ITEM_UNAVAILABLE', `${item.name} is not available`);
+      // A switched-off menu section stops the sale of its items, not only their display (docs/VITRIN.md).
+      if (!item.isAvailable || !item.category.isActive)
+        throw conflict('MENU_ITEM_UNAVAILABLE', `${item.name} is not available`);
       if (item.currency !== restaurant.currency) throw badRequest('VALIDATION', 'Menu item currency mismatch');
       // The menu prices the options, never the client (MODIFIER_INVALID / MODIFIER_PRICE_CHANGED).
       const options = resolveLineModifiers(item.modifierGroups, line.modifiers);
@@ -410,6 +418,8 @@ export class OrdersService {
         options.couponCode,
         phone,
         lines.reduce((sum, l) => sum + l.lineTotalMinor, 0),
+        // Only the signed-in customer's own number proves who is ordering (COUPON_SIGN_IN_REQUIRED).
+        options.verifiedPhone !== undefined && options.verifiedPhone === phone,
       );
     }
     const discountMinor = redemption?.discountMinor ?? coupon?.discountMinor ?? 0;
@@ -484,6 +494,15 @@ export class OrdersService {
         }
         restaurantCustomerId = customer.id;
         consentCustomerId = customer.id;
+        // The customer row is locked by the upsert above, so two orders of one phone count each other here.
+        if (options.maxOpenOrdersPerPhone !== undefined) {
+          const open = await tx.order.count({
+            where: { restaurantId, customerUserId: user.id, status: { in: ['PENDING_PAYMENT', 'PLACED'] } },
+          });
+          if (open >= options.maxOpenOrdersPerPhone) {
+            throw conflict('OPEN_ORDERS_LIMIT', 'This phone already has open orders waiting at the restaurant');
+          }
+        }
       }
       if (countStock) await this.takeStock(tx, lines, byId);
       const tabId = onTab ? await this.openTabFor(tx, restaurantId, input.branchId, input.tableId!) : null;

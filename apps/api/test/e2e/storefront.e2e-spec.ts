@@ -1,3 +1,4 @@
+import { PUBLIC_ORDER_MAX_OPEN_PER_PHONE, PUBLIC_ORDER_MAX_TOTAL_QUANTITY } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
 
@@ -119,6 +120,122 @@ describe('Storefront (e2e)', () => {
       .expect(409)
       .expect('x-error-code', 'MENU_ITEM_UNAVAILABLE');
     await ctx.prisma.menuItem.update({ where: { id: itemId }, data: { isAvailable: true } });
+  });
+
+  it('refuses an item of a switched-off menu section, from the table and from the restaurant page', async () => {
+    const restaurant = await ctx.prisma.restaurant.findUniqueOrThrow({ where: { id: restaurantId } });
+    const category = await ctx.prisma.menuCategory.create({
+      data: { restaurantId, name: 'e2e kapali bolum', isActive: false },
+    });
+    try {
+      const item = await ctx.prisma.menuItem.create({
+        data: {
+          restaurantId,
+          categoryId: category.id,
+          name: 'e2e kapali urun',
+          priceMinor: 1000,
+          currency: restaurant.currency,
+          vatRateBps: 1000,
+        },
+      });
+      const menu = await ctx.http().get(`/public/restaurants/${SEED.restaurantSlug}/menu`).expect(200);
+      expect(JSON.stringify(menu.body.categories)).not.toContain(item.id);
+      await ctx
+        .http()
+        .post(`/public/qr/${SEED.tableToken}/orders`)
+        .send({
+          fulfillment: 'DINE_IN',
+          items: [{ menuItemId: item.id, quantity: 1 }],
+          payment: { method: 'CASH_ON_DELIVERY' },
+        })
+        .expect(409)
+        .expect('x-error-code', 'MENU_ITEM_UNAVAILABLE');
+      await ctx
+        .http()
+        .post(`/public/restaurants/${SEED.restaurantSlug}/orders`)
+        .send({
+          fulfillment: 'PICKUP',
+          items: [{ menuItemId: item.id, quantity: 1 }],
+          customer: { fullName: 'Kapali Bolum', phone: '05329990921' },
+          payment: { method: 'CASH_ON_DELIVERY' },
+        })
+        .expect(409)
+        .expect('x-error-code', 'MENU_ITEM_UNAVAILABLE');
+    } finally {
+      await ctx.prisma.menuCategory.delete({ where: { id: category.id } });
+    }
+  });
+
+  it('caps the portions of one public order; staff orders are not capped', async () => {
+    const refused = await ctx
+      .http()
+      .post(`/public/qr/${SEED.tableToken}/orders`)
+      .set('x-forwarded-for', '203.0.113.81')
+      .send({
+        fulfillment: 'DINE_IN',
+        items: [
+          { menuItemId: itemId, quantity: 30 },
+          { menuItemId: itemId, quantity: PUBLIC_ORDER_MAX_TOTAL_QUANTITY - 29 },
+        ],
+        payment: { method: 'CASH_ON_DELIVERY' },
+      });
+    if (refused.status === 201) {
+      created.push(
+        (await ctx.prisma.order.findUniqueOrThrow({ where: { trackingToken: refused.body.trackingToken } })).id,
+      );
+    }
+    expect(refused.status).toBe(409);
+    expect(refused.headers['x-error-code']).toBe('ORDER_QUANTITY_LIMIT');
+
+    const ownerToken = await ctx.login(SEED.ownerPhone);
+    const branch = await ctx.prisma.branch.findFirstOrThrow({ where: { restaurantId } });
+    const staff = await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/orders`)
+      .set(bearer(ownerToken, restaurantId))
+      .send({
+        branchId: branch.id,
+        channel: 'PHONE',
+        fulfillment: 'PICKUP',
+        items: [{ menuItemId: itemId, quantity: PUBLIC_ORDER_MAX_TOTAL_QUANTITY + 10 }],
+      })
+      .expect(201);
+    created.push(staff.body.id as string);
+  });
+
+  it('caps the open, not yet accepted public orders of one phone at a restaurant', async () => {
+    const phone = '05329990941';
+    const pickup = () =>
+      ctx
+        .http()
+        .post(`/public/restaurants/${SEED.restaurantSlug}/orders`)
+        .set('x-forwarded-for', '203.0.113.82')
+        .send({
+          fulfillment: 'PICKUP',
+          items: lines(),
+          customer: { fullName: 'Acik Siparis', phone },
+          payment: { method: 'CASH_ON_DELIVERY' },
+        });
+    const placed: string[] = [];
+    for (let i = 0; i < PUBLIC_ORDER_MAX_OPEN_PER_PHONE; i += 1) {
+      const res = await pickup().expect(201);
+      const order = await ctx.prisma.order.findUniqueOrThrow({ where: { trackingToken: res.body.trackingToken } });
+      created.push(order.id);
+      placed.push(order.id);
+    }
+    const refused = await pickup();
+    if (refused.status === 201) {
+      created.push(
+        (await ctx.prisma.order.findUniqueOrThrow({ where: { trackingToken: refused.body.trackingToken } })).id,
+      );
+    }
+    expect(refused.status).toBe(409);
+    expect(refused.headers['x-error-code']).toBe('OPEN_ORDERS_LIMIT');
+
+    // Once the restaurant has accepted one, the phone may order again.
+    await ctx.prisma.order.update({ where: { id: placed[0] }, data: { status: 'ACCEPTED' } });
+    const again = await pickup().expect(201);
+    created.push((await ctx.prisma.order.findUniqueOrThrow({ where: { trackingToken: again.body.trackingToken } })).id);
   });
 
   it('lists launched districts and the listed restaurants in them', async () => {

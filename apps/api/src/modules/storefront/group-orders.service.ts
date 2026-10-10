@@ -32,6 +32,11 @@ function sameHash(key: string | undefined, hash: string): boolean {
   return given.length === stored.length && timingSafeEqual(given, stored);
 }
 
+/** For sale: the item itself and its menu section are switched on (docs/VITRIN.md). */
+function forSale(item: { isAvailable: boolean; category: { isActive: boolean } }): boolean {
+  return item.isAvailable && item.category.isActive;
+}
+
 /** Stored lines were checked on write; anything unreadable counts as no lines. */
 function storedLines(raw: Prisma.JsonValue): OrderLineInput[] {
   const parsed = OrderLineInputSchema.array().safeParse(raw);
@@ -189,7 +194,7 @@ export class GroupOrdersService {
     for (const line of lines) {
       const item = items.get(line.menuItemId);
       if (!item) throw notFound('NOT_FOUND', `Menu item ${line.menuItemId} not found`);
-      if (!item.isAvailable) throw conflict('MENU_ITEM_UNAVAILABLE', `${item.name} is not available`);
+      if (!forSale(item)) throw conflict('MENU_ITEM_UNAVAILABLE', `${item.name} is not available`);
       const options = resolveLineModifiers(item.modifierGroups, line.modifiers);
       if (!options.ok) throw conflict(options.code, `Options of ${item.name} do not match the menu`);
     }
@@ -203,6 +208,7 @@ export class GroupOrdersService {
         name: true,
         priceMinor: true,
         isAvailable: true,
+        category: { select: { isActive: true } },
         modifierGroups: {
           orderBy: { sortOrder: 'asc' },
           select: {
@@ -239,7 +245,7 @@ export class GroupOrdersService {
           quantity: line.quantity,
           modifiers: line.modifiers,
           unitPriceMinor: (item?.priceMinor ?? 0) + delta,
-          available: Boolean(item?.isAvailable && options?.ok),
+          available: Boolean(item && forSale(item) && options?.ok),
         };
       });
       return {

@@ -18,6 +18,7 @@ import type { ResolvedPaymentIntent } from '../orders/orders.service';
 import { PaymentsRegistry } from './payments.registry';
 import { MealCardsService } from './meal-cards.service';
 import { MealCardsRegistry } from './meal-cards.registry';
+import { RefundsService } from './refunds.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { OrderNotificationsService } from '../orders/order-notifications.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
@@ -43,6 +44,39 @@ export interface OpenedHostedCheckout {
   session: HostedCheckoutSession;
   providerCode: string;
   paymentMode: 'OWN_POS' | 'PLATFORM_PSP';
+}
+
+/**
+ * A provider transaction that arrived for an order payment or a courier tip
+ * that another transaction already captured (docs/ODEME.md, "Mükerrer
+ * tahsilat"): who it belongs to, how its row is locked while the notice is
+ * claimed, and the account that took the money and gives it back.
+ */
+export interface ExtraCapture {
+  kind: 'payment' | 'tip';
+  entity: 'Payment' | 'CourierTip';
+  entityId: string;
+  restaurantId: string;
+  /** Takes the row lock inside the claiming transaction, so two deliveries of one notice refund once. */
+  lock: (tx: Prisma.TransactionClient) => Promise<unknown>;
+  target: { method: string; provider: string; paymentMode: 'OWN_POS' | 'PLATFORM_PSP' };
+}
+
+/** Captured states whose provider reference names the transaction that paid; another reference is a second payment. */
+const CAPTURED_FAMILY: readonly string[] = ['CAPTURED', 'PARTIALLY_REFUNDED', 'REFUNDED', 'CHARGED_BACK'];
+
+/** Whether a capture notice is a different transaction than the one a captured row already holds. */
+export function isExtraCapture(
+  row: { status: string; providerRef: string | null },
+  event: Pick<GatewayWebhookEvent, 'status' | 'providerRef'>,
+): boolean {
+  return (
+    event.status === 'CAPTURED' &&
+    CAPTURED_FAMILY.includes(row.status) &&
+    row.providerRef !== null &&
+    event.providerRef !== '' &&
+    event.providerRef !== row.providerRef
+  );
 }
 
 /** What the webhook endpoint answers: JSON by default, the provider's own acknowledgement or a browser redirect when the adapter asks. */
@@ -74,6 +108,7 @@ export class CheckoutService {
     private readonly config: ConfigService,
     private readonly ledger: LedgerService,
     private readonly notifications: OrderNotificationsService,
+    private readonly refunds: RefundsService,
   ) {
     this.orders.setPaymentIntentResolver((restaurantId, intent) => this.resolveIntent(restaurantId, intent));
   }
@@ -366,6 +401,11 @@ export class CheckoutService {
       orderBy: { createdAt: 'desc' },
     });
     if (!payment) return reply('IGNORED');
+    // Another transaction for a payment that is already paid: given back, never booked.
+    if (isExtraCapture(payment, event)) {
+      await this.refundExtraCapture(this.extraPayment(payment), event);
+      return reply('CAPTURED');
+    }
     if (payment.status === 'CAPTURED' && event.status === 'CAPTURED') return reply('CAPTURED');
     // Notices may arrive out of order: a failed first attempt or an abandoned second session never undoes a
     // capture, and a repeated success never undoes part of a refund.
@@ -411,6 +451,7 @@ export class CheckoutService {
     }
 
     const refundedNow = event.status === 'REFUNDED' && payment.status !== 'REFUNDED';
+    let swappedAway = false;
     const leftFrom = await this.prisma.$transaction(async (tx) => {
       // Compare and swap on the status read above: two notices racing apply once.
       const swapped = await tx.payment.updateMany({
@@ -426,7 +467,10 @@ export class CheckoutService {
             : {}),
         },
       });
-      if (swapped.count === 0) return null;
+      if (swapped.count === 0) {
+        swappedAway = true;
+        return null;
+      }
       if (event.status === 'CAPTURED') {
         const order = await this.orders.loadRow(tx, payment.orderId);
         if (order.status === 'PENDING_PAYMENT') {
@@ -446,10 +490,105 @@ export class CheckoutService {
       // A refund made in the provider's own dashboard closes the order the same way (docs/ODEME.md, "İade").
       return this.orders.closeAsRefunded(tx, payment.orderId, 'SYSTEM', null, 'refund reported by the provider');
     });
+    if (swappedAway) {
+      // Another notice moved the payment first; when it was a different transaction's capture, this one is extra.
+      const current = await this.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
+      if (isExtraCapture(current, event)) await this.refundExtraCapture(this.extraPayment(current), event);
+    }
     this.realtime.publishMany(await this.orders.eventsForOrder(payment.orderId));
     if (leftFrom === 'DELIVERED' || leftFrom === 'PICKED_UP')
       await this.notifications.notify(payment.orderId, 'REFUNDED');
     return reply(event.status);
+  }
+
+  /**
+   * Gives back a second, distinct provider transaction for a payment or a tip
+   * that is already captured: a customer who paid twice, for example through
+   * two open hosted sessions. It never reaches the order, the ledger or the
+   * payout; it goes back on the account that took it, once per provider
+   * reference, and the notice and the outcome stay in the audit log. A
+   * refund that does not go through is logged and stays on the record for
+   * the operator (docs/ODEME.md, "Mükerrer tahsilat").
+   */
+  async refundExtraCapture(extra: ExtraCapture, event: GatewayWebhookEvent): Promise<void> {
+    const action = `${extra.kind}.extra_capture`;
+    const claimed = await this.prisma.$transaction(async (tx) => {
+      await extra.lock(tx);
+      const seen = await tx.auditLog.count({
+        where: {
+          entity: extra.entity,
+          entityId: extra.entityId,
+          action,
+          meta: { path: ['providerRef'], equals: event.providerRef },
+        },
+      });
+      if (seen > 0) return false;
+      await tx.auditLog.create({
+        data: {
+          restaurantId: extra.restaurantId,
+          action,
+          entity: extra.entity,
+          entityId: extra.entityId,
+          meta: {
+            provider: extra.target.provider,
+            providerRef: event.providerRef,
+            amountMinor: event.amountMinor,
+            currency: event.currency,
+          },
+        },
+      });
+      return true;
+    });
+    if (!claimed) return;
+
+    let refundProviderRef: string | null = null;
+    let failure: 'REFUND_UNAVAILABLE' | 'REFUND_DECLINED' | 'REFUND_PROVIDER_ERROR' | null = null;
+    try {
+      const target = await this.refunds.refundTarget(extra.restaurantId, extra.target);
+      if (!target || event.amountMinor <= 0) {
+        failure = 'REFUND_UNAVAILABLE';
+      } else {
+        const result = await target.refund(event.providerRef, event.amountMinor);
+        if (result.ok) refundProviderRef = result.providerRef;
+        else failure = 'REFUND_DECLINED';
+      }
+    } catch (err) {
+      this.logger.warn(`Refund of extra capture ${event.providerRef} failed: ${(err as Error).message}`);
+      failure = 'REFUND_PROVIDER_ERROR';
+    }
+    if (failure) {
+      this.logger.warn(
+        `${extra.entity} ${extra.entityId}: extra capture ${event.providerRef} not refunded (${failure})`,
+      );
+    }
+    await this.prisma.auditLog.create({
+      data: {
+        restaurantId: extra.restaurantId,
+        action: failure ? `${action}_refund_failed` : `${action}_refunded`,
+        entity: extra.entity,
+        entityId: extra.entityId,
+        meta: failure
+          ? { providerRef: event.providerRef, amountMinor: event.amountMinor, failure }
+          : { providerRef: event.providerRef, amountMinor: event.amountMinor, refundProviderRef },
+      },
+    });
+  }
+
+  private extraPayment(payment: {
+    id: string;
+    restaurantId: string;
+    method: string;
+    provider: string;
+    paymentMode: 'OWN_POS' | 'PLATFORM_PSP';
+  }): ExtraCapture {
+    return {
+      kind: 'payment',
+      entity: 'Payment',
+      entityId: payment.id,
+      restaurantId: payment.restaurantId,
+      lock: (tx) => tx.$queryRaw`SELECT id FROM payments WHERE id = ${payment.id} FOR UPDATE`,
+      target: { method: payment.method, provider: payment.provider, paymentMode: payment.paymentMode },
+    };
   }
 
   /** Cash, card or a meal card taken at the door or the counter; the actual method may differ from the intent. */

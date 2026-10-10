@@ -8,11 +8,12 @@ Her kural restoran verisidir; kod yalnızca aritmetiği ve kontrolleri taşır (
 
 - **Tür**: yüzde (`percentBps`, isteğe bağlı üst sınır `maxDiscountMinor`) veya tutar (`amountMinor`). İndirim hiçbir zaman ürün toplamını aşmaz; yüzde hesabı `bpsOf()` ile tek yuvarlamayla yapılır.
 - **En az sepet**: ürün toplamı (teslimat ücreti hariç) alt sınırın altındaysa `COUPON_MIN_BASKET`.
-- **Yalnızca ilk sipariş**: telefon bu restorandan daha önce sipariş verdiyse `COUPON_FIRST_ORDER_ONLY`.
-- **Müşteri başına kullanım**: telefon başına; iptal edilen sipariş hakkını geri verir. Aşılırsa `COUPON_ALREADY_USED`.
+- **Yalnızca ilk sipariş**: telefon bu restorandan daha önce sipariş verdiyse `COUPON_FIRST_ORDER_ONLY`. Bu kural kimlik gerektirir (aşağıda).
+- **Müşteri başına kullanım**: telefon başına; iptal edilen sipariş hakkını geri verir. Aşılırsa `COUPON_ALREADY_USED`. Kimliksiz siparişte yazılan telefona göre sayılır, yani yeni bir numarayla aşılabilir; kesin sınır isteyen restoran kuponu "yalnızca ilk sipariş" yapar.
 - **Toplam kullanım sınırı**: `redemptionCount` sayacı siparişle aynı işlemde, yalnızca sınırın altındayken atomik olarak artar; böylece sınırlı kupon fazla satılmaz (`COUPON_LIMIT_REACHED`). Sipariş reddedilir, iptal edilir veya iade edilirse kullanım geri verilir (`releasedAt`, sayaç bir azalır).
 - **Geçerlilik penceresi**: başlamamış kupon bilinmeyen kod gibi davranır (`COUPON_NOT_FOUND`), süresi geçmiş kupon `COUPON_EXPIRED`.
 - **Telefon gerekir**: kupon bir telefona bağlıdır; iletişim bilgisi olmayan masa siparişinde `COUPON_PHONE_REQUIRED`.
+- **Kimlik gerektiren kuponlar**: kuralı müşterinin kim olduğuna bağlı kupon (yalnızca ilk sipariş, kişisel tavsiye kodu, sahibine verilmiş ödül kuponu; `couponNeedsIdentity()`) yalnızca giriş yapmış ziyaretçinin kendi telefonuyla verdiği siparişte kullanılır. Kimliksiz sipariş veya giriş yapılmış hesaptan başka bir numaraya verilen sipariş `409 COUPON_SIGN_IN_REQUIRED` alır; kontrol sadakat puanındaki `LOYALTY_PHONE_MISMATCH` kuralıyla aynıdır. Yazılan bir numara kimseyi kanıtlamaz: aksi halde ilk sipariş kuponu yeni numaralarla tekrar tekrar kullanılabilir, başkasının numarası onun ilk sipariş hakkını tüketebilirdi. Kimlik kuralı olmayan düz kupon kimliksiz kullanılmaya devam eder.
 - **Sadakat puanıyla birleşmez**: bir siparişte tek indirim vardır (`COUPON_NOT_COMBINABLE`). Menü sayfası kupon uygulanınca puan kutusunu gizler.
 - Kuralları oluşturulduktan sonra değişmez; yalnızca durdurulur veya yeniden açılır. Hiç kullanılmamış kupon silinebilir, kullanılmış kupon kayıt için kalır (`COUPON_IN_USE`).
 
@@ -37,11 +38,11 @@ Her oluşturma, durdurma, açma ve silme denetim kaydına yazılır.
 ## Panel ve vitrin
 
 - `/panel/<slug>/kuponlar`: kupon listesi (durum, kurallar, kullanım ve toplam indirim), yeni kupon formu, durdur / aç / sil. Menü bağlantısı anahtar açıkken görünür.
-- Menü sayfası: sepette "Kupon kodu" kutusu; kod uygulanınca indirim satırı ve toplam güncellenir, alt sınır ve ilk sipariş notları gösterilir.
+- Menü sayfası: sepette "Kupon kodu" kutusu; kod uygulanınca indirim satırı ve toplam güncellenir, alt sınır ve ilk sipariş notları gösterilir. Kimlik gerektiren kupon giriş yapılmadan siparişe gönderilirse sipariş hatası çevrilmiş `errors.COUPON_SIGN_IN_REQUIRED` metniyle gösterilir.
 
 ## Tavsiye kuponları
 
-Müşteri tavsiyesi (`docs/TAVSIYE.md`) kuponların üzerine kuruludur: müşterinin kişisel kodu `source = REFERRAL`, davet edene verilen ödül `source = REFERRAL_REWARD` olan kuponlardır. İkisi de panelin kupon listesinde görünmez ve buradan durdurulamaz; kişisel kod kendi sahibince kullanılamaz (`COUPON_OWN_REFERRAL`), ödül kuponu yalnızca sahibinin telefonuyla kullanılır.
+Müşteri tavsiyesi (`docs/TAVSIYE.md`) kuponların üzerine kuruludur: müşterinin kişisel kodu `source = REFERRAL`, davet edene verilen ödül `source = REFERRAL_REWARD` olan kuponlardır. İkisi de panelin kupon listesinde görünmez ve buradan durdurulamaz; kişisel kod kendi sahibince kullanılamaz (`COUPON_OWN_REFERRAL`), ödül kuponu yalnızca sahibinin telefonuyla kullanılır. İkisi de kimlik gerektirir: yalnızca giriş yapmış müşterinin kendi telefonuyla verdiği siparişte geçerlidir (`COUPON_SIGN_IN_REQUIRED`).
 
 ## Henüz yok
 

@@ -30,7 +30,7 @@ import { RealtimeService } from '../realtime/realtime.service';
 import { FeatureFlagsService } from '../features/feature-flags.service';
 import { OrdersService } from '../orders/orders.service';
 import type { OrderRow } from '../orders/orders.service';
-import { CheckoutService } from '../payments/checkout.service';
+import { CheckoutService, isExtraCapture } from '../payments/checkout.service';
 import { RefundsService } from '../payments/refunds.service';
 import type { WebhookScope } from '../payments/checkout.service';
 import { MealCardsService } from '../payments/meal-cards.service';
@@ -305,7 +305,25 @@ export class TipsService {
       return true;
     });
     if (!captured) {
-      const current = await this.prisma.courierTip.findUnique({ where: { id: tip.id }, select: { status: true } });
+      const current = await this.prisma.courierTip.findUnique({
+        where: { id: tip.id },
+        select: { status: true, providerRef: true },
+      });
+      // Another transaction for a tip that is already paid: given back on the account that took it (docs/BAHSIS.md).
+      if (current && isExtraCapture(current, event)) {
+        await this.checkout.refundExtraCapture(
+          {
+            kind: 'tip',
+            entity: 'CourierTip',
+            entityId: tip.id,
+            restaurantId: tip.restaurantId,
+            lock: (tx) => tx.$queryRaw`SELECT id FROM courier_tips WHERE id = ${tip.id} FOR UPDATE`,
+            target: { method: 'ONLINE_CARD', provider: tip.provider, paymentMode: tip.paymentMode },
+          },
+          event,
+        );
+        return 'CAPTURED';
+      }
       return current?.status === 'CAPTURED' ? 'CAPTURED' : 'IGNORED';
     }
     await this.afterCapture(tip.id);

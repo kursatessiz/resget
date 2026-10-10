@@ -12,13 +12,24 @@ Tüketici yüzeyi Faz 0'da web'dir ve uygulama kurulumu istemez (`HANDOVER.md`).
 
 `POST /public/qr/:token/orders` ve `POST /public/restaurants/:slug/orders` gövdesi `PublicOrderSchema`: teslim şekli, satırlar (ürün, adet, seçilen seçenekler), iletişim (masa siparişinde isteğe bağlı, diğerlerinde zorunlu), adres (eve teslimde zorunlu), ödeme niyeti (`OrderPaymentIntentSchema`), not ve çevrim içi ödeme için dönüş adresi.
 
+Satıştaki ürün hem kendisi (`isAvailable`) hem de bölümü (`MenuCategory.isActive`) açık olan üründür. Bölümü kapatılan ürün yalnızca menüden gizlenmez, satıştan da kalkar: eski bir sayfadan, sepetten veya grup sepetinden gelen satırı `409 MENU_ITEM_UNAVAILABLE` ile reddedilir (sipariş oluşturma ve grup sepeti satırları; personel siparişi dahil).
+
 Seçenek fiyatlarını her zaman menü belirler (`resolveLineModifiers()`). Satırdaki seçenek kimliğiyle (`id`), sayfanın gösterdiği "Grup: Seçenek" adıyla veya yalın adıyla bulunur. Siparişte menünün fiyatı ve kanonik ad saklanır. Şu durumlarda sipariş `409 MODIFIER_INVALID` ile reddedilir: menüde olmayan, satışta olmayan veya iki kez seçilen seçenek, ya da grubun en az veya en çok sınırının dışında kalan seçim. İstemcinin gönderdiği fiyat menüdekinden farklıysa sipariş `409 MODIFIER_PRICE_CHANGED` alır; müşteri ürünü güncel fiyatla yeniden ekler. Kural personel siparişi ve API anahtarıyla verilen siparişler dahil her kanalda geçerlidir.
 
 - Şube: masa QR'da masanın şubesi, restoran sayfasında ilk aktif şube (Faz 0 tek şube).
 - Kanal: `TABLE_QR` veya `RESTAURANT_SITE`; masaya sipariş yalnızca QR'dan verilebilir. Restoran sayfası bir sipariş bağlantısından (`?via=instagram` gibi) açıldıysa kanal siparişin kaynağı olarak saklanır (`docs/SIPARIS_BAGLANTILARI.md`).
-- Teslimat ücreti: restoranın kuryesi varsa politika sıfır teklif üzerinden uygulanır (`PASS_THROUGH` ücretsiz, `FIXED` sabit, `FREE_ABOVE` eşik); kurye ağı kullanılıyorsa `CourierService.quoteFor()` teklifi politikadan geçer (`docs/KURYE.md`); şube veya adres koordinatsızsa ağ teklif veremez ve politika sıfır teklif üzerinden uygulanır. Ücret siparişte ayrı satırdır, komisyona girmez.
+- Teslimat ücreti: restoranın kuryesi varsa politika sıfır teklif üzerinden uygulanır (`PASS_THROUGH` ücretsiz, `FIXED` sabit, `FREE_ABOVE` eşik); kurye ağı kullanılıyorsa `CourierService.quoteFor()` teklifi politikadan geçer (`docs/KURYE.md`). Kurye ağıyla teslimatta adresin konumu belirlenemezse (müşteri nokta göndermedi, geokodlama da bulamadı) sipariş sıfır teklifle fiyatlanmaz, `409 DELIVERY_LOCATION_REQUIRED` ile reddedilir; şube koordinatsızsa ağ teklif veremez ve politika sıfır teklif üzerinden uygulanır. Ücret siparişte ayrı satırdır, komisyona girmez.
 - Ödeme: niyet restoranın kabul ettiği yöntemlere göre çözülür (`docs/YEMEK_KARTI.md`). Çevrim içi yöntemlerde sipariş `PENDING_PAYMENT` açılır ve yanıt `checkoutUrl` taşır; tarayıcı barındırılan ödeme sayfasına gider, ödeme bildirimi siparişi `PLACED` yapar. Kapıda yöntemlerde sipariş hemen `PLACED` olur ve yanıt takip anahtarını döner; sayfa `/t/<token>` adresine geçer.
 - Müşteri: telefonu verilen misafir global `User` olarak bulunur veya açılır ve restoranın müşteri listesine girer; mesaj bildirimleri `docs/MESAJLASMA.md` kurallarıyla gider.
+
+## Açık sipariş sınırları
+
+Kimliksiz vitrin siparişi ödeme beklerken veya kapıda ödemeyle hemen sayılı stoktan ve kuponun kullanım hakkından pay alır. Tek bir çağıranın bunları tutmaması için iki sınır vardır (`packages/shared/src/storefront.ts`):
+
+- **Sipariş başına porsiyon**: satır adetlerinin toplamı en çok `PUBLIC_ORDER_MAX_TOTAL_QUANTITY` (50); aşan sipariş `409 ORDER_QUANTITY_LIMIT` alır. Grup sepetinden verilen sipariş de aynı sınıra tabidir.
+- **Telefon başına açık sipariş**: aynı telefonun restoranda henüz kabul edilmemiş (`PENDING_PAYMENT` veya `PLACED`) en çok `PUBLIC_ORDER_MAX_OPEN_PER_PHONE` (3) siparişi olabilir; dördüncüsü `409 OPEN_ORDERS_LIMIT` alır. Sayım siparişin işlemi içinde, müşteri satırı kilitliyken yapılır; aynı anda gelen iki sipariş birbirini görür. Restoran birini kabul edince, reddedince veya ödenmeyen sipariş zaman aşımına uğrayınca yeni sipariş verilebilir. İletişimsiz masa siparişi bu sayıma girmez.
+
+Personelin girdiği siparişler bu sınırlara takılmaz.
 
 ## Oran sınırı
 
@@ -40,7 +51,15 @@ Listelenme kararı konsolundur: restoran menüsü hazır olunca Ayarlar sayfası
 
 ## Adres geokodlama
 
-Koordinatı olmayan teslimat adresi, kurye ağı teklifi ve sevk rotası için önce koordinata çevrilir (`packages/shared/src/geocoding.ts`, `apps/api/src/modules/geocoding`). Her yerde en iyi çaba ilkesiyle çalışır: sağlayıcı yanıt vermezse veya eşleşme yalnızca ilçe düzeyindeyse (`AREA`) nokta boş kalır ve sipariş eskisi gibi ilerler; müşterinin veya personelin verdiği koordinat hiçbir zaman değiştirilmez.
+Koordinatı olmayan teslimat adresi, kurye ağı teklifi ve sevk rotası için önce koordinata çevrilir (`packages/shared/src/geocoding.ts`, `apps/api/src/modules/geocoding`). Her yerde en iyi çaba ilkesiyle çalışır: sağlayıcı yanıt vermezse veya eşleşme yalnızca ilçe düzeyindeyse (`AREA`) nokta boş kalır; müşterinin veya personelin verdiği koordinat saklanan adreste hiçbir zaman değiştirilmez. Teslimat bölgesi veya kurye ağı ücreti belirliyorsa konumu olmayan vitrin siparişi reddedilir (aşağıda "Konum doğrulama").
+
+### Konum doğrulama
+
+Vitrin siparişinde adresin noktası istemciden gelir ve doğrulanmamış bir girdidir. Teslimat bölgesi (yarıçap, bantlar) veya kurye ağı ücreti belirliyorsa:
+
+- Müşteri nokta gönderdiyse ve bir geokodlayıcı yapılandırılmışsa adres metni de geokodlanır. İki nokta `DELIVERY_POINT_MAX_DRIFT_METERS` (1000 m) içindeyse müşterinin noktası, daha uzaksa geokodlanan nokta yarıçap kontrolüne, bant ücretine ve kurye ağı teklifine esas alınır (`deliveryPricingPoint()`, `packages/shared/src/delivery-zone.ts`). Saklanan adres ve kuryeye giden konum müşterinin noktası olarak kalır. Geokodlayıcı sonuç vermezse müşterinin noktası kullanılır.
+- Hiç nokta kurulamıyorsa (müşteri göndermedi, geokodlama bulamadı; `GEOCODER_PROVIDER=NONE` dahil) sipariş `409 DELIVERY_LOCATION_REQUIRED` ile reddedilir: yarıçap sessizce atlanmaz, kurye ağı sıfır teklifle fiyatlanmaz. Bölge ve kurye ağı olmadan kendi kuryesiyle teslimatta nokta gerekmez.
+- Şubenin koordinatı yoksa mesafe ölçülemez; yarıçap ve bantlar uygulanmaz, ücret politikası geçerlidir. Restoran şube konumunu girmelidir.
 
 - Nerede çalışır: vitrin siparişi (`StorefrontService.place`, ücret hesabından önce), personel siparişi (`OrdersService.create`), müşterinin kayıtlı adresi (`POST me/addresses`), restoran kaydında şube adresi (`RestaurantProvisioningService`). Vitrin ve personel siparişinde şube konumu yakınlık ipucu olarak verilir.
 - Sağlayıcı `GEOCODER_PROVIDER`: `NONE` (koordinat boş kalır; üretim varsayılanı), `MOCK` (geliştirme ve test; yakınlık ipucuna göre deterministik bir nokta, ipucu yoksa boş; üretimde reddedilir), `NOMINATIM` (OpenStreetMap; `NOMINATIM_BASE_URL` ile kendi kurulumunuz, varsayılan herkese açık örnek). Genel Nominatim politikası gereği istekler saniyede bir ile aralıklanır ve tanıtıcı `User-Agent` gönderilir; yanıtlar bir gün bellekte tutulur. `GOOGLE`: Google Geocoding API (`GOOGLE_MAPS_API_KEY`, sunucu tarafı anahtar; ülke bileşeniyle daraltılır, şube etrafında küçük bir görünüm alanıyla yönlendirilir; `ROOFTOP` ve `RANGE_INTERPOLATED` / `GEOMETRIC_CENTER` rotalanabilir, `APPROXIMATE` alan sayılır).
@@ -64,10 +83,10 @@ Restoran, sipariş sayfasını kendi alan adında (örneğin `siparis.restoranim
 
 `delivery_zones` modül anahtarının arkasındadır (`docs/OZELLIK_ANAHTARLARI.md`), varsayılanı kapalıdır. Anahtar kapalıyken teslimat eskisi gibi çalışır: yarıçap ve alt sınır yoktur, ücreti ücret politikası belirler; kayıtlı bölge saklanır ama uygulanmaz.
 
-- **Yarıçap**: şubeden adrese düz çizgi mesafesi (`haversineMeters`). Adresin noktası yoksa önce geokodlanır (yukarıda "Adres geokodlama"); yarıçap dışındaki teslimat `409 DELIVERY_OUT_OF_ZONE` ile reddedilir.
+- **Yarıçap**: şubeden adrese düz çizgi mesafesi (`haversineMeters`). Adresin noktası yoksa önce geokodlanır, verilen nokta adres metniyle karşılaştırılır (yukarıda "Konum doğrulama"); konum kurulamazsa teslimat `409 DELIVERY_LOCATION_REQUIRED`, yarıçap dışındaysa `409 DELIVERY_OUT_OF_ZONE` ile reddedilir.
 - **En az sepet**: ürünlerin toplamı (teslimat ücreti hariç) alt sınırın altındaysa teslimat `409 MIN_BASKET_NOT_MET` ile reddedilir; menü sayfası alt sınırı gösterir ve sepet yetmediğinde sipariş düğmesini kapatır. Gel al ve masaya sipariş bu kurallara takılmaz.
 - **Mesafe bantları**: yalnızca kendi kuryesiyle (`RESTAURANT_COURIER`) teslimatta; adresin düştüğü bandın ücreti alınır (içten dışa, en fazla 8 bant, sonuncusu yarıçapa ulaşır). Ücret politikası `FREE_ABOVE` ise eşiğin üstündeki sepet yine ücretsizdir. Bant yoksa ücret politikası geçerlidir; kurye ağıyla teslimatta ücret her zaman ağın teklifinden gelir.
-- **Kural yeri**: `packages/shared/src/delivery-zone.ts` (`DeliveryZoneSchema`, `deliveryZoneRefusal`, `zoneDeliveryFee`); API `DeliveryZoneService`. Personelin girdiği telefon ve kasa siparişleri kurallara takılmaz.
+- **Kural yeri**: `packages/shared/src/delivery-zone.ts` (`DeliveryZoneSchema`, `deliveryZoneRefusal`, `zoneDeliveryFee`, `deliveryPricingPoint`); API `DeliveryZoneService`. Personelin girdiği telefon ve kasa siparişleri kurallara takılmaz.
 - **Uçlar**: `GET` / `PUT /restaurants/:id/delivery-zone` (`restaurant.settings.view` / `restaurant.settings.manage`, anahtar gerekir; `{ zone: { radiusMeters, minBasketMinor, bands: [{ upToMeters, feeMinor }] } | null }`), her değişiklik denetim kaydına yazılır. Menü yanıtında `ordering.deliveryZone`, anahtar açıkken bölgeyi taşır. Panelde ayarlar sayfasında "Teslimat bölgesi" kartı anahtar açıkken görünür.
 
 ## Müşteri hesabı (`/hesabim`)

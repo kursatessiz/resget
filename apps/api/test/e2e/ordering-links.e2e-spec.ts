@@ -3,7 +3,9 @@ import type { OrderSummaryDTO, OrderingLinksDTO } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
 
-const CUSTOMER_PHONE = normalizePhone('05329990981')!;
+// A number per order, so the cap on open orders per phone (docs/VITRIN.md) never decides these cases.
+let phoneSeq = 0;
+const nextPhone = () => normalizePhone(`0532998${String(8100 + (phoneSeq++ % 900)).padStart(4, '0')}`)!;
 const NOTE = 'e2e-ordering-links';
 
 /** Channel links and the orders they bring (docs/SIPARIS_BAGLANTILARI.md). */
@@ -32,7 +34,7 @@ describe('Ordering links (e2e)', () => {
       .send({
         fulfillment: 'PICKUP',
         items: [{ menuItemId: itemId, quantity: 1 }],
-        customer: { fullName: 'Kanal Musteri', phone: CUSTOMER_PHONE },
+        customer: { fullName: 'Kanal Musteri', phone: nextPhone() },
         payment: { method: 'CASH_ON_DELIVERY' },
         note: NOTE,
         ...extra,

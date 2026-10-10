@@ -1,3 +1,4 @@
+import { normalizePhone } from '@resget/shared';
 import type { MyReferralDTO, ReferralProgramDTO } from '@resget/shared';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
@@ -17,6 +18,17 @@ describe('Customer referrals (e2e)', () => {
   const FRIEND_1 = `05341${stamp}`;
   const FRIEND_2 = `05342${stamp}`;
   const FRIEND_3 = `05343${stamp}`;
+
+  let clientSeq = 0;
+  const tokens = new Map<string, string>();
+  /** One sign-in per phone for the whole spec (the OTP request limit counts per number). */
+  const tokenOf = async (phone: string): Promise<string> => {
+    const known = tokens.get(phone);
+    if (known) return known;
+    const token = await ctx.login(normalizePhone(phone)!);
+    tokens.set(phone, token);
+    return token;
+  };
 
   const owner = () => bearer(ownerToken, restaurantId);
   const setSwitch = (key: string, enabled: boolean | null) =>
@@ -43,10 +55,16 @@ describe('Customer referrals (e2e)', () => {
     return { ...rest, friendKind: 'AMOUNT', friendAmountMinor: 3000 };
   };
   /** Two koftes: 840.00. */
-  const pickup = async (phone: string, couponCode: string | undefined, expected: number) => {
+  /** Signed in as the ordering phone unless told otherwise: referral and reward coupons belong to a proven phone. */
+  const pickup = async (phone: string, couponCode: string | undefined, expected: number, signedIn = true) => {
+    const auth = signedIn ? bearer(await tokenOf(phone)) : {};
+    clientSeq += 1;
     const res = await ctx
       .http()
       .post(`/public/restaurants/${SEED.restaurantSlug}/orders`)
+      // A client address per order: these cases are about referrals, not the per-client order limit.
+      .set('x-forwarded-for', `10.83.${Math.floor(clientSeq / 200)}.${(clientSeq % 200) + 1}`)
+      .set(auth)
       .send({
         fulfillment: 'PICKUP',
         items: [{ menuItemId: itemId, quantity: 2 }],
@@ -122,7 +140,7 @@ describe('Customer referrals (e2e)', () => {
 
   it('gives a code only to someone who has ordered, and never lets them use it themselves', async () => {
     await pickup(REFERRER, undefined, 201);
-    referrerToken = await ctx.login(REFERRER);
+    referrerToken = await tokenOf(REFERRER);
     const before = await mine();
     expect(before).toMatchObject({ code: null, rewardAmountMinor: 5000, rewards: [] });
     const withCode = (
@@ -143,6 +161,9 @@ describe('Customer referrals (e2e)', () => {
 
   it("discounts a friend's first order and rewards the referrer when it completes", async () => {
     const code = (await mine())!.code!;
+    // A typed number is not a proven one: the code needs the friend signed in.
+    const anonymous = await pickup(FRIEND_1, code, 409, false);
+    expect(anonymous.body.code).toBe('COUPON_SIGN_IN_REQUIRED');
     // 20 percent of 840.00 is 168.00, capped at 100.00.
     const friend = await pickup(FRIEND_1, code, 201);
     expect(friend.body.discountMinor).toBe(10000);
@@ -160,6 +181,8 @@ describe('Customer referrals (e2e)', () => {
     // The reward is the referrer's alone.
     const stranger = await pickup(FRIEND_2, reward.code, 404);
     expect(stranger.body.code).toBe('COUPON_NOT_FOUND');
+    const typed = await pickup(REFERRER, reward.code, 409, false);
+    expect(typed.body.code).toBe('COUPON_SIGN_IN_REQUIRED');
     const used = await pickup(REFERRER, reward.code, 201);
     expect(used.body.discountMinor).toBe(5000);
     expect((await mine())!.rewards[0].used).toBe(true);

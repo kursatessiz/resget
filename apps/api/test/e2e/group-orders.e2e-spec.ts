@@ -103,6 +103,29 @@ describe('Group orders (e2e)', () => {
     expect((await cart()).youId).toBeNull();
   });
 
+  it('refuses an item of a switched-off menu section in a line', async () => {
+    const category = await ctx.prisma.menuCategory.create({
+      data: { restaurantId, name: 'e2e grup kapali bolum', isActive: false },
+    });
+    try {
+      const item = await ctx.prisma.menuItem.create({
+        data: {
+          restaurantId,
+          categoryId: category.id,
+          name: 'e2e grup kapali urun',
+          priceMinor: 1000,
+          currency: (await ctx.prisma.restaurant.findUniqueOrThrow({ where: { id: restaurantId } })).currency,
+          vatRateBps: 1000,
+        },
+      });
+      const refused = await setLines(guest, [{ menuItemId: item.id, quantity: 1 }]).expect(409);
+      expect(refused.headers['x-error-code']).toBe('MENU_ITEM_UNAVAILABLE');
+    } finally {
+      await ctx.prisma.menuCategory.delete({ where: { id: category.id } });
+    }
+    await setLines(guest, [{ menuItemId: ayranId, quantity: 1 }]).expect(200);
+  });
+
   it('only the host locks and pays, for everyone and exactly once', async () => {
     await as(http().post(`/public/group-carts/${host.token}/lock`), guest.key).expect(403);
     await as(http().post(`/public/group-carts/${host.token}/lock`), host.key).expect(200);
