@@ -151,6 +151,11 @@ export const EnvSchema = z
     /** Requests one API key may make per minute (docs/API_ERISIMI.md). */
     API_KEY_RATE_LIMIT: z.coerce.number().int().min(1).max(100000).default(600),
     /**
+     * How often an open event stream re-checks that its subscriber may still read it (docs/SIPARIS_VE_SEVK.md);
+     * REALTIME_REAUTH_SECONDS from the shared package when unset.
+     */
+    REALTIME_REAUTH_SECONDS: z.coerce.number().int().min(1).max(3600).optional(),
+    /**
      * Regional commercial-message consent registry (Turkey: IYS). MOCK approves every opted-in number outside
      * production; in production covered channels send nothing until the real adapter is selected here.
      */

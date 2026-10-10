@@ -12,6 +12,7 @@ import {
 import type { DeliverStopInput, DeliveryTripDTO, OrderDetailDTO } from '@resget/shared';
 import { ZodBody, ZodParam } from '../../common/zod-body.pipe';
 import { RequireFeature, RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
+import { AuthorizedStream } from '../auth/decorators/authorized-stream.decorator';
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { RealtimeService, courierTopic } from '../realtime/realtime.service';
@@ -67,6 +68,7 @@ export class CourierController {
 
   /** SSE: trip.updated and order.updated for the trips assigned to this courier. */
   @Sse('events')
+  @AuthorizedStream()
   @RequirePermission('courier.deliver')
   events(@Tenant() tenant: TenantContext, @Headers('last-event-id') lastEventId?: string): Observable<MessageEvent> {
     return this.realtime.stream(courierTopic(this.membershipOf(tenant)), lastEventId);

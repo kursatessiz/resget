@@ -855,6 +855,11 @@ export type RealtimeEventType = RealtimeEvent['type'];
 
 export const REALTIME_HEARTBEAT_SECONDS = 25;
 export const REALTIME_RETRY_MILLIS = 3000;
+/**
+ * An open stream checks again this often that its subscriber may still read it (session, membership,
+ * permission, API key) and closes when not; it also closes when the access token it was opened with expires.
+ */
+export const REALTIME_REAUTH_SECONDS = 60;
 
 /** Short human-readable order code shown on screens and receipts: last 6 characters of the id, upper-cased. */
 export function orderShortCode(orderId: string): string {

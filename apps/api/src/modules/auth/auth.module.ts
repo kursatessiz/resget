@@ -15,6 +15,8 @@ import { RestaurantTenantGuard } from './guards/restaurant-tenant.guard';
 import { PermissionGuard } from './guards/permission.guard';
 import { SuperAdminGuard } from './guards/super-admin.guard';
 import { SessionsService } from './sessions.service';
+import { StreamAccessService } from './stream-access.service';
+import { StreamAccessInterceptor } from './stream-access.interceptor';
 
 @Module({
   imports: [
@@ -38,6 +40,8 @@ import { SessionsService } from './sessions.service';
     PermissionGuard,
     SuperAdminGuard,
     SessionsService,
+    StreamAccessService,
+    StreamAccessInterceptor,
   ],
   exports: [
     JwtAuthGuard,
@@ -49,6 +53,8 @@ import { SessionsService } from './sessions.service';
     SuperAdminGuard,
     InviteAcceptanceService,
     SessionsService,
+    StreamAccessService,
+    StreamAccessInterceptor,
   ],
 })
 export class AuthModule {}
