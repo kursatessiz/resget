@@ -1,10 +1,13 @@
 import './support/meta-mock';
-import type { OAuthStartDTO, SocialAccountDTO } from '@resget/shared';
+import type { OAuthCompleteDTO, OAuthStartDTO, SocialAccountDTO } from '@resget/shared';
 import { SocialService } from '../../src/modules/social/social.service';
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
 
-/** Integration hub (docs/ENTEGRASYON_MERKEZI.md): switch, consent round trip, single-use state, encrypted tokens. */
+/**
+ * Integration hub (docs/ENTEGRASYON_MERKEZI.md): switch, consent round trip finished only by the session that
+ * started it, single-use state, encrypted tokens.
+ */
 describe('Integration hub (e2e)', () => {
   let ctx: TestContext;
   let adminToken: string;
@@ -16,11 +19,20 @@ describe('Integration hub (e2e)', () => {
   const start = async () =>
     (await ctx.http().post(`${base()}/meta/connect`).set(owner()).send({ returnPath }).expect(200))
       .body as OAuthStartDTO;
-  /** The callback path and query of an authorize address (MOCK points straight back at the API). */
-  const callbackPath = (authorizeUrl: string) => {
-    const url = new URL(authorizeUrl);
-    return `${url.pathname}${url.search}`;
-  };
+  const stateOf = (authorizeUrl: string) => new URL(authorizeUrl).searchParams.get('state') ?? '';
+  /**
+   * What the web callback route does with the query MOCK sends back (code and state): post it to the API with
+   * the session of the browser that arrived.
+   */
+  const complete = async (authorizeUrl: string, token: string = ownerToken, extra: Record<string, string> = {}) =>
+    (
+      await ctx
+        .http()
+        .post('/oauth/meta/callback')
+        .set(bearer(token))
+        .send({ state: stateOf(authorizeUrl), code: 'mock-code', ...extra })
+        .expect(200)
+    ).body as OAuthCompleteDTO;
 
   beforeAll(async () => {
     ctx = await createTestApp();
@@ -49,6 +61,24 @@ describe('Integration hub (e2e)', () => {
       .expect(200);
   });
 
+  it('attaches nothing when a browser without the starter session completes the round trip', async () => {
+    const { authorizeUrl } = await start();
+    const state = stateOf(authorizeUrl);
+    // Someone else's browser (no session cookie) lands on the old public callback with the starter's state.
+    const back = await ctx.http().get(`/public/oauth/meta/callback?code=mock-code&state=${state}`).expect(302);
+    expect(back.headers.location).toMatch(/\?meta=error$/);
+    expect(await ctx.prisma.socialAccount.count({ where: { restaurantId } })).toBe(0);
+    // The new completion needs a session, and it must be the starter's.
+    await ctx.http().post('/oauth/meta/callback').send({ state, code: 'mock-code' }).expect(401);
+    const other = await complete(authorizeUrl, adminToken);
+    expect(other).toEqual({ returnPath: '/panel', result: 'error' });
+    expect(await ctx.prisma.socialAccount.count({ where: { restaurantId } })).toBe(0);
+    expect((await ctx.prisma.oAuthState.findUniqueOrThrow({ where: { state } })).usedAt).toBeNull();
+    // The starter can still finish the round trip the others could not.
+    expect((await complete(authorizeUrl)).result).toBe('connected');
+    await ctx.prisma.socialAccount.deleteMany({ where: { restaurantId } });
+  });
+
   it('connects pages through the consent round trip and keeps their tokens encrypted', async () => {
     await ctx
       .http()
@@ -57,11 +87,11 @@ describe('Integration hub (e2e)', () => {
       .send({ returnPath: 'https://evil.example/steal' })
       .expect(400);
     const { authorizeUrl } = await start();
-    expect(authorizeUrl).toContain('/public/oauth/meta/callback');
-    expect(new URL(authorizeUrl).searchParams.get('state')).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    // Meta returns the browser to the web app, never to the API.
+    expect(authorizeUrl.startsWith('http://localhost:3000/api/oauth/meta/callback?')).toBe(true);
+    expect(stateOf(authorizeUrl)).toMatch(/^[A-Za-z0-9_-]{43}$/);
 
-    const back = await ctx.http().get(callbackPath(authorizeUrl)).expect(302);
-    expect(back.headers.location).toMatch(new RegExp(`${returnPath}\\?meta=connected$`));
+    expect(await complete(authorizeUrl)).toEqual({ returnPath, result: 'connected' });
 
     const accounts = (await ctx.http().get(`${base()}/accounts`).set(owner()).expect(200)).body as SocialAccountDTO[];
     expect(accounts.map((a) => a.kind).sort()).toEqual(['FACEBOOK_PAGE', 'INSTAGRAM_BUSINESS']);
@@ -75,33 +105,36 @@ describe('Integration hub (e2e)', () => {
     expect(ctx.app.get(SocialService).tokenOf(stored)).toBe('mock-page-token-1');
 
     // The same state cannot be used twice.
-    const replay = await ctx.http().get(callbackPath(authorizeUrl)).expect(302);
-    expect(replay.headers.location).toMatch(/\/panel\?meta=error$/);
+    expect(await complete(authorizeUrl)).toEqual({ returnPath: '/panel', result: 'error' });
     // A reconnect updates the same rows rather than adding new ones.
     const again = await start();
-    await ctx.http().get(callbackPath(again.authorizeUrl)).expect(302);
+    expect((await complete(again.authorizeUrl)).result).toBe('connected');
     expect(await ctx.prisma.socialAccount.count({ where: { restaurantId } })).toBe(2);
   });
 
   it('refuses unknown, expired and declined round trips', async () => {
-    const unknown = await ctx.http().get('/public/oauth/meta/callback?code=mock-code&state=nope').expect(302);
-    expect(unknown.headers.location).toMatch(/\/panel\?meta=error$/);
-    const repeated = await ctx.http().get('/public/oauth/meta/callback?code=mock-code&state=a&state=b').expect(302);
-    expect(repeated.headers.location).toMatch(/\/panel\?meta=error$/);
+    const unknown = await ctx
+      .http()
+      .post('/oauth/meta/callback')
+      .set(bearer(ownerToken))
+      .send({ state: 'nope', code: 'mock-code' })
+      .expect(200);
+    expect(unknown.body).toEqual({ returnPath: '/panel', result: 'error' });
+    await ctx.http().post('/oauth/meta/callback').set(bearer(ownerToken)).send({ code: 'mock-code' }).expect(400);
 
     const expired = await start();
-    const state = new URL(expired.authorizeUrl).searchParams.get('state') ?? '';
+    const state = stateOf(expired.authorizeUrl);
     await ctx.prisma.oAuthState.update({ where: { state }, data: { expiresAt: new Date(Date.now() - 1000) } });
-    const late = await ctx.http().get(callbackPath(expired.authorizeUrl)).expect(302);
-    expect(late.headers.location).toMatch(/\/panel\?meta=error$/);
+    expect(await complete(expired.authorizeUrl)).toEqual({ returnPath: '/panel', result: 'error' });
 
     const declined = await start();
-    const declinedState = new URL(declined.authorizeUrl).searchParams.get('state') ?? '';
     const res = await ctx
       .http()
-      .get(`/public/oauth/meta/callback?error=access_denied&state=${declinedState}`)
-      .expect(302);
-    expect(res.headers.location).toMatch(new RegExp(`${returnPath}\\?meta=denied$`));
+      .post('/oauth/meta/callback')
+      .set(bearer(ownerToken))
+      .send({ state: stateOf(declined.authorizeUrl), error: 'access_denied' })
+      .expect(200);
+    expect(res.body).toEqual({ returnPath, result: 'denied' });
   });
 
   it('enables and disconnects accounts, with an audit trail', async () => {

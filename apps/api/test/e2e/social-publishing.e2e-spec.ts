@@ -74,8 +74,15 @@ describe('Social publishing (e2e)', () => {
         .send({ returnPath: `/panel/${SEED.restaurantSlug}/entegrasyon` })
         .expect(200)
     ).body as OAuthStartDTO;
-    const url = new URL(start.authorizeUrl);
-    await ctx.http().get(`${url.pathname}${url.search}`).expect(302);
+    // The web callback route posts what Meta sent back with the starter's session (docs/ENTEGRASYON_MERKEZI.md).
+    const state = new URL(start.authorizeUrl).searchParams.get('state');
+    await ctx
+      .http()
+      .post('/oauth/meta/callback')
+      .set(bearer(ownerToken))
+      .send({ state, code: 'mock-code' })
+      .expect(200)
+      .expect((res) => expect(res.body.result).toBe('connected'));
     const accounts = (await ctx.http().get(`/restaurants/${restaurantId}/social/accounts`).set(owner()).expect(200))
       .body as SocialAccountDTO[];
     page = accounts.find((a) => a.kind === 'FACEBOOK_PAGE') as SocialAccountDTO;

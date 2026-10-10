@@ -1,8 +1,15 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'node:crypto';
-import { META_OAUTH_SCOPES, OAUTH_RETURN_PATH_PATTERN, OAUTH_STATE_TTL_MINUTES } from '@resget/shared';
+import {
+  META_OAUTH_CALLBACK_PATH,
+  META_OAUTH_SCOPES,
+  OAUTH_RETURN_PATH_PATTERN,
+  OAUTH_STATE_TTL_MINUTES,
+} from '@resget/shared';
 import type {
+  CompleteMetaConnectInput,
+  OAuthCompleteDTO,
   OAuthResult,
   OAuthStartDTO,
   SocialAccountDTO,
@@ -19,17 +26,14 @@ import type { MetaGraph } from './meta-graph';
 
 type AccountRow = Awaited<ReturnType<PrismaService['socialAccount']['findFirstOrThrow']>>;
 
-/** What the callback hands back: where to send the browser. */
-export interface CallbackOutcome {
-  redirectUrl: string;
-}
-
 /**
  * Social account connections over OAuth (docs/ENTEGRASYON_MERKEZI.md). A
  * consent round trip carries a random state bound to the tenant and the user
- * who started it, usable once within ten minutes. Page tokens are encrypted
- * at rest and never leave in a response; the browser only ever goes back to
- * one of the app's own integration screens.
+ * who started it, usable once within ten minutes, and only that user's
+ * session can finish it: Meta returns the browser to the web app, which
+ * passes the query on with the session of that browser. Page tokens are
+ * encrypted at rest and never leave in a response; the browser only ever goes
+ * back to one of the app's own integration screens.
  */
 @Injectable()
 export class SocialService {
@@ -47,14 +51,22 @@ export class SocialService {
     );
   }
 
+  private appBase(): string {
+    return (this.config.get<string>('PUBLIC_APP_URL') ?? 'http://localhost:3000').replace(/\/+$/, '');
+  }
+
+  /** Registered in the Meta app as the valid OAuth redirect URI: a route of the web app, never the API. */
   private redirectUri(): string {
-    const api = (this.config.get<string>('PUBLIC_API_URL') ?? 'http://localhost:4000').replace(/\/+$/, '');
-    return `${api}/public/oauth/meta/callback`;
+    return `${this.appBase()}${META_OAUTH_CALLBACK_PATH}`;
+  }
+
+  /** The address the old public API callback sends a browser to: the round trip is not finished there any more. */
+  legacyCallbackRedirect(): string {
+    return this.appUrl('/panel', 'error');
   }
 
   private appUrl(path: string, result: OAuthResult): string {
-    const app = (this.config.get<string>('PUBLIC_APP_URL') ?? 'http://localhost:3000').replace(/\/+$/, '');
-    return `${app}${path}?meta=${result}`;
+    return `${this.appBase()}${path}?meta=${result}`;
   }
 
   /** The token an account acts with; for the publishing and leads modules, never for a response. */
@@ -82,28 +94,28 @@ export class SocialService {
     return { authorizeUrl: this.meta.authorizeUrl(state, this.redirectUri()) };
   }
 
-  async metaCallback(
-    query: { code?: string; state?: string; error?: string },
-    now = new Date(),
-  ): Promise<CallbackOutcome> {
-    const fallback = { redirectUrl: this.appUrl('/panel', 'error') };
-    if (!query.state || query.state.length > 200) return fallback;
-    // Claimed atomically: a replayed or late state finds nothing to claim.
+  /**
+   * Finishes a round trip for the signed-in person who started it. The state is claimed atomically and only
+   * with that person's user id: a forwarded consent link completed in someone else's browser (another
+   * session, or none) finds nothing to claim, writes nothing and leaves the state as it was.
+   */
+  async completeMeta(userId: string, input: CompleteMetaConnectInput, now = new Date()): Promise<OAuthCompleteDTO> {
+    const fallback: OAuthCompleteDTO = { returnPath: '/panel', result: 'error' };
     const claimed = await this.prisma.oAuthState.updateMany({
-      where: { state: query.state, usedAt: null, expiresAt: { gt: now } },
+      where: { state: input.state, userId, provider: 'META', usedAt: null, expiresAt: { gt: now } },
       data: { usedAt: now },
     });
     if (claimed.count === 0) return fallback;
-    const row = await this.prisma.oAuthState.findUniqueOrThrow({ where: { state: query.state } });
+    const row = await this.prisma.oAuthState.findUniqueOrThrow({ where: { state: input.state } });
     // Stored paths were validated at the start; checked again so the redirect can only stay inside the app.
     const back = OAUTH_RETURN_PATH_PATTERN.test(row.returnPath) ? row.returnPath : '/panel';
-    if (query.error || !query.code) return { redirectUrl: this.appUrl(back, query.error ? 'denied' : 'error') };
+    if (input.error || !input.code) return { returnPath: back, result: input.error ? 'denied' : 'error' };
     if (!this.meta || !(await this.features.isEnabled('integration_hub', row.restaurantId))) {
-      return { redirectUrl: this.appUrl(back, 'error') };
+      return { returnPath: back, result: 'error' };
     }
 
     try {
-      const user = await this.meta.exchangeCode(query.code, this.redirectUri());
+      const user = await this.meta.exchangeCode(input.code, this.redirectUri());
       const accounts = await this.meta.accounts(user.token);
       await this.prisma.$transaction(async (tx) => {
         for (const account of accounts) {
@@ -139,10 +151,10 @@ export class SocialService {
           },
         });
       });
-      return { redirectUrl: this.appUrl(back, 'connected') };
+      return { returnPath: back, result: 'connected' };
     } catch (error) {
       this.logger.warn(`Meta connect failed: ${error instanceof Error ? error.message : 'error'}`);
-      return { redirectUrl: this.appUrl(back, 'error') };
+      return { returnPath: back, result: 'error' };
     }
   }
 
