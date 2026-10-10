@@ -23,7 +23,8 @@ import type {
 } from '@resget/shared';
 import { CredentialCipher, DEV_CREDENTIAL_KEY, EnvKeyProvider } from '../../common/crypto/credential-cipher';
 import { PrismaService } from '../prisma/prisma.service';
-import { nonPublicUrlReason, resolvesToNonPublic } from '../../common/net/public-address';
+import { nonPublicUrlReason } from '../../common/net/public-address';
+import { postToPublicHttps } from '../../common/net/public-https';
 import { badRequest, conflict, notFound } from '../../common/api-error';
 
 const hookSelect = Prisma.validator<Prisma.RestaurantWebhookSelect>()({
@@ -249,22 +250,24 @@ export class WebhooksService {
     let status: number | null = null;
     let error: string | null = null;
     try {
-      // The name is resolved again right before the call, so a receiver whose DNS later points inside is refused.
-      if (this.config.get<string>('NODE_ENV') === 'production' && (await resolvesToNonPublic(delivery.webhook.url))) {
-        throw new Error('receiver resolves to a non-public address');
-      }
-      const response = await this.fetchImpl(delivery.webhook.url, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          [WEBHOOK_EVENT_HEADER]: delivery.event,
-          [WEBHOOK_DELIVERY_HEADER]: delivery.id,
-          [WEBHOOK_SIGNATURE_HEADER]: formatWebhookSignature(timestamp, digest),
-        },
-        body,
-        redirect: 'manual',
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      });
+      const headers = {
+        'content-type': 'application/json',
+        [WEBHOOK_EVENT_HEADER]: delivery.event,
+        [WEBHOOK_DELIVERY_HEADER]: delivery.id,
+        [WEBHOOK_SIGNATURE_HEADER]: formatWebhookSignature(timestamp, digest),
+      };
+      // In production the receiver is resolved once, at connect time, and refused if any answer is non-public, so the
+      // address that is checked is the address that is used. Tests deliver to a local http receiver through fetch.
+      const response =
+        this.config.get<string>('NODE_ENV') === 'production'
+          ? await postToPublicHttps(delivery.webhook.url, { headers, body, timeoutMs: TIMEOUT_MS })
+          : await this.fetchImpl(delivery.webhook.url, {
+              method: 'POST',
+              headers,
+              body,
+              redirect: 'manual',
+              signal: AbortSignal.timeout(TIMEOUT_MS),
+            });
       status = response.status;
       if (status < 200 || status >= 300) error = `HTTP ${status}`;
     } catch (caught) {
