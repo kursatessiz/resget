@@ -111,7 +111,12 @@ describe('Refunds (e2e)', () => {
       select: { id: true },
     });
     await ctx.prisma.ledgerEntry.deleteMany({ where: { orderId: { in: orders.map((o) => o.id) } } });
-    await ctx.prisma.auditLog.deleteMany({ where: { restaurantId, action: 'payment.charged_back' } });
+    await ctx.prisma.auditLog.deleteMany({
+      where: {
+        restaurantId,
+        OR: [{ action: 'payment.charged_back' }, { action: { startsWith: 'payment.extra_capture' } }],
+      },
+    });
     await ctx.prisma.order.deleteMany({ where: { restaurantId, customerNote: NOTE } });
     if (invoiceIds.length > 0) await ctx.prisma.commissionInvoice.deleteMany({ where: { id: { in: invoiceIds } } });
   };
@@ -269,6 +274,43 @@ describe('Refunds (e2e)', () => {
     expect(after.status).toBe('REFUNDED');
     expect(after.payment.refundState).toBe('DONE');
     expect(after.history.filter((h: { to: string }) => h.to === 'REFUNDED')).toHaveLength(1);
+  });
+
+  it('gives back a second, distinct capture of a captured payment and records it once', async () => {
+    const order = await paidOrder('pos-extra-1');
+    const notice = { orderRef: order.id, status: 'CAPTURED', amountMinor: order.chargedToCustomerMinor };
+    const payment = await ctx.prisma.payment.findFirstOrThrow({ where: { orderId: order.id } });
+    const extraRows = () =>
+      ctx.prisma.auditLog.findMany({
+        where: { entityId: payment.id, action: { startsWith: 'payment.extra_capture' } },
+        orderBy: { createdAt: 'asc' },
+      });
+    // The same transaction again is a replay: nothing to give back.
+    expect((await posWebhook({ ...notice, providerRef: 'pos-extra-1' })).body.status).toBe('CAPTURED');
+    expect(await extraRows()).toHaveLength(0);
+
+    // A second paid session for the same order is another transaction: it goes back on the same POS, once.
+    expect((await posWebhook({ ...notice, providerRef: 'pos-extra-2' })).body.status).toBe('CAPTURED');
+    expect((await posWebhook({ ...notice, providerRef: 'pos-extra-2' })).body.status).toBe('CAPTURED');
+    const rows = await extraRows();
+    expect(rows.map((r) => r.action)).toEqual(['payment.extra_capture', 'payment.extra_capture_refunded']);
+    expect(rows[0].meta).toMatchObject({ providerRef: 'pos-extra-2', amountMinor: order.chargedToCustomerMinor });
+    expect(rows[1].meta).toMatchObject({ providerRef: 'pos-extra-2' });
+    // The order's own payment is untouched.
+    expect(await ctx.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).toMatchObject({
+      status: 'CAPTURED',
+      providerRef: 'pos-extra-1',
+      refundedMinor: 0,
+    });
+
+    // A refund the provider declines stays on the record for the operator.
+    await posWebhook({ ...notice, providerRef: 'refund-decline-extra' });
+    expect((await extraRows()).map((r) => r.action)).toEqual([
+      'payment.extra_capture',
+      'payment.extra_capture_refunded',
+      'payment.extra_capture',
+      'payment.extra_capture_refund_failed',
+    ]);
   });
 
   it('takes a PLATFORM_PSP refund out of the payout only after completion', async () => {
