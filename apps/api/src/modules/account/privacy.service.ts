@@ -164,6 +164,9 @@ export class PrivacyService {
     await this.prisma.$transaction(async (tx) => {
       await tx.customerAddress.deleteMany({ where: { userId } });
       await tx.pushDevice.deleteMany({ where: { userId } });
+      // Every signed-in app and browser ends with the account (docs/GUVENLIK.md "Oturumlar").
+      await tx.authSession.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
+      await tx.sessionHandoff.deleteMany({ where: { userId } });
       await tx.otpCode.deleteMany({ where: { userId } });
       await tx.savedPaymentMethod.deleteMany({ where: { userId } });
       if (membershipIds.length > 0) {

@@ -14,6 +14,7 @@ import { ApiKeysService } from './api-keys.service';
 import { RestaurantTenantGuard } from './guards/restaurant-tenant.guard';
 import { PermissionGuard } from './guards/permission.guard';
 import { SuperAdminGuard } from './guards/super-admin.guard';
+import { SessionsService } from './sessions.service';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { SuperAdminGuard } from './guards/super-admin.guard';
     RestaurantTenantGuard,
     PermissionGuard,
     SuperAdminGuard,
+    SessionsService,
   ],
   exports: [
     JwtAuthGuard,
@@ -46,6 +48,7 @@ import { SuperAdminGuard } from './guards/super-admin.guard';
     PermissionGuard,
     SuperAdminGuard,
     InviteAcceptanceService,
+    SessionsService,
   ],
 })
 export class AuthModule {}

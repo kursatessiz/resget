@@ -6,6 +6,10 @@ export interface AuthUser {
   phone: string;
   fullName: string;
   isSuperAdmin: boolean;
+  /** Bearer sessions only (docs/GUVENLIK.md "Oturumlar"); absent for API keys and pre-session tokens. */
+  sessionId?: string;
+  /** Bearer sessions only: when the access token expires (seconds since epoch); an open stream ends then. */
+  accessExpiresAt?: number;
 }
 
 /** Resolved by RestaurantTenantGuard for every @RestaurantScoped() route. */

@@ -21,7 +21,7 @@ Silmeyi engelleyen durumlar (409):
 
 Silinenler (tek işlemde):
 
-- Kayıtlı adresler, kayıtlı kartlar (kasa token'ı işlemden sonra kasaya da unutturulur; hata günlüğe yazılır, platformda token kalmaz), push cihazları, OTP kayıtları.
+- Kayıtlı adresler, kayıtlı kartlar (kasa token'ı işlemden sonra kasaya da unutturulur; hata günlüğe yazılır, platformda token kalmaz), push cihazları, OTP kayıtları, bekleyen oturum aktarım kodları. Hesabın bütün oturumları sona erer (`docs/GUVENLIK.md`, "Oturumlar").
 - Kurye konumu ve konum izi; personel üyelikleri `PASSIVE` olur ve kişi personel listelerinden çıkar.
 - Her restorandaki müşteri kaydında pazarlama izni (vazgeçme zamanı yazılır, vazgeçme bağlantısı geçersiz olur), restoranın notu ve etiketleri, sadakat puanı (bakiye `ADJUSTMENT` satırıyla sıfırlanır). Sipariş sayısı ve ciro sayaçları restoranın raporları için kalır; kayıt müşteri listesinde artık görünmez.
 - Siparişlerdeki müşteri notu ve teslimat adresinin kişiyi tanımlayan kısmı (sokak, kişi adı, telefon, konum); il ve ilçe raporlar için kalır. Değerlendirmelerde, geri bildirim kayıtlarında ve NPS yanıtlarında puan kalır, yorum silinir.

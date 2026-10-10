@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { POST as verify } from './verify/route';
 import { GET as handoff } from './handoff/route';
+import { POST as logout } from './logout/route';
 
 /** Login CSRF (docs/GUVENLIK.md): only this site's own pages may set a session in this browser. */
 const tokens = { accessToken: 'access.jwt.token', refreshToken: 'refresh.jwt.token', expiresInSeconds: 900 };
@@ -94,5 +95,38 @@ describe('GET /api/session/handoff', () => {
     const foreign = await handoff(handoffRequest({ origin: 'https://evil.example' }));
     expect(setsSession(foreign)).toBe(false);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/session/logout', () => {
+  it('ends the session at the API before it clears the cookies', async () => {
+    fetchMock.mockImplementation(async () => new Response(null, { status: 204 }));
+    const res = await logout(
+      new NextRequest('http://resget.test/api/session/logout', {
+        method: 'POST',
+        headers: { host: 'resget.test', cookie: 'resget_access=access.jwt.token; resget_refresh=refresh.jwt.token' },
+      }),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toMatch(/\/auth\/logout$/);
+    expect((init.headers as Record<string, string>).authorization).toBe('Bearer access.jwt.token');
+    expect(JSON.parse(init.body as string)).toEqual({ refreshToken: 'refresh.jwt.token' });
+    expect(res.status).toBe(303);
+    expect(res.headers.get('set-cookie')).toMatch(/resget_refresh=;/);
+  });
+
+  it('still clears the cookies when the API cannot be reached', async () => {
+    fetchMock.mockImplementation(async () => {
+      throw new Error('down');
+    });
+    const res = await logout(
+      new NextRequest('http://resget.test/api/session/logout', {
+        method: 'POST',
+        headers: { host: 'resget.test', cookie: 'resget_refresh=refresh.jwt.token' },
+      }),
+    );
+    expect(res.status).toBe(303);
+    expect(res.headers.get('set-cookie')).toMatch(/resget_access=;/);
   });
 });

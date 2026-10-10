@@ -97,4 +97,24 @@ describe('ApiClient', () => {
       expect(tokens.tokens).not.toBeNull();
     }
   });
+
+  it('ends the session at the API on sign-out and drops the tokens even without an answer', async () => {
+    const calls: { url: string; body: string | undefined }[] = [];
+    let reachable = true;
+    const fetchImpl = (async (input: URL | RequestInfo, init?: RequestInit) => {
+      calls.push({ url: String(input), body: init?.body as string | undefined });
+      if (!reachable) throw new Error('offline');
+      return new Response(null, { status: 204 });
+    }) as typeof fetch;
+    const tokens = new MemoryTokens(pair('a1'));
+    const client = new ApiClient({ baseUrl: 'https://api.test', tokens, fetchImpl });
+    await client.logout();
+    expect(calls).toEqual([{ url: 'https://api.test/auth/logout', body: JSON.stringify({ refreshToken: 'r1' }) }]);
+    expect(tokens.tokens).toBeNull();
+
+    reachable = false;
+    tokens.tokens = pair('a2');
+    await client.logout();
+    expect(tokens.tokens).toBeNull();
+  });
 });

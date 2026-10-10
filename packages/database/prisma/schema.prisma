@@ -322,6 +322,7 @@ model User {
   restaurantCustomers        RestaurantCustomer[]
   otpCodes                   OtpCode[]
   sessionHandoffs            SessionHandoff[]
+  authSessions               AuthSession[]
   pushDevices                PushDevice[]
   savedPaymentMethods        SavedPaymentMethod[]
   invitesCreated             InviteToken[]        @relation("InviteCreatedBy")
@@ -374,6 +375,27 @@ model SessionHandoff {
 
   @@index([expiresAt])
   @@map("session_handoffs")
+}
+
+/// A signed-in app or browser (docs/GUVENLIK.md "Oturumlar"). Both tokens carry its id; ending it ends them.
+model AuthSession {
+  id         String    @id @default(uuid())
+  userId     String
+  /// Generation of the refresh token that may rotate next; an older one presented again ends the session.
+  generation Int       @default(0)
+  /// When the generation last advanced: the one before it is still honoured briefly, for parallel tabs.
+  rotatedAt  DateTime?
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+  /// Last sign-in or refresh; rows idle longer than a refresh token lives are removed.
+  lastUsedAt DateTime  @default(now())
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([lastUsedAt])
+  @@map("auth_sessions")
 }
 
 // ---------------------------------------------------------------------------
