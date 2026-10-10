@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { TokenPairDTO } from '@resget/shared';
+import { HostnameSchema, type TokenPairDTO } from '@resget/shared';
 import {
   ACCESS_TOKEN_COOKIE,
   QR_SESSION_COOKIE,
@@ -9,20 +9,34 @@ import {
   accessTokenNeedsRefresh,
   sessionCookieOptions,
 } from '@/lib/session';
+import { BoundedTtlCache } from '@/lib/host-cache';
 import { hostOf, isPlatformHost } from '@/lib/hosts';
 
-/** Which restaurant a custom host serves, remembered briefly so the home page does not ask the API on every hit. */
-const hostCache = new Map<string, { slug: string | null; until: number }>();
+/**
+ * Which restaurant a custom host serves, remembered briefly so the home page does not ask the API on every hit.
+ * Bounded: the key comes from the Host header of an anonymous request, so the cache never grows past
+ * HOST_CACHE_MAX_ENTRIES and only syntactically valid host names are ever looked up or stored.
+ */
 const HOST_CACHE_MS = 60_000;
+const HOST_CACHE_MAX_ENTRIES = 1000;
+const hostCache = new BoundedTtlCache<string | null>(HOST_CACHE_MAX_ENTRIES, HOST_CACHE_MS);
+
+/** Same syntax the API accepts for a custom domain (HostnameSchema, at most 253 characters). */
+function isLookupableHost(host: string): boolean {
+  const parsed = HostnameSchema.safeParse(host);
+  return parsed.success && parsed.data === host;
+}
+
 async function slugForHost(host: string): Promise<string | null> {
+  if (!isLookupableHost(host)) return null;
   const cached = hostCache.get(host);
-  if (cached && cached.until > Date.now()) return cached.slug;
+  if (cached) return cached.value;
   const base = (process.env.API_INTERNAL_URL || 'http://localhost:4000').replace(/\/$/, '');
   const res = await fetch(`${base}/public/domains/resolve?host=${encodeURIComponent(host)}`, {
     cache: 'no-store',
   }).catch(() => null);
   const slug = res?.ok ? ((await res.json()) as { slug: string }).slug : null;
-  hostCache.set(host, { slug, until: Date.now() + HOST_CACHE_MS });
+  hostCache.set(host, slug);
   return slug;
 }
 
