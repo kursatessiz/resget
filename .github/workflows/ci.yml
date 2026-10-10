@@ -227,7 +227,9 @@ jobs:
         with:
           persist-credentials: false
       - name: shellcheck
-        run: shellcheck -x deploy/scripts/*.sh
+        run: shellcheck -x deploy/scripts/*.sh .github/scripts/*.sh
+      - name: Triage label script self-test
+        run: bash .github/scripts/triage-label.test.sh
       - name: Caddyfile validate
         # The same image the server runs; deploy.sh validates again before switching releases.
         run: |

@@ -63,9 +63,16 @@ PR'larda açılış sayfası ve masa QR menü sayfası için Lighthouse CI (`app
 İki tetikleyici:
 
 - **`main`'e push**: `ci.yml` -> imaj build -> **preprod**'a deploy (preprod ortamında `DEPLOY_ENABLED` `true` ise).
-- **`workflow_dispatch`**: `environment` (`preprod` / `production`) ve `tag` (`sha-<40 karakterlik commit>`). Production için `tag` zorunludur ve iş yalnızca `main` üzerinden başlatılabilir; production hiçbir zaman build etmez, preprod'da çalışmış imajı terfi ettirir. Geri almak için de aynı yol kullanılır: önceki tag verilir.
+- **`workflow_dispatch`**: `environment` (`preprod` / `production`) ve `tag` (`sha-<40 karakterlik commit>`). Production için `tag` zorunludur, iş yalnızca `main` üzerinden başlatılabilir ve `plan` işi tag'in commit'inin `origin/main`'in atası olduğunu `git merge-base --is-ancestor` ile doğrular (başka dalın commit'i production'a çıkamaz); production hiçbir zaman build etmez, preprod'da çalışmış imajı terfi ettirir. Geri almak için de aynı yol kullanılır: önceki tag verilir.
 
-İşler: `plan` (hedef, tag, build gerekip gerekmediği), `ci`, `publish` (`ghcr.io/<owner>/resget/api` ve `.../web`, `sha-<commit>` ve `main` etiketleri, SBOM ve provenance attestation), `deploy` (seçilen GitHub Environment'ında; `DEPLOY_ENABLED` ve `DEPLOY_ENVIRONMENT` kapısı, SSH ile dosya senkronu `/opt/resget` altına, `deploy.sh <tag>`).
+İşler: `plan` (hedef, tag, build gerekip gerekmediği, production için atalık denetimi), `ci`, `publish` (`ghcr.io/<owner>/resget/api` ve `.../web`, `sha-<commit>` etiketi, SBOM ve provenance attestation), `digests` (iki imajın digest'ini bir kez çözer), `deploy` (seçilen GitHub Environment'ında; `DEPLOY_ENABLED` ve `DEPLOY_ENVIRONMENT` kapısı, SSH ile dosya senkronu `/opt/resget` altına, `deploy.sh <tag> <api-digest> <web-digest>`).
+
+Sürüm bütünlüğü kuralları:
+
+- Kayan `main` etiketi yalnızca `refs/heads/main` üzerinden çalışan koşuda itilir.
+- `main` dışındaki bir ref, kayıt defterinde zaten var olan bir `sha-<commit>` imajının üzerine yazamaz: `publish` itmeden önce `docker buildx imagetools inspect` ile bakar ve varsa hata verir. Yalnızca `main` koşusu (aynı commit'in yeniden çalıştırılması) imajı yenileyebilir.
+- `deploy.sh` imajları digest ile çeker (`<repo>/api:<tag>@sha256:...`); tag sonradan başka bir imaja taşınsa bile çalışan imaj `digests` işinin çözdüğü imajdır. Başarılı deploy digest'leri `releases/digests/<tag>` dosyasına yazar ve `rollback.sh` aynı tag'e dönerken onları yeniden kullanır. Digest verilmeyen yollar (`nightly-deploy.sh`, sunucuda elle `deploy.sh <tag>`) tag ile çeker; bu yolun güvenilir bir digest kaynağı yoktur, bu yüzden aşağıdaki GHCR ve branch ayarlarına dayanır.
+- Workflow içindeki bu denetimler, workflow dosyasını kendi dalında değiştirebilen biri karşısında yalnızca tavsiye niteliğindedir (dispatch edilen dalın dosyası çalışır); bağlayıcı olanlar aşağıdaki GitHub ayarlarıdır.
 
 Eşzamanlılık ortam başınadır: `main`'e yeni bir push bekleyen bir production deploy'unu iptal etmez.
 
@@ -84,6 +91,18 @@ Settings > Environments altında `preprod` ve `production`. Hepsi ortam seviyesi
 | `PUBLIC_URL` | variable (opsiyonel) | `https://app.preprod.<alan-adi>` | `https://app.<alan-adi>` |
 
 `production` için ayrıca: Required reviewers (en az bir kişi) ve Deployment branches: Selected branches -> `main`.
+
+### Sahip kontrol listesi: sürüm hattı ayarları
+
+Bunlar repository dışındadır; workflow'daki denetimleri bağlayıcı yapan ayarlardır.
+
+- [ ] `production` ortamı: Required reviewers (en az bir kişi), "Prevent self-review" açık, Deployment branches and tags: Selected branches -> `main`. Dispatch edilen dalın workflow dosyası ancak bu kural sayesinde `main`'dekiyle sınırlanır.
+- [ ] `preprod` ortamı: Deployment branches: Selected branches -> `main`, istenirse ayrıca bir test dal deseni. `main` dışındaki bir dalın dispatch'i, o dalın `deploy/` dosyalarını (compose, Caddyfile, script'ler) preprod sunucusuna kopyalar ve çalıştırır; dal kısıtı yoksa yazma yetkisi olan herkes preprod'da kod çalıştırabilir.
+- [ ] `main` ruleset'i: PR zorunlu, code owner onayı zorunlu (`.github/CODEOWNERS` `/.github/` ve `/deploy/` için sahibi ister), CI işleri zorunlu, force push ve silme kapalı.
+- [ ] GHCR paketleri (`.../api` ve `.../web`): Package settings -> Manage Actions access altında yalnızca bu repository Write rolüyle listelenir; kullanıcılara veya takımlara doğrudan Write verilmez, böylece yalnızca bu repository'nin workflow'ları imaj itebilir. Sunucunun `docker login ghcr.io` token'ı yalnızca `read:packages` kapsamlıdır.
+- [ ] Settings -> Actions -> General -> Workflow permissions: "Read repository contents and packages permissions" (varsayılan salt okunur); workflow'lar gereken izni işte kendileri ister.
+- [ ] Ajan workflow'ları (bölüm 7): `CLAUDE_AGENTS_ENABLED` değişkeni yalnızca triage'ın etiket script'i (`.github/scripts/triage-label.sh`) incelendikten sonra `true` yapılır; issue geçmişinde `github-actions` tarafından yapılmış beklenmedik düzenleme olup olmadığına bakılır.
+- [ ] Plan: Environments ve branch protection Free planda private repolarda yoktur (aşağıdaki not); bu liste ancak desteklenen planda bağlayıcıdır, aksi halde production deploy'u yalnızca sahibin elindeki yetkiye dayanır.
 
 ### Ortam değişkenleri envanteri
 
@@ -108,7 +127,7 @@ SSH deploy'una alternatif, sunucuda cron'dan çalışan pull tabanlı yol (yaln�
 0 3 * * * /opt/resget/scripts/nightly-deploy.sh >> /opt/resget/deploy.log 2>&1
 ```
 
-`main`'in son commit'ini çözer, imajı CI yayınladıysa `deploy.sh`'ı çağırır. İkisini aynı sunucuda birlikte kullanmayın.
+`main`'in son commit'ini çözer, imajı CI yayınladıysa `deploy.sh`'ı çağırır. İkisini aynı sunucuda birlikte kullanmayın. Bu yol imajı tag ile çeker (digest kaynağı yoktur); commit her zaman `main`'in ucudur, ama tag'in içeriğini yalnızca yukarıdaki GHCR yazma kısıtı ve `main`-only yayın kuralı korur. Güvenlik gerektiren ortamda SSH deploy yolunu (digest ile) tercih edin.
 
 ### Sunucu registry erişimi
 
@@ -173,12 +192,12 @@ Dört workflow `anthropics/claude-code-action` kullanır. Repository değişkeni
 
 | Workflow | Tetikleyici | Model | Ne yapar |
 |---|---|---|---|
-| `claude-triage.yml` | yeni issue | Haiku | En fazla üç mevcut etiket ekler; yorum ve kod yok |
+| `claude-triage.yml` | yeni issue | Haiku | En fazla üç mevcut ve izinli etiket ekler (`.github/scripts/triage-label.sh`); yorum ve kod yok |
 | `claude-ci-doctor.yml` | PR'da CI başarısız | Haiku | Logları okur, tek bir kök neden yorumu yazar |
 | `claude-review.yml` | PR açıldı / hazır / yeniden açıldı | küçük diff Haiku, diğerleri Sonnet | `CLAUDE.md`'ye göre inceler: kiracı izolasyonu, para kuralları, güvenlik, doğruluk, i18n; satır içi yorumlar ve özet |
 | `claude.yml` | write erişimli birinden `@claude` | varsayılan Sonnet; `/opus`, `/haiku` | Kod düzenler, build/test çalıştırır, PR açar |
 
-Maliyet kademesi: ucuz modeller yüksek hacimli düşük riskli işleri alır; Opus yalnızca açıkça istenince. Güvenlik modeli: yalnızca `claude.yml` kod yazabilir ve yalnızca write erişimli kullanıcılar için; `workflow_run` tetikleyicili doktor fork'ları dışlar ve PR kodunu çalıştırmaz; triage yalnızca etiketleme araçlarına sahiptir; her workflow'un `allowedTools` listesi dardır. Issue, yorum ve log metni talimat değil veridir.
+Maliyet kademesi: ucuz modeller yüksek hacimli düşük riskli işleri alır; Opus yalnızca açıkça istenince. Güvenlik modeli: yalnızca `claude.yml` kod yazabilir ve yalnızca write erişimli kullanıcılar için; `workflow_run` tetikleyicili doktor fork'ları dışlar ve PR kodunu çalıştırmaz; triage yalnızca okuma araçlarına ve `triage-label.sh` script'ine sahiptir: script yalnızca etiket adı alır, hedef issue ve repository workflow ortamından (`TRIAGE_ISSUE_NUMBER`, `GITHUB_REPOSITORY`) gelir, etiketin repository'de bulunmasını ve `.github/triage-labels.txt` izin listesinde olmasını ister, çağrı başına en fazla üç etiket ekler, `CLAUDE_CODE_SCRIPT_CAPS` ile koşu başına iki çağrıyla sınırlıdır; job'da `id-token: write` yoktur (`github_token` verildiği için eylem OIDC değişimi yapmaz) ve `allowed_non_write_users` verildiği için eylem araç alt süreçlerinden gizli bilgileri ayıklar. Script'in yerel testi: `bash .github/scripts/triage-label.test.sh` (CI `scripts` işinde de çalışır); her workflow'un `allowedTools` listesi dardır. Issue, yorum ve log metni talimat değil veridir.
 
 ## 8. Çalışma yöntemi
 
