@@ -199,6 +199,11 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.RESTAURANT_NOT_FOUND': 'Restaurant not found.',
   'errors.RESTAURANT_NOT_ACCEPTING': 'The restaurant is not taking orders right now.',
   'errors.DELIVERY_OUT_OF_ZONE': 'This address is outside the delivery zone of the restaurant.',
+  'errors.DELIVERY_LOCATION_REQUIRED':
+    'The location of the delivery address could not be found; check the street, number and district.',
+  'errors.ORDER_QUANTITY_LIMIT': 'One order cannot hold this many items; split the order or call the restaurant.',
+  'errors.OPEN_ORDERS_LIMIT':
+    'This phone number already has several orders the restaurant has not accepted yet; wait until they are accepted.',
   'errors.MIN_BASKET_NOT_MET': 'The basket is below the minimum for delivery.',
   'errors.COUPON_NOT_FOUND': 'This coupon code is not valid.',
   'errors.COUPON_EXPIRED': 'This coupon has expired.',
@@ -207,6 +212,8 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.COUPON_LIMIT_REACHED': 'This coupon has reached its use limit.',
   'errors.COUPON_ALREADY_USED': 'You have already used this coupon.',
   'errors.COUPON_PHONE_REQUIRED': 'A phone number is needed for a coupon.',
+  'errors.COUPON_SIGN_IN_REQUIRED':
+    'This coupon works only on an order placed with the phone number you signed in with; please sign in.',
   'errors.COUPON_NOT_COMBINABLE': 'A coupon cannot be combined with loyalty points.',
   'errors.COUPON_CODE_TAKEN': 'Another coupon already uses this code.',
   'errors.COUPON_IN_USE': 'A used coupon cannot be deleted; you can pause it.',

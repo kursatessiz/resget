@@ -1,4 +1,10 @@
-import { CouponCodeSchema, CreateCouponSchema, couponDiscountMinor, couponRefusal } from './coupons';
+import {
+  CouponCodeSchema,
+  CreateCouponSchema,
+  couponDiscountMinor,
+  couponNeedsIdentity,
+  couponRefusal,
+} from './coupons';
 import type { CouponTerms } from './coupons';
 
 const now = new Date('2026-10-04T12:00:00Z');
@@ -70,5 +76,13 @@ describe('coupons', () => {
         endsAt: '2026-10-04T00:00:00Z',
       }).success,
     ).toBe(false);
+  });
+
+  it('asks for a proven phone only when the rules depend on who the customer is', () => {
+    const plain = { firstOrderOnly: false, referrerCustomerId: null, ownerCustomerId: null };
+    expect(couponNeedsIdentity(plain)).toBe(false);
+    expect(couponNeedsIdentity({ ...plain, firstOrderOnly: true })).toBe(true);
+    expect(couponNeedsIdentity({ ...plain, referrerCustomerId: 'c1' })).toBe(true);
+    expect(couponNeedsIdentity({ ...plain, ownerCustomerId: 'c1' })).toBe(true);
   });
 });

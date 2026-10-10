@@ -86,6 +86,22 @@ export function couponDiscountMinor(
   return Math.max(0, Math.min(raw, itemsGrossMinor));
 }
 
+/**
+ * Whether a coupon's rules depend on who the customer is: first order only, a
+ * personal referral code (its owner may not use it) or a reward coupon that
+ * belongs to one customer. Such a coupon is used only on an order placed by a
+ * signed-in customer for their own phone (COUPON_SIGN_IN_REQUIRED); a typed
+ * phone proves nothing. A plain coupon stays usable anonymously; its
+ * per-customer limit is then counted on the typed phone (docs/KUPONLAR.md).
+ */
+export function couponNeedsIdentity(coupon: {
+  firstOrderOnly: boolean;
+  referrerCustomerId: string | null;
+  ownerCustomerId: string | null;
+}): boolean {
+  return coupon.firstOrderOnly || coupon.referrerCustomerId !== null || coupon.ownerCustomerId !== null;
+}
+
 export type CouponRefusal =
   | 'COUPON_NOT_FOUND'
   | 'COUPON_EXPIRED'

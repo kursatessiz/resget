@@ -196,6 +196,10 @@ export const trErrors = {
   'errors.RESTAURANT_NOT_FOUND': 'Restoran bulunamadı.',
   'errors.RESTAURANT_NOT_ACCEPTING': 'Restoran şu an sipariş almıyor.',
   'errors.DELIVERY_OUT_OF_ZONE': 'Bu adres restoranın teslimat bölgesinin dışında.',
+  'errors.DELIVERY_LOCATION_REQUIRED': 'Teslimat adresinin konumu belirlenemedi; sokak, numara ve ilçeyi kontrol edin.',
+  'errors.ORDER_QUANTITY_LIMIT': 'Bir siparişte bu kadar çok ürün olamaz; siparişi bölün veya restoranı arayın.',
+  'errors.OPEN_ORDERS_LIMIT':
+    'Bu telefon numarasıyla restoranın henüz onaylamadığı birden fazla siparişiniz var; onaylanmalarını bekleyin.',
   'errors.MIN_BASKET_NOT_MET': 'Sepet tutarı teslimat için gereken en az tutarın altında.',
   'errors.COUPON_NOT_FOUND': 'Bu kupon kodu geçerli değil.',
   'errors.COUPON_EXPIRED': 'Bu kuponun süresi doldu.',
@@ -204,6 +208,8 @@ export const trErrors = {
   'errors.COUPON_LIMIT_REACHED': 'Bu kuponun kullanım sınırı doldu.',
   'errors.COUPON_ALREADY_USED': 'Bu kuponu daha önce kullandınız.',
   'errors.COUPON_PHONE_REQUIRED': 'Kupon için telefon numarası gerekir.',
+  'errors.COUPON_SIGN_IN_REQUIRED':
+    'Bu kupon yalnızca giriş yaptığınız telefon numarasıyla verilen siparişte kullanılabilir; giriş yapın.',
   'errors.COUPON_NOT_COMBINABLE': 'Kupon sadakat puanıyla birlikte kullanılamaz.',
   'errors.COUPON_CODE_TAKEN': 'Bu kod başka bir kuponda kullanılıyor.',
   'errors.COUPON_IN_USE': 'Kullanılmış kupon silinemez; durdurabilirsiniz.',

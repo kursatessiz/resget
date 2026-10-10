@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@resget/database';
-import { couponDiscountMinor, couponRefusal } from '@resget/shared';
+import { couponDiscountMinor, couponNeedsIdentity, couponRefusal } from '@resget/shared';
 import type { CouponDTO, CouponKind, CouponTerms, CreateCouponInput, PublicCouponDTO } from '@resget/shared';
 import { FeatureFlagsService } from '../features/feature-flags.service';
 import { EntitlementsService } from '../features/entitlements.service';
@@ -149,9 +149,21 @@ export class CouponsService {
     };
   }
 
-  /** Checks a code for an order about to be created by this phone; the discount goes into the settlement. */
-  async prepare(restaurantId: string, code: string, phone: string, itemsGrossMinor: number): Promise<PreparedCoupon> {
+  /**
+   * Checks a code for an order about to be created by this phone; the discount goes into the settlement. A coupon
+   * whose rules depend on who the customer is (first order only, a personal referral code, a reward coupon) needs
+   * the phone proven by sign-in; a plain coupon stays usable anonymously, its per-customer limit counted on the
+   * typed phone (docs/KUPONLAR.md, "Kimlik gerektiren kuponlar").
+   */
+  async prepare(
+    restaurantId: string,
+    code: string,
+    phone: string,
+    itemsGrossMinor: number,
+    phoneVerified: boolean,
+  ): Promise<PreparedCoupon> {
     const { coupon } = await this.usable(this.prisma, restaurantId, code);
+    if (!phoneVerified && couponNeedsIdentity(coupon)) this.refuse('COUPON_SIGN_IN_REQUIRED');
     const customer = await this.prisma.restaurantCustomer.findFirst({
       where: { restaurantId, user: { phone } },
       select: { id: true, orderCount: true },

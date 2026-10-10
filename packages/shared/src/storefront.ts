@@ -95,6 +95,17 @@ export interface StorefrontDTO {
   groupOrders: boolean;
 }
 
+/**
+ * Public (storefront) orders are placed without payment or sign-in, yet take
+ * counted stock and coupon uses at placement (docs/VITRIN.md, "Açık sipariş
+ * sınırları"). Two ceilings keep one caller from holding them: the portions
+ * of one order (the sum of its line quantities, ORDER_QUANTITY_LIMIT) and the
+ * open, not yet accepted orders (PENDING_PAYMENT or PLACED) one phone may hold
+ * at a restaurant (OPEN_ORDERS_LIMIT). Staff-entered orders are not limited.
+ */
+export const PUBLIC_ORDER_MAX_TOTAL_QUANTITY = 50;
+export const PUBLIC_ORDER_MAX_OPEN_PER_PHONE = 3;
+
 export const PublicOrderSchema = z
   .object({
     fulfillment: FulfillmentTypeValueSchema,

@@ -24,13 +24,13 @@ Program değişince yeni koşullar bütün kişisel kodlara hemen uygulanır; m�
 - Müşteri hesabında (`/hesabim`) **Arkadaşını davet et** kartı, programı açık olan ve kişinin en az bir sipariş verdiği her restoranı listeler. Hiç yoksa kart görünmez.
 - **Kodumu al** kodu ilk istekte üretir (`R` ve 7 karakter; karışan 0/O, 1/I/L harfleri yoktur). Müşteri başına tek koddur.
 - Paylaşım bağlantısı `/<restoran>?kod=<kod>` biçimindedir; arkadaş bağlantıyı açınca kod sepetteki kupon alanına yazılmış gelir. İndirim kodun uygulanmasıyla ve siparişte doğrulanır.
-- Kod, kuponların kurallarıyla kullanılır: yalnızca restorandan ilk kez sipariş veren telefon, bir kez (`COUPON_FIRST_ORDER_ONLY`, `COUPON_ALREADY_USED`). Müşteri kendi kodunu kullanamaz (`COUPON_OWN_REFERRAL`). Sadakat puanıyla birleşmez.
+- Kod, kuponların kurallarıyla kullanılır: yalnızca restorandan ilk kez sipariş veren telefon, bir kez (`COUPON_FIRST_ORDER_ONLY`, `COUPON_ALREADY_USED`). Müşteri kendi kodunu kullanamaz (`COUPON_OWN_REFERRAL`). Sadakat puanıyla birleşmez. Kod yalnızca giriş yapmış arkadaşın kendi telefonuyla verdiği siparişte geçerlidir; kimliksiz sipariş `COUPON_SIGN_IN_REQUIRED` alır (`docs/KUPONLAR.md`, "Kimlik gerektiren kuponlar"), böylece kod yazılan yeni numaralarla tekrar kullanılamaz ve davet eden kendi koduyla ikinci bir numaradan ödül kazanamaz.
 - Kişisel kodlar panelin kupon listesinde görünmez; durdurulamaz veya silinemez, programla yönetilir.
 
 ## Ödül
 
 - Arkadaşın siparişi tamamlandığında (`DELIVERED` veya `PICKED_UP`), aynı işlemde davet edene `W` ile başlayan bir tutar kuponu üretilir: tek kullanım, en az sepet yok, programdaki süre kadar geçerli. Kayıt `referral_rewards` tablosuna yazılır; sipariş başına bir kez.
-- Ödül kuponu yalnızca sahibinin telefonuyla kullanılır; başkası için bilinmeyen koddur (`COUPON_NOT_FOUND`).
+- Ödül kuponu yalnızca sahibinin telefonuyla, sahibi giriş yapmışken kullanılır (`COUPON_SIGN_IN_REQUIRED`); başkası için bilinmeyen koddur (`COUPON_NOT_FOUND`).
 - Sipariş reddedilir veya iptal edilirse kodun kullanımı geri verilir ve ödül doğmaz. Tamamlanmış sipariş sonradan iade edilirse verilmiş ödül geri alınmaz.
 - Program sonradan durdurulsa da, kod açıkken verilmiş siparişin ödülü verilir.
 - Müşteri ödüllerini hesabındaki kartta görür: kod, tutar, son gün veya "Kullanıldı".
