@@ -335,6 +335,8 @@ model User {
   campaignsCreated           Campaign[]           @relation("CampaignCreatedBy")
   campaignApprovalsRequested Campaign[]           @relation("CampaignApprovalRequestedBy")
   campaignApprovalsDecided   Campaign[]           @relation("CampaignApprovalDecidedBy")
+  journeyApprovalsRequested  Journey[]            @relation("JourneyApprovalRequestedBy")
+  journeyApprovalsDecided    Journey[]            @relation("JourneyApprovalDecidedBy")
   apiKeysCreated             RestaurantApiKey[]   @relation("ApiKeyCreatedBy")
   aiUsages                   AiUsage[]
   oauthStates                OAuthState[]
@@ -2723,31 +2725,44 @@ model SegmentMember {
 
 /// One automated message: a trigger (JOURNEY_TRIGGERS in shared) sends it to one customer after a delay.
 model Journey {
-  id              String         @id @default(uuid())
-  restaurantId    String
-  name            String
-  trigger         String
-  channel         MessageChannel
-  subject         String?
-  body            String
-  delayHours      Int            @default(0)
+  id                        String                 @id @default(uuid())
+  restaurantId              String
+  name                      String
+  trigger                   String
+  channel                   MessageChannel
+  subject                   String?
+  body                      String
+  delayHours                Int                    @default(0)
   /// WIN_BACK only: days without an order.
-  inactiveDays    Int?
-  cooldownDays    Int            @default(30)
-  attributionDays Int            @default(3)
-  segmentId       String?
+  inactiveDays              Int?
+  cooldownDays              Int                    @default(30)
+  attributionDays           Int                    @default(3)
+  segmentId                 String?
   /// ACTIVE or PAUSED; a new flow starts paused.
-  status          String         @default("PAUSED")
-  lastError       String?
+  status                    String                 @default("PAUSED")
+  lastError                 String?
   /// WIN_BACK: when the audience was last scanned.
-  lastScanAt      DateTime?
-  createdByUserId String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  lastScanAt                DateTime?
+  createdByUserId           String?
+  /// Send approval under marketing_approvals (docs/ONAYLAR.md): switching the flow on or changing what it sends
+  /// asks for it; a content change sets it back.
+  approvalStatus            CampaignApprovalStatus @default(NONE)
+  approvalRequestedByUserId String?
+  approvalRequestedAt       DateTime?
+  approvalDecidedByUserId   String?
+  approvalDecidedAt         DateTime?
+  approvalNote              String?
+  /// Who last changed what the flow sends or to whom, and when; that person cannot approve it.
+  contentUpdatedByUserId    String?
+  contentUpdatedAt          DateTime?
+  createdAt                 DateTime               @default(now())
+  updatedAt                 DateTime               @updatedAt
 
-  restaurant Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  segmentRef Segment?     @relation(fields: [segmentId], references: [id], onDelete: SetNull)
-  runs       JourneyRun[]
+  restaurant          Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  segmentRef          Segment?     @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+  approvalRequestedBy User?        @relation("JourneyApprovalRequestedBy", fields: [approvalRequestedByUserId], references: [id], onDelete: SetNull)
+  approvalDecidedBy   User?        @relation("JourneyApprovalDecidedBy", fields: [approvalDecidedByUserId], references: [id], onDelete: SetNull)
+  runs                JourneyRun[]
 
   @@index([restaurantId, createdAt])
   @@index([status, trigger])
@@ -2780,6 +2795,7 @@ model JourneyRun {
   @@index([status, dueAt])
   @@index([journeyId, customerId, createdAt])
   @@index([customerId, sentAt])
+  @@index([journeyId, sentAt])
   @@map("journey_runs")
 }
 

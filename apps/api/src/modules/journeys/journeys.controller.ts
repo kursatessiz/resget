@@ -1,6 +1,12 @@
 import { Controller, Delete, Get, HttpCode, Patch, Post } from '@nestjs/common';
-import { CreateJourneySchema, UpdateJourneySchema, UuidSchema } from '@resget/shared';
-import type { CreateJourneyInput, JourneyDTO, JourneyListDTO, UpdateJourneyInput } from '@resget/shared';
+import { CreateJourneySchema, RejectCampaignSchema, UpdateJourneySchema, UuidSchema } from '@resget/shared';
+import type {
+  CreateJourneyInput,
+  JourneyDTO,
+  JourneyListDTO,
+  RejectCampaignInput,
+  UpdateJourneyInput,
+} from '@resget/shared';
 import { ZodBody, ZodParam } from '../../common/zod-body.pipe';
 import {
   RequireFeature,
@@ -40,16 +46,45 @@ export class JourneysController {
   @RequirePermission('campaigns.manage')
   update(
     @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
     @ZodParam('journeyId', UuidSchema) journeyId: string,
     @ZodBody(UpdateJourneySchema) body: UpdateJourneyInput,
   ): Promise<JourneyDTO> {
-    return this.journeys.update(tenant.restaurantId, journeyId, body);
+    return this.journeys.update(tenant.restaurantId, journeyId, user.id, body);
   }
 
   @Delete(':journeyId')
   @HttpCode(204)
   @RequirePermission('campaigns.manage')
-  async remove(@Tenant() tenant: TenantContext, @ZodParam('journeyId', UuidSchema) journeyId: string): Promise<void> {
-    await this.journeys.remove(tenant.restaurantId, journeyId);
+  async remove(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodParam('journeyId', UuidSchema) journeyId: string,
+  ): Promise<void> {
+    await this.journeys.remove(tenant.restaurantId, journeyId, user.id);
+  }
+
+  /** Send approvals (docs/ONAYLAR.md): the marketing_approvals module must be on. */
+  @Post(':journeyId/approval/approve')
+  @HttpCode(200)
+  @RequirePermission('campaigns.approve')
+  approve(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodParam('journeyId', UuidSchema) journeyId: string,
+  ): Promise<JourneyDTO> {
+    return this.journeys.decideApproval(tenant.restaurantId, journeyId, user.id, { approve: true });
+  }
+
+  @Post(':journeyId/approval/reject')
+  @HttpCode(200)
+  @RequirePermission('campaigns.approve')
+  reject(
+    @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @ZodParam('journeyId', UuidSchema) journeyId: string,
+    @ZodBody(RejectCampaignSchema) body: RejectCampaignInput,
+  ): Promise<JourneyDTO> {
+    return this.journeys.decideApproval(tenant.restaurantId, journeyId, user.id, { approve: false, note: body.note });
   }
 }

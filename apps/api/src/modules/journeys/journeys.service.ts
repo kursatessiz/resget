@@ -31,9 +31,20 @@ import { FeatureFlagsService } from '../features/feature-flags.service';
 import { SegmentsService } from '../segments/segments.service';
 import { CommercialSenderService } from '../campaigns/commercial-sender.service';
 import type { CommercialRecipient } from '../campaigns/commercial-sender.service';
+import { APPROVAL_RESET, CampaignGuardsService } from '../campaigns/campaign-guards.service';
 import { badRequest, conflict, forbidden, notFound } from '../../common/api-error';
 
 type JourneyRow = Prisma.JourneyGetPayload<object>;
+
+/** The names behind a flow's approval, for the list. */
+const journeyInclude = {
+  approvalRequestedBy: { select: { fullName: true } },
+  approvalDecidedBy: { select: { fullName: true } },
+} as const satisfies Prisma.JourneyInclude;
+type JourneyWithApproval = Prisma.JourneyGetPayload<{ include: typeof journeyInclude }>;
+
+/** Why the runner holds a flow under marketing_approvals; recorded as journey.held when it starts. */
+const GUARD_HOLDS: readonly string[] = ['JOURNEY_APPROVAL_REQUIRED', 'SEND_LIMIT_EXCEEDED'];
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 86_400_000;
@@ -57,17 +68,23 @@ export class JourneysService {
     private readonly features: FeatureFlagsService,
     private readonly segments: SegmentsService,
     private readonly sender: CommercialSenderService,
+    private readonly guards: CampaignGuardsService,
   ) {}
 
   // -- Management ---------------------------------------------------------------------
 
   async list(restaurantId: string): Promise<JourneyListDTO> {
-    const [restaurant, rows] = await Promise.all([
+    const [restaurant, rows, approvalRequired] = await Promise.all([
       this.prisma.restaurant.findUniqueOrThrow({ where: { id: restaurantId }, select: { currency: true } }),
-      this.prisma.journey.findMany({ where: { restaurantId }, orderBy: { createdAt: 'asc' } }),
+      this.prisma.journey.findMany({ where: { restaurantId }, orderBy: { createdAt: 'asc' }, include: journeyInclude }),
+      this.guards.approvalsOn(restaurantId),
     ]);
     const stats = await this.stats(rows.map((r) => r.id));
-    return { currency: restaurant.currency, items: rows.map((row) => this.toDto(row, stats.get(row.id))) };
+    return {
+      currency: restaurant.currency,
+      approvalRequired,
+      items: rows.map((row) => this.toDto(row, stats.get(row.id))),
+    };
   }
 
   async create(restaurantId: string, userId: string, input: CreateJourneyInput): Promise<JourneyDTO> {
@@ -86,12 +103,30 @@ export class JourneysService {
         ...(input.attributionDays !== undefined ? { attributionDays: input.attributionDays } : {}),
         segmentId: input.segmentId ?? null,
         createdByUserId: userId,
+        contentUpdatedByUserId: userId,
+        contentUpdatedAt: new Date(),
       },
+      include: journeyInclude,
+    });
+    await this.audit(restaurantId, userId, 'journey.create', row.id, {
+      name: row.name,
+      trigger: row.trigger,
+      channel: row.channel,
     });
     return this.toDto(row, undefined);
   }
 
-  async update(restaurantId: string, journeyId: string, input: UpdateJourneyInput): Promise<JourneyDTO> {
+  /**
+   * Under marketing_approvals (docs/ONAYLAR.md) switching a flow on, or changing what an active flow sends or to
+   * whom, asks for approval; the runner holds it until someone other than the last editor approves. A content
+   * change takes any approval back, with or without the module.
+   */
+  async update(
+    restaurantId: string,
+    journeyId: string,
+    userId: string,
+    input: UpdateJourneyInput,
+  ): Promise<JourneyDTO> {
     const row = await this.require(restaurantId, journeyId);
     const channel = input.channel ?? (row.channel as CampaignChannel);
     const subject = input.subject === undefined ? row.subject : input.subject;
@@ -113,8 +148,19 @@ export class JourneysService {
       if (blocker === 'FEATURE_DISABLED') throw forbidden('FEATURE_DISABLED', 'Email is switched off');
       if (blocker) throw conflict(blocker, 'No verified sending domain');
     }
+    const now = new Date();
+    const changed = this.contentChanges(row, input, channel, subject, segmentId);
+    const activating = status === 'ACTIVE' && row.status !== 'ACTIVE';
+    // A content change always resets the approval: an approval given meanwhile was for the old content.
+    const approvalAfter = changed.length > 0 ? 'NONE' : row.approvalStatus;
+    const requestApproval =
+      status === 'ACTIVE' &&
+      (activating || changed.length > 0) &&
+      (approvalAfter === 'NONE' || approvalAfter === 'REJECTED') &&
+      (await this.guards.approvalsOn(restaurantId));
     const updated = await this.prisma.journey.update({
       where: { id: row.id },
+      include: journeyInclude,
       data: {
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.channel !== undefined ? { channel: input.channel } : {}),
@@ -126,15 +172,116 @@ export class JourneysService {
         ...(input.attributionDays !== undefined ? { attributionDays: input.attributionDays } : {}),
         ...(input.segmentId !== undefined ? { segmentId: input.segmentId } : {}),
         ...(input.status !== undefined ? { status: input.status, lastError: null } : {}),
+        ...(changed.length > 0 ? { ...APPROVAL_RESET, contentUpdatedByUserId: userId, contentUpdatedAt: now } : {}),
+        ...(requestApproval
+          ? {
+              ...APPROVAL_RESET,
+              approvalStatus: 'PENDING' as const,
+              approvalRequestedByUserId: userId,
+              approvalRequestedAt: now,
+            }
+          : {}),
       },
     });
+    await this.audit(restaurantId, userId, 'journey.update', row.id, {
+      fields: Object.keys(input),
+      ...(changed.length > 0 ? { content: changed } : {}),
+      ...(changed.length > 0 && row.approvalStatus !== 'NONE' ? { approvalReset: row.approvalStatus } : {}),
+    });
+    if (status !== row.status) {
+      await this.audit(restaurantId, userId, status === 'ACTIVE' ? 'journey.activate' : 'journey.pause', row.id);
+    }
+    if (requestApproval) await this.audit(restaurantId, userId, 'journey.approval.request', row.id);
     const stats = await this.stats([updated.id]);
     return this.toDto(updated, stats.get(updated.id));
   }
 
-  async remove(restaurantId: string, journeyId: string): Promise<void> {
+  async remove(restaurantId: string, journeyId: string, userId: string): Promise<void> {
     const row = await this.require(restaurantId, journeyId);
     await this.prisma.journey.delete({ where: { id: row.id } });
+    await this.audit(restaurantId, userId, 'journey.delete', row.id, { name: row.name });
+  }
+
+  /** The fields that change what the flow sends or to whom; the name and the attribution window do not. */
+  private contentChanges(
+    row: JourneyRow,
+    input: UpdateJourneyInput,
+    channel: CampaignChannel,
+    subject: string | null,
+    segmentId: string | null,
+  ): string[] {
+    const changed: string[] = [];
+    if (channel !== row.channel) changed.push('channel');
+    if ((channel === 'EMAIL' ? subject : null) !== row.subject) changed.push('subject');
+    if (input.body !== undefined && input.body !== row.body) changed.push('body');
+    if (input.delayHours !== undefined && input.delayHours !== row.delayHours) changed.push('delayHours');
+    if (input.inactiveDays !== undefined && row.trigger === 'WIN_BACK' && input.inactiveDays !== row.inactiveDays) {
+      changed.push('inactiveDays');
+    }
+    if (input.cooldownDays !== undefined && input.cooldownDays !== row.cooldownDays) changed.push('cooldownDays');
+    if (segmentId !== row.segmentId) changed.push('segmentId');
+    return changed;
+  }
+
+  // -- Approvals (docs/ONAYLAR.md) ------------------------------------------------------
+
+  /**
+   * Approve or reject the flow's current content; never by the person who last changed it (four eyes). A flow
+   * without a decision (NONE or PENDING) can be decided; a rejected one asks again when it is edited or switched on.
+   */
+  async decideApproval(
+    restaurantId: string,
+    journeyId: string,
+    userId: string,
+    decision: { approve: true } | { approve: false; note: string },
+  ): Promise<JourneyDTO> {
+    await this.features.assertEnabled('marketing_approvals', restaurantId);
+    const row = await this.require(restaurantId, journeyId);
+    if (row.approvalStatus !== 'NONE' && row.approvalStatus !== 'PENDING') {
+      throw conflict('JOURNEY_STATE_INVALID', 'The flow has no open approval');
+    }
+    if ((row.contentUpdatedByUserId ?? row.createdByUserId) === userId) {
+      throw forbidden('APPROVAL_SELF_FORBIDDEN', 'The author cannot decide on their own content');
+    }
+    // Conditional on the state and the content read above: two deciders cannot both win, and an edit made
+    // meanwhile is never approved unseen.
+    const now = new Date();
+    const decided = await this.prisma.journey.updateMany({
+      where: { id: row.id, approvalStatus: row.approvalStatus, contentUpdatedAt: row.contentUpdatedAt },
+      data: {
+        approvalStatus: decision.approve ? 'APPROVED' : 'REJECTED',
+        approvalDecidedByUserId: userId,
+        approvalDecidedAt: now,
+        approvalNote: decision.approve ? null : decision.note,
+        ...(decision.approve && row.lastError === 'JOURNEY_APPROVAL_REQUIRED' ? { lastError: null } : {}),
+        // The runner skipped the win-back scan while the flow waited; the next pass scans it at once.
+        ...(decision.approve ? { lastScanAt: null } : {}),
+      },
+    });
+    if (decided.count === 0) throw conflict('JOURNEY_STATE_INVALID', 'The flow changed meanwhile');
+    await this.audit(
+      restaurantId,
+      userId,
+      decision.approve ? 'journey.approval.approve' : 'journey.approval.reject',
+      row.id,
+      decision.approve ? undefined : { note: decision.note },
+    );
+    const updated = await this.prisma.journey.findUniqueOrThrow({ where: { id: row.id }, include: journeyInclude });
+    const stats = await this.stats([updated.id]);
+    return this.toDto(updated, stats.get(updated.id));
+  }
+
+  /** Flow actions go to the audit log in every tenant, whether or not approvals are on (as campaign.*). */
+  private async audit(
+    restaurantId: string,
+    actorUserId: string | null,
+    action: string,
+    journeyId: string,
+    meta?: Prisma.InputJsonObject,
+  ): Promise<void> {
+    await this.prisma.auditLog.create({
+      data: { restaurantId, actorUserId, action, entity: 'journey', entityId: journeyId, ...(meta ? { meta } : {}) },
+    });
   }
 
   private async checkChannelAndSegment(
@@ -300,6 +447,8 @@ export class JourneysService {
       // Stamped even when the module is off, so switched-off flows do not hold the 20 scan slots for ever.
       await this.prisma.journey.update({ where: { id: journey.id }, data: { lastScanAt: now } });
       if (!(await this.features.isEnabled('journeys', journey.restaurantId))) continue;
+      // A flow waiting for approval takes no one in yet; it starts from the window as it is once approved.
+      if (await this.awaitsApproval(journey)) continue;
       await this.scanWinBack(journey, now);
     }
 
@@ -344,6 +493,8 @@ export class JourneysService {
       )
     ).flat();
     const blocked = new Set<string>();
+    // Messages each tenant may still send in this pass under its 24-hour limit (null: no limit), read once.
+    const left = new Map<string, number | null>();
     let sent = 0;
     for (const run of due) {
       const journey = run.journey;
@@ -353,8 +504,7 @@ export class JourneysService {
       const hold = await this.holdReason(journey);
       if (hold) {
         blocked.add(journey.id);
-        if (journey.lastError !== hold)
-          await this.prisma.journey.update({ where: { id: journey.id }, data: { lastError: hold } });
+        await this.hold(journey, hold);
         continue;
       }
       const exit = await this.exitReason(journey, run, now);
@@ -378,6 +528,17 @@ export class JourneysService {
         await this.finishRun(run.id, 'SKIPPED', refusal);
         continue;
       }
+      // Flow messages share the tenant's rolling 24-hour limit with campaigns (docs/ONAYLAR.md); at the limit
+      // the flow waits and resumes as the window moves on.
+      if (!left.has(journey.restaurantId)) {
+        left.set(journey.restaurantId, await this.guards.flowMessagesLeft(journey.restaurantId, now));
+      }
+      const budget = left.get(journey.restaurantId) ?? null;
+      if (budget !== null && budget <= 0) {
+        blocked.add(journey.id);
+        await this.hold(journey, 'SEND_LIMIT_EXCEEDED');
+        continue;
+      }
       const body = renderJourneyBody(journey.body, {
         name: firstNameOf(run.customer.user.fullName),
         restaurant: restaurant.name,
@@ -394,6 +555,7 @@ export class JourneysService {
       });
       if (result.status === 'SENT') {
         sent += 1;
+        if (budget !== null) left.set(journey.restaurantId, budget - 1);
         await this.prisma.journeyRun.update({
           where: { id: run.id },
           data: { status: 'SENT', sentAt: now, messageLogId: result.logId, errorCode: null },
@@ -416,8 +578,22 @@ export class JourneysService {
   /** Why a flow cannot send at all right now; its runs wait. */
   private async holdReason(journey: JourneyRow): Promise<string | null> {
     if (!(await this.features.isEnabled('journeys', journey.restaurantId))) return 'FEATURE_DISABLED';
+    if (await this.awaitsApproval(journey)) return 'JOURNEY_APPROVAL_REQUIRED';
     if (journey.channel === 'EMAIL') return this.sender.emailBlocker(journey.restaurantId, ['journeys']);
     return null;
+  }
+
+  /** Under marketing_approvals only an approved flow sends; this also holds flows switched on before the module. */
+  private async awaitsApproval(journey: JourneyRow): Promise<boolean> {
+    return journey.approvalStatus !== 'APPROVED' && (await this.guards.approvalsOn(journey.restaurantId));
+  }
+
+  /** Shows why the flow waits; an approval or limit hold is also recorded once when it starts. */
+  private async hold(journey: JourneyRow, reason: string): Promise<void> {
+    if (journey.lastError === reason) return;
+    await this.prisma.journey.update({ where: { id: journey.id }, data: { lastError: reason } });
+    if (GUARD_HOLDS.includes(reason))
+      await this.audit(journey.restaurantId, null, 'journey.held', journey.id, { reason });
   }
 
   /** Why this run no longer makes sense: the order did not become a sale, was rated, or the customer came back. */
@@ -498,7 +674,7 @@ export class JourneysService {
     return result;
   }
 
-  private toDto(row: JourneyRow, stats: JourneyStatsDTO | undefined): JourneyDTO {
+  private toDto(row: JourneyWithApproval, stats: JourneyStatsDTO | undefined): JourneyDTO {
     if (row.channel !== 'SMS' && row.channel !== 'WHATSAPP' && row.channel !== 'EMAIL') {
       this.logger.warn(`flow ${row.id} has an unsupported channel ${row.channel}`);
     }
@@ -515,6 +691,7 @@ export class JourneysService {
       attributionDays: row.attributionDays,
       segmentId: row.segmentId,
       status: row.status === 'ACTIVE' ? 'ACTIVE' : 'PAUSED',
+      approval: this.guards.approvalDto(row),
       lastError: row.lastError,
       stats: stats ?? { pending: 0, sent: 0, skipped: 0, failed: 0, cancelled: 0, conversions: 0, revenueMinor: 0 },
       createdAt: row.createdAt.toISOString(),

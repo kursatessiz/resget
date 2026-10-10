@@ -99,7 +99,7 @@ Sevk ayarları `restaurants.dispatchSettings` JSON alanındadır (`DispatchSetti
 | `email_suppressions` | Gönderilmeyecek adresler: kalıcı geri dönme (genel), şikayet ve istemiyor (kiracı). |
 | `segments` | Kayıtlı segment: VE / VEYA kuralı (JSON), tür (dinamik / statik), statik için üye sayısı ve anlık görüntü zamanı. Kiracı başına ad tekil. Ayrıntılar: `docs/SEGMENTLER.md`. |
 | `segment_members` | Statik segmentin anlık görüntüsündeki müşteriler. `campaigns.segmentId` kampanyanın hedef segmentidir. |
-| `journeys` | Otomatik akış: tetikleyici, kanal, metin, gecikme, tekrar aralığı, dönüşüm penceresi, segment, durum. Ayrıntılar: `docs/AKISLAR.md`. |
+| `journeys` | Otomatik akış: tetikleyici, kanal, metin, gecikme, tekrar aralığı, dönüşüm penceresi, segment, durum, gönderim onayı ve içeriği son değiştiren kişi (`docs/ONAYLAR.md`). Ayrıntılar: `docs/AKISLAR.md`. |
 | `journey_runs` | Bir müşterinin bir akıştaki kaydı: zaman, durum, gerekçe, gönderim, dönüşen sipariş ve ciro. Akış ve sipariş başına tekil. |
 | `ad_connections` | Kiracının reklam hesabı (Meta, Google Ads, TikTok): şifreli bilgiler, görünür alanlar, gönderilecek türler, gelişmiş eşleşme, durum. Ayrıntılar: `docs/REKLAM.md`. |
 | `ad_conversion_deliveries` | Bir dönüşümün bir reklam platformuna gönderimi: durum, deneme, sonraki deneme, hata. |
