@@ -31,7 +31,7 @@ jobs:
       # OIDC app-token exchange, and authentication uses the API key or OAuth
       # token. The action scrubs secrets from tool subprocesses when
       # allowed_non_write_users is set; the script cap bounds label calls.
-      - uses: anthropics/claude-code-action@8cf3482550831fb35a4fc3fbf7ca139cf8028b4c # v1.0.233
+      - uses: anthropics/claude-code-action@cab360f6565aa35a51d6ce9e43f1f4287c0a32ea # v1.0.241
         env:
           TRIAGE_ISSUE_NUMBER: ${{ github.event.issue.number }}
           CLAUDE_CODE_SCRIPT_CAPS: '{"triage-label.sh":2}'
