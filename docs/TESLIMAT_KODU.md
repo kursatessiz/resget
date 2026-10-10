@@ -12,7 +12,7 @@ Restoranın kendi kuryesiyle yapılan eve teslimatta teslimin doğru kişiye yap
   - Sipariş henüz bitmemiş (teslim, iptal veya ret değil).
   - Sipariş üçüncü taraf kurye ağına verilmemiş. Ağın kuryesi bizim uygulamamızı kullanmaz.
 - **Teslimden sonra:** kod gizlenir.
-- **Kod kimde görünür:** yalnızca takip bağlantısına sahip müşteride görünür. Sevk panosu, kurye ekranı ve sipariş listesi kodu hiçbir zaman göstermez.
+- **Kod kimde görünür:** yalnızca takip bağlantısına sahip müşteride görünür. Sevk panosu, kurye ekranı ve sipariş listesi kodu hiçbir zaman göstermez. Takip bağlantısı da personel sipariş detayında yalnızca `customers.contact.view` izni olanlara (sahip, müdür) verilir; kurye ve mutfak rolleri bağlantıyı alıp kodu okuyamaz.
 
 ## Kurye
 

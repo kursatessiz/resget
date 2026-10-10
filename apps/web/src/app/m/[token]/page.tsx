@@ -10,7 +10,7 @@ import { ThemeRoot } from '@/components/ThemeRoot';
 import { LinkButton } from '@/components/ui';
 import { getT } from '@/lib/i18n';
 import { apiFetch, getMe } from '@/lib/api-server';
-import { apiInternalBaseUrl } from '@/lib/server-env';
+import { apiInternalBaseUrl, visitorHeaders } from '@/lib/server-env';
 import { QR_SESSION_COOKIE } from '@/lib/session';
 import { consentRegime } from '@/lib/consent';
 import { restaurantMetadata } from '@/lib/site';
@@ -19,7 +19,8 @@ import { restaurantMetadata } from '@/lib/site';
 const loadTableMenu = cache(async (token: string): Promise<StorefrontDTO | null> => {
   const session = (await cookies()).get(QR_SESSION_COOKIE)?.value;
   const res = await fetch(`${apiInternalBaseUrl()}/public/qr/${token}`, {
-    headers: session ? { 'x-qr-session': session } : {},
+    // The visitor's address goes along: the API limits menu views per client and would otherwise see only this server.
+    headers: { ...(await visitorHeaders()), ...(session ? { 'x-qr-session': session } : {}) },
     cache: 'no-store',
   });
   if (res.status === 404) return null;

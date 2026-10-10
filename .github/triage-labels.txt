@@ -1,0 +1,11 @@
+# Labels the issue triage agent may add (one per line, glob patterns allowed).
+# A label must also exist in the repository. Labels that change how an issue
+# is handled (duplicate, wontfix, invalid) are intentionally not listed.
+bug
+enhancement
+documentation
+question
+security
+area:*
+priority:*
+type:*

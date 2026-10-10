@@ -19,7 +19,7 @@ Restoranın müşteri listesi, aşamalı satış hattı olan bir kişi listesine
 - `POST contacts/:customerId/tasks`, `GET tasks?mine=true`, `PATCH tasks/:taskId` `{ done }`.
 - `GET export.csv` (`customers.contact.view`): bütün kişiler; başlık satırı sütun anahtarlarıdır, formül karakteriyle başlayan değer etkisizleştirilir (`csvField`). Platformda `platform.contacts.export` bu izne karşılık gelir.
 
-Telefon ve e-posta `customers.contact.view` olmadan maskelenir.
+Telefon ve e-posta `customers.contact.view` olmadan maskelenir; müşteri listesindeki arama da bu izin olmadan telefona bakmaz (`docs/PANEL.md`).
 
 ## Ekranlar
 

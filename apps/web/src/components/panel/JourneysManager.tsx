@@ -13,28 +13,48 @@ import {
   JOURNEY_TRIGGERS,
   formatMoney,
 } from '@resget/shared';
-import type { CampaignChannel, JourneyDTO, JourneyListDTO, JourneyTrigger, SegmentListDTO } from '@resget/shared';
+import type {
+  CampaignApprovalStatus,
+  CampaignChannel,
+  JourneyDTO,
+  JourneyListDTO,
+  JourneyTrigger,
+  SegmentListDTO,
+} from '@resget/shared';
 import { Badge, Button, Card, SelectField, TextAreaField, TextField } from '@/components/ui';
+import type { UiTone } from '@/components/ui/types';
 import { ApiError, bffJson } from '@/lib/client-api';
 import { useT } from '@/lib/use-t';
+
+const APPROVAL_TONE: Record<CampaignApprovalStatus, UiTone> = {
+  NONE: 'muted',
+  PENDING: 'warn',
+  APPROVED: 'success',
+  REJECTED: 'error',
+};
 
 /** The placeholders shown literally in help and suggested texts. */
 const TOKENS = { name: '{name}', restaurant: '{restaurant}', link: '{link}' };
 
 /**
  * Automated flows (docs/AKISLAR.md): write a flow for a trigger, save it
- * paused, switch it on or off, edit, delete, and follow its counts.
+ * paused, switch it on or off, edit, delete, and follow its counts. Under
+ * send approvals (docs/ONAYLAR.md) an active flow sends only once another
+ * person approved its content.
  */
 export function JourneysManager({
   restaurantId,
   locale,
   canManage,
+  canApprove = false,
   emailChannel,
   segmentsV2,
 }: {
   restaurantId: string;
   locale: string;
   canManage: boolean;
+  /** The viewer may approve or reject flows (campaigns.approve); shown only while approvals are on. */
+  canApprove?: boolean;
   /** The email module is on: flows can go by email. */
   emailChannel: boolean;
   /** Segments v2 is on: a saved segment can narrow a flow. */
@@ -56,6 +76,7 @@ export function JourneysManager({
   const [cooldownDays, setCooldownDays] = useState(String(JOURNEY_COOLDOWN_DAYS.default));
   const [attributionDays, setAttributionDays] = useState(String(CAMPAIGN_ATTRIBUTION_DAYS.default));
   const [segmentId, setSegmentId] = useState('');
+  const [rejectNotes, setRejectNotes] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -155,9 +176,37 @@ export function JourneysManager({
 
   const setStatus = (journey: JourneyDTO, status: JourneyDTO['status']) =>
     act(async () => {
-      await bffJson<JourneyDTO>(`${base}/${journey.id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
-      setNotice(status === 'ACTIVE' ? t('journeys.activated') : t('journeys.pausedNotice'));
+      const updated = await bffJson<JourneyDTO>(`${base}/${journey.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+      if (status === 'PAUSED') setNotice(t('journeys.pausedNotice'));
+      else if (approvals && updated.approval.status !== 'APPROVED') setNotice(t('journeys.approval.pending'));
+      else setNotice(t('journeys.activated'));
     });
+
+  const approve = (id: string) =>
+    act(async () => {
+      await bffJson<JourneyDTO>(`${base}/${id}/approval/approve`, { method: 'POST', body: '{}' });
+      setNotice(t('journeys.approval.approved'));
+    });
+
+  const reject = (id: string) =>
+    act(async () => {
+      await bffJson<JourneyDTO>(`${base}/${id}/approval/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ note: (rejectNotes[id] ?? '').trim() }),
+      });
+      setRejectNotes({ ...rejectNotes, [id]: '' });
+      setNotice(t('journeys.approval.rejected'));
+    });
+
+  const approvals = list?.approvalRequired ?? false;
+  /** A flow without a decision on its current content can be decided by an approver. */
+  const decidable = (j: JourneyDTO) =>
+    canApprove && approvals && (j.approval.status === 'NONE' || j.approval.status === 'PENDING');
+  const when = (iso: string) =>
+    new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
 
   const remove = (id: string) =>
     act(async () => {
@@ -308,6 +357,7 @@ export function JourneysManager({
       )}
 
       <Card title={t('journeys.list.title')} aria-label={t('journeys.list.title')}>
+        {approvals && <p className="ui-caption">{t('journeys.approval.hint')}</p>}
         {list && list.items.length === 0 && <p className="ui-text-muted">{t('journeys.list.empty')}</p>}
         {list && list.items.length > 0 && (
           <ul className="flex flex-col gap-3">
@@ -315,8 +365,26 @@ export function JourneysManager({
               <li key={j.id} className="flex flex-col gap-1 ui-rule pt-3" aria-label={j.name}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="ui-heading">{j.name}</span>
-                  <Badge tone={j.status === 'ACTIVE' ? 'success' : 'muted'}>{t(`journeys.status.${j.status}`)}</Badge>
+                  <span className="flex flex-wrap gap-2">
+                    {approvals && (
+                      <Badge tone={APPROVAL_TONE[j.approval.status]} data-approval={j.approval.status}>
+                        {t(`approvals.status.${j.approval.status}`)}
+                      </Badge>
+                    )}
+                    <Badge tone={j.status === 'ACTIVE' ? 'success' : 'muted'}>{t(`journeys.status.${j.status}`)}</Badge>
+                  </span>
                 </div>
+                {approvals && j.approval.requestedBy && j.approval.requestedAt && (
+                  <p className="ui-caption">
+                    {t('approvals.requestedBy', { name: j.approval.requestedBy, date: when(j.approval.requestedAt) })}
+                    {j.approval.decidedBy &&
+                      j.approval.decidedAt &&
+                      `. ${t('approvals.decidedBy', { name: j.approval.decidedBy, date: when(j.approval.decidedAt) })}`}
+                  </p>
+                )}
+                {approvals && j.approval.status === 'REJECTED' && j.approval.note && (
+                  <p className="ui-caption">{t('approvals.rejectNote', { note: j.approval.note })}</p>
+                )}
                 <p className="ui-caption">
                   {t(`journeys.trigger.${j.trigger}`)}
                   {j.trigger === 'WIN_BACK' && j.inactiveDays !== null
@@ -337,22 +405,50 @@ export function JourneysManager({
                   })}
                 </p>
                 {j.lastError && <p className="ui-caption">{t(`journeys.lastError.${j.lastError}`)}</p>}
-                {canManage && (
+                {(canManage || decidable(j)) && (
                   <div className="flex flex-wrap gap-2">
-                    {j.status === 'ACTIVE' ? (
+                    {decidable(j) && (
+                      <Button onClick={() => approve(j.id)} disabled={busy}>
+                        {t('approvals.approve')}
+                      </Button>
+                    )}
+                    {canManage && j.status === 'ACTIVE' && (
                       <Button variant="outline" tone="muted" onClick={() => setStatus(j, 'PAUSED')} disabled={busy}>
                         {t('journeys.pause')}
                       </Button>
-                    ) : (
+                    )}
+                    {canManage && j.status !== 'ACTIVE' && (
                       <Button onClick={() => setStatus(j, 'ACTIVE')} disabled={busy}>
                         {t('journeys.activate')}
                       </Button>
                     )}
-                    <Button variant="outline" tone="muted" onClick={() => edit(j)} disabled={busy}>
-                      {t('journeys.editAction')}
-                    </Button>
-                    <Button variant="outline" tone="error" onClick={() => remove(j.id)} disabled={busy}>
-                      {t('journeys.delete')}
+                    {canManage && (
+                      <Button variant="outline" tone="muted" onClick={() => edit(j)} disabled={busy}>
+                        {t('journeys.editAction')}
+                      </Button>
+                    )}
+                    {canManage && (
+                      <Button variant="outline" tone="error" onClick={() => remove(j.id)} disabled={busy}>
+                        {t('journeys.delete')}
+                      </Button>
+                    )}
+                  </div>
+                )}
+                {decidable(j) && (
+                  <div className="flex flex-col gap-2 md:flex-row md:items-end">
+                    <TextField
+                      label={t('approvals.rejectReason')}
+                      maxLength={500}
+                      value={rejectNotes[j.id] ?? ''}
+                      onChange={(e) => setRejectNotes({ ...rejectNotes, [j.id]: e.target.value })}
+                    />
+                    <Button
+                      variant="outline"
+                      tone="error"
+                      onClick={() => reject(j.id)}
+                      disabled={busy || (rejectNotes[j.id] ?? '').trim().length < 2}
+                    >
+                      {t('approvals.reject')}
                     </Button>
                   </div>
                 )}

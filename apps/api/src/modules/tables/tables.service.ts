@@ -5,8 +5,8 @@ import {
   BASE_LOCALE,
   BUNDLED_MESSAGES,
   TABLE_QR_TOKEN_BYTES,
-  computeQrFunnel,
   createTranslator,
+  qrFunnelFromCounts,
   tableQrUrl,
 } from '@resget/shared';
 import type { QrFunnel, TableDTO, UpdateTableInput } from '@resget/shared';
@@ -92,13 +92,22 @@ export class TablesService {
   }
 
   async funnel(restaurantId: string, from: Date, to: Date): Promise<QrFunnel> {
-    // The funnel needs each session's steps once, not every repeated row.
-    const events = await this.prisma.qrScanEvent.findMany({
-      where: { restaurantId, createdAt: { gte: from, lt: to } },
-      distinct: ['sessionId', 'outcome'],
-      select: { sessionId: true, outcome: true },
+    // Distinct sessions per step are counted in the database: the read does not grow with the number of events.
+    const [counts] = await this.prisma.$queryRaw<
+      { sessions: number; started: number; placed: number; registered: number }[]
+    >`
+      SELECT COUNT(DISTINCT q."sessionId")::int AS sessions,
+             (COUNT(DISTINCT q."sessionId") FILTER (WHERE q.outcome IN ('STARTED_ORDER', 'PLACED_ORDER')))::int AS started,
+             (COUNT(DISTINCT q."sessionId") FILTER (WHERE q.outcome = 'PLACED_ORDER'))::int AS placed,
+             (COUNT(DISTINCT q."sessionId") FILTER (WHERE q.outcome = 'REGISTERED'))::int AS registered
+      FROM qr_scan_events q
+      WHERE q."restaurantId" = ${restaurantId} AND q."createdAt" >= ${from} AND q."createdAt" < ${to}`;
+    return qrFunnelFromCounts({
+      sessions: counts.sessions,
+      startedOrder: counts.started,
+      placedOrder: counts.placed,
+      registered: counts.registered,
     });
-    return computeQrFunnel(events);
   }
 
   private async requireTable(restaurantId: string, tableId: string) {

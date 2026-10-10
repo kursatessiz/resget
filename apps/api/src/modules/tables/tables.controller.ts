@@ -1,6 +1,6 @@
 import { Controller, Get, Header, Patch, Post, StreamableFile } from '@nestjs/common';
 import { z } from 'zod';
-import { CreateTableSchema, UpdateTableSchema, UuidSchema } from '@resget/shared';
+import { CreateTableSchema, QR_FUNNEL_MAX_SPAN_DAYS, UpdateTableSchema, UuidSchema } from '@resget/shared';
 import type { QrFunnel, TableDTO } from '@resget/shared';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/zod-body.pipe';
 import { RequireFeature, RequirePermission, RestaurantScoped } from '../auth/decorators/require-permission.decorator';
@@ -11,9 +11,18 @@ import { TablesService } from './tables.service';
 const FunnelQuerySchema = z
   .object({ from: z.coerce.date().optional(), to: z.coerce.date().optional() })
   .strict()
-  .transform((q) => {
+  .transform((q, ctx) => {
     const to = q.to ?? new Date();
     const from = q.from ?? new Date(to.getTime() - 30 * 86400000);
+    // A wider range is refused instead of clamped so the caller learns the window it actually got.
+    if (to.getTime() - from.getTime() > QR_FUNNEL_MAX_SPAN_DAYS * 86400000) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['from'],
+        message: `range is limited to ${QR_FUNNEL_MAX_SPAN_DAYS} days`,
+      });
+      return z.NEVER;
+    }
     return { from, to };
   });
 

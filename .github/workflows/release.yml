@@ -6,6 +6,12 @@ name: Release
 #   workflow_dispatch -> deploy an existing sha-<commit> image to `preprod` or
 #     `production` (production never builds; gate it with required reviewers
 #     and a main-only deployment branch rule on the `production` environment).
+# Release integrity: the plan job requires a production tag to be a commit on
+# main; only runs on main move the floating :main tag or replace an existing
+# sha-<commit> image; the digests job resolves the image digests once and the
+# server pulls by digest. The checks in this file are advisory against someone
+# who can edit it on a branch: the enforced controls are the GitHub settings in
+# the owner checklist of docs/CICD_GUIDE.md.
 # Each GitHub Environment carries its own secrets (DEPLOY_HOST, DEPLOY_USER,
 # DEPLOY_SSH_KEY, DEPLOY_SSH_KNOWN_HOSTS) and variables (DEPLOY_ENABLED,
 # DEPLOY_ENVIRONMENT, PUBLIC_URL).
@@ -45,6 +51,12 @@ jobs:
       tag: ${{ steps.plan.outputs.tag }}
       build: ${{ steps.plan.outputs.build }}
     steps:
+      # Full history so the production ancestry check can see origin/main.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
       - id: plan
         env:
           EVENT: ${{ github.event_name }}
@@ -73,6 +85,16 @@ jobs:
             fi
           fi
           [[ "$tag" =~ ^sha-[0-9a-f]{40}$ ]] || { echo "::error::tag must be sha-<40 hex commit>"; exit 1; }
+          if [ "$environment" = production ]; then
+            # Production runs an image of a commit that is on main, nothing else.
+            commit="${tag#sha-}"
+            git rev-parse --verify --quiet "refs/remotes/origin/main^{commit}" > /dev/null ||
+              { echo "::error::origin/main is not available to check the tag against"; exit 1; }
+            git cat-file -e "${commit}^{commit}" 2> /dev/null ||
+              { echo "::error::commit ${commit} is not in this repository"; exit 1; }
+            git merge-base --is-ancestor "$commit" refs/remotes/origin/main ||
+              { echo "::error::commit ${commit} is not an ancestor of main; production deploys images of main commits only"; exit 1; }
+          fi
           {
             echo "environment=$environment"
             echo "tag=$tag"
@@ -120,6 +142,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # An existing sha-<commit> image is replaced only by a run on main (a
+      # re-run of the same commit). Any other ref gets a new tag or a failure.
+      - name: Refuse to overwrite a published sha tag
+        if: github.ref != 'refs/heads/main'
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          if docker buildx imagetools inspect "${IMAGE}:${TAG}" > /dev/null 2>&1; then
+            echo "::error::${IMAGE}:${TAG} already exists; only a run on main may replace a published image"
+            exit 1
+          fi
+
       # No environment-specific build arguments: the same image runs on
       # preprod and production (the web app reads its API address at runtime).
       - id: build
@@ -130,9 +165,10 @@ jobs:
           push: true
           provenance: mode=max
           sbom: true
+          # The floating :main tag follows main only.
           tags: |
             ${{ steps.image.outputs.name }}:${{ needs.plan.outputs.tag }}
-            ${{ steps.image.outputs.name }}:main
+            ${{ github.ref == 'refs/heads/main' && format('{0}:main', steps.image.outputs.name) || '' }}
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,mode=max,scope=${{ matrix.app }}
 
@@ -142,12 +178,45 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
-  deploy:
-    name: Deploy to ${{ needs.plan.outputs.environment }}
+  # Resolve the digest of each image once; the deploy pulls exactly these, so a
+  # tag moved afterwards cannot change what runs.
+  digests:
+    name: Resolve image digests
     needs: [plan, publish]
     if: >-
       always() && needs.plan.result == 'success' &&
       (needs.publish.result == 'success' || (needs.publish.result == 'skipped' && needs.plan.outputs.build == 'false'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      packages: read # read the manifests from ghcr.io
+    outputs:
+      api: ${{ steps.resolve.outputs.api }}
+      web: ${{ steps.resolve.outputs.web }}
+    steps:
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: resolve
+        env:
+          REPO: ${{ github.repository }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          for app in api web; do
+            digest="$(docker buildx imagetools inspect "ghcr.io/${REPO,,}/${app}:${TAG}" --format '{{.Manifest.Digest}}')"
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::could not resolve the ${app} image digest for ${TAG}"; exit 1; }
+            echo "${app}=${digest}" >> "$GITHUB_OUTPUT"
+            echo "${app}: \`${digest}\`" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+  deploy:
+    name: Deploy to ${{ needs.plan.outputs.environment }}
+    needs: [plan, digests]
+    if: always() && needs.digests.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -211,11 +280,14 @@ jobs:
         env:
           TARGET: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
           TAG: ${{ needs.plan.outputs.tag }}
+          API_DIGEST: ${{ needs.digests.outputs.api }}
+          WEB_DIGEST: ${{ needs.digests.outputs.web }}
           ENVIRONMENT: ${{ needs.plan.outputs.environment }}
         run: |
           [[ "$TAG" =~ ^sha-[0-9a-f]{40}$ ]] || { echo "invalid tag"; exit 2; }
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$TARGET" "bash /opt/resget/scripts/deploy.sh '$TAG'"
-          echo "Deployed \`$TAG\` to \`$ENVIRONMENT\`" >> "$GITHUB_STEP_SUMMARY"
+          [[ "$API_DIGEST" =~ ^sha256:[0-9a-f]{64}$ && "$WEB_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "invalid digest"; exit 2; }
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$TARGET" "bash /opt/resget/scripts/deploy.sh '$TAG' '$API_DIGEST' '$WEB_DIGEST'"
+          echo "Deployed \`$TAG\` (api \`$API_DIGEST\`, web \`$WEB_DIGEST\`) to \`$ENVIRONMENT\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove key
         if: always()
