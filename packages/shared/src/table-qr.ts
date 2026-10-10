@@ -43,6 +43,36 @@ export interface QrFunnel {
   viewToRegisterRate: number;
 }
 
+/** The widest from/to range the owner funnel accepts; the read stays bounded however many events exist. */
+export const QR_FUNNEL_MAX_SPAN_DAYS = 92;
+
+/** Distinct sessions per step, as an aggregate query returns them (no per-event rows). */
+export interface QrFunnelCounts {
+  /** Sessions with any event. */
+  sessions: number;
+  /** Sessions with a STARTED_ORDER or PLACED_ORDER event. */
+  startedOrder: number;
+  placedOrder: number;
+  registered: number;
+}
+
+/**
+ * The same funnel as computeQrFunnel() from per-step session counts: every session with an event counts as having
+ * viewed the menu, and a placed order implies a started one.
+ */
+export function qrFunnelFromCounts(counts: QrFunnelCounts): QrFunnel {
+  const viewedMenu = counts.sessions;
+  return {
+    sessions: counts.sessions,
+    viewedMenu,
+    startedOrder: counts.startedOrder,
+    placedOrder: counts.placedOrder,
+    registered: counts.registered,
+    viewToOrderRate: viewedMenu === 0 ? 0 : counts.placedOrder / viewedMenu,
+    viewToRegisterRate: viewedMenu === 0 ? 0 : counts.registered / viewedMenu,
+  };
+}
+
 const STAGE_ORDER: readonly `${QrScanOutcome}`[] = [
   QrScanOutcome.VIEWED_MENU,
   QrScanOutcome.STARTED_ORDER,

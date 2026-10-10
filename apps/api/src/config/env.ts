@@ -159,6 +159,8 @@ export const EnvSchema = z
     INVOICE_PROVIDER: z.enum(['MOCK']).default('MOCK'),
     PUBLIC_ORDER_RATE_LIMIT: z.coerce.number().int().min(1).max(1000).default(10),
     PUBLIC_FUNNEL_RATE_LIMIT: z.coerce.number().int().min(1).max(10000).default(60),
+    /** Table QR menu views per client per 10 minutes; each new session id adds a funnel row (docs/MASA_QR.md). */
+    PUBLIC_QR_VIEW_RATE_LIMIT: z.coerce.number().int().min(1).max(100000).default(300),
     /** Sign-in code requests and verifications allowed per client per 10 minutes (docs/GUVENLIK.md). */
     PUBLIC_OTP_RATE_LIMIT: z.coerce.number().int().min(1).max(1000000).default(30),
     COURIER_API_KEY: z.string().min(1).optional(),

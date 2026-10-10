@@ -1,5 +1,5 @@
 import { QrScanOutcome } from './enums';
-import { TableQrTokenSchema, computeQrFunnel, tableQrPath, tableQrUrl } from './table-qr';
+import { TableQrTokenSchema, computeQrFunnel, qrFunnelFromCounts, tableQrPath, tableQrUrl } from './table-qr';
 
 describe('table QR', () => {
   it('builds the public menu URL', () => {
@@ -30,6 +30,19 @@ describe('table QR', () => {
       viewToOrderRate: 0.25,
       viewToRegisterRate: 0.5,
     });
+  });
+
+  it('builds the same funnel from aggregate session counts', () => {
+    expect(qrFunnelFromCounts({ sessions: 4, startedOrder: 2, placedOrder: 1, registered: 2 })).toEqual({
+      sessions: 4,
+      viewedMenu: 4,
+      startedOrder: 2,
+      placedOrder: 1,
+      registered: 2,
+      viewToOrderRate: 0.25,
+      viewToRegisterRate: 0.5,
+    });
+    expect(qrFunnelFromCounts({ sessions: 0, startedOrder: 0, placedOrder: 0, registered: 0 }).viewToOrderRate).toBe(0);
   });
 
   it('handles an empty day', () => {
