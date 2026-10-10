@@ -16,7 +16,11 @@ const FunnelQuerySchema = z
     const from = q.from ?? new Date(to.getTime() - 30 * 86400000);
     // A wider range is refused instead of clamped so the caller learns the window it actually got.
     if (to.getTime() - from.getTime() > QR_FUNNEL_MAX_SPAN_DAYS * 86400000) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['from'], message: `range is limited to ${QR_FUNNEL_MAX_SPAN_DAYS} days` });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['from'],
+        message: `range is limited to ${QR_FUNNEL_MAX_SPAN_DAYS} days`,
+      });
       return z.NEVER;
     }
     return { from, to };

@@ -62,7 +62,12 @@ describe('Table QR view limits (e2e)', () => {
         .expect(400);
       expect(wide.body.code).toBe('VALIDATION');
       // A start date alone ends today, so it is bounded the same way.
-      await ctx.http().get(funnelPath()).query({ from: iso(-200) }).set(bearer(ownerToken)).expect(400);
+      await ctx
+        .http()
+        .get(funnelPath())
+        .query({ from: iso(-200) })
+        .set(bearer(ownerToken))
+        .expect(400);
       const to = new Date();
       await ctx
         .http()
