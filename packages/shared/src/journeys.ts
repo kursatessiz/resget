@@ -7,13 +7,16 @@ import {
   campaignContentIssue,
 } from './campaigns';
 import type { CampaignChannel } from './campaigns';
+import type { CampaignApprovalDTO } from './approvals';
 import { UuidSchema } from './validators';
 
 /**
  * Automated flows (docs/AKISLAR.md, module journeys): one message that a
  * trigger sends to one customer, later, through the same commercial sender
- * as campaigns (consent, registry, caps, send window, credits). The trigger
- * vocabulary lives here; the text, delay and audience are tenant data.
+ * as campaigns (consent, registry, caps, send window, credits) and, under
+ * marketing_approvals, the same four-eyes approval and 24-hour recipient
+ * limit (docs/ONAYLAR.md). The trigger vocabulary lives here; the text, delay
+ * and audience are tenant data.
  */
 
 /**
@@ -148,7 +151,15 @@ export interface JourneyDTO {
   attributionDays: number;
   segmentId: string | null;
   status: JourneyStatus;
-  /** Why the flow is not sending now (FEATURE_DISABLED, EMAIL_DOMAIN_NOT_VERIFIED, INSUFFICIENT_CREDITS). */
+  /**
+   * Send approval of the current content (docs/ONAYLAR.md). Under marketing_approvals an active flow sends only
+   * while APPROVED; switching it on or changing what it sends asks for approval again.
+   */
+  approval: CampaignApprovalDTO;
+  /**
+   * Why the flow is not sending now: FEATURE_DISABLED, EMAIL_DOMAIN_NOT_VERIFIED, INSUFFICIENT_CREDITS,
+   * JOURNEY_APPROVAL_REQUIRED or SEND_LIMIT_EXCEEDED (the tenant's rolling 24-hour recipient limit).
+   */
   lastError: string | null;
   stats: JourneyStatsDTO;
   createdAt: string;
@@ -156,5 +167,7 @@ export interface JourneyDTO {
 
 export interface JourneyListDTO {
   currency: string;
+  /** The marketing_approvals module is on: active flows send only once another person approved them. */
+  approvalRequired: boolean;
   items: JourneyDTO[];
 }

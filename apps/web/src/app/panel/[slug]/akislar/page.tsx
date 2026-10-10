@@ -22,6 +22,7 @@ export default async function JourneysPage({ params }: { params: Promise<{ slug:
       restaurantId={membership.restaurantId}
       locale={locale}
       canManage={can('campaigns.manage')}
+      canApprove={can('campaigns.approve')}
       emailChannel={membership.features.includes('email_channel')}
       segmentsV2={membership.features.includes('segments_v2')}
     />

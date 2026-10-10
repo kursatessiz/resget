@@ -11,6 +11,15 @@ Akış mesajları kampanyalarla aynı yoldan gider (`CommercialSenderService`, `
 
 Gönderim yalnızca işletmenin saat diliminde 09:00 ile 21:00 arasında yapılır.
 
+## Gönderim onayı ve sınırı
+
+İşletmede `marketing_approvals` modülü açıkken akışlar kampanyalarla aynı dört göz kuralına ve 24 saatlik alıcı sınırına tabidir (`docs/ONAYLAR.md` "Otomatik akışlarda onay"):
+
+- Akışı açmak veya açık bir akışın içeriğini (kanal, konu, metin, gecikme, siparişsiz gün, tekrar aralığı, segment) değiştirmek onayı `PENDING` yapar. İçeriği son değiştiren kişi dışında `campaigns.approve` sahibi biri onaylar veya gerekçeyle reddeder.
+- Onaylanana kadar çalıştırıcı o akıştan mesaj göndermez ve geri kazanım taraması yapmaz; `lastError`: `JOURNEY_APPROVAL_REQUIRED`.
+- Gönderilen her akış mesajı işletmenin son 24 saatlik alıcı sınırına sayılır; sınıra ulaşılınca akış bekler (`lastError`: `SEND_LIMIT_EXCEEDED`) ve pencere ilerledikçe devam eder. Kampanya başına sınır akışlara uygulanmaz.
+- Açma, duraklatma, düzenleme, onay kararları ve çalıştırıcının durdurması `journey.*` denetim kayıtlarına yazılır (modülden bağımsız).
+
 ## Tetikleyiciler
 
 | Tetikleyici | Ne zaman | Varsayılan gecikme | Bağlantı |
@@ -48,7 +57,7 @@ Zamanı gelen kayıt, gönderilmeden önce yeniden denetlenir ve gerekçesi kalm
 - `ORDERED_AGAIN`: geri kazanımda müşteri bu arada sipariş vermiş.
 - `EXPIRED`: zamanından bir haftadan fazla geçmiş kayıt (ör. akış uzun süre duraklatıldıysa) bağlamından kopmuş sayılır ve gönderilmez.
 
-Duraklatılan akışın bekleyen kayıtları bekler. Modül kapalıyken, e-posta alan adı doğrulanmamışken veya kredi yetmezken akış durur, kayıtlar beklemede kalır ve gerekçe akışın `lastError` alanında görünür. Koşul düzelince kaldığı yerden devam eder.
+Duraklatılan akışın bekleyen kayıtları bekler. Modül kapalıyken, e-posta alan adı doğrulanmamışken, kredi yetmezken, onay beklerken veya 24 saatlik sınıra ulaşılmışken akış durur, kayıtlar beklemede kalır ve gerekçe akışın `lastError` alanında görünür. Koşul düzelince kaldığı yerden devam eder.
 
 ## Dönüşüm
 
@@ -58,10 +67,11 @@ Akış mesajları kampanya mesajlarıyla yarışır: müşterinin siparişi, her
 
 `/restaurants/:restaurantId/journeys`, `@RequireFeature('journeys')` ve `@RequirePlanFeature('campaigns')`:
 
-- `GET` (`campaigns.view`): `{ currency, items }`, sayaçlarla.
+- `GET` (`campaigns.view`): `{ currency, approvalRequired, items }`, sayaçlar ve onay durumuyla (`approval`).
 - `POST` (`campaigns.manage`): yeni akış her zaman duraklatılmış başlar.
-- `PATCH :id` (`campaigns.manage`): alanlar ve `status` (`ACTIVE` / `PAUSED`). E-posta akışı yalnızca gönderebilecekse açılır (`EMAIL_DOMAIN_NOT_VERIFIED`).
+- `PATCH :id` (`campaigns.manage`): alanlar ve `status` (`ACTIVE` / `PAUSED`). E-posta akışı yalnızca gönderebilecekse açılır (`EMAIL_DOMAIN_NOT_VERIFIED`). Modül açıkken açmak veya açık akışın içeriğini değiştirmek onay ister.
 - `DELETE :id` (`campaigns.manage`): akış ve kayıtları silinir.
+- `POST :id/approval/approve`, `POST :id/approval/reject { note }` (`campaigns.approve`, `marketing_approvals` açık): içeriği son değiştiren kişi karar veremez (`APPROVAL_SELF_FORBIDDEN`).
 
 Çalıştırıcı (`JourneysRunner`) dakikada bir döner; testte ve `CAMPAIGN_RUNNER=off` ile kapalıdır. Her geçişte bekleyen kaydı olan her akış kendi partisini alır; kredisi biten, gönderim penceresi dışında kalan veya e-posta alan adı eksik akışlar başka akışların sırasını tutmaz. Kapalı modüldeki geri kazanım akışları da tarandı olarak işaretlenir, tarama sırasını tıkamaz.
 
@@ -69,14 +79,15 @@ Akış mesajları kampanya mesajlarıyla yarışır: müşterinin siparişi, her
 
 `/panel/<slug>/akislar` (`campaigns.view`, modül açık; Temel planda plan kuralı) ve `/pazarlama/akislar`:
 - yeni akış formu (ad, tetikleyici ve açıklaması, kanal, e-postada konu, metin ve alan yardımı, önerilen metin, gecikme, geri kazanımda siparişsiz gün, tekrar aralığı, dönüşüm penceresi, segment),
-- akış listesi (durum, özet, sayaçlar, dönüşüm, durma gerekçesi; aç, duraklat, düzenle, sil).
+- akış listesi (durum, özet, sayaçlar, dönüşüm, durma gerekçesi; aç, duraklat, düzenle, sil),
+- onay modülü açıkken onay durumu, isteyen ve karar veren, ret gerekçesi ve onaylayanlar için "Onayla" ile gerekçeli "Reddet".
 
 ## Veri
 
-- `journeys`: kiracı, tetikleyici, kanal, metin, gecikme, siparişsiz gün, tekrar aralığı, dönüşüm penceresi, segment, durum, son hata, son tarama.
+- `journeys`: kiracı, tetikleyici, kanal, metin, gecikme, siparişsiz gün, tekrar aralığı, dönüşüm penceresi, segment, durum, son hata, son tarama, onay alanları, içeriği son değiştiren kişi ve zaman.
 - `journey_runs`: akış, müşteri, sipariş, zaman, durum, hata, mesaj kaydı, gönderim, dönüşen sipariş ve ciro.
 
-Migration: `20261106000000_journeys`.
+Migration'lar: `20261106000000_journeys`, `20261214000000_journey_approvals`.
 
 ## Testler
 
@@ -89,4 +100,5 @@ Migration: `20261106000000_journeys`.
   - geri kazanım penceresi ve yeniden sipariş ile iptal;
   - akış mesajına dönüşüm yazılması;
   - segment silme koruması.
+- `apps/api/test/e2e/journey-approvals.e2e-spec.ts`: onay modülü altında akış onayı, 24 saatlik sınır ve denetim kayıtları (`docs/ONAYLAR.md`).
 - `apps/web/e2e/journeys.e2e.ts`: kapalıyken 404, önerilen metinle değerlendirme akışı, açma ve duraklatma.

@@ -117,6 +117,7 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.EMAIL_DOMAIN_NOT_VERIFIED':
     'Verify a sending domain on the integrations page before sending an email campaign.',
   'errors.JOURNEY_NOT_FOUND': 'Flow not found.',
+  'errors.JOURNEY_STATE_INVALID': 'The flow does not accept that action in its current state; refresh and try again.',
   'errors.JOURNEY_CONTENT_INVALID':
     'The flow text does not fit the channel: SMS and WhatsApp take at most 300 characters and no subject, email needs a subject, and win-back has no order link.',
   'errors.AD_CREDENTIALS_INVALID': 'The account details are incomplete or contain an unknown field.',
@@ -127,7 +128,7 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.NPS_EXISTS': 'You already answered for this order.',
   'errors.CAMPAIGN_APPROVAL_REQUIRED': 'This campaign must be approved before it is sent.',
   'errors.APPROVAL_SELF_FORBIDDEN':
-    'You cannot approve or reject your own request; another authorised person must decide.',
+    'You cannot decide on your own request or on a flow whose content you changed last; another authorised person must decide.',
   'errors.SEND_LIMIT_EXCEEDED': 'This send goes over the set sending limit.',
   'errors.AI_NOT_CONFIGURED': 'The AI studio is not set up yet.',
   'errors.AI_BUDGET_EXHAUSTED': "This month's AI budget is used up; it renews when the new month starts.",

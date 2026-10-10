@@ -116,6 +116,7 @@ export const trErrors = {
   'errors.EMAIL_DOMAIN_NOT_VERIFIED':
     'E-posta kampanyası için önce entegrasyon sayfasında bir gönderici alan adını doğrulayın.',
   'errors.JOURNEY_NOT_FOUND': 'Akış bulunamadı.',
+  'errors.JOURNEY_STATE_INVALID': 'Akış bu aşamada bu işlemi kabul etmiyor; sayfayı yenileyip yeniden deneyin.',
   'errors.JOURNEY_CONTENT_INVALID':
     'Akış metni kanala uymuyor: SMS ve WhatsApp en çok 300 karakterdir ve konu almaz, e-posta konu ister, geri kazanımda sipariş bağlantısı yoktur.',
   'errors.AD_CREDENTIALS_INVALID': 'Hesap bilgileri eksik veya tanınmayan bir alan var.',
@@ -126,7 +127,7 @@ export const trErrors = {
   'errors.NPS_EXISTS': 'Bu sipariş için zaten yanıt verdiniz.',
   'errors.CAMPAIGN_APPROVAL_REQUIRED': 'Bu kampanya gönderilmeden önce onaylanmalı.',
   'errors.APPROVAL_SELF_FORBIDDEN':
-    'Kendi onay isteğinizi onaylayamaz veya reddedemezsiniz; başka bir yetkili karar vermeli.',
+    'Kendi onay isteğinize veya içeriğini son sizin değiştirdiğiniz bir akışa karar veremezsiniz; başka bir yetkili karar vermeli.',
   'errors.SEND_LIMIT_EXCEEDED': 'Bu gönderim tanımlı gönderim sınırını aşıyor.',
   'errors.AI_NOT_CONFIGURED': 'Yapay zeka stüdyosu henüz yapılandırılmadı.',
   'errors.AI_BUDGET_EXHAUSTED': 'Bu ayın yapay zeka bütçesi doldu; yeni ay başladığında yeniden kullanılabilir.',

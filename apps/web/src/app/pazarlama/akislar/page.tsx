@@ -10,11 +10,17 @@ export default async function MarketingJourneysPage() {
   const { context } = access;
   if (!context.features.includes('journeys')) notFound();
   const locale = await getLocale();
+  const approvals = context.features.includes('marketing_approvals');
   return (
     <JourneysManager
       restaurantId={context.restaurantId}
       locale={locale}
-      canManage={context.permissions.includes('platform.marketing.send')}
+      // As for campaigns: under approvals an editor prepares flows and only an approver's decision lets them send.
+      canManage={
+        context.permissions.includes('platform.marketing.send') ||
+        (approvals && context.permissions.includes('platform.marketing.manage'))
+      }
+      canApprove={context.permissions.includes('platform.marketing.send')}
       emailChannel={context.features.includes('email_channel')}
       segmentsV2={context.features.includes('segments_v2')}
     />
