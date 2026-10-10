@@ -698,7 +698,8 @@ export interface OrderSummaryDTO {
 export interface OrderDetailDTO extends OrderSummaryDTO {
   items: OrderItemDTO[];
   history: OrderStatusChangeDTO[];
-  trackingUrl: string;
+  /** The customer's tracking link; present only for callers holding customers.contact.view (docs/SIPARIS_VE_SEVK.md). */
+  trackingUrl?: string;
   itemsGrossMinor: number;
   deliveryFeeMinor: number;
   discountMinor: number;
@@ -870,4 +871,19 @@ export function courierDisplayName(fullName: string): string {
 export function maskPhoneForDisplay(phone: string): string {
   if (phone.length < 6) return '***';
   return `${phone.slice(0, 5)}${'*'.repeat(Math.max(0, phone.length - 7))}${phone.slice(-2)}`;
+}
+
+/**
+ * The trip as a role without `customers.contact.view` may read it: every stop's customer phone is masked exactly as
+ * the order endpoints mask it. Addresses stay, dispatchers route by them. The courier's own endpoints do not use it:
+ * the assigned courier needs the number to call the customer.
+ */
+export function maskTripContacts(trip: DeliveryTripDTO): DeliveryTripDTO {
+  return {
+    ...trip,
+    stops: trip.stops.map((stop) => ({
+      ...stop,
+      address: stop.address ? { ...stop.address, contactPhone: maskPhoneForDisplay(stop.address.contactPhone) } : null,
+    })),
+  };
 }

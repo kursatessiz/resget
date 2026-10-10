@@ -7,7 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 type Db = Prisma.TransactionClient | PrismaService;
 
-/** The approval fields of a campaign row, with the names of the people involved. */
+/** The approval fields of a campaign or flow row, with the names of the people involved. */
 export interface ApprovalFields {
   approvalStatus: CampaignApprovalDTO['status'];
   approvalRequestedAt: Date | null;
@@ -23,7 +23,7 @@ export interface LimitCheck {
   block: SendLimitBlock | null;
 }
 
-/** Fields that put a campaign back to "no approval". */
+/** Fields that put a campaign or flow back to "no approval". */
 export const APPROVAL_RESET = {
   approvalStatus: 'NONE',
   approvalRequestedByUserId: null,
@@ -31,11 +31,11 @@ export const APPROVAL_RESET = {
   approvalDecidedByUserId: null,
   approvalDecidedAt: null,
   approvalNote: null,
-} as const satisfies Prisma.CampaignUpdateInput | Prisma.CampaignUncheckedUpdateInput;
+} as const satisfies Prisma.CampaignUncheckedUpdateInput & Prisma.JourneyUncheckedUpdateInput;
 
 /**
  * Send approvals and limits (docs/ONAYLAR.md), shared by the campaign
- * service, its runner and the console. Both apply while the tenant's
+ * service, its runner, the flow runner and the console. Both apply while the tenant's
  * marketing_approvals module is on; the audit trail is written always.
  */
 @Injectable()
@@ -49,14 +49,17 @@ export class CampaignGuardsService {
     return this.features.isEnabled('marketing_approvals', restaurantId);
   }
 
-  /** Recipients of the tenant's campaigns started in the last 24 hours. */
+  /** Recipients of the tenant's campaigns started, and its flow messages sent, in the last 24 hours. */
   async usedLast24h(restaurantId: string, now: Date): Promise<number> {
     const since = new Date(now.getTime() - SEND_LIMIT_WINDOW_HOURS * 3_600_000);
-    const sum = await this.prisma.campaign.aggregate({
-      where: { restaurantId, startedAt: { gte: since } },
-      _sum: { audienceCount: true },
-    });
-    return sum._sum.audienceCount ?? 0;
+    const [sum, flowMessages] = await Promise.all([
+      this.prisma.campaign.aggregate({
+        where: { restaurantId, startedAt: { gte: since } },
+        _sum: { audienceCount: true },
+      }),
+      this.prisma.journeyRun.count({ where: { status: 'SENT', sentAt: { gte: since }, journey: { restaurantId } } }),
+    ]);
+    return (sum._sum.audienceCount ?? 0) + flowMessages;
   }
 
   /** The limit a campaign of this size would break now; no limit applies while the module is off. */
@@ -66,6 +69,17 @@ export class CampaignGuardsService {
     const row = await this.prisma.campaignSendLimit.findUnique({ where: { restaurantId } });
     const limit = row ? { maxPerCampaign: row.maxPerCampaign, maxPerDay: row.maxPerDay } : null;
     return { limit, usedLast24h, block: sendLimitBlock(limit, audienceCount, usedLast24h) };
+  }
+
+  /**
+   * How many more flow messages the tenant may send now under its rolling 24-hour limit; null when no limit
+   * applies (module off or no daily limit). Flows are open-ended, so the per-campaign limit does not apply.
+   */
+  async flowMessagesLeft(restaurantId: string, now: Date): Promise<number | null> {
+    if (!(await this.approvalsOn(restaurantId))) return null;
+    const row = await this.prisma.campaignSendLimit.findUnique({ where: { restaurantId } });
+    if (!row || row.maxPerDay === null) return null;
+    return Math.max(0, row.maxPerDay - (await this.usedLast24h(restaurantId, now)));
   }
 
   approvalDto(row: ApprovalFields): CampaignApprovalDTO {

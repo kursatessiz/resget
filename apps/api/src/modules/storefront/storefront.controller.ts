@@ -50,8 +50,13 @@ export class StorefrontController {
     return this.coupons.publicLookup(slug, code);
   }
 
-  /** The page behind a table QR: menu with option groups, what can be ordered and how it can be paid. */
+  /**
+   * The page behind a table QR: menu with option groups, what can be ordered and how it can be paid. It writes one
+   * funnel row per new session id, so it is limited per client like the other public writes; the bound is generous
+   * because a venue's guests often share one address (docs/MASA_QR.md).
+   */
   @Get('qr/:token')
+  @RateLimit({ bucket: 'qr_view', limit: 300, windowSeconds: 600 })
   byToken(
     @ZodParam('token', TableQrTokenSchema) token: string,
     @Headers('x-qr-session') session?: string,

@@ -1,4 +1,3 @@
-import { lookup } from 'node:dns/promises';
 import { BlockList, isIP } from 'node:net';
 
 /** Loopback, private, link-local (cloud metadata), carrier-grade NAT, multicast and reserved ranges. */
@@ -58,12 +57,4 @@ export function nonPublicUrlReason(raw: string): string | null {
     return 'an internal host name is not allowed';
   }
   return null;
-}
-
-/** Resolves the host right before a call and refuses when any of its addresses is not public (DNS pointing inside). */
-export async function resolvesToNonPublic(raw: string): Promise<boolean> {
-  const host = new URL(raw).hostname.replace(/^\[|\]$/g, '');
-  if (isIP(host)) return isNonPublicAddress(host);
-  const addresses = await lookup(host, { all: true, verbatim: true });
-  return addresses.length === 0 || addresses.some((entry) => isNonPublicAddress(entry.address));
 }

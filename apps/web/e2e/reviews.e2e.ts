@@ -42,16 +42,20 @@ test.describe('Public reviews', () => {
       method: 'POST',
       data: { categoryId: category.id, name: 'Mercimek', priceMinor: 9000, vatRateBps: 1000 },
     });
-    const order = await bff<OrderDetailDTO>(page.request, `restaurants/${restaurant.id}/orders`, {
-      method: 'POST',
-      data: {
-        branchId: settings.branches[0].id,
-        channel: 'PHONE',
-        fulfillment: 'PICKUP',
-        items: [{ menuItemId: item.id, quantity: 1 }],
-        customer: { fullName: 'Ayse Yilmaz', phone: `05326${String(Date.now()).slice(-6)}` },
+    const order = await bff<OrderDetailDTO & { trackingUrl: string }>(
+      page.request,
+      `restaurants/${restaurant.id}/orders`,
+      {
+        method: 'POST',
+        data: {
+          branchId: settings.branches[0].id,
+          channel: 'PHONE',
+          fulfillment: 'PICKUP',
+          items: [{ menuItemId: item.id, quantity: 1 }],
+          customer: { fullName: 'Ayse Yilmaz', phone: `05326${String(Date.now()).slice(-6)}` },
+        },
       },
-    });
+    );
     for (const step of [{ to: 'ACCEPTED', prepMinutes: 5 }, { to: 'READY' }, { to: 'PICKED_UP' }]) {
       await bff(page.request, `restaurants/${restaurant.id}/orders/${order.id}/transition`, {
         method: 'POST',

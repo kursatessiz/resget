@@ -1,4 +1,4 @@
-import { isNonPublicAddress, nonPublicUrlReason, resolvesToNonPublic } from './public-address';
+import { isNonPublicAddress, nonPublicUrlReason } from './public-address';
 
 describe('public address guard', () => {
   it('knows private, loopback, link-local and mapped addresses', () => {
@@ -30,10 +30,5 @@ describe('public address guard', () => {
     ]) {
       expect(nonPublicUrlReason(url)).not.toBeNull();
     }
-  });
-
-  it('refuses an address literal that is private without a lookup', async () => {
-    await expect(resolvesToNonPublic('https://127.0.0.1/x')).resolves.toBe(true);
-    await expect(resolvesToNonPublic('https://93.184.216.34/x')).resolves.toBe(false);
   });
 });

@@ -15,6 +15,7 @@ import {
   haversineMeters,
   isTerminalOrderStatus,
   maskPhoneForDisplay,
+  maskTripContacts,
   orderShortCode,
   orderTimestampFor,
   settlementDefaultsFor,
@@ -1262,11 +1263,14 @@ export class OrdersService {
 
   /**
    * The live events go out once with full contacts; a staff stream without `customers.contact.view` masks them
-   * here, exactly as the REST list does, so the phone number never reaches a role that may not see it.
+   * here (order and trip events), exactly as the REST reads do, so the phone number never reaches a role that may
+   * not see it.
    */
   static viewForContacts(canSeeContacts: boolean): (event: RealtimeEvent) => RealtimeEvent {
     return (event) => {
-      if (canSeeContacts || event.type !== 'order.updated') return event;
+      if (canSeeContacts) return event;
+      if (event.type === 'trip.updated') return { ...event, trip: maskTripContacts(event.trip) };
+      if (event.type !== 'order.updated') return event;
       const order = event.order;
       return {
         ...event,
@@ -1410,7 +1414,11 @@ export class OrdersService {
         reason: h.reason,
         at: h.createdAt.toISOString(),
       })),
-      trackingUrl: trackingUrl(this.config.getOrThrow<string>('PUBLIC_APP_URL'), row.trackingToken ?? ''),
+      // The link is the customer's bearer credential (it also shows the delivery code), so only roles that may see
+      // the customer's contact details get it; kitchen, counter and courier roles never do.
+      ...(canSeeContacts
+        ? { trackingUrl: trackingUrl(this.config.getOrThrow<string>('PUBLIC_APP_URL'), row.trackingToken ?? '') }
+        : {}),
       itemsGrossMinor: row.itemsGrossMinor,
       deliveryFeeMinor: row.deliveryFeeMinor,
       discountMinor: row.discountMinor,

@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Deploy a pre-built release tag. Never builds on the server.
-# Usage: deploy.sh <tag>      e.g. deploy.sh sha-<commit>
+# Usage: deploy.sh <tag> [<api-digest> <web-digest>]
+#   e.g. deploy.sh sha-<commit> sha256:<64 hex> sha256:<64 hex>
+# With digests (the release workflow always passes them) the images are pulled
+# by digest, so a moved tag cannot change what runs. Without them (nightly,
+# manual runs) the tag is pulled; the digests of a successful deploy are
+# recorded under releases/digests/<tag> and reused by a later rollback.
 #
 # 1. validate the Caddyfile (abort if invalid, nothing has changed yet)
 # 2. back up the database
@@ -18,11 +23,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/lib.sh"
 load_env
 
-TAG="${1:?usage: deploy.sh <tag>}"
+TAG="${1:?usage: deploy.sh <tag> [<api-digest> <web-digest>]}"
 if ! [[ "${TAG}" =~ ^[A-Za-z0-9._-]{1,128}$ ]]; then
   log "Invalid tag: ${TAG}"
   exit 2
 fi
+if [ "$#" -ne 1 ] && [ "$#" -ne 3 ]; then
+  log "Digests are given as a pair: <api-digest> <web-digest>"
+  exit 2
+fi
+API_DIGEST="${2:-}"
+WEB_DIGEST="${3:-}"
 
 mkdir -p "${RELEASE_DIR}"
 exec 9>"${RELEASE_DIR}/.lock"
@@ -48,7 +59,7 @@ if compose ps --status running --services 2>/dev/null | grep -qx postgres; then
   BACKUP_OFFSITE_REQUIRED=0 bash "${SCRIPT_DIR}/backup.sh"
 fi
 
-use_release "${TAG}"
+use_release "${TAG}" "${API_DIGEST}" "${WEB_DIGEST}"
 compose pull api web
 
 # Wait for the healthchecks: on an empty volume Postgres needs a few seconds
@@ -70,6 +81,10 @@ if bash "${SCRIPT_DIR}/healthcheck.sh"; then
     log "Caddy reload failed; the previous proxy config keeps serving"
   [ -n "${PREVIOUS}" ] && echo "${PREVIOUS}" > "${RELEASE_DIR}/previous"
   echo "${TAG}" > "${RELEASE_DIR}/current"
+  if [ -n "${API_DIGEST}" ]; then
+    mkdir -p "${RELEASE_DIR}/digests"
+    echo "${API_DIGEST} ${WEB_DIGEST}" > "${RELEASE_DIR}/digests/${TAG}"
+  fi
   echo "$(date -u +%FT%TZ) ${TAG}" >> "${RELEASE_DIR}/history"
   docker image prune -f --filter "until=168h" >/dev/null || true
   log "Release ${TAG} is live"

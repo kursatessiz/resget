@@ -421,7 +421,12 @@ export class StorefrontService {
     });
     await this.attribution.identifyOrderSafely(order.id, context.visitorId);
     const loyaltyPointsRedeemed = loyaltyUserId ? await this.loyalty.redeemedPointsOf(order.id) : 0;
-    const token = order.trackingUrl.split('/t/')[1] ?? '';
+    // The placing customer holds the link; the staff order DTO no longer carries it for roles without contact rights.
+    const { trackingToken } = await this.prisma.order.findUniqueOrThrow({
+      where: { id: order.id },
+      select: { trackingToken: true },
+    });
+    const token = trackingToken ?? '';
     let checkoutUrl: string | null = null;
     let status = order.status;
     if (order.status === 'PENDING_PAYMENT' && input.returnUrl) {

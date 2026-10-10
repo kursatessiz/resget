@@ -58,6 +58,15 @@ export const enJourneys: Record<keyof typeof trJourneys, string> = {
   'journeys.conversions': 'Conversions: {count}, attributed revenue: {amount}',
   'journeys.lastError.FEATURE_DISABLED': 'Stopped: the module is off.',
   'journeys.lastError.EMAIL_DOMAIN_NOT_VERIFIED': 'Stopped: no verified sending domain.',
+  'journeys.lastError.JOURNEY_APPROVAL_REQUIRED':
+    'Stopped: the flow is waiting for approval. It starts once another authorised person approves it.',
+  'journeys.lastError.SEND_LIMIT_EXCEEDED':
+    'Stopped: the 24-hour sending limit has been reached. It resumes as the window moves on.',
+  'journeys.approval.hint':
+    'Send approval is on: switching a flow on, or changing the channel, text, timing or audience of an active flow, needs approval. Someone other than the person who last changed the content approves it; nothing is sent until then.',
+  'journeys.approval.pending': 'Flow switched on; it sends nothing until another authorised person approves it.',
+  'journeys.approval.approved': 'Flow approved; its messages start going out.',
+  'journeys.approval.rejected': 'Flow rejected.',
   'journeys.lastError.INSUFFICIENT_CREDITS':
     'Stopped: not enough credits. It continues where it left off once credits are bought.',
   'journeys.rules':

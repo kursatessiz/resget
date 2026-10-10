@@ -187,6 +187,12 @@ export class StaffService {
     if (!this.unrestricted(tenant) && membership.id === tenant.membershipId) {
       throw forbidden('ROLE_ESCALATION', 'Your own membership is changed by the owner');
     }
+    // Any change (a status flip included) acts on the member's whole current authority, so a manager may only touch
+    // members whose present role carries nothing beyond what the manager holds.
+    if (!this.unrestricted(tenant)) {
+      const current = await this.requireRole(tenant.restaurantId, membership.roleTemplate.id);
+      this.assertGrantable(tenant, current.permissions);
+    }
     if (input.roleTemplateId) {
       const role = await this.requireRole(tenant.restaurantId, input.roleTemplateId);
       if (role.isOwner) throw conflict('ROLE_PROTECTED', 'The owner role cannot be assigned');

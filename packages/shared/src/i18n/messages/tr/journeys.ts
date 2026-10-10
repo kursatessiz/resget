@@ -60,6 +60,15 @@ export const trJourneys = {
   'journeys.lastError.FEATURE_DISABLED': 'Duruyor: modül kapalı.',
   'journeys.lastError.EMAIL_DOMAIN_NOT_VERIFIED': 'Duruyor: doğrulanmış gönderici alan adı yok.',
   'journeys.lastError.INSUFFICIENT_CREDITS': 'Duruyor: kredi yetersiz. Kredi alındığında kaldığı yerden devam eder.',
+  'journeys.lastError.JOURNEY_APPROVAL_REQUIRED':
+    'Duruyor: akış onay bekliyor. Başka bir yetkili onayladığında başlar.',
+  'journeys.lastError.SEND_LIMIT_EXCEEDED':
+    'Duruyor: son 24 saatlik gönderim sınırına ulaşıldı. Pencere ilerledikçe kaldığı yerden devam eder.',
+  'journeys.approval.hint':
+    'Gönderim onayı açık: akışı açmak veya açık bir akışın kanalını, metnini, zamanlamasını ya da hedefini değiştirmek onay ister. Onayı, içeriği son değiştiren kişiden başka bir yetkili verir; onaylanana kadar mesaj gitmez.',
+  'journeys.approval.pending': 'Akış açıldı; başka bir yetkili onaylayana kadar mesaj göndermez.',
+  'journeys.approval.approved': 'Akış onaylandı; mesajlar gönderilmeye başlar.',
+  'journeys.approval.rejected': 'Akış reddedildi.',
   'journeys.rules':
     'Mesajlar yalnızca izinli müşterilere ve gönderim saatlerinde gider. Sipariş iptal edilirse, değerlendirilmişse veya müşteri yeniden sipariş verirse bekleyen mesaj iptal olur; bir haftadan fazla geciken mesaj gönderilmez.',
 } as const satisfies Record<string, string>;

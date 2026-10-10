@@ -6,8 +6,12 @@ import { z } from 'zod';
  * Approvals (module marketing_approvals, per tenant; meant for the platform
  * tenant first): a campaign is sent only after someone holding
  * campaigns.approve, other than the person who asked, approved its current
- * content. Any edit takes the approval back. Limits cap how many recipients
- * one campaign and the last 24 hours may reach; the console sets them. The
+ * content. Any edit takes the approval back. Automated flows follow the same
+ * rule: an active flow sends only while someone other than its last editor
+ * has approved its content. Limits cap how many recipients one campaign and
+ * the last 24 hours (campaigns and flow messages together) may reach; the
+ * console sets them; flows are open-ended, so only the 24-hour limit holds
+ * them. The
  * audit viewer (module audit_viewer, console) reads the audit log.
  */
 
@@ -39,7 +43,7 @@ export const UpdateSendLimitSchema = z
   .object({
     /** Most recipients a single campaign may have; null for no limit. */
     maxPerCampaign: LimitValue,
-    /** Most recipients the tenant's campaigns may reach in the last 24 hours; null for no limit. */
+    /** Most recipients the tenant's campaigns and flows may reach in the last 24 hours; null for no limit. */
     maxPerDay: LimitValue,
   })
   .strict();
@@ -49,7 +53,7 @@ export interface SendLimitDTO {
   restaurantId: string;
   maxPerCampaign: number | null;
   maxPerDay: number | null;
-  /** Recipients of campaigns started in the last 24 hours. */
+  /** Recipients of campaigns started and flow messages sent in the last 24 hours. */
   usedLast24h: number;
   updatedAt: string | null;
 }

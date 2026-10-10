@@ -66,7 +66,8 @@ Metinler i18n anahtarlarıdır (`email.template.<anahtar>.subject|body`, `email.
 
 - **Konu denetimi:** konu `SES_SNS_TOPIC_ARNS` listesinde değilse mesaj yok sayılır.
 - **İmza denetimi:**
-  - sertifika adresi HTTPS olmalı ve yalnızca Amazon'un SNS host'unda bulunmalı (`sns.<bölge>.amazonaws.com`);
+  - sertifika adresi HTTPS olmalı ve yalnızca Amazon'un SNS host'unda bulunmalı (`sns.<bölge>.amazonaws.com`); adreste sorgu dizesi, kullanıcı bilgisi veya port bulunamaz;
+  - sertifika, adresin parça (`#...`) kısmı atılarak tek anahtarla önbelleğe alınır; önbelleğe yalnızca bir imzayı gerçekten doğrulamış sertifika girer ve önbellek en çok 32 sertifika tutar (en eski kullanılan düşer), böylece doğrulanmamış istekler bellek büyütemez;
   - imza sürümü 1 (SHA1) veya 2 (SHA256) olmalı;
   - imzalanan alanlar SNS sırasıyla doğrulanır;
   - doğrulanmayan mesaj düşürülür.
