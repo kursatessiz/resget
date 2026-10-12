@@ -65,13 +65,14 @@ PR'larda açılış sayfası ve masa QR menü sayfası için Lighthouse CI (`app
 - **`main`'e push**: `ci.yml` -> imaj build -> **preprod**'a deploy (preprod ortamında `DEPLOY_ENABLED` `true` ise).
 - **`workflow_dispatch`**: `environment` (`preprod` / `production`) ve `tag` (`sha-<40 karakterlik commit>`). Production için `tag` zorunludur, iş yalnızca `main` üzerinden başlatılabilir ve `plan` işi tag'in commit'inin `origin/main`'in atası olduğunu `git merge-base --is-ancestor` ile doğrular (başka dalın commit'i production'a çıkamaz); production hiçbir zaman build etmez, preprod'da çalışmış imajı terfi ettirir. Geri almak için de aynı yol kullanılır: önceki tag verilir.
 
-İşler: `plan` (hedef, tag, build gerekip gerekmediği, production için atalık denetimi), `ci`, `publish` (`ghcr.io/<owner>/resget/api` ve `.../web`, `sha-<commit>` etiketi, SBOM ve provenance attestation), `digests` (iki imajın digest'ini bir kez çözer), `deploy` (seçilen GitHub Environment'ında; `DEPLOY_ENABLED` ve `DEPLOY_ENVIRONMENT` kapısı, SSH ile dosya senkronu `/opt/resget` altına, `deploy.sh <tag> <api-digest> <web-digest>`).
+İşler: `plan` (hedef, tag, build gerekip gerekmediği, production için atalık denetimi), `ci`, `publish` (`ghcr.io/<owner>/resget/api` ve `.../web`, `sha-<commit>` etiketi, SBOM ve provenance attestation), `digests` (iki imajın digest'ini bir kez çözer ve her digest'in build provenance attestation'ını doğrular), `deploy` (seçilen GitHub Environment'ında; `DEPLOY_ENABLED` ve `DEPLOY_ENVIRONMENT` kapısı, SSH ile dosya senkronu `/opt/resget` altına, `deploy.sh <tag> <api-digest> <web-digest>`).
 
 Sürüm bütünlüğü kuralları:
 
 - Kayan `main` etiketi yalnızca `refs/heads/main` üzerinden çalışan koşuda itilir.
 - `main` dışındaki bir ref, kayıt defterinde zaten var olan bir `sha-<commit>` imajının üzerine yazamaz: `publish` itmeden önce `docker buildx imagetools inspect` ile bakar ve varsa hata verir. Yalnızca `main` koşusu (aynı commit'in yeniden çalıştırılması) imajı yenileyebilir.
 - `deploy.sh` imajları digest ile çeker (`<repo>/api:<tag>@sha256:...`); tag sonradan başka bir imaja taşınsa bile çalışan imaj `digests` işinin çözdüğü imajdır. Başarılı deploy digest'leri `releases/digests/<tag>` dosyasına yazar ve `rollback.sh` aynı tag'e dönerken onları yeniden kullanır. Digest verilmeyen yollar (`nightly-deploy.sh`, sunucuda elle `deploy.sh <tag>`) tag ile çeker; bu yolun güvenilir bir digest kaynağı yoktur, bu yüzden aşağıdaki GHCR ve branch ayarlarına dayanır.
+- `digests` işi, çözdüğü her digest için `publish` işinin `actions/attest-build-provenance` ile ürettiği attestation'ı doğrular: `gh attestation verify oci://ghcr.io/<repo>/<app>@<digest> --repo <repo> --signer-workflow <repo>/.github/workflows/release.yml --source-digest <tag'in commit'i> --deny-self-hosted-runners`. Yani imaj bu repository'nin `release.yml` workflow'u tarafından, GitHub'ın OIDC kimliğiyle imzalanmış ve tag'in adını taşıdığı commit'ten üretilmiştir. `production` için ayrıca `--source-ref refs/heads/main` eklenir: imzayı atan koşu `main` üzerinde olmalıdır (preprod, test dalından üretilmiş imajı da kabul eder). Doğrulama başarısız olursa, attestation yoksa ya da `gh` bir bayrağı tanımazsa komut sıfırdan farklı çıkar, `digests` işi kırılır ve `deploy` hiç başlamaz (fail closed). İş yalnızca `contents: read`, `packages: read` ve `attestations: read` izinlerini ister. `gh`, `ubuntu-latest` runner'ında hazır gelir ve sürümü iş çıktısına yazılır; `--source-ref`, `--source-digest` ve `--signer-workflow` bayrakları `gh attestation verify` belgesindeki bayraklardır. Bu doğrulama yalnızca GitHub Actions üzerinde çalışabilir; yerelde yalnızca `actionlint` ve betik mantığı sınanır, ilk gerçek koşuda iş özetindeki `provenance verified` satırlarına bakılmalıdır. Digest vermeyen yollar (`nightly-deploy.sh`, elle `deploy.sh <tag>`) bu doğrulamadan geçmez.
 - Workflow içindeki bu denetimler, workflow dosyasını kendi dalında değiştirebilen biri karşısında yalnızca tavsiye niteliğindedir (dispatch edilen dalın dosyası çalışır); bağlayıcı olanlar aşağıdaki GitHub ayarlarıdır.
 
 Eşzamanlılık ortam başınadır: `main`'e yeni bir push bekleyen bir production deploy'unu iptal etmez.
@@ -102,6 +103,7 @@ Bunlar repository dışındadır; workflow'daki denetimleri bağlayıcı yapan a
 - [ ] GHCR paketleri (`.../api` ve `.../web`): Package settings -> Manage Actions access altında yalnızca bu repository Write rolüyle listelenir; kullanıcılara veya takımlara doğrudan Write verilmez, böylece yalnızca bu repository'nin workflow'ları imaj itebilir. Sunucunun `docker login ghcr.io` token'ı yalnızca `read:packages` kapsamlıdır.
 - [ ] Settings -> Actions -> General -> Workflow permissions: "Read repository contents and packages permissions" (varsayılan salt okunur); workflow'lar gereken izni işte kendileri ister.
 - [ ] Ajan workflow'ları (bölüm 7): `CLAUDE_AGENTS_ENABLED` değişkeni yalnızca triage'ın etiket script'i (`.github/scripts/triage-label.sh`) incelendikten sonra `true` yapılır; issue geçmişinde `github-actions` tarafından yapılmış beklenmedik düzenleme olup olmadığına bakılır.
+- [ ] Kenar hız sınırı: aşağıdaki "Kenar hız sınırı" bölümündeki öneriye göre karar verin (CDN/WAF kuralı ya da ayrı bir PR); bu repository'de Caddy katmanında hız sınırı yoktur.
 - [ ] Plan: Environments ve branch protection Free planda private repolarda yoktur (aşağıdaki not); bu liste ancak desteklenen planda bağlayıcıdır, aksi halde production deploy'u yalnızca sahibin elindeki yetkiye dayanır.
 
 ### Ortam değişkenleri envanteri
@@ -166,6 +168,22 @@ Preprod, production'ın birebir kopyasıdır: aynı compose, aynı Caddyfile, ay
      node dist/cli/bootstrap.js --super-admin-phone=+905xxxxxxxxx --super-admin-name="Ad Soyad"
    ```
    Komut idempotenttir: numara yoksa süper admin olarak oluşturur, varsa yetkiyi verir, zaten yetkiliyse dokunmaz; çıktıda numara maskelidir. Süper admin `/giris` ile telefon doğrulayıp `/admin` konsoluna girer; kredi paketleri, hizmet alanları ve plan fiyatları oradan girilir (`docs/PLATFORM_YONETIMI.md`). Kurye ağı MOCK yalnızca üretim dışında oluşturulur; gerçek ağlar adaptörleriyle gelir.
+
+### Kenar hız sınırı (Caddy önünde): durum, karar ve öneri
+
+Durum: `deploy/caddy/Caddyfile` içinde istemci başına istek sınırı yoktur. Uygulama katmanında sınırlar vardır: herkese açık yazma uçları (sipariş verme, huni adımları, QR görüntüleme, OTP) `PublicRateLimitGuard` ile Redis'te sabit pencere sayaçlarıyla (`PUBLIC_*_RATE_LIMIT` anahtarları), API anahtarları `API_KEY_RATE_LIMIT` ile, kimlik doğrulama ve OTP uçları kendi sayaçlarıyla sınırlanır; istemci adresi `trust proxy 1` ile Caddy'nin eklediği adrestir. Eksik olan, bu sınırlardan önce, tek bir adresten gelen genel istek akışını Caddy'de kesen bir katmandır.
+
+Karar: bu değişiklikte uygulanmadı. Gerekçeler:
+
+1. Caddy'nin standart imajında hız sınırı yoktur; `mholt/caddy-ratelimit` gibi üçüncü taraf bir modülle `xcaddy` üzerinden özel imaj gerekir. Bu imaj platform, API ve restoranların özel alan adlarının (`on_demand_tls`) tek TLS sonlandırıcısıdır; imajı değiştirmek tüm trafiği ve sertifika alma yolunu etkiler ve bu yol (ACME, on-demand sertifika, HTTP/3) yerelde uçtan uca sınanamaz.
+2. Özel imaj yedi yeri birlikte değiştirmeyi gerektirir: yeni Dockerfile, `publish` matrisi ve attestation, `digests` çıktıları, `deploy.sh` ve `rollback.sh` imzası ile `releases/digests/<tag>` dosya biçimi, `nightly-deploy.sh`, `docker-compose.prod.yml` ve `ci.yml` içindeki `Caddyfile validate` (standart imaj `rate_limit` yönergesini tanımaz). Biri eksik kalırsa deploy ya da rollback bozulur; ayrıca modül sürüm etiketsiz olabilir ve commit SHA'sına sabitlenmelidir.
+3. Tek sunucuda Caddy'de uygulanan sınır hacimsel bir saldırıyı durdurmaz (bant genişliği ve bağlantılar sunucuya zaten ulaşmıştır); asıl koruma sunucunun önündeki bir katmandır.
+
+Önerilen sahip eylemi, tercih sırasıyla:
+
+- API alan adının önüne bir CDN/WAF koyun (ör. Cloudflare) ve `API_DOMAIN` için istemci başına hız sınırı kuralı tanımlayın (başlangıç için dakikada IP başına 600 istek, ödeme sağlayıcısı ve kurye ağı webhook yolları ve `/health` hariç). Uyarı: CDN arkasında API, gerçek istemci yerine CDN adresini görür ve uygulama içi sınırlar tüm kullanıcıları tek sayaçta toplar; bu yüzden önce `apps/api/src/main.ts` içindeki `trust proxy` ayarı ve `X-Forwarded-For` zinciri CDN'e göre ayrı bir PR'da güncellenmeli, Caddy'nin yalnızca CDN adres aralıklarından gelen başlıklara güvenmesi sağlanmalıdır.
+- Bağlantı düzeyi için sunucu güvenlik duvarında 80/443 yeni bağlantı sınırı (`ufw limit` ya da nftables `meter`) ekleyin; bu istek düzeyinde değil bağlantı düzeyinde korur.
+- Caddy içinde istenirse ayrı bir PR'da: `xcaddy` sürümü ve modül commit'i sabit bir `deploy/docker/caddy.Dockerfile`, CI'da build (sunucuda asla), `api` ve `web` gibi digest ile çekme ve attestation, `caddy validate`'in özel imajla çalışması, yalnızca `API_DOMAIN` bloğunda cömert bir varsayılan (IP başına dakikada 600, `/health` ve webhook yolları hariç) ve önce preprod'da gözlem. Bu PR'dan bağımsız olarak `docker-compose.prod.yml` içindeki `caddy:2-alpine` etiketi de digest ile sabitlenmelidir (şu an kayan etiket).
 
 ## 6. Güvenlik workflow'ları
 
