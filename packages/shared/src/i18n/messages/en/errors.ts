@@ -111,6 +111,8 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.WEBHOOK_NOT_FOUND': 'Webhook not found.',
   'errors.WEBHOOK_URL_INVALID': 'Only https URLs are accepted in production.',
   'errors.WEBHOOK_REDELIVERY_NOT_ALLOWED': 'Only a failed delivery of an active endpoint can be sent again.',
+  'errors.WEBHOOK_TEST_LIMIT':
+    'Test deliveries to this endpoint are still waiting. Try again once they have been sent.',
   'errors.API_KEY_NOT_FOUND': 'API key not found.',
   'errors.API_KEY_EXPIRED': 'The API key has expired. Create a new key in the panel.',
   'errors.DOMAIN_NOT_SET': 'Save a domain first.',

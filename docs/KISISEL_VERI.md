@@ -23,7 +23,9 @@ Silinenler (tek işlemde):
 
 - Kayıtlı adresler, kayıtlı kartlar (kasa token'ı işlemden sonra kasaya da unutturulur; hata günlüğe yazılır, platformda token kalmaz), push cihazları, OTP kayıtları, bekleyen oturum aktarım kodları. Hesabın bütün oturumları sona erer (`docs/GUVENLIK.md`, "Oturumlar").
 - Kurye konumu ve konum izi; personel üyelikleri `PASSIVE` olur ve kişi personel listelerinden çıkar.
-- Her restorandaki müşteri kaydında pazarlama izni (vazgeçme zamanı yazılır, vazgeçme bağlantısı geçersiz olur), restoranın notu ve etiketleri, sadakat puanı (bakiye `ADJUSTMENT` satırıyla sıfırlanır). Sipariş sayısı ve ciro sayaçları restoranın raporları için kalır; kayıt müşteri listesinde artık görünmez.
+- Her restorandaki müşteri kaydında pazarlama izni (vazgeçme zamanı yazılır, vazgeçme bağlantısı geçersiz olur), restoranın notu ve etiketleri, sadakat puanı (bakiye `ADJUSTMENT` satırıyla sıfırlanır) ve CRM alanları (e-posta, şirket, il, ilçe, kaynak; `docs/CRM.md`). Sipariş sayısı ve ciro sayaçları restoranın raporları için kalır; kayıt müşteri listesinde artık görünmez.
+- Reklam platformlarına gidecek bekleyen dönüşüm gönderimleri `SKIPPED` (`USER_DELETED`) olur; reklam çalıştırıcısı müşterisi silinmiş dönüşümü hiçbir zaman göndermez (`docs/REKLAM.md`). Gönderilmiş olanlar yalnızca rapor sayısı olarak kalır.
+- Webhook kuyruğundaki sipariş kopyaları (`docs/API_ERISIMI.md`, "Webhook'lar"): kişinin siparişleriyle ilgili bekleyen ve başarısız teslimler silinir, yani ne yeniden denenir ne de "Yeniden gönder" ile gönderilir. Gönderilmiş teslimler teslim geçmişinde kalır ama gövdelerinden müşteri adı, telefonu, adresin kişiyi tanımlayan kısmı, sipariş notu ve değerlendirme yorumu çıkarılır. Müşterisi silinmiş bir siparişin teslimi sonradan da yeniden gönderilmez (`WEBHOOK_REDELIVERY_NOT_ALLOWED`). Gönderilmiş ve başarısız teslimler zaten 30 gün sonra silinir (`WEBHOOK_DELIVERY_RETENTION_DAYS`).
 - Siparişlerdeki müşteri notu ve teslimat adresinin kişiyi tanımlayan kısmı (sokak, kişi adı, telefon, konum); il ve ilçe raporlar için kalır. Değerlendirmelerde, geri bildirim kayıtlarında ve NPS yanıtlarında puan kalır, yorum silinir.
 - Kişinin tavsiye kodu ve kullanılmamış ödül kuponları kapatılır (`docs/TAVSIYE.md`); kullanılmış kuponlar kayıt için kalır.
 - Kullanıcı satırında ad, e-posta ve dil; telefon `deleted:<kullanıcı kimliği>` biçiminde bir mezar taşıyla değiştirilir ve `deletedAt` damgalanır.
@@ -42,7 +44,7 @@ Sonrası:
 
 ## Restoran tarafı
 
-Restoran, kendi müşteri listesinde silinmiş hesabı görmez ve kampanyalar ona ulaşmaz. Geçmiş siparişlerde müşteri adı ve telefonu boş görünür; tutarlar, kalemler ve il / ilçe kalır.
+Restoran, kendi müşteri listesinde silinmiş hesabı görmez ve kampanyalar ona ulaşmaz. Geçmiş siparişlerde müşteri adı ve telefonu boş görünür; tutarlar, kalemler ve il / ilçe kalır. Restoranın kendi sistemine webhook ile daha önce ulaşmış veriler restoranın sorumluluğundadır; platform silinmiş kişi hakkında yeni veya tekrar bir gönderim yapmaz.
 
 ## Yapay zeka stüdyosu
 
@@ -50,4 +52,4 @@ Yapay zeka stüdyosu (`docs/YAPAY_ZEKA.md`) modele kişisel veri göndermez: ist
 
 ## Testler
 
-Shared `privacy.spec.ts` (mezar taşı, görünür iletişim, adres anonimleştirme, onay şeması); API e2e `privacy.e2e-spec.ts` (dışa aktarma, açık sipariş ve sahip engeli, silme, eski oturumun reddi, silinen ve kalan alanlar, panelde görünüm, numaranın yeniden kullanımı); Playwright `account.e2e.ts` (indirme ve silme akışı).
+Shared `privacy.spec.ts` (mezar taşı, görünür iletişim, adres anonimleştirme, onay şeması); API e2e `privacy.e2e-spec.ts` (dışa aktarma, açık sipariş ve sahip engeli, silme, eski oturumun reddi, silinen ve kalan alanlar, panelde görünüm, numaranın yeniden kullanımı); `webhooks-privacy.e2e-spec.ts` (silmede webhook kuyruğunun temizlenmesi, yeniden gönderme reddi, saklama süresi); `ads.e2e-spec.ts` (silmede CRM alanları ve bekleyen reklam gönderimleri); Playwright `account.e2e.ts` (indirme ve silme akışı).

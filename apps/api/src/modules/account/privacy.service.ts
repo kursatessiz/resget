@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@resget/database';
 import {
+  AD_DELIVERY_USER_DELETED,
   CONSENT_CHANNELS,
   TERMINAL_ORDER_STATUSES,
   anonymizedAddressSnapshot,
@@ -10,6 +11,7 @@ import {
 import type { PersonalDataExportDTO } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsRegistry } from '../payments/payments.registry';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { ACTIVE_TRIP_STATUSES } from '../orders/orders.service';
 import { conflict, notFound } from '../../common/api-error';
 
@@ -20,7 +22,8 @@ const OPEN_ORDER_EXCLUDED = [...TERMINAL_ORDER_STATUSES, 'PENDING_PAYMENT'] as c
  * Personal data rights (docs/KISISEL_VERI.md). The export gathers what the
  * platform holds about the signed-in person. Deletion erases what only
  * serves the person (addresses, cards, devices, codes, courier positions,
- * marketing consent, loyalty points, notes and tags at restaurants) and
+ * marketing consent, loyalty points, notes, tags and CRM fields at restaurants,
+ * queued webhook and ad deliveries about the person) and
  * anonymises what the law makes the platform and the restaurants keep
  * (orders, payments, invoices): those rows stay for their retention period
  * without a name, a number or an address. The user row itself stays as an
@@ -34,6 +37,7 @@ export class PrivacyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly payments: PaymentsRegistry,
+    private readonly webhooks: WebhooksService,
   ) {}
 
   async exportData(userId: string): Promise<PersonalDataExportDTO> {
@@ -175,7 +179,8 @@ export class PrivacyService {
         await tx.membership.updateMany({ where: { userId }, data: { status: 'PASSIVE' } });
       }
 
-      // At each restaurant: no more marketing, notes, tags or points; the counters stay for the restaurant's figures.
+      // At each restaurant: no more marketing, notes, tags, points or CRM contact fields; the counters stay for the
+      // restaurant's figures.
       const customers = await tx.restaurantCustomer.findMany({
         where: { userId },
         select: { id: true, restaurantId: true, loyaltyPoints: true },
@@ -224,7 +229,19 @@ export class PrivacyService {
           note: null,
           tags: [],
           loyaltyPoints: 0,
+          // The CRM copy of the contact (docs/CRM.md) would otherwise outlive the account, and with it the e-mail an
+          // ad platform could still be sent hashed (docs/REKLAM.md). The source is free text staff may have written.
+          email: null,
+          company: null,
+          city: null,
+          district: null,
+          source: null,
         },
+      });
+      // Conversions still waiting for an ad platform are never sent (docs/REKLAM.md); sent ones stay in the report.
+      await tx.adConversionDelivery.updateMany({
+        where: { status: 'PENDING', conversion: { customer: { userId } } },
+        data: { status: 'SKIPPED', errorCode: AD_DELIVERY_USER_DELETED },
       });
       // A deleted account shares no code and keeps no reward (docs/TAVSIYE.md); used coupons stay for the books.
       await tx.coupon.updateMany({
@@ -235,7 +252,7 @@ export class PrivacyService {
       // Kept orders lose what identifies the person; the area stays for reports.
       const orders = await tx.order.findMany({
         where: { customerUserId: userId },
-        select: { id: true, addressSnapshot: true },
+        select: { id: true, restaurantId: true, addressSnapshot: true },
       });
       for (const order of orders) {
         const anonymous = anonymizedAddressSnapshot(order.addressSnapshot);
@@ -251,6 +268,8 @@ export class PrivacyService {
       // Copies of the words in feedback cases and NPS answers go too (docs/GERI_BILDIRIM.md); the scores stay.
       await tx.feedbackCase.updateMany({ where: { order: { customerUserId: userId } }, data: { comment: null } });
       await tx.npsResponse.updateMany({ where: { order: { customerUserId: userId } }, data: { comment: null } });
+      // The webhook queue holds copies of the same orders (docs/API_ERISIMI.md); they go the same way.
+      await this.webhooks.forgetOrders(tx, orders);
 
       await tx.user.update({
         where: { id: userId },

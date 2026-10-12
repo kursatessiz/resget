@@ -7,6 +7,7 @@ import {
   AD_CONNECTION_PLATFORMS,
   AD_CREDENTIAL_FIELDS,
   AD_DELIVERY_MAX_ATTEMPTS,
+  AD_DELIVERY_USER_DELETED,
   AD_SPEND_LOOKBACK_DAYS,
   AD_SPEND_SYNC_HOURS,
   CONVERSION_TYPES,
@@ -260,7 +261,7 @@ export class AdsService {
                 countryCode: true,
               },
             },
-            customer: { select: { email: true, user: { select: { phone: true, email: true } } } },
+            customer: { select: { email: true, user: { select: { phone: true, email: true, deletedAt: true } } } },
           },
         },
       },
@@ -274,6 +275,11 @@ export class AdsService {
       }
       // With the module off the queue waits; it never sends behind the switch.
       if (!enabled.get(conversion.restaurantId)) continue;
+      // A customer who deleted the account is never matched on an ad platform (docs/KISISEL_VERI.md).
+      if (conversion.customer?.user.deletedAt) {
+        await this.finish(delivery.id, 'SKIPPED', AD_DELIVERY_USER_DELETED);
+        continue;
+      }
       const platform = connection.platform as AdConnectionPlatform;
       const touch = conversion.attributedTouchpoint;
       if (!touch || !touch.advertisingConsent) {
