@@ -19,7 +19,7 @@ import { FeatureFlagsService } from '../features/feature-flags.service';
 import { OrdersService } from '../orders/orders.service';
 import type { OrderRow } from '../orders/orders.service';
 import { MealCardsService } from '../payments/meal-cards.service';
-import { CheckoutService } from '../payments/checkout.service';
+import { CheckoutService, isExtraCapture } from '../payments/checkout.service';
 import type { WebhookScope } from '../payments/checkout.service';
 import { PaymentsRegistry } from '../payments/payments.registry';
 import { LedgerService } from '../ledger/ledger.service';
@@ -290,7 +290,27 @@ export class TabsService {
       await this.closeIfSettled(tx, payment.restaurantId, payment.tabId, null);
       return { orderIds, excessMinor };
     });
-    if (!outcome) return 'CAPTURED';
+    if (!outcome) {
+      // Another transaction for a share that is already paid: given back on the POS, never booked (docs/ACIK_HESAP.md).
+      const current = await this.prisma.tabPayment.findUnique({
+        where: { id: payment.id },
+        select: { status: true, providerRef: true },
+      });
+      if (current && isExtraCapture(current, event)) {
+        await this.checkout.refundExtraCapture(
+          {
+            kind: 'tab',
+            entity: 'TabPayment',
+            entityId: payment.id,
+            restaurantId: payment.restaurantId,
+            lock: (tx) => tx.$queryRaw`SELECT id FROM tab_payments WHERE id = ${payment.id} FOR UPDATE`,
+            target: { method: 'ONLINE_CARD', provider: payment.provider, paymentMode: 'OWN_POS' },
+          },
+          event,
+        );
+      }
+      return 'CAPTURED';
+    }
     if (outcome.excessMinor > 0) await this.refundExcess(payment.id, event.providerRef, outcome.excessMinor);
     for (const orderId of outcome.orderIds) this.realtime.publishMany(await this.orders.eventsForOrder(orderId));
     return 'CAPTURED';

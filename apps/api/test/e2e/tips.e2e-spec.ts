@@ -411,6 +411,42 @@ describe('Courier tips (e2e)', () => {
     expect(await ctx.prisma.auditLog.count({ where: { action: 'tip.refunded', entityId: started.tipId } })).toBe(1);
   });
 
+  it('keeps one live hosted session per tip until the provider reports it failed', async () => {
+    const order = await deliveredOrder('Bahsis Oturum', 'OWN');
+    const first = (await startTip(order.token, 2000)).body as TipStartedDTO;
+    // A second tap opens no second payable session: the one still open is handed back.
+    const again = (await startTip(order.token, 2000)).body as TipStartedDTO;
+    expect(again).toEqual(first);
+    expect(await ctx.prisma.courierTip.findUniqueOrThrow({ where: { id: first.tipId } })).toMatchObject({
+      providerRef: first.session.sessionId,
+      amountMinor: 2000,
+    });
+    // Another amount while that session can still be paid would leave two payable sessions.
+    expect((await startTip(order.token, 2500, 409)).headers['x-error-code']).toBe('TIP_SESSION_OPEN');
+
+    // The provider says the attempt failed: that session is over and a new one, for another amount, may start.
+    await platformNotice({
+      providerRef: first.session.sessionId,
+      orderRef: first.tipId,
+      status: 'FAILED',
+      amountMinor: 0,
+    });
+    const retry = (await startTip(order.token, 2500)).body as TipStartedDTO;
+    expect(retry.tipId).toBe(first.tipId);
+    expect(retry.session.sessionId).not.toBe(first.session.sessionId);
+    expect(await ctx.prisma.courierTip.findUniqueOrThrow({ where: { id: first.tipId } })).toMatchObject({
+      status: 'PENDING',
+      providerRef: retry.session.sessionId,
+      amountMinor: 2500,
+    });
+
+    // After the reuse window a pending tip may open a new session too.
+    await ctx.prisma
+      .$executeRaw`UPDATE courier_tips SET "checkoutOpenedAt" = now() - interval '16 minutes' WHERE id = ${first.tipId}`;
+    const later = (await startTip(order.token, 3000)).body as TipStartedDTO;
+    expect(later.session.sessionId).not.toBe(retry.session.sessionId);
+  });
+
   it('gives back a second, distinct capture of a collected tip and records it once', async () => {
     const order = await deliveredOrder('Bahsis Cift', 'OWN');
     const started = (await startTip(order.token, 2000)).body as TipStartedDTO;
