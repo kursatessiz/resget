@@ -8,7 +8,8 @@ name: Release
 #     and a main-only deployment branch rule on the `production` environment).
 # Release integrity: the plan job requires a production tag to be a commit on
 # main; only runs on main move the floating :main tag or replace an existing
-# sha-<commit> image; the digests job resolves the image digests once and the
+# sha-<commit> image; the digests job resolves the image digests once, verifies
+# their build provenance attestations (production: signed on main) and the
 # server pulls by digest. The checks in this file are advisory against someone
 # who can edit it on a branch: the enforced controls are the GitHub settings in
 # the owner checklist of docs/CICD_GUIDE.md.
@@ -179,9 +180,12 @@ jobs:
           push-to-registry: true
 
   # Resolve the digest of each image once; the deploy pulls exactly these, so a
-  # tag moved afterwards cannot change what runs.
+  # tag moved afterwards cannot change what runs. The same job then verifies the
+  # build provenance attestation of each digest and fails closed: deploy only
+  # runs when both images were built by this repository's release workflow from
+  # the commit the tag names (and, for production, from main).
   digests:
-    name: Resolve image digests
+    name: Resolve and verify image digests
     needs: [plan, publish]
     if: >-
       always() && needs.plan.result == 'success' &&
@@ -191,6 +195,7 @@ jobs:
     permissions:
       contents: read
       packages: read # read the manifests from ghcr.io
+      attestations: read # read the build provenance attestations
     outputs:
       api: ${{ steps.resolve.outputs.api }}
       web: ${{ steps.resolve.outputs.web }}
@@ -211,6 +216,38 @@ jobs:
             [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::could not resolve the ${app} image digest for ${TAG}"; exit 1; }
             echo "${app}=${digest}" >> "$GITHUB_OUTPUT"
             echo "${app}: \`${digest}\`" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      # gh is preinstalled on ubuntu-latest and reads the registry credentials
+      # written by the login step. The attestation must name this repository,
+      # be signed by this release workflow, and carry the commit of the tag
+      # (--source-digest). Production additionally requires that the signing
+      # run was on main; preprod also accepts images built from a test branch.
+      # A missing attestation, a failed signature check or an unknown flag all
+      # exit non-zero, so the job (and with it the deploy) stops.
+      - name: Verify build provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ needs.plan.outputs.tag }}
+          ENVIRONMENT: ${{ needs.plan.outputs.environment }}
+          API_DIGEST: ${{ steps.resolve.outputs.api }}
+          WEB_DIGEST: ${{ steps.resolve.outputs.web }}
+        run: |
+          [[ "$TAG" =~ ^sha-[0-9a-f]{40}$ ]] || { echo "::error::invalid tag"; exit 1; }
+          args=(--repo "$REPO" --signer-workflow "${REPO}/.github/workflows/release.yml" --source-digest "${TAG#sha-}" --deny-self-hosted-runners)
+          case "$ENVIRONMENT" in
+            production) args+=(--source-ref refs/heads/main) ;;
+            preprod) ;;
+            *) echo "::error::unknown environment"; exit 1 ;;
+          esac
+          gh --version
+          for app in api web; do
+            case "$app" in api) digest="$API_DIGEST" ;; web) digest="$WEB_DIGEST" ;; esac
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::no digest to verify for ${app}"; exit 1; }
+            gh attestation verify "oci://ghcr.io/${REPO,,}/${app}@${digest}" "${args[@]}" ||
+              { echo "::error::provenance verification failed for the ${app} image ${digest}"; exit 1; }
+            echo "${app}: provenance verified" >> "$GITHUB_STEP_SUMMARY"
           done
 
   deploy:
