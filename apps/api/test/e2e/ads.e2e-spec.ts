@@ -6,9 +6,12 @@ import type { TestContext } from './support/app';
 import { AdsService } from '../../src/modules/ads/ads.service';
 import type { MockAdsAdapter } from '../../src/modules/ads/ads.adapter';
 import { AttributionService } from '../../src/modules/attribution/attribution.service';
+import { PrivacyService } from '../../src/modules/account/privacy.service';
 
 const PHONES = ['05329990994', '05329990995', '05329990996'].map((p) => normalizePhone(p)!);
 const EMAIL = 'reklam.alici@ornek.test';
+const ERASED_PHONE = normalizePhone('05329990997')!;
+const ERASED_EMAIL = 'reklam.silinen@ornek.test';
 const MINUTE_MS = 60_000;
 
 /** Ad integrations (docs/REKLAM.md): switch, encrypted credentials, consent-gated delivery, retries, spend, report. */
@@ -21,6 +24,7 @@ describe('Ad integrations (e2e)', () => {
   let ads: AdsService;
   let attribution: AttributionService;
   const customers: string[] = [];
+  const userIds: string[] = [];
   const base = () => `/restaurants/${restaurantId}/ads`;
   const auth = () => bearer(ownerToken, restaurantId);
   const feature = (key: string, enabled: boolean) =>
@@ -84,7 +88,7 @@ describe('Ad integrations (e2e)', () => {
     restaurantId = restaurant.id;
     currency = restaurant.currency;
     await ctx.prisma.adConnection.deleteMany({ where: { restaurantId } });
-    await ctx.prisma.user.deleteMany({ where: { phone: { in: PHONES } } });
+    await ctx.prisma.user.deleteMany({ where: { phone: { in: [...PHONES, ERASED_PHONE] } } });
     for (const [i, phone] of PHONES.entries()) {
       const user = await ctx.prisma.user.create({ data: { phone, fullName: `Reklam ${i + 1}` } });
       const customer = await ctx.prisma.restaurantCustomer.create({
@@ -100,7 +104,8 @@ describe('Ad integrations (e2e)', () => {
     await ctx.prisma.conversionEvent.deleteMany({ where: { customerId: { in: customers } } });
     await ctx.prisma.visitor.deleteMany({ where: { customerId: { in: customers } } });
     await ctx.prisma.restaurantCustomer.deleteMany({ where: { id: { in: customers } } });
-    await ctx.prisma.user.deleteMany({ where: { phone: { in: PHONES } } });
+    await ctx.prisma.auditLog.deleteMany({ where: { actorUserId: { in: userIds } } });
+    await ctx.prisma.user.deleteMany({ where: { OR: [{ phone: { in: PHONES } }, { id: { in: userIds } }] } });
     await ctx.prisma.featureFlag.deleteMany({
       where: { restaurantId, key: { in: ['ad_integrations', 'attribution'] } },
     });
@@ -285,5 +290,65 @@ describe('Ad integrations (e2e)', () => {
       .send({ status: 'PAUSED' })
       .expect(404)
       .expect('x-error-code', 'AD_CONNECTION_NOT_FOUND');
+  });
+
+  it('never sends the hashed email of a customer whose account was deleted while the delivery waited', async () => {
+    const user = await ctx.prisma.user.create({ data: { phone: ERASED_PHONE, fullName: 'Reklam Silinen' } });
+    userIds.push(user.id);
+    const customer = await ctx.prisma.restaurantCustomer.create({
+      data: {
+        restaurantId,
+        userId: user.id,
+        email: ERASED_EMAIL,
+        company: 'Silinen AS',
+        city: 'Izmir',
+        district: 'Konak',
+      },
+      select: { id: true },
+    });
+    customers.push(customer.id);
+    await ctx
+      .http()
+      .put(`${base()}/connections/TIKTOK`)
+      .set(auth())
+      .send({ credentials: { pixelCode: 'TTP', accessToken: 'tiktok-token' } })
+      .expect(200);
+    // The connection is paused, so the delivery waits in the queue across the deletion.
+    await ctx
+      .http()
+      .patch(`${base()}/connections/TIKTOK`)
+      .set(auth())
+      .send({ enhancedMatching: true, status: 'PAUSED' })
+      .expect(200);
+    const conversion = await visitThenConvert(
+      customer.id,
+      { consent: true, clickIds: {}, adPlatform: 'TIKTOK' },
+      'repeat_order',
+      3_000,
+    );
+    await ads.runPass(new Date());
+    expect((await statusBy(conversion.id)).TIKTOK).toBe('PENDING:');
+
+    await ctx.app.get(PrivacyService).deleteAccount(user.id);
+    const erased = await ctx.prisma.restaurantCustomer.findUniqueOrThrow({ where: { id: customer.id } });
+    expect(erased).toMatchObject({ email: null, company: null, city: null, district: null, source: null });
+    expect((await statusBy(conversion.id)).TIKTOK).toBe('SKIPPED:USER_DELETED');
+
+    // Even a delivery that is still pending (written back here) is skipped by the runner, not sent.
+    await ctx.prisma.adConversionDelivery.updateMany({
+      where: { conversionEventId: conversion.id },
+      data: { status: 'PENDING', errorCode: null },
+    });
+    await ctx.prisma.restaurantCustomer.update({ where: { id: customer.id }, data: { email: ERASED_EMAIL } });
+    await ctx.http().patch(`${base()}/connections/TIKTOK`).set(auth()).send({ status: 'ACTIVE' }).expect(200);
+    const before = mock('TIKTOK').sent.length;
+    await ads.runPass(new Date());
+    const hashed = createHash('sha256').update(ERASED_EMAIL).digest('hex');
+    expect(
+      mock('TIKTOK')
+        .sent.slice(before)
+        .some((s) => s.payload.hashedEmail === hashed),
+    ).toBe(false);
+    expect((await statusBy(conversion.id)).TIKTOK).toBe('SKIPPED:USER_DELETED');
   });
 });

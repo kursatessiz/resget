@@ -3,13 +3,19 @@ import { ConfigService } from '@nestjs/config';
 import { WebhooksService } from './webhooks.service';
 
 const INTERVAL_MS = 30_000;
+/** Old sent and failed deliveries are purged at most this often; the retention period is days, an hour is enough. */
+const PURGE_INTERVAL_MS = 3_600_000;
 
-/** Drains due webhook deliveries every half minute inside the API process (docs/API_ERISIMI.md). Off in tests. */
+/**
+ * Drains due webhook deliveries every half minute inside the API process and purges deliveries past their retention
+ * period (docs/API_ERISIMI.md). Off in tests, where tick() is called directly.
+ */
 @Injectable()
 export class WebhooksRunner implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(WebhooksRunner.name);
   private timer: NodeJS.Timeout | null = null;
   private running = false;
+  private lastPurgeAt: number | null = null;
 
   constructor(
     private readonly webhooks: WebhooksService,
@@ -30,6 +36,10 @@ export class WebhooksRunner implements OnModuleInit, OnModuleDestroy {
     if (this.running) return 0;
     this.running = true;
     try {
+      if (this.lastPurgeAt === null || now.getTime() - this.lastPurgeAt >= PURGE_INTERVAL_MS) {
+        this.lastPurgeAt = now.getTime();
+        await this.webhooks.purgeExpired(now);
+      }
       return await this.webhooks.runPass(now);
     } catch (error) {
       this.logger.error(`webhook pass failed: ${error instanceof Error ? error.message : 'error'}`);

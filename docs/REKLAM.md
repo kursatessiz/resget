@@ -26,6 +26,7 @@
    - **Değer**: dönüşümün tutarı para biriminin ondalık basamağına göre ondalık sayı olarak gönderilir (`minorToDecimalString()`).
 3. Geçici hata (ağ, 429, 5xx) üstel bekleme ile tekrar denenir (2, 4, 8, 16 dakika; en fazla 5 deneme), sonra `FAILED` olur. Platform kimlik bilgilerini reddederse bağlantı `ERROR` durumuna geçer ve gönderimler bekler; bilgiler yenilenince kaldığı yerden devam eder.
 4. Meta ve TikTok yedi günden eski olayları kabul etmez. Yedi günden eski bekleyen gönderimler `TOO_OLD` ile atlanır.
+   - **Silinen hesap**: müşteri hesabını silerse (`docs/KISISEL_VERI.md`) bekleyen gönderimleri aynı işlemde `SKIPPED`, `USER_DELETED` olur (`AD_DELIVERY_USER_DELETED`). Silme, restorandaki müşteri kaydının CRM alanlarını (e-posta, şirket, il, ilçe, kaynak) da temizler. Çalıştırıcı ayrıca müşterisi silinmiş her dönüşümü göndermeden aynı kodla atlar; böylece silinmiş bir kişinin e-posta veya telefon özeti hiçbir reklam platformuna gitmez.
 5. Modül kapalıyken kuyruk bekler, gönderim yapılmaz.
 
 ## Harcama
@@ -89,5 +90,6 @@ Migration: `20261107000000_ad_integrations`.
   - reklam izni ve tıklama kimliği kuralları;
   - gelişmiş eşleşme özetleri ve türler;
   - tekrar deneme;
-  - harcama ve performans raporu, bağlantı silme.
+  - harcama ve performans raporu, bağlantı silme;
+  - duraklatılmış bağlantıda bekleyen gönderimin müşterisi hesabını silince CRM e-postasının temizlenmesi, gönderimin `USER_DELETED` ile atlanması ve bağlantı yeniden açılınca e-posta özetinin gönderilmemesi.
 - `apps/web/e2e/ads.e2e.ts`: kapalıyken kart yok, Meta bağlama, gelişmiş eşleşme, harcama çekme, bağlantıyı kaldırma.

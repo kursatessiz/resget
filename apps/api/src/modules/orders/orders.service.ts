@@ -15,6 +15,7 @@ import {
   dispatchSettingsFrom,
   haversineMeters,
   isTerminalOrderStatus,
+  maskOrderContacts,
   maskPhoneForDisplay,
   maskTripContacts,
   orderShortCode,
@@ -1277,20 +1278,7 @@ export class OrdersService {
       if (canSeeContacts) return event;
       if (event.type === 'trip.updated') return { ...event, trip: maskTripContacts(event.trip) };
       if (event.type !== 'order.updated') return event;
-      const order = event.order;
-      return {
-        ...event,
-        order: {
-          ...order,
-          customer: {
-            ...order.customer,
-            phone: order.customer.phone ? maskPhoneForDisplay(order.customer.phone) : null,
-          },
-          address: order.address
-            ? { ...order.address, contactPhone: maskPhoneForDisplay(order.address.contactPhone) }
-            : null,
-        },
-      };
+      return { ...event, order: maskOrderContacts(event.order) };
     };
   }
 
