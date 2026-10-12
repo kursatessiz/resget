@@ -182,6 +182,8 @@ export const EnvSchema = z
      */
     RESTAURANT_SIGNUP_DAILY_LIMIT: z.coerce.number().int().min(1).max(1000).default(3),
     RESTAURANT_TRIAL_GRANTS_PER_USER: z.coerce.number().int().min(0).max(100).default(1),
+    /** Payment, POS and courier notification requests per client address per minute, shared by the three (docs/ODEME.md). */
+    PUBLIC_WEBHOOK_RATE_LIMIT: z.coerce.number().int().min(1).max(1000000).default(600),
     PUBLIC_ORDER_RATE_LIMIT: z.coerce.number().int().min(1).max(1000).default(10),
     PUBLIC_FUNNEL_RATE_LIMIT: z.coerce.number().int().min(1).max(10000).default(60),
     /** Table QR menu views per client per 10 minutes; each new session id adds a funnel row (docs/MASA_QR.md). */
