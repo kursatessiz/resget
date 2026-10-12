@@ -85,7 +85,9 @@ export class PartnerReferralsService {
         referee: { select: { id: true, name: true, slug: true } },
       },
     });
-    const counts = await this.completedCounts(rows.map((r) => r.refereeRestaurantId));
+    const counts = await this.qualifyingCounts(
+      rows.map((r) => ({ refereeId: r.refereeRestaurantId, referrerId: r.referrerRestaurantId })),
+    );
     return rows.map((r) => ({
       referrer: r.referrer,
       referee: r.referee,
@@ -111,7 +113,9 @@ export class PartnerReferralsService {
         include: { referee: { select: { name: true } } },
       }),
     ]);
-    const counts = await this.completedCounts(rows.map((r) => r.refereeRestaurantId));
+    const counts = await this.qualifyingCounts(
+      rows.map((r) => ({ refereeId: r.refereeRestaurantId, referrerId: restaurantId })),
+    );
     return {
       isActive: config.isActive,
       code: restaurant.partnerCode,
@@ -226,10 +230,13 @@ export class PartnerReferralsService {
     const referral = await tx.partnerReferral.findUnique({ where: { refereeRestaurantId: order.restaurantId } });
     if (!referral || referral.status !== 'PENDING') return;
     const config = await this.config(tx);
-    const completed = await tx.order.count({
-      where: { restaurantId: order.restaurantId, status: { in: [...COMPLETED] } },
-    });
-    if (completed < config.qualifyingOrders) return;
+    const [qualifying] = (
+      await this.qualifyingCounts([{ refereeId: order.restaurantId, referrerId: referral.referrerRestaurantId }], tx)
+    ).values();
+    if ((qualifying ?? 0) < config.qualifyingOrders) return;
+    // The yearly cap is counted under a lock on the referrer: referees completing at the same moment would
+    // otherwise each read the same count and all be rewarded. The next one waits, then sees the committed rows.
+    await tx.$queryRaw`SELECT id FROM restaurants WHERE id = ${referral.referrerRestaurantId} FOR UPDATE`;
     const recent = await tx.partnerReferral.count({
       where: {
         referrerRestaurantId: referral.referrerRestaurantId,
@@ -311,13 +318,49 @@ export class PartnerReferralsService {
     });
   }
 
-  private async completedCounts(restaurantIds: string[]): Promise<Map<string, number>> {
-    if (restaurantIds.length === 0) return new Map();
-    const groups = await this.prisma.order.groupBy({
-      by: ['restaurantId'],
-      where: { restaurantId: { in: restaurantIds }, status: { in: [...COMPLETED] } },
-      _count: { _all: true },
-    });
-    return new Map(groups.map((g) => [g.restaurantId, g._count._all]));
+  /**
+   * Qualifying orders per referred restaurant: the number of distinct customers who completed an order there
+   * (DELIVERED or PICKED_UP), counting one per customer. Orders with no customer on file count for nothing, and
+   * neither does anyone who is a member, in any status, of the referred restaurant or its referrer: the reward is
+   * for real outside customers, not for the two restaurants' own staff ordering from each other.
+   */
+  private async qualifyingCounts(
+    pairs: { refereeId: string; referrerId: string }[],
+    db: Db = this.prisma,
+  ): Promise<Map<string, number>> {
+    if (pairs.length === 0) return new Map();
+    const restaurantIds = [...new Set(pairs.flatMap((p) => [p.refereeId, p.referrerId]))];
+    const [members, customers] = await Promise.all([
+      db.membership.findMany({
+        where: { restaurantId: { in: restaurantIds } },
+        select: { restaurantId: true, userId: true },
+      }),
+      db.order.groupBy({
+        by: ['restaurantId', 'customerUserId'],
+        where: {
+          restaurantId: { in: pairs.map((p) => p.refereeId) },
+          status: { in: [...COMPLETED] },
+          customerUserId: { not: null },
+        },
+      }),
+    ]);
+    const membersOf = new Map<string, Set<string>>();
+    for (const m of members) {
+      const set = membersOf.get(m.restaurantId) ?? new Set<string>();
+      set.add(m.userId);
+      membersOf.set(m.restaurantId, set);
+    }
+    const counts = new Map<string, number>();
+    for (const pair of pairs) {
+      const insiders = [membersOf.get(pair.refereeId), membersOf.get(pair.referrerId)];
+      const outsiders = customers.filter(
+        (c) =>
+          c.restaurantId === pair.refereeId &&
+          c.customerUserId !== null &&
+          !insiders.some((set) => set?.has(c.customerUserId as string)),
+      );
+      counts.set(pair.refereeId, outsiders.length);
+    }
+    return counts;
   }
 }

@@ -17,6 +17,8 @@ describe('Restaurant referrals (e2e)', () => {
   const stamp = String(Date.now()).slice(-6);
   const NEW_OWNER_1 = `05351${stamp}`;
   const NEW_OWNER_2 = `05352${stamp}`;
+  const SYBIL_OWNER = `05353${stamp}`;
+  const RACE_OWNERS = [`05391${stamp}`, `05392${stamp}`, `05393${stamp}`];
 
   const owner = () => bearer(ownerToken, referrerId);
   const setSwitch = (enabled: boolean | null) =>
@@ -72,8 +74,15 @@ describe('Restaurant referrals (e2e)', () => {
       currentPeriodEnd: sub.currentPeriodEnd,
     };
   };
-  /** Opens a menu item and completes `count` pickup orders at a new restaurant as its owner. */
-  const completeOrders = async (restaurant: RestaurantCreatedDTO, token: string, count: number) => {
+  const menuItems = new Map<string, string>();
+  let customerCounter = 0;
+  let addressCounter = 0;
+  /** A phone number no one has used: the guest customer of a public order. */
+  const nextCustomerPhone = () => `0538${stamp.slice(-5)}${String(customerCounter++).padStart(2, '0')}`;
+  /** Opens a menu item once per restaurant, as its owner. */
+  const menuItemOf = async (restaurant: RestaurantCreatedDTO, token: string): Promise<string> => {
+    const known = menuItems.get(restaurant.id);
+    if (known) return known;
     const auth = bearer(token, restaurant.id);
     const category = await ctx
       .http()
@@ -87,26 +96,49 @@ describe('Restaurant referrals (e2e)', () => {
       .set(auth)
       .send({ categoryId: category.body.id, name: 'Mercimek', priceMinor: 9000, vatRateBps: 1000 })
       .expect(201);
-    for (let i = 0; i < count; i++) {
-      const placed = await ctx
-        .http()
-        .post(`/public/restaurants/${restaurant.slug}/orders`)
-        .send({
-          fulfillment: 'PICKUP',
-          items: [{ menuItemId: item.body.id, quantity: 1 }],
-          customer: { fullName: 'Ilk Musteri', phone: `05361${stamp}` },
-          payment: { method: 'CASH_ON_DELIVERY' },
-        })
-        .expect(201);
-      const order = await ctx.prisma.order.findUniqueOrThrow({ where: { trackingToken: placed.body.trackingToken } });
-      for (const to of ['ACCEPTED', 'READY', 'PICKED_UP']) {
-        await ctx
-          .http()
-          .post(`/restaurants/${restaurant.id}/orders/${order.id}/transition`)
-          .set(auth)
-          .send({ to, ...(to === 'ACCEPTED' ? { prepMinutes: 5 } : {}) })
-          .expect(200);
-      }
+    menuItems.set(restaurant.id, item.body.id as string);
+    return item.body.id as string;
+  };
+  const transition = (restaurantId: string, token: string, orderId: string, to: string) =>
+    ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/orders/${orderId}/transition`)
+      .set(bearer(token, restaurantId))
+      .send({ to, ...(to === 'ACCEPTED' ? { prepMinutes: 5 } : {}) });
+  /** Places a pickup order for the phone and takes it to READY; the last step is left to the caller. */
+  const placeReadyOrder = async (restaurant: RestaurantCreatedDTO, token: string, phone: string): Promise<string> => {
+    const menuItemId = await menuItemOf(restaurant, token);
+    const placed = await ctx
+      .http()
+      .post(`/public/restaurants/${restaurant.slug}/orders`)
+      // The public order budget is per client address; every order comes from its own.
+      .set('x-forwarded-for', `198.51.100.${(addressCounter += 1)}`)
+      .send({
+        fulfillment: 'PICKUP',
+        items: [{ menuItemId, quantity: 1 }],
+        customer: { fullName: 'Misafir Musteri', phone },
+        payment: { method: 'CASH_ON_DELIVERY' },
+      })
+      .expect(201);
+    const order = await ctx.prisma.order.findUniqueOrThrow({ where: { trackingToken: placed.body.trackingToken } });
+    for (const to of ['ACCEPTED', 'READY']) await transition(restaurant.id, token, order.id, to).expect(200);
+    return order.id;
+  };
+  /**
+   * Completes one pickup order per entry as the restaurant's owner. A number is that many orders from new, distinct
+   * guests; a phone is a guest by that number; null is an order with no customer on file (entered by staff).
+   */
+  const completeOrders = async (
+    restaurant: RestaurantCreatedDTO,
+    token: string,
+    customers: number | (string | null)[],
+  ) => {
+    const list =
+      typeof customers === 'number' ? Array.from({ length: customers }, () => nextCustomerPhone()) : customers;
+    for (const customer of list) {
+      const orderId = await placeReadyOrder(restaurant, token, customer ?? nextCustomerPhone());
+      if (customer === null) await ctx.prisma.order.update({ where: { id: orderId }, data: { customerUserId: null } });
+      await transition(restaurant.id, token, orderId, 'PICKED_UP').expect(200);
     }
   };
 
@@ -135,7 +167,12 @@ describe('Restaurant referrals (e2e)', () => {
     await ctx.prisma.partnerReferralConfig.deleteMany({});
     await ctx.prisma.featureFlag.deleteMany({ where: { key: 'partner_referrals' } });
     await ctx.prisma.user.deleteMany({
-      where: { phone: { in: [NEW_OWNER_1, NEW_OWNER_2].map((p) => normalizePhone(p)!) } },
+      where: {
+        OR: [
+          { phone: { in: [NEW_OWNER_1, NEW_OWNER_2, SYBIL_OWNER, ...RACE_OWNERS].map((p) => normalizePhone(p)!) } },
+          { phone: { startsWith: `+90538${stamp.slice(-5)}` } },
+        ],
+      },
     });
     await ctx.prisma.auditLog.deleteMany({ where: { action: { startsWith: 'partner_referral.' } } });
     await ctx.close();
@@ -249,5 +286,61 @@ describe('Restaurant referrals (e2e)', () => {
       .map((r) => r.status)
       .sort();
     expect(statuses).toEqual(['CAPPED', 'REWARDED']);
+  });
+
+  it('rewards only for completed orders from distinct customers outside both restaurants', async () => {
+    await config({ qualifyingOrders: 2, yearlyCapPerReferrer: 9 });
+    const mine = (await ctx.http().get(`/restaurants/${referrerId}/partner-referrals`).set(owner()).expect(200))
+      .body as MyPartnerReferralsDTO;
+    const token = await ctx.login(SYBIL_OWNER);
+    const sybil = await signup(token, mine.code!);
+    const statusOf = async () =>
+      (await ctx.prisma.partnerReferral.findUniqueOrThrow({ where: { refereeRestaurantId: sybil.id } })).status;
+    const guest = nextCustomerPhone();
+
+    // One customer ordering again and again is one customer.
+    await completeOrders(sybil, token, [guest, guest, guest]);
+    expect(await statusOf()).toBe('PENDING');
+    // The new restaurant's own owner and the referrer's owner ordering are insiders, whatever number of orders.
+    await completeOrders(sybil, token, [SYBIL_OWNER, SEED.ownerPhone, SYBIL_OWNER, SEED.ownerPhone]);
+    expect(await statusOf()).toBe('PENDING');
+    // Orders with no customer on file count for nothing.
+    await completeOrders(sybil, token, [null, null]);
+    expect(await statusOf()).toBe('PENDING');
+    // The progress shown to the referrer is the same measure.
+    const progress = (await ctx.http().get(`/restaurants/${referrerId}/partner-referrals`).set(owner()).expect(200))
+      .body as MyPartnerReferralsDTO;
+    expect(
+      progress.referrals.find((r) => r.restaurantName === `Davetli ${stamp} ${createdRestaurants.indexOf(sybil.id)}`),
+    ).toMatchObject({ completedOrders: 1 });
+
+    // A second real customer completes the requirement.
+    await completeOrders(sybil, token, 1);
+    expect(await statusOf()).toBe('REWARDED');
+  });
+
+  it('keeps the yearly cap when referees of one referrer complete at the same moment', async () => {
+    const rewardedBefore = await ctx.prisma.partnerReferral.count({
+      where: { referrerRestaurantId: referrerId, status: 'REWARDED' },
+    });
+    await config({ qualifyingOrders: 1, yearlyCapPerReferrer: rewardedBefore + 1 });
+    const mine = (await ctx.http().get(`/restaurants/${referrerId}/partner-referrals`).set(owner()).expect(200))
+      .body as MyPartnerReferralsDTO;
+    const referees = [];
+    for (const phone of RACE_OWNERS) {
+      const token = await ctx.login(phone);
+      const restaurant = await signup(token, mine.code!);
+      referees.push({ restaurant, token, orderId: await placeReadyOrder(restaurant, token, nextCustomerPhone()) });
+    }
+    const finals = await Promise.all(referees.map((r) => transition(r.restaurant.id, r.token, r.orderId, 'PICKED_UP')));
+    expect(finals.map((f) => f.status)).toEqual([200, 200, 200]);
+    const rows = await ctx.prisma.partnerReferral.findMany({
+      where: { refereeRestaurantId: { in: referees.map((r) => r.restaurant.id) } },
+      select: { status: true },
+    });
+    expect(rows.map((r) => r.status).sort()).toEqual(['CAPPED', 'CAPPED', 'REWARDED']);
+    expect(
+      await ctx.prisma.partnerReferral.count({ where: { referrerRestaurantId: referrerId, status: 'REWARDED' } }),
+    ).toBe(rewardedBefore + 1);
   });
 });
