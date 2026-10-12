@@ -22,6 +22,7 @@ Kullanıcılar globaldir ve telefon numarasıyla tanımlanır; bir restorana ba�
 - `GET /restaurants/:id/staff` ekibi, bekleyen davetleri ve rolleri verir.
 - `PATCH /restaurants/:id/staff/members/:membershipId` rol ve durum (`ACTIVE` / `PASSIVE`) değiştirir. Sahibin üyeliği buradan değiştirilemez (`STAFF_OWNER_PROTECTED`); sahip rolü atanamaz. Panel, kişinin kendi üyeliğini de kilitler.
 - `PASSIVE` üyelik her korumalı uçta `MEMBERSHIP_NOT_ACTIVE` ile reddedilir ve `/auth/me` listesinde görünmez; hesap silinmez, erişim yeniden açılabilir. Kapatılan üyenin açtığı bekleyen davetler de geçersiz olur.
+- Komisyon faturalarının tahsilat kartı bu üyeye aitse ve değişiklik onu `PASSIVE` yapıyor veya `payments.manage` taşımayan bir role alıyorsa kart işletmeden ayrılır (`billing.card_detached`); üyenin kartı bir daha bu işletme için çekilmez. Rolün izinleri sonradan düzenlenirse tahsilat yolları kart sahibini çekimden önce yeniden denetler (`docs/FATURALAMA.md`, "Fatura kartı").
 - `DELETE /restaurants/:id/staff/invites/:inviteId` daveti iptal eder (süresi şimdiye çekilir).
 
 ## Sahipliğin devri

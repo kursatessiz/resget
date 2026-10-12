@@ -5,6 +5,7 @@ import { Prisma } from '@resget/database';
 import {
   customerChurnRisk,
   COURIER_LEG_STATUSES,
+  MAX_MINOR_AMOUNT,
   TRACKING_TOKEN_BYTES,
   canTransitionOrder,
   computeModeSettlement,
@@ -377,6 +378,11 @@ export class OrdersService {
         stockTaken: 0,
       };
     });
+    // One order stays within the money bound (docs/MUTABAKAT.md, "Tutar üst sınırı"), so its snapshot and the month's
+    // sums built from it fit the columns that store them.
+    const itemsTotalMinor = lines.reduce((sum, l) => sum + l.lineTotalMinor, 0);
+    if (itemsTotalMinor > MAX_MINOR_AMOUNT)
+      throw badRequest('ORDER_TOTAL_TOO_LARGE', `The items total exceeds ${MAX_MINOR_AMOUNT} minor units`);
     // Counted items take their portions inside the order's transaction (docs/STOK.md).
     const countStock = await this.features.isEnabled('menu_stock', restaurantId);
 

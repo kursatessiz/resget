@@ -1,4 +1,4 @@
-import { collectionIsDue, invoiceIsOverdue, previousCommissionPeriod } from './billing';
+import { collectionIsDue, invoiceIsOverdue, mayHoldBillingCard, previousCommissionPeriod } from './billing';
 
 describe('billing rules', () => {
   it('invoices the UTC month before the run, across a year boundary', () => {
@@ -31,5 +31,16 @@ describe('billing rules', () => {
     ).toBe(true);
     expect(collectionIsDue({ status: 'ISSUED', collectionAttempts: 5, lastCollectionAt: null }, now)).toBe(false);
     expect(collectionIsDue({ status: 'PAID', collectionAttempts: 0, lastCollectionAt: null }, now)).toBe(false);
+  });
+});
+
+describe('billing card holder (docs/FATURALAMA.md, "Fatura kartı")', () => {
+  it('keeps the card only for an active member holding payments.manage or the owner', () => {
+    expect(mayHoldBillingCard({ status: 'ACTIVE', isOwner: true, permissionKeys: [] })).toBe(true);
+    expect(mayHoldBillingCard({ status: 'ACTIVE', isOwner: false, permissionKeys: ['payments.manage'] })).toBe(true);
+    expect(mayHoldBillingCard({ status: 'ACTIVE', isOwner: false, permissionKeys: ['orders.manage'] })).toBe(false);
+    expect(mayHoldBillingCard({ status: 'PASSIVE', isOwner: false, permissionKeys: ['payments.manage'] })).toBe(false);
+    expect(mayHoldBillingCard({ status: 'PASSIVE', isOwner: true, permissionKeys: [] })).toBe(false);
+    expect(mayHoldBillingCard(null)).toBe(false);
   });
 });

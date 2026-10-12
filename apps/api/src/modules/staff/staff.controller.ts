@@ -52,10 +52,11 @@ export class StaffController {
   @RequirePermission('staff.manage')
   updateMember(
     @Tenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
     @ZodParam('membershipId', UuidSchema) membershipId: string,
     @ZodBody(UpdateMembershipSchema) body: z.infer<typeof UpdateMembershipSchema>,
   ): Promise<StaffMemberDTO> {
-    return this.staff.updateMember(tenant, membershipId, body);
+    return this.staff.updateMember(tenant, membershipId, body, user.id);
   }
 
   @Post('invites')

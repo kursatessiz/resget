@@ -1,5 +1,15 @@
 import { LedgerEntryType } from './enums';
-import { commissionBpsFor, computeOrderSettlement, contributionPerOrder, settlementDefaultsFor } from './settlement';
+import {
+  SETTLEMENT_DEFAULTS_BY_COUNTRY,
+  commissionBpsFor,
+  computeOrderSettlement,
+  contributionPerOrder,
+  hasSettlementDefaults,
+  selfSignupCountryCodes,
+  settlementDefaultsFor,
+} from './settlement';
+import { SELF_SIGNUP_COUNTRIES } from './admin';
+import { MAX_MINOR_AMOUNT, MinorAmountSchema } from './money';
 import type { Settlement, SettlementInput } from './settlement';
 
 function assertIdentity(s: Settlement): void {
@@ -172,5 +182,26 @@ describe('commission by fulfillment', () => {
     expect(commissionBpsFor('DELIVERY', 100)).toBe(100);
     expect(commissionBpsFor('PICKUP', 150)).toBe(150);
     expect(commissionBpsFor('DINE_IN', 100)).toBe(0);
+  });
+});
+
+describe('self sign-up countries (docs/MUTABAKAT.md, "Bölgesel varsayılanlar")', () => {
+  it('opens only countries with an explicit settlement row, never the DEFAULT fallback', () => {
+    const explicit = Object.keys(SETTLEMENT_DEFAULTS_BY_COUNTRY).filter((code) => code !== 'DEFAULT');
+    expect(selfSignupCountryCodes().sort()).toEqual(explicit.sort());
+    for (const code of explicit) expect(hasSettlementDefaults(code.toLowerCase())).toBe(true);
+    expect(hasSettlementDefaults('DEFAULT')).toBe(false);
+    expect(hasSettlementDefaults('ZZ')).toBe(false);
+    expect(hasSettlementDefaults('constructor')).toBe(false);
+    expect(SELF_SIGNUP_COUNTRIES.every((c) => hasSettlementDefaults(c.code))).toBe(true);
+    expect(SELF_SIGNUP_COUNTRIES.length).toBeGreaterThan(0);
+  });
+});
+
+describe('money bound (docs/MUTABAKAT.md, "Tutar üst sınırı")', () => {
+  it('accepts amounts up to MAX_MINOR_AMOUNT and keeps an order far below the 32-bit columns', () => {
+    expect(MinorAmountSchema.safeParse(MAX_MINOR_AMOUNT).success).toBe(true);
+    expect(MinorAmountSchema.safeParse(MAX_MINOR_AMOUNT + 1).success).toBe(false);
+    expect(MAX_MINOR_AMOUNT * 20).toBeLessThan(2 ** 31 - 1);
   });
 });

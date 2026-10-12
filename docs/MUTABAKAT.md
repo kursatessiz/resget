@@ -103,3 +103,9 @@ Hangi siparişin hangi modla hesaplanacağı ödeme yöntemine bağlıdır (`eff
 ## Bölgesel varsayılanlar
 
 `SETTLEMENT_DEFAULTS_BY_COUNTRY`: TR için tevkifat 100 bps ve komisyon KDV'si 2000 bps; diğer ülkeler için her ikisi 0 (ülke eklenirken satır açılır). Hiçbir yerde `'TRY'` veya `'TR'` sabit yazılmaz; para birimi ve ülke restorandan gelir.
+
+Restoranın ülkesi siparişin vergi parametrelerini (komisyon KDV'si, tevkifat) seçtiği için ülke beyanı kendi başına bir para girdisidir. Bu yüzden kendi kendine kayıt (`/kayit`, `POST /restaurants`) yalnızca platformun bu tabloda **açık satırı** olan ülkelere açıktır (`hasSettlementDefaults()`, `selfSignupCountryCodes()`; `DEFAULT` satırı sayılmaz). Satırı olmayan bir ülke kayıtta `SIGNUP_COUNTRY_NOT_AVAILABLE` (403) ile reddedilir; o ülkedeki restoranı süper admin konsoldan açar ve vergi kaydını kendisi doğrular (`docs/PLATFORM_YONETIMI.md`). İzinli ülke listesi koda yazılmaz, tablodan türetilir: bir ülkenin vergi kuralları tabloya eklendiği anda kayıt da o ülkeye açılır.
+
+## Tutar üst sınırı
+
+Kiracının girdiği her tek para tutarının (menü fiyatı, teslimat ücreti, eşikler, plan ve paket fiyatları) ve bir siparişin kalem toplamının üst sınırı `MAX_MINOR_AMOUNT` = 100.000.000 minör birimdir (`packages/shared/src/money.ts`, `MinorAmountSchema`). İki ondalıklı bir para biriminde bu 1.000.000,00'dır ve bir restoran satışının çok üzerindedir; buna karşılık tek bir siparişin tutarları, onları saklayan 32 bit sütunların (en çok 2.147.483.647) yüzde 5'inin altında kalır. Sınırı aşan menü fiyatı `VALIDATION`, kalem toplamı sınırı aşan sipariş `ORDER_TOTAL_TOO_LARGE` (400) ile reddedilir. Aylık komisyon faturası birçok siparişin toplamıdır ve çok büyük bir restoranda yine 32 bit sınırına yaklaşabilir; günlük iş bu durumda yalnızca o restoranı raporlar, diğer restoranların faturasını keser (`docs/FATURALAMA.md`, "Günlük iş").
