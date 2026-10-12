@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ImageUrlSchema } from './image-url';
 import { BasisPointsSchema, MinorAmountSchema } from './money';
 import { UuidSchema } from './validators';
 import { OpeningHoursSchema, isOpenAt } from './opening-hours';
@@ -21,7 +22,6 @@ export const LOW_STOCK_THRESHOLD = 5;
 
 const MenuName = z.string().trim().min(1).max(80);
 const SortOrder = z.number().int().min(0).max(100000);
-const ImageUrl = z.string().trim().url().max(500);
 const nonEmpty = (value: object) => Object.keys(value).length > 0;
 
 /**
@@ -65,7 +65,7 @@ export const CreateMenuItemSchema = z
     description: z.string().trim().max(500).nullable().optional(),
     priceMinor: MinorAmountSchema,
     vatRateBps: BasisPointsSchema,
-    imageUrl: ImageUrl.nullable().optional(),
+    imageUrl: ImageUrlSchema.nullable().optional(),
     isAvailable: z.boolean().optional(),
     sortOrder: SortOrder.optional(),
     /** Declared allergens (docs/ALERJENLER.md); shown while the allergens module is on. */

@@ -8,7 +8,8 @@ export const trSettings = {
   'settings.business.defaultLocale': 'Menü dili',
   'settings.brand.title': 'Görünüm',
   'settings.brand.logoUrl': 'Logo bağlantısı',
-  'settings.brand.logoHelp': 'Dosya yüklemek yerine herkese açık bir görsel bağlantısı da verebilirsiniz.',
+  'settings.brand.logoHelp':
+    'Bağlantı yalnızca platforma yüklenen bir dosyayı veya platformun onayladığı bir https adresini gösterebilir; en kolayı dosya yüklemektir.',
   'settings.brand.logoFile': 'Logo dosyası',
   'settings.brand.logoRules': 'PNG, JPG veya WebP; en çok 2 MB. Kare ya da yatay logo en iyi görünür.',
   'settings.brand.upload': 'Logoyu yükle',

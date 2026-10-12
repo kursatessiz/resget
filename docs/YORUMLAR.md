@@ -10,6 +10,7 @@ Modül anahtarı `public_reviews` (varsayılan kapalı, `docs/OZELLIK_ANAHTARLAR
 
 - Her değerlendirme gösterilir, yorumsuz olanlar dahil.
 - Yazar kısaltılmış adla görünür: ad ve soyadın baş harfi ("Ayse Y."). Baş harf restoranın diliyle büyütülür (Türkçede "i" -> "İ"). Ad yoksa "Misafir" yazar (`reviewAuthorName()`).
+- Ad sipariş sırasında doğrulanmadan girilir; bu yüzden herkese açık yazar alanı bir ad biçimi izin listesinden geçer (`isPublicNameWord()`): kelime yalnızca harf (her alfabe ve aksanları), kesme işareti ve kısa çizgi içerebilir, en fazla 40 karakterdir ve yorum maskesinden (`scrubReviewText()`) değişmeden geçmelidir. Rakam, nokta, `@`, `/`, `:` taşıyan kelimeler (bağlantı, e-posta, telefon, rakamlı takma ad) reddedilir. İlk kelime uymazsa yazar boş döner ve sayfa "Misafir" (`reviews.public.anonymous`) gösterir; son kelime uymazsa baş harf eklenmez.
 - Yorum metnindeki telefon, e-posta, kart ve IBAN numaraları ile bağlantılar gizlenir (`scrubReviewText()`, yapay zeka stüdyosunun maskeleme kuralları ve bağlantı maskesi). Gizleme gösterimde yapılır; işletme ve platform yorumu yazıldığı gibi görür.
 - Düzenlenmiş yorumda "düzenlendi" yazar; işletmenin yanıtı yorumun altında görünür.
 
@@ -50,10 +51,11 @@ Hesap silindiğinde yorum metni silinir ve kullanıcının adı boşaltılır (`
 - Bildirim: `reportReason`, `reportNote`, `reportedAt`, `reportedByUserId`, `reportResolvedAt`.
 - Kaldırma: `hiddenAt`, `hiddenReason`, `hiddenByUserId`.
 
-Kaldırma ve geri alma restoranın `ratingSum` / `ratingCount` toplamını günceller.
+Kaldırma ve geri alma restoranın `ratingSum` / `ratingCount` toplamını günceller. Müşteri düzenlemesi ve kaldırma / geri alma kararı aynı işlem içinde yorum satırını kilitler (`SELECT ... FOR UPDATE`) ve farkı kilit altındaki güncel puandan hesaplar; eşzamanlı düzenlemeler veya düzenleme ile karar yarışsa da `ratingSum` her zaman görünür puanların toplamına eşit kalır.
 
 ## Testler
 
-- `packages/shared/src/reviews.spec.ts`: kısaltılmış ad, maskeleme, pencere.
-- `apps/api/test/e2e/reviews.e2e-spec.ts`: kapalı modül, kısaltılmış ad ve maskeleme, müşteri düzenlemesi ve süre sonu, yanıt ve kilit, bildirim, kaldırma ve geri alma, bildirimi kapatma.
+- `packages/shared/src/reviews.spec.ts`: kısaltılmış ad, ad biçimi izin listesi, maskeleme, pencere.
+- `apps/api/test/e2e/reviews.e2e-spec.ts`: kapalı modül, kısaltılmış ad ve maskeleme, bağlantı veya rakam taşıyan yazar adının gizlenmesi, müşteri düzenlemesi ve süre sonu, yanıt ve kilit, bildirim, kaldırma ve geri alma, bildirimi kapatma.
+- `apps/api/test/e2e/ratings-race.e2e-spec.ts`: paralel düzenlemeler ve düzenleme ile kaldırma / geri alma yarışında toplamın tutarlılığı.
 - Playwright `reviews.e2e.ts`.

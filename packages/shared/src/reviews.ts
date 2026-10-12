@@ -31,18 +31,41 @@ export function editableUntil(writtenAt: Date | string): Date {
   return new Date(new Date(writtenAt).getTime() + REVIEW_EDIT_WINDOW_HOURS * 60 * 60 * 1000);
 }
 
+/** Longest word accepted as a public first name; longer is treated as free text, not a name. */
+export const REVIEW_AUTHOR_WORD_MAX = 40;
+
+/**
+ * A name-shaped word: letters (any script, with their combining marks), apostrophes and hyphens after the first letter. Digits, dots,
+ * '@', ':', '/' and the like are refused, so a link, an email, a phone number or a digit-heavy handle never passes.
+ */
+const NAME_WORD = new RegExp(`^[\\p{L}\\p{M}](?:[\\p{L}\\p{M}'\u2019-]{0,${REVIEW_AUTHOR_WORD_MAX - 1}})$`, 'u');
+
+/** Whether a word may appear in the public author slot: name-shaped and unchanged by the comment scrub. */
+export function isPublicNameWord(word: string): boolean {
+  return NAME_WORD.test(word) && scrubReviewText(word) === word;
+}
+
 /**
  * The name a review is signed with: the first name and the initial of the
  * last ("Ayse Yilmaz" -> "Ayse Y."); null when the order carried no name.
  * The initial is upper-cased with the restaurant's language, so a Turkish
  * "i" becomes "İ".
+ *
+ * The name is unverified guest input, so it passes a name-shape allowlist
+ * (isPublicNameWord) before it is shown in public: a first word that is not
+ * name-shaped (a link, an email, a phone, a digit-heavy handle) signs the
+ * review with null, which the page renders as the anonymous label
+ * (`reviews.public.anonymous`); a last word that is not name-shaped
+ * contributes no initial.
  */
 export function reviewAuthorName(fullName: string | null | undefined, locale?: string): string | null {
   const parts = (fullName ?? '').trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return null;
   const first = parts[0];
-  if (parts.length === 1) return first;
-  const initial = parts[parts.length - 1].charAt(0).toLocaleUpperCase(locale);
+  if (!isPublicNameWord(first)) return null;
+  const last = parts[parts.length - 1];
+  if (parts.length === 1 || !isPublicNameWord(last)) return first;
+  const initial = last.charAt(0).toLocaleUpperCase(locale);
   return `${first} ${initial}.`;
 }
 

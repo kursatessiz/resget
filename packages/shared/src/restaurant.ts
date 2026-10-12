@@ -9,6 +9,8 @@ import type { PaymentModeValue } from './payments';
 import type { PermissionKey } from './permissions';
 import type { PlanCode } from './plans';
 import type { EntitlementKey } from './entitlements';
+import { HostnameSchema } from './hostname';
+import { ImageUrlSchema } from './image-url';
 
 /**
  * Restaurant settings the owner edits in the panel. Commission, payment
@@ -18,17 +20,8 @@ import type { EntitlementKey } from './entitlements';
 
 export const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'hex color expected');
 
-/**
- * A host name the restaurant owns for its ordering page (docs/VITRIN.md, "Kendi alan adı"):
- * lower case, at least two labels, no scheme, no path. The platform's own host is refused by the API.
- */
-export const HostnameSchema = z
-  .string()
-  .trim()
-  .toLowerCase()
-  .min(4)
-  .max(253)
-  .regex(/^(?=.{4,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/, 'host name expected');
+/** A host name the restaurant owns for its ordering page; defined in hostname.ts so image links can share it. */
+export { HostnameSchema };
 
 export const SetCustomDomainSchema = z.object({ domain: HostnameSchema.nullable() }).strict();
 export type SetCustomDomainInput = z.infer<typeof SetCustomDomainSchema>;
@@ -60,7 +53,7 @@ export const UpdateRestaurantSettingsSchema = z
     legalName: z.string().trim().max(160).nullable().optional(),
     taxId: z.string().trim().max(32).nullable().optional(),
     defaultLocale: LocaleCodeSchema.optional(),
-    logoUrl: z.string().trim().url().max(500).nullable().optional(),
+    logoUrl: ImageUrlSchema.nullable().optional(),
     themePrimary: HexColorSchema.optional(),
     deliveryMode: z.nativeEnum(DeliveryMode).optional(),
     deliveryFeePolicy: DeliveryFeePolicySchema.nullable().optional(),

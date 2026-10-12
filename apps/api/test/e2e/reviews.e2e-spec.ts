@@ -114,6 +114,16 @@ describe('Public reviews (e2e)', () => {
     expect(panel.items.find((i) => i.id === low.ratingId)?.comment).toContain('0532');
   });
 
+  it('never shows a link-like or digit-heavy name in the author slot', async () => {
+    const link = await ratedOrder('www.ornek-link.test Y', 4, 'Guzeldi');
+    const digits = await ratedOrder('05321112233 Kaya', 3);
+    const page = await publicPage();
+    expect(page.items.find((i) => i.id === link.ratingId)?.author).toBeNull();
+    expect(page.items.find((i) => i.id === digits.ratingId)?.author).toBeNull();
+    expect(JSON.stringify(page)).not.toContain('ornek-link');
+    expect(JSON.stringify(page)).not.toContain('05321112233');
+  });
+
   it('lets the customer edit for a day and moves the average', async () => {
     const order = await ratedOrder('Selin Kaya', 3, 'Idare eder');
     const tracking = await ctx.http().get(`/public/orders/${order.token}`).expect(200);

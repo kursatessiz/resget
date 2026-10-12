@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ImageHostAllowlistSchema } from '@resget/shared';
 
 // Validated once at startup; the process refuses to boot on invalid config
 // instead of falling back to insecure defaults.
@@ -14,6 +15,16 @@ export const EnvSchema = z
     /** Base URL of the web app; table QR links and invite links are built on it. */
     PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
     PUBLIC_API_URL: z.string().url().default('http://localhost:4000'),
+    /**
+     * Hosts a restaurant may link its logo and menu images from over https, comma separated (docs/GUVENLIK.md,
+     * "Görsel bağlantıları"); the upload origin (PUBLIC_API_URL) is always allowed, and unset allows nothing else.
+     */
+    IMAGE_HOST_ALLOWLIST: z
+      .string()
+      .optional()
+      .refine((value) => value === undefined || ImageHostAllowlistSchema.safeParse(value).success, {
+        message: 'comma-separated host names expected',
+      }),
     /** Address geocoding (docs/VITRIN.md): NONE leaves points empty, MOCK is for development and tests, NOMINATIM asks OpenStreetMap. */
     GEOCODER_PROVIDER: z.enum(['NONE', 'MOCK', 'NOMINATIM', 'GOOGLE']).optional(),
     /** Server-side key of the Google Geocoding API; required when GEOCODER_PROVIDER=GOOGLE. */

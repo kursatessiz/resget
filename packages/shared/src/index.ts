@@ -20,6 +20,7 @@ export * from './table-qr';
 export * from './menu';
 export * from './menu-import';
 export * from './restaurant';
+export * from './image-url';
 export * from './staff';
 export * from './messaging';
 export * from './whatsapp-templates';

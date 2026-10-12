@@ -1,9 +1,15 @@
 import { z } from 'zod';
+import { ImageHostAllowlistSchema } from '@resget/shared';
+import { contentSecurityPolicy } from './csp';
 
 /** Server-only environment. Never imported from a client component. */
 const ServerEnvSchema = z.object({
   /** Internal (docker-network) base URL of the API, e.g. http://api:4000. */
   API_INTERNAL_URL: z.string().url().default('http://localhost:4000'),
+  /** Public base URL of the API: the origin the platform serves uploaded logos and images from. */
+  PUBLIC_API_URL: z.string().url().default('http://localhost:4000'),
+  /** Extra https hosts images may come from, comma separated; the same value the API reads (docs/GUVENLIK.md). */
+  IMAGE_HOST_ALLOWLIST: ImageHostAllowlistSchema,
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   APP_RELEASE: z
     .string()
@@ -55,6 +61,8 @@ export function getServerEnv(): ServerEnv {
   if (cached) return cached;
   const result = ServerEnvSchema.safeParse({
     API_INTERNAL_URL: process.env.API_INTERNAL_URL || undefined,
+    PUBLIC_API_URL: process.env.PUBLIC_API_URL || undefined,
+    IMAGE_HOST_ALLOWLIST: process.env.IMAGE_HOST_ALLOWLIST || undefined,
     NODE_ENV: process.env.NODE_ENV,
     APP_RELEASE: process.env.APP_RELEASE || undefined,
     WEB_DOMAIN: process.env.WEB_DOMAIN?.toLowerCase() || undefined,
@@ -78,6 +86,15 @@ export function getServerEnv(): ServerEnv {
 export function mapTilesConfig(): { url: string; attribution: string; maxZoom: number } {
   const env = getServerEnv();
   return { url: env.MAP_TILE_URL, attribution: env.MAP_ATTRIBUTION, maxZoom: env.MAP_MAX_ZOOM };
+}
+
+/** The Content-Security-Policy header value for this deployment (docs/GUVENLIK.md); middleware.ts sets it. */
+export function contentSecurityPolicyHeader(): string {
+  const env = getServerEnv();
+  return contentSecurityPolicy({
+    imagePolicy: { uploadOrigin: env.PUBLIC_API_URL, allowedHosts: env.IMAGE_HOST_ALLOWLIST },
+    tileUrl: env.MAP_TILE_URL,
+  });
 }
 
 export function apiInternalBaseUrl(): string {

@@ -9,7 +9,8 @@ export const enSettings: Record<keyof typeof trSettings, string> = {
   'settings.business.defaultLocale': 'Menu language',
   'settings.brand.title': 'Appearance',
   'settings.brand.logoUrl': 'Logo link',
-  'settings.brand.logoHelp': 'Instead of uploading a file you can also give a publicly reachable image link.',
+  'settings.brand.logoHelp':
+    'The link can only point to a file uploaded to the platform or to an https address the platform approved; uploading a file is easiest.',
   'settings.brand.logoFile': 'Logo file',
   'settings.brand.logoRules': 'PNG, JPG or WebP; at most 2 MB. A square or landscape logo looks best.',
   'settings.brand.upload': 'Upload logo',

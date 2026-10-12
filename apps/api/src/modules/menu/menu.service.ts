@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@resget/database';
 import {
   OpeningHoursSchema,
@@ -28,6 +29,7 @@ import { FeatureFlagsService } from '../features/feature-flags.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { badRequest, conflict, notFound } from '../../common/api-error';
+import { assertImageUrlAllowed } from '../../common/image-url-policy';
 
 const adminItemSelect = Prisma.validator<Prisma.MenuItemSelect>()({
   id: true,
@@ -99,6 +101,7 @@ export class MenuService {
     private readonly prisma: PrismaService,
     private readonly features: FeatureFlagsService,
     private readonly webhooks: WebhooksService,
+    private readonly config: ConfigService,
   ) {}
 
   // -- Webhooks (docs/API_ERISIMI.md): staff edits are pushed to the restaurant's systems; enqueueing never throws.
@@ -260,6 +263,8 @@ export class MenuService {
   }
 
   async createItem(restaurantId: string, input: CreateMenuItemInput): Promise<MenuItemAdminDTO> {
+    // Item images load in diners' browsers: only the platform's uploads or an allowlisted https host.
+    assertImageUrlAllowed(this.config, input.imageUrl);
     await this.requireCategory(restaurantId, input.categoryId);
     const restaurant = await this.prisma.restaurant.findUniqueOrThrow({
       where: { id: restaurantId },
@@ -291,6 +296,7 @@ export class MenuService {
   }
 
   async updateItem(restaurantId: string, itemId: string, input: UpdateMenuItemInput): Promise<MenuItemAdminDTO> {
+    assertImageUrlAllowed(this.config, input.imageUrl);
     await this.requireItem(restaurantId, itemId);
     if (input.categoryId) await this.requireCategory(restaurantId, input.categoryId);
     const updated = toItem(
