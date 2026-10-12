@@ -26,6 +26,6 @@ export class RestaurantSignupController {
     if (!hasSettlementDefaults(body.countryCode)) {
       throw forbidden('SIGNUP_COUNTRY_NOT_AVAILABLE', 'Self sign-up is not open in this country');
     }
-    return this.provisioning.create(user.id, body, user.id, visitorId ?? null);
+    return this.provisioning.create(user.id, body, user.id, visitorId ?? null, { selfService: !user.isSuperAdmin });
   }
 }

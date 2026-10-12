@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, HttpCode, Patch, Post, Put, Req, Headers } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Patch, Post, Put, Req, Headers, UseGuards } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
 import type { Request } from 'express';
 import { ConnectPosSchema, UpdatePosSchema, UuidSchema } from '@resget/shared';
@@ -13,6 +13,7 @@ import {
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { badRequest } from '../../common/api-error';
+import { PublicRateLimitGuard, RateLimit, WEBHOOK_RATE_LIMIT } from '../storefront/public-rate-limit.guard';
 import { PosService } from './pos.service';
 
 /** The restaurant's POS connection (docs/POS_ENTEGRASYONU.md); credentials never leave the API unencrypted. */
@@ -59,6 +60,8 @@ export class PosController {
 
 /** Status updates from a POS, verified against the connection's signature before anything changes. */
 @Controller('webhooks/pos')
+@UseGuards(PublicRateLimitGuard)
+@RateLimit(WEBHOOK_RATE_LIMIT)
 export class PosWebhooksController {
   constructor(private readonly pos: PosService) {}
 

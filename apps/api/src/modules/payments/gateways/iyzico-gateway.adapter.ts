@@ -60,6 +60,8 @@ const DEFAULT_BASE_URL = 'https://api.iyzipay.com';
  */
 export const IYZICO_BASE_URLS: readonly string[] = [DEFAULT_BASE_URL, 'https://sandbox-api.iyzipay.com'];
 const INITIALIZE_PATH = '/payment/iyzipos/checkoutform/initialize/auth/ecom';
+/** iyzico checkout form tokens are opaque URL-safe strings (UUID-like); anything else is not one. */
+const CHECKOUT_TOKEN_SHAPE = /^[A-Za-z0-9_-]{8,128}$/;
 const CHECKOUT_DETAIL_PATH = '/payment/iyzipos/checkoutform/auth/ecom/detail';
 const PAYMENT_DETAIL_PATH = '/payment/detail';
 const REFUND_PATH = '/payment/refund';
@@ -225,7 +227,9 @@ export class IyzicoGatewayAdapter implements PaymentGatewayAdapter {
       return this.eventFrom(detail);
     }
     const form = parseForm(trimmed);
-    if (!form.token) throw new Error('No checkout token in callback');
+    // The callback is unsigned and the read-back below spends the merchant's credentials and iyzico quota, so a
+    // value that cannot be a checkout token is refused before any outbound call.
+    if (!form.token || !CHECKOUT_TOKEN_SHAPE.test(form.token)) throw new Error('No valid checkout token in callback');
     const detail = await this.call<IyzicoPaymentDetail>(credentials, CHECKOUT_DETAIL_PATH, {
       locale: 'tr',
       token: form.token,
