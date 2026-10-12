@@ -74,6 +74,8 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
     'This business reached the daily limit for invites sent by message. Invite with the QR code instead, or try again tomorrow.',
   'errors.STAFF_INVITE_RECIPIENT_LIMIT':
     'Too many invites were sent to this phone number today. Try again later or invite with the QR code.',
+  'errors.RESTAURANT_SIGNUP_LIMIT':
+    'You reached the number of businesses that can be created per day. Try again tomorrow or contact support.',
   'errors.MENU_CATEGORY_NOT_FOUND': 'Category not found.',
   'errors.MENU_IMPORT_INVALID': 'The file has invalid lines; fix the errors shown in the preview first.',
   'errors.MENU_ITEM_NOT_FOUND': 'Item not found.',

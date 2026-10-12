@@ -226,7 +226,11 @@ describe('Restaurant referrals (e2e)', () => {
 
     // A second restaurant joins with the same code; the yearly cap of one is reached already.
     const second = await signup(await ctx.login(NEW_OWNER_2), mine.code!);
-    expect(await ctx.prisma.partnerReferral.findUnique({ where: { refereeRestaurantId: second.id } })).not.toBeNull();
+    const secondReferral = await ctx.prisma.partnerReferral.findUnique({ where: { refereeRestaurantId: second.id } });
+    expect(secondReferral).not.toBeNull();
+    // That owner's second restaurant got no sign-up trial (docs/PLAN_MATRISI.md), so the link carries no bonus days.
+    expect(secondReferral?.refereeBonusDays).toBe(0);
+    expect((await subscriptionOf(second.id)).plan.code).toBe('BASIC');
   });
 
   it('caps the referrer and lists every invitation in the console', async () => {

@@ -20,6 +20,6 @@ export class RestaurantSignupController {
     @ZodBody(RestaurantSignupSchema) body: z.infer<typeof RestaurantSignupSchema>,
     @Headers(VISITOR_HEADER) visitorId?: string,
   ): Promise<RestaurantCreatedDTO> {
-    return this.provisioning.create(user.id, body, user.id, visitorId ?? null);
+    return this.provisioning.create(user.id, body, user.id, visitorId ?? null, { selfService: !user.isSuperAdmin });
   }
 }

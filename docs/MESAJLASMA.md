@@ -78,7 +78,7 @@ Kurallar:
 
 ## Krediler ve satın alma
 
-- Cüzdanlar kanal başınadır (`SMS`, `WHATSAPP`); yeni restoran hoş geldin bakiyesiyle başlar (`WELCOME_MESSAGE_CREDITS_DEFAULT`).
+- Cüzdanlar kanal başınadır (`SMS`, `WHATSAPP`); yeni restoran hoş geldin bakiyesiyle başlar (`WELCOME_MESSAGE_CREDITS_DEFAULT`); kendi kendine kayıtta bu bakiye kullanıcının yalnızca ilk restoranına verilir, sonrakiler 0 ile başlar (`docs/PLATFORM_YONETIMI.md`).
 - Paketler platform verisidir (`message_credit_packages`, para birimiyle); restorana yalnızca kendi para birimindeki paketler listelenir.
 - Satın alma `POST /restaurants/:id/messaging/purchase` (`subscription.manage`): alıcının kayıtlı kartı (`/me/payment-methods`, kart kasası jetonu) kasa üzerinden çekilir; kart numarası platforma girmez. `CAPTURED` olunca krediler `PURCHASE` hareketiyle cüzdana eklenir. `REQUIRES_3DS` yanıtı banka doğrulamasına yönlendirir; gerçek kasa adaptörü bağlanınca krediler kasanın geri dönüş bildirimiyle eklenecektir (bugün MOCK kasa anında çeker).
 - Süper adminin elle kredi yüklemesi A8 ile gelir (`grant()` hazırdır).

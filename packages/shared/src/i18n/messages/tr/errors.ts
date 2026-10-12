@@ -20,6 +20,8 @@ export const trErrors = {
     'Bu işletme için bugünlük mesajla davet sınırına ulaşıldı. QR ile davet etmeyi deneyin veya yarın tekrar deneyin.',
   'errors.STAFF_INVITE_RECIPIENT_LIMIT':
     'Bu telefon numarasına bugün çok sayıda davet gönderildi. Daha sonra tekrar deneyin veya QR ile davet edin.',
+  'errors.RESTAURANT_SIGNUP_LIMIT':
+    'Bugün için açılabilecek işletme sayısına ulaşıldı. Yarın tekrar deneyin veya destekle iletişime geçin.',
   'errors.PAYMENT_CONNECTION_REQUIRED': 'Bu mod için önce sanal POS bağlantısı gerekir.',
   'errors.ORDER_NOT_FOUND': 'Sipariş bulunamadı.',
   'errors.ORDER_TRANSITION_INVALID': 'Sipariş bu durumdan bu duruma geçemez.',

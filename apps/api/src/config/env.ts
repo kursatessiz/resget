@@ -168,6 +168,12 @@ export const EnvSchema = z
      */
     STAFF_INVITE_RESTAURANT_DAILY_LIMIT: z.coerce.number().int().min(1).max(100000).default(20),
     STAFF_INVITE_RECIPIENT_DAILY_LIMIT: z.coerce.number().int().min(1).max(1000).default(3),
+    /**
+     * Self-service sign-up (docs/PLAN_MATRISI.md): restaurants one user may create per day, and how many of the
+     * restaurants a user creates get the PRO trial and the welcome credits (later ones start on BASIC).
+     */
+    RESTAURANT_SIGNUP_DAILY_LIMIT: z.coerce.number().int().min(1).max(1000).default(3),
+    RESTAURANT_TRIAL_GRANTS_PER_USER: z.coerce.number().int().min(0).max(100).default(1),
     PUBLIC_ORDER_RATE_LIMIT: z.coerce.number().int().min(1).max(1000).default(10),
     PUBLIC_FUNNEL_RATE_LIMIT: z.coerce.number().int().min(1).max(10000).default(60),
     /** Table QR menu views per client per 10 minutes; each new session id adds a funnel row (docs/MASA_QR.md). */

@@ -4,7 +4,7 @@ Karar (sahip): planlar koddan çıkar ve veri olur. Yeni plan eklemek kod deği�
 
 ## Kavramlar
 
-- **Plan** (`plans` tablosu): kod, ad, aylık fiyat, para birimi, deneme süresi, satışta mı ve dışarıda bıraktığı anahtarlar (`excludedFeatures`). İki kod yerleşiktir: `BASIC` her restoranın düştüğü ücretsiz taban plandır (`FALLBACK_PLAN_CODE`), `PRO` yeni restoranların denediği plandır (`TRIAL_PLAN_CODE`). Diğer her plan konsoldan eklenir.
+- **Plan** (`plans` tablosu): kod, ad, aylık fiyat, para birimi, deneme süresi, satışta mı ve dışarıda bıraktığı anahtarlar (`excludedFeatures`). İki kod yerleşiktir: `BASIC` her restoranın düştüğü ücretsiz taban plandır (`FALLBACK_PLAN_CODE`), `PRO` yeni restoranların denediği plandır (`TRIAL_PLAN_CODE`). Diğer her plan konsoldan eklenir. Deneme ve hoş geldin kredisi kişi başına sınırlıdır: kendi kendine kayıtta yalnızca kullanıcının ilk restoranı `PRO` denemesiyle ve kredisiyle açılır (`RESTAURANT_TRIAL_GRANTS_PER_USER`, varsayılan 1), sonrakiler `BASIC` ile ve boş cüzdanla açılır; konsoldan açılan restoran her zaman denemelidir (`docs/PLATFORM_YONETIMI.md`).
 - **Yetki anahtarı** (`EntitlementKey`, `packages/shared/src/entitlements.ts`): plan özellikleri (`PLAN_FEATURES`: crm, campaigns, analytics, loyalty, coupons, custom_domain, api_access ...) ile özellik anahtarı kataloğundaki her modül (`features.ts`). Aynı adı taşıyan anahtarlar (örneğin `crm`, `campaigns`) iki tarafta aynı şeydir.
 - **Çekirdek** (`CORE_ENTITLEMENTS`): menü, sipariş alma, masa QR, pazaryeri, kendi sipariş sayfası. Her planda vardır, matris bunları göstermez. BASIC işletmek için gereken hiçbir şeyi kaybetmez.
 

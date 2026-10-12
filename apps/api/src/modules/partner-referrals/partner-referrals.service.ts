@@ -168,9 +168,16 @@ export class PartnerReferralsService {
    * Links a new restaurant to its referrer and gives it the bonus days. A
    * code that cannot be used (unknown, programme off, referrer switched off,
    * or the new owner already works at the referrer) is ignored: sign-up
-   * never fails because of it.
+   * never fails because of it. The bonus days are PRO time, so a restaurant
+   * that did not get the sign-up trial (`grantBonus` false) is linked
+   * without them.
    */
-  async onSignupSafely(refereeRestaurantId: string, ownerUserId: string, rawCode: string | undefined): Promise<void> {
+  async onSignupSafely(
+    refereeRestaurantId: string,
+    ownerUserId: string,
+    rawCode: string | undefined,
+    grantBonus = true,
+  ): Promise<void> {
     if (!rawCode) return;
     try {
       const parsed = PartnerCodeSchema.safeParse(rawCode);
@@ -183,6 +190,7 @@ export class PartnerReferralsService {
       });
       if (ownSide) return;
       const config = await this.config();
+      const bonusDays = grantBonus ? config.refereeBonusDays : 0;
       const now = new Date();
       await this.prisma.$transaction(async (tx) => {
         await tx.partnerReferral.create({
@@ -190,17 +198,17 @@ export class PartnerReferralsService {
             referrerRestaurantId: referrer.id,
             refereeRestaurantId,
             code: parsed.data,
-            refereeBonusDays: config.refereeBonusDays,
+            refereeBonusDays: bonusDays,
           },
         });
-        if (config.refereeBonusDays > 0) await this.addProDays(tx, refereeRestaurantId, config.refereeBonusDays, now);
+        if (bonusDays > 0) await this.addProDays(tx, refereeRestaurantId, bonusDays, now);
         await tx.auditLog.create({
           data: {
             restaurantId: refereeRestaurantId,
             action: 'partner_referral.joined',
             entity: 'PartnerReferral',
             entityId: referrer.id,
-            meta: { bonusDays: config.refereeBonusDays },
+            meta: { bonusDays },
           },
         });
       });
