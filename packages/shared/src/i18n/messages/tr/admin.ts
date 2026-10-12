@@ -175,6 +175,10 @@ export const trAdmin = {
   'admin.invoices.run': 'Günlük işi şimdi çalıştır',
   'admin.invoices.report':
     '{issued} fatura kesildi, {skipped} restoran atlandı, {collected} tahsil edildi, {collectionFailed} tahsilat başarısız, {overdue} vadesi geçti, {suspended} askıya alındı.',
+  'admin.invoices.reportFailures.one':
+    '{count} restoran bu çalıştırmada işlenemedi; diğerleri işlendi, bir sonraki çalıştırma yeniden dener. Ayrıntı sunucu kaydında.',
+  'admin.invoices.reportFailures.other':
+    '{count} restoran bu çalıştırmada işlenemedi; diğerleri işlendi, bir sonraki çalıştırma yeniden dener. Ayrıntı sunucu kaydında.',
   'admin.invoices.restaurant': 'Restoran',
   'admin.invoices.collect': 'Karttan çek',
   'admin.invoices.markPaid': 'Havale ile ödendi',
@@ -230,6 +234,10 @@ export const trAdmin = {
     'Platform tahsilatı yaptığı restoranların haftalık hakedişleri. Günlük iş geçen haftayı kapatır; ödeme banka transferiyle yapılır ve burada işaretlenir.',
   'admin.payouts.run': 'Haftayı şimdi kapat',
   'admin.payouts.report': '{created} ödeme planlandı ({totals}).',
+  'admin.payouts.reportFailures.one':
+    '{count} restoranın ödemesi bu çalıştırmada oluşturulamadı; bir sonraki çalıştırma yeniden dener.',
+  'admin.payouts.reportFailures.other':
+    '{count} restoranın ödemesi bu çalıştırmada oluşturulamadı; bir sonraki çalıştırma yeniden dener.',
   'admin.payouts.none': 'yok',
   'admin.payouts.markSent': 'Gönderildi olarak işaretle',
   'admin.payouts.markSettled': 'Hesaba geçti',

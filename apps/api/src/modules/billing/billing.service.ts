@@ -11,6 +11,7 @@ import {
   commissionPeriod,
   formatMoney,
   invoiceIsOpen,
+  mayHoldBillingCard,
   previousCommissionPeriod,
 } from '@resget/shared';
 import type {
@@ -19,6 +20,7 @@ import type {
   AdminInvoiceQuery,
   BillingOverviewDTO,
   BillingRunReportDTO,
+  BillingTenantFailureDTO,
   CardVaultProviderCode,
   CommissionInvoiceDTO,
   InvoiceProviderAdapter,
@@ -81,6 +83,7 @@ const cardSelect = Prisma.validator<Prisma.SavedPaymentMethodSelect>()({
   label: true,
   isDefault: true,
   encryptedToken: true,
+  userId: true,
 });
 type CardRow = Prisma.SavedPaymentMethodGetPayload<{ select: typeof cardSelect }>;
 
@@ -126,21 +129,43 @@ export class BillingService {
         return empty;
       }
     };
-    const issue = await step('issue', () => this.issuePeriod(year, month, asOf), { issued: 0, skipped: 0 });
+    const issue = await step('issue', () => this.issuePeriod(year, month, asOf), {
+      issued: 0,
+      skipped: 0,
+      failedRestaurantIds: [],
+    });
     const fiscalized = await step('fiscalize', () => this.fiscalizePending(), 0);
-    const collect = await step('collect', () => this.collectDue(asOf), { collected: 0, collectionFailed: 0 });
+    const collect = await step('collect', () => this.collectDue(asOf), {
+      collected: 0,
+      collectionFailed: 0,
+      failedRestaurantIds: [],
+    });
     const aged = await step('overdue', () => this.markOverdue(asOf), { overdue: 0, suspended: 0 });
     // PLATFORM_PSP money: the closed week's payable lines roll into one payout per restaurant.
-    const payoutRun = await step<{ created: number }>('payouts', () => this.payouts.rollDue(asOf), { created: 0 });
+    const payoutRun = await step<{ created: number; failedRestaurantIds: string[] }>(
+      'payouts',
+      () => this.payouts.rollDue(asOf),
+      { created: 0, failedRestaurantIds: [] },
+    );
+    // A restaurant a step could not process is reported, not fatal: the step went on with the others, and the
+    // next daily run retries it (docs/FATURALAMA.md, "Günlük iş").
+    const tenantFailures: BillingTenantFailureDTO[] = [
+      ...issue.failedRestaurantIds.map((restaurantId) => ({ step: 'issue' as const, restaurantId })),
+      ...collect.failedRestaurantIds.map((restaurantId) => ({ step: 'collect' as const, restaurantId })),
+      ...payoutRun.failedRestaurantIds.map((restaurantId) => ({ step: 'payouts' as const, restaurantId })),
+    ];
     const report: BillingRunReportDTO = {
       asOf: asOf.toISOString(),
       periodStart: period.periodStart.toISOString(),
       periodEnd: period.periodEnd.toISOString(),
-      ...issue,
+      issued: issue.issued,
+      skipped: issue.skipped,
       fiscalized,
-      ...collect,
+      collected: collect.collected,
+      collectionFailed: collect.collectionFailed,
       ...aged,
       payoutsCreated: payoutRun.created,
+      tenantFailures,
     };
     // The console's system page shows when the job last ran from this line.
     await this.prisma.auditLog.create({
@@ -148,15 +173,27 @@ export class BillingService {
         action: 'billing.run',
         entity: 'billing',
         entityId: report.periodStart,
-        meta: { ...report, ...(failed.length > 0 ? { failedSteps: failed } : {}) },
+        meta: {
+          ...report,
+          tenantFailures: tenantFailures.map((f) => ({ step: f.step, restaurantId: f.restaurantId })),
+          ...(failed.length > 0 ? { failedSteps: failed } : {}),
+        },
       },
     });
     if (failed.length > 0) throw new Error(`billing steps failed: ${failed.join(', ')}`);
     return report;
   }
 
-  /** One invoice per active restaurant that owes commission for the month; nothing for a month without commission. */
-  private async issuePeriod(year: number, month: number, now: Date): Promise<{ issued: number; skipped: number }> {
+  /**
+   * One invoice per active restaurant that owes commission for the month; nothing for a month without commission.
+   * A restaurant that cannot be invoiced (a database refusal, bad data) is logged and reported; it never stops the
+   * invoices of the restaurants after it, and the next run tries it again.
+   */
+  private async issuePeriod(
+    year: number,
+    month: number,
+    now: Date,
+  ): Promise<{ issued: number; skipped: number; failedRestaurantIds: string[] }> {
     const period = commissionPeriod(year, month);
     const restaurants = await this.prisma.restaurant.findMany({
       where: { isActive: true, commissionInvoices: { none: { periodStart: period.periodStart } } },
@@ -164,111 +201,129 @@ export class BillingService {
     });
     let issued = 0;
     let skipped = 0;
+    const failedRestaurantIds: string[] = [];
     for (const restaurant of restaurants) {
-      const statement = await this.payments.commissionStatement(restaurant.id, year, month);
-      const hasCommission = statement.orderCount > 0 && statement.totalMinor > 0;
-      // Faster payout fees of the month (docs/HAKEDIS_TAKVIMI.md): VAT included, already taken from payouts.
-      const fees = await this.prisma.ledgerEntry.aggregate({
-        where: {
-          restaurantId: restaurant.id,
-          currency: statement.currency,
-          type: 'PAYOUT_FEE',
-          occurredAt: { gte: period.periodStart, lt: period.periodEnd },
-        },
-        _sum: { amountMinor: true },
-      });
-      const feeGrossMinor = -(fees._sum.amountMinor ?? 0);
-      if (!hasCommission && feeGrossMinor <= 0) {
-        skipped += 1;
-        continue;
-      }
-      const feeLine = payoutFeeInvoiceLine(
-        Math.max(0, feeGrossMinor),
-        settlementDefaultsFor(restaurant.countryCode).commissionVatBps,
-      );
-      const commissionMinor = hasCommission ? statement.commissionMinor : 0;
-      const vatMinor = hasCommission ? statement.vatMinor : 0;
-      const totalMinor = (hasCommission ? statement.totalMinor : 0) + Math.max(0, feeGrossMinor);
-      const deductedMinor = Math.max(0, feeGrossMinor);
-      // An invoice that only shows fees already taken from payouts is settled the moment it is issued.
-      const settled = totalMinor - deductedMinor <= 0;
-      const memo =
-        statement.credits.length > 0
-          ? `commission ${year}-${String(month).padStart(2, '0')} (${statement.credits.length} credited)`
-          : `commission ${year}-${String(month).padStart(2, '0')}`;
-      let row: InvoiceRow;
       try {
-        row = await this.prisma.$transaction(async (tx) => {
-          const created = await tx.commissionInvoice.create({
-            data: {
-              restaurantId: restaurant.id,
-              periodStart: period.periodStart,
-              periodEnd: period.periodEnd,
-              currency: statement.currency,
-              orderCount: hasCommission ? statement.orderCount : 0,
-              baseMinor: hasCommission ? statement.baseMinor : 0,
-              commissionMinor,
-              vatMinor,
-              payoutFeeMinor: feeLine.netMinor,
-              payoutFeeVatMinor: feeLine.vatMinor,
-              deductedMinor,
-              totalMinor,
-              status: settled ? CommissionInvoiceStatus.PAID : CommissionInvoiceStatus.ISSUED,
-              issuedAt: now,
-              dueAt: commissionDueAt(now),
-              ...(settled ? { paidAt: now, paymentRef: 'payout-deduction' } : {}),
-            },
-            select: invoiceSelect,
-          });
-          // Which orders this invoice billed and which refunds it credited back (docs/MUTABAKAT.md, "Kısmi iade").
-          if (!hasCommission) return created;
-          await tx.order.updateMany({
-            where: { id: { in: statement.lines.map((l) => l.orderId) }, commissionInvoiceId: null },
-            data: { commissionInvoiceId: created.id },
-          });
-          const creditedRefunds = statement.credits.flatMap((l) => (l.refundId ? [l.refundId] : []));
-          if (creditedRefunds.length > 0) {
-            await tx.orderRefund.updateMany({
-              where: { id: { in: creditedRefunds }, creditInvoiceId: null },
-              data: { creditInvoiceId: created.id },
-            });
-          }
-          // Signed from the restaurant's point of view: what it owes the platform for the month.
-          await tx.ledgerEntry.createMany({
-            data: [
-              {
-                restaurantId: restaurant.id,
-                invoiceId: created.id,
-                type: 'PLATFORM_COMMISSION',
-                amountMinor: -statement.commissionMinor,
-                currency: statement.currency,
-                occurredAt: now,
-                memo,
-              },
-              {
-                restaurantId: restaurant.id,
-                invoiceId: created.id,
-                type: 'COMMISSION_VAT',
-                amountMinor: -statement.vatMinor,
-                currency: statement.currency,
-                occurredAt: now,
-                memo,
-              },
-            ],
-          });
-          return created;
-        });
+        const outcome = await this.issueFor(restaurant, year, month, now);
+        if (outcome === 'issued') issued += 1;
+        if (outcome === 'skipped') skipped += 1;
       } catch (error) {
-        // A parallel run already wrote this period: the unique index is the guard, not a lock.
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') continue;
-        throw error;
+        failedRestaurantIds.push(restaurant.id);
+        this.logger.error(
+          `invoice of restaurant ${restaurant.id} for ${year}-${month} failed: ${error instanceof Error ? error.message : 'error'}`,
+        );
       }
-      issued += 1;
-      // A fee-only invoice is already settled; there is nothing to ask the owner to pay.
-      if (!settled) await this.notifyOwner(row, 'invoice.issued');
-      await this.emailSummary(row);
     }
-    return { issued, skipped };
+    return { issued, skipped, failedRestaurantIds };
+  }
+
+  /** The month's invoice of one restaurant; 'raced' when a parallel run wrote it first. */
+  private async issueFor(
+    restaurant: { id: string; countryCode: string },
+    year: number,
+    month: number,
+    now: Date,
+  ): Promise<'issued' | 'skipped' | 'raced'> {
+    const period = commissionPeriod(year, month);
+    const statement = await this.payments.commissionStatement(restaurant.id, year, month);
+    const hasCommission = statement.orderCount > 0 && statement.totalMinor > 0;
+    // Faster payout fees of the month (docs/HAKEDIS_TAKVIMI.md): VAT included, already taken from payouts.
+    const fees = await this.prisma.ledgerEntry.aggregate({
+      where: {
+        restaurantId: restaurant.id,
+        currency: statement.currency,
+        type: 'PAYOUT_FEE',
+        occurredAt: { gte: period.periodStart, lt: period.periodEnd },
+      },
+      _sum: { amountMinor: true },
+    });
+    const feeGrossMinor = -(fees._sum.amountMinor ?? 0);
+    if (!hasCommission && feeGrossMinor <= 0) return 'skipped';
+    const feeLine = payoutFeeInvoiceLine(
+      Math.max(0, feeGrossMinor),
+      settlementDefaultsFor(restaurant.countryCode).commissionVatBps,
+    );
+    const commissionMinor = hasCommission ? statement.commissionMinor : 0;
+    const vatMinor = hasCommission ? statement.vatMinor : 0;
+    const totalMinor = (hasCommission ? statement.totalMinor : 0) + Math.max(0, feeGrossMinor);
+    const deductedMinor = Math.max(0, feeGrossMinor);
+    // An invoice that only shows fees already taken from payouts is settled the moment it is issued.
+    const settled = totalMinor - deductedMinor <= 0;
+    const memo =
+      statement.credits.length > 0
+        ? `commission ${year}-${String(month).padStart(2, '0')} (${statement.credits.length} credited)`
+        : `commission ${year}-${String(month).padStart(2, '0')}`;
+    let row: InvoiceRow;
+    try {
+      row = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.commissionInvoice.create({
+          data: {
+            restaurantId: restaurant.id,
+            periodStart: period.periodStart,
+            periodEnd: period.periodEnd,
+            currency: statement.currency,
+            orderCount: hasCommission ? statement.orderCount : 0,
+            baseMinor: hasCommission ? statement.baseMinor : 0,
+            commissionMinor,
+            vatMinor,
+            payoutFeeMinor: feeLine.netMinor,
+            payoutFeeVatMinor: feeLine.vatMinor,
+            deductedMinor,
+            totalMinor,
+            status: settled ? CommissionInvoiceStatus.PAID : CommissionInvoiceStatus.ISSUED,
+            issuedAt: now,
+            dueAt: commissionDueAt(now),
+            ...(settled ? { paidAt: now, paymentRef: 'payout-deduction' } : {}),
+          },
+          select: invoiceSelect,
+        });
+        // Which orders this invoice billed and which refunds it credited back (docs/MUTABAKAT.md, "Kısmi iade").
+        if (!hasCommission) return created;
+        await tx.order.updateMany({
+          where: { id: { in: statement.lines.map((l) => l.orderId) }, commissionInvoiceId: null },
+          data: { commissionInvoiceId: created.id },
+        });
+        const creditedRefunds = statement.credits.flatMap((l) => (l.refundId ? [l.refundId] : []));
+        if (creditedRefunds.length > 0) {
+          await tx.orderRefund.updateMany({
+            where: { id: { in: creditedRefunds }, creditInvoiceId: null },
+            data: { creditInvoiceId: created.id },
+          });
+        }
+        // Signed from the restaurant's point of view: what it owes the platform for the month.
+        await tx.ledgerEntry.createMany({
+          data: [
+            {
+              restaurantId: restaurant.id,
+              invoiceId: created.id,
+              type: 'PLATFORM_COMMISSION',
+              amountMinor: -statement.commissionMinor,
+              currency: statement.currency,
+              occurredAt: now,
+              memo,
+            },
+            {
+              restaurantId: restaurant.id,
+              invoiceId: created.id,
+              type: 'COMMISSION_VAT',
+              amountMinor: -statement.vatMinor,
+              currency: statement.currency,
+              occurredAt: now,
+              memo,
+            },
+          ],
+        });
+        return created;
+      });
+    } catch (error) {
+      // A parallel run already wrote this period: the unique index is the guard, not a lock.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return 'raced';
+      throw error;
+    }
+    // A fee-only invoice is already settled; there is nothing to ask the owner to pay.
+    if (!settled) await this.notifyOwner(row, 'invoice.issued');
+    await this.emailSummary(row);
+    return 'issued';
   }
 
   /** Fiscal documents for invoices that have none yet; a failed integrator call is retried on the next run. */
@@ -319,8 +374,13 @@ export class BillingService {
     return count;
   }
 
-  /** Charges every open invoice whose restaurant has a billing card and whose previous attempt is old enough. */
-  private async collectDue(now: Date): Promise<{ collected: number; collectionFailed: number }> {
+  /**
+   * Charges every open invoice whose restaurant has a billing card and whose previous attempt is old enough. One
+   * restaurant whose collection throws is logged and reported; the others are still collected.
+   */
+  private async collectDue(
+    now: Date,
+  ): Promise<{ collected: number; collectionFailed: number; failedRestaurantIds: string[] }> {
     const candidates = await this.prisma.commissionInvoice.findMany({
       where: {
         status: { in: ['ISSUED', 'OVERDUE'] },
@@ -334,24 +394,36 @@ export class BillingService {
     });
     let collected = 0;
     let collectionFailed = 0;
+    const failedRestaurantIds: string[] = [];
     for (const invoice of candidates) {
-      const card = invoice.restaurant.billingPaymentMethod;
-      if (!card || !collectionIsDue(invoice, now)) continue;
-      // An invoice another collector claimed, paid or voided since the read is skipped.
-      const result = await this.charge(
-        invoice,
-        card,
-        now,
-        `${this.appUrl()}/panel/${invoice.restaurant.slug}/finans`,
-      ).catch((error: unknown) => {
-        if (error instanceof HttpException && error.getStatus() === HttpStatus.CONFLICT) return null;
-        throw error;
-      });
+      if (!invoice.restaurant.billingPaymentMethod || !collectionIsDue(invoice, now)) continue;
+      let result: VaultChargeResult | null;
+      try {
+        // The card of a holder who left or lost payments.manage is detached, never charged.
+        const card = await this.usableBillingCard(invoice.restaurantId, invoice.restaurant.billingPaymentMethod);
+        if (!card) continue;
+        // An invoice another collector claimed, paid or voided since the read is skipped.
+        result = await this.charge(
+          invoice,
+          card,
+          now,
+          `${this.appUrl()}/panel/${invoice.restaurant.slug}/finans`,
+        ).catch((error: unknown) => {
+          if (error instanceof HttpException && error.getStatus() === HttpStatus.CONFLICT) return null;
+          throw error;
+        });
+      } catch (error) {
+        if (!failedRestaurantIds.includes(invoice.restaurantId)) failedRestaurantIds.push(invoice.restaurantId);
+        this.logger.error(
+          `collection of invoice ${invoice.id} failed: ${error instanceof Error ? error.message : 'error'}`,
+        );
+        continue;
+      }
       if (!result) continue;
       if (result.status === 'CAPTURED') collected += 1;
       else collectionFailed += 1;
     }
-    return { collected, collectionFailed };
+    return { collected, collectionFailed, failedRestaurantIds };
   }
 
   /** Issued invoices past their due moment become OVERDUE and pause the restaurant's marketplace listing. */
@@ -451,7 +523,7 @@ export class BillingService {
           where: { id: input.paymentMethodId, userId },
           select: cardSelect,
         })
-      : invoice.restaurant.billingPaymentMethod;
+      : await this.usableBillingCard(restaurantId, invoice.restaurant.billingPaymentMethod);
     if (!card) {
       if (input.paymentMethodId) throw notFound('PAYMENT_METHOD_NOT_FOUND', 'Saved card not found');
       throw badRequest('BILLING_CARD_REQUIRED', 'No card to charge');
@@ -554,7 +626,7 @@ export class BillingService {
     });
     if (!invoice) throw notFound('INVOICE_NOT_FOUND', 'Invoice not found');
     if (!invoiceIsOpen(invoice.status)) throw conflict('INVOICE_STATE_INVALID', 'Invoice is not open');
-    const card = invoice.restaurant.billingPaymentMethod;
+    const card = await this.usableBillingCard(invoice.restaurantId, invoice.restaurant.billingPaymentMethod);
     if (!card) throw badRequest('BILLING_CARD_REQUIRED', 'Restaurant has no billing card');
     const result = await this.charge(
       invoice,
@@ -582,6 +654,44 @@ export class BillingService {
   }
 
   // -- Internals -----------------------------------------------------------------------------
+
+  /**
+   * The restaurant's billing card when its holder may still be charged for the business: an ACTIVE member holding
+   * payments.manage (mayHoldBillingCard, docs/FATURALAMA.md). Otherwise the card is detached, so the panel shows no
+   * card and the owner adds one, and null is returned. Covers every path that left a card attached, a role edit
+   * included.
+   */
+  private async usableBillingCard(restaurantId: string, card: CardRow | null): Promise<CardRow | null> {
+    if (!card) return null;
+    const membership = await this.prisma.membership.findUnique({
+      where: { userId_restaurantId: { userId: card.userId, restaurantId } },
+      select: {
+        status: true,
+        roleTemplate: { select: { isOwner: true, permissions: { select: { permissionKey: true } } } },
+      },
+    });
+    const allowed = mayHoldBillingCard(
+      membership
+        ? {
+            status: membership.status,
+            isOwner: membership.roleTemplate.isOwner,
+            permissionKeys: membership.roleTemplate.permissions.map((p) => p.permissionKey),
+          }
+        : null,
+    );
+    if (allowed) return card;
+    const detached = await this.prisma.restaurant.updateMany({
+      where: { id: restaurantId, billingPaymentMethodId: card.id },
+      data: { billingPaymentMethodId: null },
+    });
+    if (detached.count > 0) {
+      this.logger.warn(`billing card of restaurant ${restaurantId} detached: its holder may no longer pay`);
+      await this.audit(null, restaurantId, 'billing.card_detached', 'restaurant', restaurantId, {
+        reason: 'holder_not_allowed',
+      });
+    }
+    return null;
+  }
 
   /**
    * One charge of an open invoice. The attempt is claimed before the card is charged, so two collectors (the daily

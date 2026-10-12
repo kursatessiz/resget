@@ -44,6 +44,13 @@ test.describe('Payout schedules', () => {
       method: 'POST',
       data: { categoryId: category.id, name: 'Kiymali pide', priceMinor: 25000, vatRateBps: 1000 },
     });
+    // The platform sets the restaurant's PSP rate before it may switch to platform collection (docs/ODEME.md).
+    const rates = await browser.newContext({ storageState: ADMIN_STATE, locale: 'tr-TR' });
+    await bff((await rates.newPage()).request, `admin/restaurants/${restaurant.id}`, {
+      method: 'PATCH',
+      data: { pspPercentBps: 200, pspFixedMinor: 25 },
+    });
+    await rates.close();
     // The platform collects for this restaurant, so a completed order writes payable lines.
     await bff(page.request, `restaurants/${restaurant.id}/payments/mode`, {
       method: 'PUT',

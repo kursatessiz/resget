@@ -8,7 +8,15 @@ import { z } from 'zod';
 export const CurrencyCodeSchema = z.string().regex(/^[A-Z]{3}$/, 'ISO 4217 currency code expected');
 export type CurrencyCode = z.infer<typeof CurrencyCodeSchema>;
 
-export const MinorAmountSchema = z.number().int().min(0);
+/**
+ * Upper bound of one money amount the platform accepts: a menu price, a fee, a threshold, and the items total of an
+ * order (docs/MUTABAKAT.md, "Tutar üst sınırı"). 100,000,000 minor units is 1,000,000.00 in a two-decimal currency,
+ * far above any restaurant sale, while an order stays under 5 percent of the 32-bit columns (2,147,483,647) that
+ * store its amounts. A tenant can therefore never write an amount that overflows its own row.
+ */
+export const MAX_MINOR_AMOUNT = 100_000_000;
+
+export const MinorAmountSchema = z.number().int().min(0).max(MAX_MINOR_AMOUNT);
 /** Basis points: 100 = 1 percent, 10000 = 100 percent. */
 export const BasisPointsSchema = z.number().int().min(0).max(10000);
 

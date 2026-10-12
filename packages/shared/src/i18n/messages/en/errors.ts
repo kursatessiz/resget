@@ -171,6 +171,11 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.INVOICE_STATE_INVALID': 'This invoice does not accept that action in its current state.',
   'errors.BILLING_CARD_REQUIRED': 'Choose a card for the collection.',
   'errors.COLLECTION_FAILED': 'The card could not be charged.',
+  'errors.ORDER_TOTAL_TOO_LARGE': 'The order total is above the limit for a single order; split the order.',
+  'errors.PLATFORM_PSP_NOT_READY':
+    "Platform-collected payments are not available for this business yet: they open once the platform has set up its payment provider and this business's payment processing fee rate.",
+  'errors.SIGNUP_COUNTRY_NOT_AVAILABLE':
+    'Self sign-up is not open in this country yet. Contact us to open your business.',
   'errors.PAYMENT_METHOD_NOT_FOUND': 'Saved card not found.',
   'errors.SLUG_TAKEN': 'This ordering page address is taken; choose another.',
   'errors.SERVICE_AREA_EXISTS': 'This service area already exists.',

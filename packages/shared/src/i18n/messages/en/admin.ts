@@ -177,6 +177,10 @@ export const enAdmin: Record<keyof typeof trAdmin, string> = {
   'admin.invoices.run': 'Run the daily job now',
   'admin.invoices.report':
     '{issued} invoices issued, {skipped} restaurants skipped, {collected} collected, {collectionFailed} collections failed, {overdue} overdue, {suspended} paused.',
+  'admin.invoices.reportFailures.one':
+    '{count} restaurant could not be processed in this run; the others were, and the next run retries it. See the server log for details.',
+  'admin.invoices.reportFailures.other':
+    '{count} restaurants could not be processed in this run; the others were, and the next run retries them. See the server log for details.',
   'admin.invoices.restaurant': 'Restaurant',
   'admin.invoices.collect': 'Charge card',
   'admin.invoices.markPaid': 'Paid by transfer',
@@ -231,6 +235,10 @@ export const enAdmin: Record<keyof typeof trAdmin, string> = {
     'Weekly payables of the restaurants the platform collects for. The daily job closes the past week; the money moves by bank transfer and is marked here.',
   'admin.payouts.run': 'Close the week now',
   'admin.payouts.report': '{created} payouts scheduled ({totals}).',
+  'admin.payouts.reportFailures.one':
+    'The payout of {count} restaurant could not be created in this run; the next run retries it.',
+  'admin.payouts.reportFailures.other':
+    'The payouts of {count} restaurants could not be created in this run; the next run retries them.',
   'admin.payouts.none': 'none',
   'admin.payouts.markSent': 'Mark as sent',
   'admin.payouts.markSettled': 'Settled',

@@ -8,6 +8,7 @@ import { CREDIT_CHANNELS, PlanCodeSchema } from './plans';
 import type { CreditChannel, PlanCode } from './plans';
 import type { EntitlementKey } from './entitlements';
 import { CountryCodeSchema, SlugSchema, UuidSchema } from './validators';
+import { hasSettlementDefaults } from './settlement';
 
 /**
  * Restaurant onboarding and the platform owner's console (docs/PLATFORM_YONETIMI.md).
@@ -28,6 +29,12 @@ export const SIGNUP_COUNTRIES = [
   { code: 'US', currency: 'USD', timezone: 'America/New_York', locale: 'en' },
 ] as const;
 export type SignupCountryCode = (typeof SIGNUP_COUNTRIES)[number]['code'];
+
+/**
+ * The countries the self sign-up form offers: those of SIGNUP_COUNTRIES the platform has settlement rules for
+ * (hasSettlementDefaults, docs/MUTABAKAT.md). The console keeps the full list.
+ */
+export const SELF_SIGNUP_COUNTRIES = SIGNUP_COUNTRIES.filter((c) => hasSettlementDefaults(c.code));
 
 export const TimezoneSchema = z
   .string()

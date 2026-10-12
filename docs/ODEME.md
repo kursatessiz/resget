@@ -18,7 +18,7 @@ Kural kodu `packages/shared/src/payments.ts`, API tarafı `apps/api/src/modules/
 | Lisans ve koruma hesabı | Gerekmez | PSP'nin pazaryeri ürünü üzerinden |
 | Faz | Faz 0 | Faz 1 |
 
-Restoranın modu `Restaurant.paymentMode` alanıdır; `OWN_POS`'a geçmek için aktif bir POS bağlantısı gerekir (`PAYMENT_CONNECTION_REQUIRED`). Her sipariş yerleştirme anındaki modu ve komisyonu üzerinde taşır (`Order.paymentMode`, `Order.platformReceivableMinor`); sonradan mod değişse geçmiş siparişler değişmez.
+Restoranın modu `Restaurant.paymentMode` alanıdır; `OWN_POS`'a geçmek için aktif bir POS bağlantısı gerekir (`PAYMENT_CONNECTION_REQUIRED`). `PLATFORM_PSP`'ye geçmek için iki ön koşul vardır ve ikisi de restoranın elinde değildir: platformun kendi üye işyeri yapılandırılmış olmalıdır (`PAYMENT_PROVIDER` ve o kodun kayıtlı adaptörü) ve süper admin bu restoranın PSP oranını tanımlamış olmalıdır (`pspPercentBps > 0` veya `pspFixedMinor > 0`, konsolda restoran kartı). Yeni restoranın oranları varsayılan olarak sıfırdır; PSP kesintisi siparişin anlık görüntüsüne bu orandan yazıldığı için sıfır oranla platform tahsilatı açılsaydı gerçek PSP maliyetini platform üstlenirdi. Ön koşul eksikse `PUT /restaurants/:id/payments/mode` `PLATFORM_PSP_NOT_READY` (403) ile reddedilir. Her sipariş yerleştirme anındaki modu ve komisyonu üzerinde taşır (`Order.paymentMode`, `Order.platformReceivableMinor`); sonradan mod değişse geçmiş siparişler değişmez.
 
 Hakediş motoru her iki modda aynıdır (`computeModeSettlement`): `OWN_POS` modunda PSP kesintisi ve tevkifat sıfır girilir, komisyon + KDV `platformReceivableMinor` olarak restoranın borcu olur, `payoutMinor` sıfırdır. `PLATFORM_PSP` modunda tam motor çalışır, `payoutMinor` restoran hakedişidir.
 

@@ -173,6 +173,8 @@ export interface PayoutRunReportDTO {
   created: number;
   /** Sum of the new payouts per currency. */
   totals: { currency: string; amountMinor: number }[];
+  /** Restaurants whose payout could not be rolled this run; the others went on and the next run retries them. */
+  failedRestaurantIds: string[];
 }
 
 export const PayoutSentSchema = z.object({ providerRef: z.string().trim().min(2).max(120) }).strict();

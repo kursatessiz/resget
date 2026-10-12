@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { LedgerEntryType, PayoutStatus, Prisma } from '@resget/database';
 import {
   PAYABLE_LINE_TYPES,
@@ -70,6 +70,8 @@ const payableTypes = [...PAYABLE_LINE_TYPES] as LedgerEntryType[];
  */
 @Injectable()
 export class PayoutsService {
+  private readonly logger = new Logger(PayoutsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly features: FeatureFlagsService,
@@ -91,41 +93,20 @@ export class PayoutsService {
     });
     let created = 0;
     const totals = new Map<string, number>();
+    const failedRestaurantIds: string[] = [];
     for (const group of groups) {
-      const restaurant = await this.prisma.restaurant.findUnique({
-        where: { id: group.restaurantId },
-        select: { id: true, countryCode: true, payoutCadence: true },
-      });
-      if (!restaurant) continue;
-      const schedule = await this.effectiveSchedule(restaurant, group.currency);
-      const period = schedule.cadence === 'DAILY' ? day : week;
-      const payout = await this.prisma.$transaction(async (tx) => {
-        // Every writer of payout lines locks the restaurant row, so a roll and an instant payout never pay a line
-        // twice, and two overlapping rolls cannot both open the period.
-        await tx.$queryRaw`SELECT id FROM restaurants WHERE id = ${restaurant.id} FOR UPDATE`;
-        const exists = await tx.payout.findFirst({
-          where: {
-            restaurantId: restaurant.id,
-            periodStart: period.periodStart,
-            currency: group.currency,
-            cadence: schedule.cadence,
-          },
-          select: { id: true },
-        });
-        if (exists) return null;
-        return this.createPayout(tx, {
-          restaurantId: restaurant.id,
-          currency: group.currency,
-          cadence: schedule.cadence,
-          periodStart: period.periodStart,
-          periodEnd: period.periodEnd,
-          scheduledFor: addBusinessDays(period.periodEnd, schedule.settleBusinessDays),
-          fee: schedule.fee,
-        });
-      });
-      if (!payout) continue;
-      created += 1;
-      totals.set(group.currency, (totals.get(group.currency) ?? 0) + payout.amountMinor);
+      // One restaurant whose payout cannot be rolled is logged and reported; the others are still paid.
+      try {
+        const payout = await this.rollGroup(group, week, day);
+        if (!payout) continue;
+        created += 1;
+        totals.set(group.currency, (totals.get(group.currency) ?? 0) + payout.amountMinor);
+      } catch (error) {
+        if (!failedRestaurantIds.includes(group.restaurantId)) failedRestaurantIds.push(group.restaurantId);
+        this.logger.error(
+          `payout roll of restaurant ${group.restaurantId} (${group.currency}) failed: ${error instanceof Error ? error.message : 'error'}`,
+        );
+      }
     }
     return {
       asOf: now.toISOString(),
@@ -133,7 +114,48 @@ export class PayoutsService {
       periodEnd: week.periodEnd.toISOString(),
       created,
       totals: [...totals.entries()].map(([currency, amountMinor]) => ({ currency, amountMinor })),
+      failedRestaurantIds,
     };
+  }
+
+  /** The payout of one restaurant and currency for the closed period of its schedule; null when nothing is due. */
+  private async rollGroup(
+    group: { restaurantId: string; currency: string },
+    week: { periodStart: Date; periodEnd: Date },
+    day: { periodStart: Date; periodEnd: Date },
+  ): Promise<{ amountMinor: number } | null> {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: group.restaurantId },
+      select: { id: true, countryCode: true, payoutCadence: true },
+    });
+    if (!restaurant) return null;
+    const schedule = await this.effectiveSchedule(restaurant, group.currency);
+    const period = schedule.cadence === 'DAILY' ? day : week;
+    const payout = await this.prisma.$transaction(async (tx) => {
+      // Every writer of payout lines locks the restaurant row, so a roll and an instant payout never pay a line
+      // twice, and two overlapping rolls cannot both open the period.
+      await tx.$queryRaw`SELECT id FROM restaurants WHERE id = ${restaurant.id} FOR UPDATE`;
+      const exists = await tx.payout.findFirst({
+        where: {
+          restaurantId: restaurant.id,
+          periodStart: period.periodStart,
+          currency: group.currency,
+          cadence: schedule.cadence,
+        },
+        select: { id: true },
+      });
+      if (exists) return null;
+      return this.createPayout(tx, {
+        restaurantId: restaurant.id,
+        currency: group.currency,
+        cadence: schedule.cadence,
+        periodStart: period.periodStart,
+        periodEnd: period.periodEnd,
+        scheduledFor: addBusinessDays(period.periodEnd, schedule.settleBusinessDays),
+        fee: schedule.fee,
+      });
+    });
+    return payout;
   }
 
   // -- Payout schedules (docs/HAKEDIS_TAKVIMI.md) ----------------------------------------------

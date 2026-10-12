@@ -169,6 +169,11 @@ export const trErrors = {
   'errors.INVOICE_STATE_INVALID': 'Bu fatura bu aşamada işlem kabul etmiyor.',
   'errors.BILLING_CARD_REQUIRED': 'Tahsilat için bir kart seçin.',
   'errors.COLLECTION_FAILED': 'Karttan tahsilat yapılamadı.',
+  'errors.ORDER_TOTAL_TOO_LARGE': 'Sipariş tutarı tek siparişte kabul edilen üst sınırı aşıyor; siparişi bölün.',
+  'errors.PLATFORM_PSP_NOT_READY':
+    'Platform tahsilatı bu işletme için henüz açık değil: platformun ödeme altyapısı ve işletmenin ödeme kuruluşu kesinti oranı platform tarafından tanımlanınca açılır.',
+  'errors.SIGNUP_COUNTRY_NOT_AVAILABLE':
+    'Bu ülkede kendi kendine kayıt henüz açık değil. İşletmenizi açmak için bizimle iletişime geçin.',
   'errors.SLUG_TAKEN': 'Bu sipariş sayfası adresi kullanımda; başka bir ad seçin.',
   'errors.SERVICE_AREA_EXISTS': 'Bu hizmet alanı zaten kayıtlı.',
   'errors.PLAN_NOT_FOUND': 'Plan bulunamadı.',

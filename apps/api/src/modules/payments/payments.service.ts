@@ -101,8 +101,23 @@ export class PaymentsService {
     return this.settings(restaurantId);
   }
 
-  /** OWN_POS needs an active connection; PLATFORM_PSP needs the platform's PSP configured (env). */
+  /**
+   * OWN_POS needs an active connection. PLATFORM_PSP needs the platform's PSP configured (PAYMENT_PROVIDER with a
+   * registered adapter) and the restaurant's PSP rate set by the super admin (docs/ODEME.md): the fee is passed
+   * through at that rate, so a restaurant on the default zero rate would leave the real PSP cost with the platform.
+   */
   async setPaymentMode(restaurantId: string, mode: PaymentMode): Promise<PaymentSettingsDTO> {
+    if (mode === PaymentMode.PLATFORM_PSP) {
+      const restaurant = await this.prisma.restaurant.findUnique({
+        where: { id: restaurantId },
+        select: { pspPercentBps: true, pspFixedMinor: true },
+      });
+      if (!restaurant) throw notFound('NOT_FOUND', 'Restaurant not found');
+      const platformPsp = this.registry.gateway(this.config.get<string>('PAYMENT_PROVIDER', 'MOCK'));
+      const rateSet = restaurant.pspPercentBps > 0 || restaurant.pspFixedMinor > 0;
+      if (!platformPsp || !rateSet)
+        throw forbidden('PLATFORM_PSP_NOT_READY', 'The platform PSP or this restaurant PSP rate is not set up');
+    }
     if (mode === PaymentMode.OWN_POS) {
       const connection = await this.prisma.paymentProviderConnection.findUnique({
         where: { restaurantId },

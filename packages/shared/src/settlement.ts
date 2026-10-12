@@ -52,6 +52,21 @@ export function settlementDefaultsFor(countryCode: string): { withholdingBps: nu
 }
 
 /**
+ * True when the platform has an explicit settlement row for the country (the DEFAULT fallback does not count).
+ * The country selects an order's tax parameters, so self sign-up is open only to these countries
+ * (docs/MUTABAKAT.md, "Bölgesel varsayılanlar"); the super admin creates restaurants elsewhere.
+ */
+export function hasSettlementDefaults(countryCode: string): boolean {
+  const code = countryCode.toUpperCase();
+  return code !== 'DEFAULT' && Object.prototype.hasOwnProperty.call(SETTLEMENT_DEFAULTS_BY_COUNTRY, code);
+}
+
+/** Countries open to self sign-up, derived from the settlement table and never listed by hand. */
+export function selfSignupCountryCodes(): string[] {
+  return Object.keys(SETTLEMENT_DEFAULTS_BY_COUNTRY).filter(hasSettlementDefaults);
+}
+
+/**
  * VAT rate applied to the delivery fee line of an order, by country. Kept
  * apart from settlementDefaultsFor so that object stays a valid spread into
  * SettlementInput. Turkey: delivery is a service taxed at the standard rate.
