@@ -27,7 +27,7 @@ export class ApiKeyOrJwtAuthGuard extends JwtAuthGuard {
     const header = request.headers[API_KEY_HEADER];
     const token = Array.isArray(header) ? header[0] : header;
     if (token === undefined) return (await super.canActivate(context)) as boolean;
-    const principal = await this.apiKeys.authenticate(token);
+    const principal = await this.apiKeys.authenticate(token, request.ip ?? request.socket.remoteAddress);
     if (!principal) throw unauthorized('Invalid API key');
     // One window per key, not per client address: an integration behind many addresses is still one caller.
     const limit = this.config.get<number>('API_KEY_RATE_LIMIT') ?? 600;

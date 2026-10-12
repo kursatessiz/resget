@@ -116,9 +116,14 @@ describe('iyzico gateway adapter', () => {
     };
     const { fetchImpl, calls } = fakeFetch([detail]);
     const adapter = new IyzicoGatewayAdapter({ fetchImpl, randomKey: () => 'r', now: () => NOW });
-    const event = await adapter.parseWebhook(credentials, 'token=tok-1', {}, { return: 'https://web.test/t/abc' });
+    const event = await adapter.parseWebhook(
+      credentials,
+      'token=tok-checkout-1',
+      {},
+      { return: 'https://web.test/t/abc' },
+    );
     expect(calls[0].url).toBe('https://sandbox-api.iyzipay.com/payment/iyzipos/checkoutform/auth/ecom/detail');
-    expect(JSON.parse(calls[0].body)).toEqual({ locale: 'tr', token: 'tok-1' });
+    expect(JSON.parse(calls[0].body)).toEqual({ locale: 'tr', token: 'tok-checkout-1' });
     expect(event).toEqual({
       providerRef: 'tx-1',
       orderRef: ORDER,
@@ -129,6 +134,21 @@ describe('iyzico gateway adapter', () => {
       occurredAt: NOW.toISOString(),
       browserRedirectUrl: 'https://web.test/t/abc',
     });
+  });
+
+  it('refuses a browser callback whose token is not shaped like a checkout token, without asking iyzico', async () => {
+    const { fetchImpl, calls } = fakeFetch([{ status: 'success' }]);
+    const adapter = new IyzicoGatewayAdapter({ fetchImpl, randomKey: () => 'r', now: () => NOW });
+    for (const body of [
+      'token=x',
+      'token=',
+      'token=a%20b%20c%20d%20e',
+      `token=${'a'.repeat(300)}`,
+      'token=%3Cscript%3Ealert1%3C%2Fscript%3E',
+    ]) {
+      await expect(adapter.parseWebhook(credentials, body, {})).rejects.toThrow('checkout token');
+    }
+    expect(calls).toHaveLength(0);
   });
 
   it('verifies the V3 signature of merchant notifications and refuses a bad one', async () => {

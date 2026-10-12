@@ -151,6 +151,14 @@ export const EnvSchema = z
     /** Requests one API key may make per minute (docs/API_ERISIMI.md). */
     API_KEY_RATE_LIMIT: z.coerce.number().int().min(1).max(100000).default(600),
     /**
+     * Failed API key verifications allowed per minute: per key id (all addresses), per key id and client address,
+     * and per client address (all keys); past one the request is refused with 429 before the secret is hashed
+     * (docs/API_ERISIMI.md).
+     */
+    API_KEY_FAILURE_LIMIT_PER_KEY: z.coerce.number().int().min(1).max(100000).default(100),
+    API_KEY_FAILURE_LIMIT_PER_KEY_CLIENT: z.coerce.number().int().min(1).max(100000).default(10),
+    API_KEY_FAILURE_LIMIT_PER_CLIENT: z.coerce.number().int().min(1).max(100000).default(30),
+    /**
      * How often an open event stream re-checks that its subscriber may still read it (docs/SIPARIS_VE_SEVK.md);
      * REALTIME_REAUTH_SECONDS from the shared package when unset.
      */
@@ -162,6 +170,20 @@ export const EnvSchema = z
     CONSENT_REGISTRY_PROVIDER: z.enum(['MOCK']).default('MOCK'),
     /** Fiscal document integrator for commission invoices; MOCK until a contract exists. */
     INVOICE_PROVIDER: z.enum(['MOCK']).default('MOCK'),
+    /**
+     * Staff invites sent by SMS or WhatsApp cost the platform a message (docs/PERSONEL.md): per restaurant per day,
+     * and per recipient phone per day across all restaurants. The QR (SHOWN) channel is never limited.
+     */
+    STAFF_INVITE_RESTAURANT_DAILY_LIMIT: z.coerce.number().int().min(1).max(100000).default(20),
+    STAFF_INVITE_RECIPIENT_DAILY_LIMIT: z.coerce.number().int().min(1).max(1000).default(3),
+    /**
+     * Self-service sign-up (docs/PLAN_MATRISI.md): restaurants one user may create per day, and how many of the
+     * restaurants a user creates get the PRO trial and the welcome credits (later ones start on BASIC).
+     */
+    RESTAURANT_SIGNUP_DAILY_LIMIT: z.coerce.number().int().min(1).max(1000).default(3),
+    RESTAURANT_TRIAL_GRANTS_PER_USER: z.coerce.number().int().min(0).max(100).default(1),
+    /** Payment, POS and courier notification requests per client address per minute, shared by the three (docs/ODEME.md). */
+    PUBLIC_WEBHOOK_RATE_LIMIT: z.coerce.number().int().min(1).max(1000000).default(600),
     PUBLIC_ORDER_RATE_LIMIT: z.coerce.number().int().min(1).max(1000).default(10),
     PUBLIC_FUNNEL_RATE_LIMIT: z.coerce.number().int().min(1).max(10000).default(60),
     /** Table QR menu views per client per 10 minutes; each new session id adds a funnel row (docs/MASA_QR.md). */
