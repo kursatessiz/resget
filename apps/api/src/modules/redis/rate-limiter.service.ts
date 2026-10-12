@@ -36,6 +36,21 @@ export class RateLimiterService {
     return entry.count;
   }
 
+  /** The current count in the window without counting a hit; 0 when the key has no live window. */
+  async count(key: string): Promise<number> {
+    const client = this.redis.getClient();
+    if (client) {
+      try {
+        if (client.status === 'wait') await client.connect();
+        return Number((await client.get(key)) ?? 0);
+      } catch {
+        // Redis unavailable: read the in-memory window instead.
+      }
+    }
+    const entry = this.memory.get(key);
+    return entry && entry.resetAt > Date.now() ? entry.count : 0;
+  }
+
   private sweep(now: number): void {
     for (const [key, entry] of this.memory) if (entry.resetAt <= now) this.memory.delete(key);
   }

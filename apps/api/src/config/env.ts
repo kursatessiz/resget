@@ -151,6 +151,14 @@ export const EnvSchema = z
     /** Requests one API key may make per minute (docs/API_ERISIMI.md). */
     API_KEY_RATE_LIMIT: z.coerce.number().int().min(1).max(100000).default(600),
     /**
+     * Failed API key verifications allowed per minute: per key id (all addresses), per key id and client address,
+     * and per client address (all keys); past one the request is refused with 429 before the secret is hashed
+     * (docs/API_ERISIMI.md).
+     */
+    API_KEY_FAILURE_LIMIT_PER_KEY: z.coerce.number().int().min(1).max(100000).default(100),
+    API_KEY_FAILURE_LIMIT_PER_KEY_CLIENT: z.coerce.number().int().min(1).max(100000).default(10),
+    API_KEY_FAILURE_LIMIT_PER_CLIENT: z.coerce.number().int().min(1).max(100000).default(30),
+    /**
      * How often an open event stream re-checks that its subscriber may still read it (docs/SIPARIS_VE_SEVK.md);
      * REALTIME_REAUTH_SECONDS from the shared package when unset.
      */
