@@ -13,6 +13,12 @@ export interface RateLimitRule {
   limit: number;
   windowSeconds: number;
 }
+/**
+ * Provider notification routes (payment, POS, courier): one budget per client address, shared by the three. Their
+ * verification can cost an outbound provider call, and legitimate traffic from one provider address is well below it;
+ * PUBLIC_WEBHOOK_RATE_LIMIT overrides the limit.
+ */
+export const WEBHOOK_RATE_LIMIT: RateLimitRule = { bucket: 'webhook', limit: 600, windowSeconds: 60 };
 export const RateLimit = (rule: RateLimitRule) => SetMetadata(RATE_LIMIT_KEY, rule);
 
 /**

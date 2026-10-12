@@ -25,7 +25,7 @@ import type { WebhookKind, WebhookOutcome } from './checkout.service';
 import { MealCardsService } from './meal-cards.service';
 import { RefundsService } from './refunds.service';
 import { ClaimsService } from './claims.service';
-import { PublicRateLimitGuard, RateLimit } from '../storefront/public-rate-limit.guard';
+import { PublicRateLimitGuard, RateLimit, WEBHOOK_RATE_LIMIT } from '../storefront/public-rate-limit.guard';
 
 const WebhookKindSchema = z.enum(['meal-cards', 'pos']);
 const PlatformProviderSchema = z.string().regex(/^[A-Z0-9_]{2,32}$/);
@@ -183,6 +183,8 @@ export class PublicPaymentsController {
  * before anything is written.
  */
 @Controller('webhooks/payments')
+@UseGuards(PublicRateLimitGuard)
+@RateLimit(WEBHOOK_RATE_LIMIT)
 export class PaymentWebhooksController {
   constructor(private readonly checkout: CheckoutService) {}
 

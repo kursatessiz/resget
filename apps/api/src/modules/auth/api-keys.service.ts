@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
+import { promisify } from 'node:util';
 import { Prisma } from '@resget/database';
 import { apiKeyUsageWindow, formatApiKeyToken, parseApiKeyToken } from '@resget/shared';
 import type {
@@ -13,7 +14,8 @@ import type {
   PermissionKey,
 } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
-import { forbidden, notFound, unauthorized } from '../../common/api-error';
+import { forbidden, notFound, tooManyRequests, unauthorized } from '../../common/api-error';
+import { RateLimiterService } from '../redis/rate-limiter.service';
 import type { AuthUser, TenantContext } from './tenant-context';
 
 const keySelect = Prisma.validator<Prisma.RestaurantApiKeySelect>()({
@@ -44,11 +46,20 @@ export interface ApiKeyPrincipal {
 /** Only how often lastUsedAt is written, so a busy integration does not turn every call into an update. */
 const LAST_USED_WRITE_MS = 60_000;
 
+const scryptAsync = promisify(scrypt) as (
+  password: string,
+  salt: string,
+  keylen: number,
+  options: { N: number; r: number; p: number },
+) => Promise<Buffer>;
+
 /** scrypt cost for key secrets: a few milliseconds per check, salted per key and peppered server-side. */
 const SCRYPT = { N: 4096, r: 8, p: 1 } as const;
 /** A verified token is remembered briefly so a busy integration pays the scrypt cost once a minute, not per call. */
 const VERIFIED_TTL_MS = 60_000;
 const VERIFIED_MAX = 1000;
+/** Failed verifications are counted over this window, per key id and per client address (docs/API_ERISIMI.md). */
+const FAILURE_WINDOW_SECONDS = 60;
 /** Request counts are kept in memory and added to the daily rows this often (and before any read of them). */
 const USAGE_FLUSH_MS = 60_000;
 const DAY_MS = 86_400_000;
@@ -68,13 +79,24 @@ export class ApiKeysService implements OnModuleInit, OnModuleDestroy {
   private usageTimer: NodeJS.Timeout | null = null;
   private readonly lastUsedWritten = new Map<string, number>();
   private readonly verified = new Map<string, { principal: ApiKeyPrincipal; until: number }>();
+  /** Verifications running now, by canonical token: simultaneous requests with one token share one hash. */
+  private readonly verifying = new Map<string, Promise<ApiKeyPrincipal | null>>();
+  /** Hashes in flight in this process per failure counter, so a burst cannot outrun the recorded failures. */
+  private readonly pendingChecks = new Map<string, number>();
   private readonly pepper: string;
+  private readonly failuresPerKey: number;
+  private readonly failuresPerKeyClient: number;
+  private readonly failuresPerClient: number;
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly limiter: RateLimiterService,
     config: ConfigService,
   ) {
     this.pepper = `api-key:${config.getOrThrow<string>('JWT_SECRET')}`;
+    this.failuresPerKey = config.get<number>('API_KEY_FAILURE_LIMIT_PER_KEY') ?? 100;
+    this.failuresPerKeyClient = config.get<number>('API_KEY_FAILURE_LIMIT_PER_KEY_CLIENT') ?? 10;
+    this.failuresPerClient = config.get<number>('API_KEY_FAILURE_LIMIT_PER_CLIENT') ?? 30;
   }
 
   onModuleInit(): void {
@@ -157,7 +179,7 @@ export class ApiKeysService implements OnModuleInit, OnModuleDestroy {
           restaurantId: tenant.restaurantId,
           keyId,
           name: input.name,
-          secretHash: this.hash(keyId, secret),
+          secretHash: await this.hash(keyId, secret),
           permissions: [...new Set(input.permissions)],
           expiresAt: input.expiresInDays ? new Date(Date.now() + input.expiresInDays * DAY_MS) : null,
           createdByUserId: user.id,
@@ -219,25 +241,94 @@ export class ApiKeysService implements OnModuleInit, OnModuleDestroy {
    * acts with at most its creator's current access: permissions their role
    * lost since are dropped. A valid key past its date throws 401
    * API_KEY_EXPIRED so the integration can tell it apart from a wrong key.
+   *
+   * The secret is hashed with scrypt, which is costly, so wrong attempts are
+   * counted per key id and per client address and refused with 429 once over
+   * the limit, before anything is hashed. The token is remembered under its
+   * parsed form, so padding the header with characters parsing strips does not
+   * pay the hash again.
    */
-  async authenticate(token: string): Promise<ApiKeyPrincipal | null> {
+  async authenticate(token: string, client?: string): Promise<ApiKeyPrincipal | null> {
     const parsed = parseApiKeyToken(token);
     if (!parsed) return null;
-    const remembered = this.verified.get(token);
+    const canonical = formatApiKeyToken(parsed.keyId, parsed.secret);
+    const remembered = this.verified.get(canonical);
     if (remembered && remembered.until > Date.now()) return this.admit(remembered.principal);
+    let running = this.verifying.get(canonical);
+    if (!running) {
+      running = this.verify(parsed.keyId, parsed.secret, canonical, client).finally(() =>
+        this.verifying.delete(canonical),
+      );
+      this.verifying.set(canonical, running);
+    }
+    const principal = await running;
+    return principal ? this.admit(principal) : null;
+  }
+
+  private async verify(
+    keyId: string,
+    secret: string,
+    canonical: string,
+    client: string | undefined,
+  ): Promise<ApiKeyPrincipal | null> {
+    const clientKey = client ? `rl:apikeyfail:client:${client}` : null;
+    // An address already over its failures is turned away before even the lookup.
+    if (clientKey && (await this.limiter.count(clientKey)) >= this.failuresPerClient) throw this.tooManyFailures();
     const row = await this.prisma.restaurantApiKey.findUnique({
-      where: { keyId: parsed.keyId },
+      where: { keyId },
       select: { ...keySelect, secretHash: true },
     });
-    if (!row || row.revokedAt || !row.createdBy) return null;
-    const expected = Buffer.from(row.secretHash, 'hex');
-    const actual = Buffer.from(this.hash(row.keyId, parsed.secret), 'hex');
-    if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
+    if (!row || row.revokedAt || !row.createdBy) {
+      if (clientKey) await this.limiter.hit(clientKey, FAILURE_WINDOW_SECONDS);
+      return null;
+    }
+    // Per key and client first: someone who only knows a key id can lock out their own address, not the integration.
+    // The per key ceiling still bounds a flood spread over many addresses.
+    const counters = [{ key: `rl:apikeyfail:key:${row.keyId}`, limit: this.failuresPerKey }];
+    if (clientKey) {
+      counters.push({ key: `rl:apikeyfail:keyclient:${row.keyId}:${client}`, limit: this.failuresPerKeyClient });
+      counters.push({ key: clientKey, limit: this.failuresPerClient });
+    }
+    const done = await this.reserveHash(counters);
+    let matches: boolean;
+    try {
+      const expected = Buffer.from(row.secretHash, 'hex');
+      const actual = Buffer.from(await this.hash(row.keyId, secret), 'hex');
+      matches = expected.length === actual.length && timingSafeEqual(expected, actual);
+    } finally {
+      done();
+    }
+    if (!matches) {
+      await Promise.all(counters.map((c) => this.limiter.hit(c.key, FAILURE_WINDOW_SECONDS)));
+      return null;
+    }
     const principal = await this.principalOf(row);
     if (!principal) return null;
     if (this.verified.size >= VERIFIED_MAX) this.verified.clear();
-    this.verified.set(token, { principal, until: Date.now() + VERIFIED_TTL_MS });
-    return this.admit(principal);
+    this.verified.set(canonical, { principal, until: Date.now() + VERIFIED_TTL_MS });
+    return principal;
+  }
+
+  /**
+   * Refuses (429) when a counter's recorded failures plus the hashes already running here reach its limit, else
+   * holds a place for this hash; the returned function gives it back. The check and the hold happen in one step.
+   */
+  private async reserveHash(counters: { key: string; limit: number }[]): Promise<() => void> {
+    const recorded = await Promise.all(counters.map((c) => this.limiter.count(c.key)));
+    const over = counters.some((c, i) => recorded[i] + (this.pendingChecks.get(c.key) ?? 0) >= c.limit);
+    if (over) throw this.tooManyFailures();
+    for (const c of counters) this.pendingChecks.set(c.key, (this.pendingChecks.get(c.key) ?? 0) + 1);
+    return () => {
+      for (const c of counters) {
+        const left = (this.pendingChecks.get(c.key) ?? 1) - 1;
+        if (left <= 0) this.pendingChecks.delete(c.key);
+        else this.pendingChecks.set(c.key, left);
+      }
+    };
+  }
+
+  private tooManyFailures(): ReturnType<typeof tooManyRequests> {
+    return tooManyRequests('RATE_LIMITED', 'Too many failed API key attempts');
   }
 
   /**
@@ -305,8 +396,9 @@ export class ApiKeysService implements OnModuleInit, OnModuleDestroy {
       .catch(() => undefined);
   }
 
-  private hash(keyId: string, secret: string): string {
-    return scryptSync(secret, `${keyId}:${this.pepper}`, 32, SCRYPT).toString('hex');
+  /** Off the event loop (libuv thread pool), so a flood of checks cannot stall every other request. */
+  private async hash(keyId: string, secret: string): Promise<string> {
+    return (await scryptAsync(secret, `${keyId}:${this.pepper}`, 32, SCRYPT)).toString('hex');
   }
 
   private toDto(row: KeyRow, requestsLastDays: number): ApiKeyDTO {

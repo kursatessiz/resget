@@ -1,4 +1,4 @@
-import { Controller, Get, Headers, HttpCode, Post, Req } from '@nestjs/common';
+import { Controller, Get, Headers, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
@@ -9,6 +9,7 @@ import { RequireFeature, RequirePermission, RestaurantScoped } from '../auth/dec
 import { CurrentUser, Tenant } from '../auth/decorators/current-user.decorator';
 import type { AuthUser, TenantContext } from '../auth/tenant-context';
 import { badRequest } from '../../common/api-error';
+import { PublicRateLimitGuard, RateLimit, WEBHOOK_RATE_LIMIT } from '../storefront/public-rate-limit.guard';
 import { CourierRequestsService } from './courier-requests.service';
 import type { CourierWebhookOutcome } from './courier-requests.service';
 
@@ -58,6 +59,8 @@ export class CourierRequestsController {
 
 /** Courier network notifications; unauthenticated by nature, every request is verified by the network's adapter. */
 @Controller('webhooks/courier')
+@UseGuards(PublicRateLimitGuard)
+@RateLimit(WEBHOOK_RATE_LIMIT)
 export class CourierWebhooksController {
   constructor(private readonly requests: CourierRequestsService) {}
 
