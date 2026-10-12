@@ -22,6 +22,15 @@ export const WEBHOOK_MAX_ATTEMPTS = WEBHOOK_RETRY_DELAYS_SECONDS.length + 1;
 export const WEBHOOK_DISABLE_AFTER_FAILURES = 20;
 /** Seconds a receiver may be behind the timestamp in the signature before it should reject a delivery. */
 export const WEBHOOK_SIGNATURE_TOLERANCE_SECONDS = 300;
+/** Days a sent or failed delivery (and the order data in its body) is kept before the runner deletes it. */
+export const WEBHOOK_DELIVERY_RETENTION_DAYS = 30;
+/** Test deliveries one hook may have waiting at once; a further test is refused until the queue drains. */
+export const WEBHOOK_TEST_PENDING_MAX = 5;
+/** Test deliveries one restaurant may ask for per window, across its hooks. */
+export const WEBHOOK_TEST_RATE_LIMIT = 10;
+export const WEBHOOK_TEST_RATE_WINDOW_SECONDS = 60;
+/** Due deliveries one restaurant may take in one runner pass, so a long queue of one tenant cannot hold the others. */
+export const WEBHOOK_PASS_PER_RESTAURANT = 10;
 
 const WebhookUrlSchema = z
   .string()

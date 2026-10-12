@@ -103,6 +103,7 @@ export const trErrors = {
   'errors.WEBHOOK_NOT_FOUND': 'Webhook bulunamadı.',
   'errors.WEBHOOK_URL_INVALID': 'Üretimde yalnızca https adresler kabul edilir.',
   'errors.WEBHOOK_REDELIVERY_NOT_ALLOWED': 'Yalnızca etkin bir adresin başarısız teslimi yeniden gönderilebilir.',
+  'errors.WEBHOOK_TEST_LIMIT': 'Bu adresin deneme gönderimleri hâlâ sırada. Gönderilmelerini bekleyip yeniden deneyin.',
   'errors.API_KEY_NOT_FOUND': 'API anahtarı bulunamadı.',
   'errors.API_KEY_EXPIRED': 'API anahtarının süresi doldu. Panelden yeni bir anahtar oluşturun.',
   'errors.DOMAIN_NOT_SET': 'Önce bir alan adı kaydedin.',

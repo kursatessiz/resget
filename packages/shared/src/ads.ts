@@ -66,6 +66,8 @@ export const AD_EVENT_NAMES: Readonly<Record<'META' | 'TIKTOK', Record<Conversio
 };
 
 export const AD_DELIVERY_MAX_ATTEMPTS = 5;
+/** Why a delivery was skipped when its customer deleted the account: never sent afterwards (docs/REKLAM.md). */
+export const AD_DELIVERY_USER_DELETED = 'USER_DELETED';
 /** Spend is pulled at most this often per connection, for the last AD_SPEND_LOOKBACK_DAYS days. */
 export const AD_SPEND_SYNC_HOURS = 6;
 export const AD_SPEND_LOOKBACK_DAYS = 7;

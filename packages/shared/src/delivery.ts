@@ -879,6 +879,18 @@ export function maskPhoneForDisplay(phone: string): string {
 }
 
 /**
+ * The order as a reader without `customers.contact.view` may see it: the customer's phone and the delivery address's
+ * contact phone are masked. Used by the live streams and by webhook bodies bound to their creator's permissions.
+ */
+export function maskOrderContacts<T extends Pick<OrderSummaryDTO, 'customer' | 'address'>>(order: T): T {
+  return {
+    ...order,
+    customer: { ...order.customer, phone: order.customer.phone ? maskPhoneForDisplay(order.customer.phone) : null },
+    address: order.address ? { ...order.address, contactPhone: maskPhoneForDisplay(order.address.contactPhone) } : null,
+  };
+}
+
+/**
  * The trip as a role without `customers.contact.view` may read it: every stop's customer phone is masked exactly as
  * the order endpoints mask it. Addresses stay, dispatchers route by them. The courier's own endpoints do not use it:
  * the assigned courier needs the number to call the customer.

@@ -4,6 +4,7 @@ import type { AddressInfo, Server, Socket } from 'node:net';
 import type { ConfigService } from '@nestjs/config';
 import { CredentialCipher, DEV_CREDENTIAL_KEY, EnvKeyProvider } from '../../common/crypto/credential-cipher';
 import type { PrismaService } from '../prisma/prisma.service';
+import type { RateLimiterService } from '../redis/rate-limiter.service';
 import { WebhooksService } from './webhooks.service';
 
 /** A documentation-range address (RFC 5737): public as far as the guard is concerned, never routed. */
@@ -58,6 +59,8 @@ describe('WebhooksService delivery (DNS rebinding)', () => {
       attempts: 0,
       webhook: {
         id: 'w-1',
+        restaurantId: 'r-1',
+        createdByUserId: null,
         url: `https://rebind.example.test:${loopbackPort}/hook`,
         secretEncrypted: cipher.encrypt('whsec_test'),
         failureCount: 0,
@@ -65,6 +68,7 @@ describe('WebhooksService delivery (DNS rebinding)', () => {
     };
     const updates: Array<{ status?: string; lastError?: string | null }> = [];
     const prisma = {
+      $queryRaw: async () => [{ id: delivery.id }],
       webhookDelivery: {
         findMany: async () => [delivery],
         update: (args: { data: { status?: string; lastError?: string | null } }) => {
@@ -77,7 +81,7 @@ describe('WebhooksService delivery (DNS rebinding)', () => {
     } as unknown as PrismaService;
     const config = { get: (key: string) => (key === 'NODE_ENV' ? 'production' : undefined) } as ConfigService;
 
-    const service = new WebhooksService(prisma, config);
+    const service = new WebhooksService(prisma, config, {} as RateLimiterService);
     const sent = await service.runPass(new Date());
 
     expect(sent).toBe(0);
