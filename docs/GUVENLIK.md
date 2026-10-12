@@ -54,6 +54,14 @@ Mobil uygulama sipariş sayfasını tarayıcıda açarken müşterinin oturumunu
 - Restoranın webhook adresi üretimde herkese açık bir `https` adresi olmalıdır; iç adlar ve özel adresler reddedilir, ad her gönderimden önce yeniden çözülür (`apps/api/src/common/net/public-address.ts`, `docs/API_ERISIMI.md`).
 - Restoranın iyzico bilgileri yalnızca iyzico'nun canlı ve test adreslerine gönderilir (`IYZICO_BASE_URLS`); ödeme sağlayıcısı isteklerinde yönlendirme izlenmez.
 
+## Görsel bağlantıları
+
+Restoranın logosu ve menü ürün görselleri her müşterinin tarayıcısında yüklenir (vitrin, masa QR menüsü, pazaryeri kartları). Serbest bir bağlantı, restoranın seçtiği bir sunucunun her ziyaretçinin IP adresini, tarayıcısını ve ziyaret anını öğrenmesine yol açardı; bu yüzden iki katman uygulanır:
+
+- **Doğrulama**: `logoUrl` ve menü `imageUrl` alanları yalnızca `https` kabul eder, bağlantıda kullanıcı adı veya parola olamaz (`ImageUrlSchema`, `packages/shared/src/image-url.ts`; düz `http` yalnızca geliştirmede `localhost` için). API ayrıca adresin platformun yükleme kaynağı (`PUBLIC_API_URL`) veya `IMAGE_HOST_ALLOWLIST` listesindeki bir ana bilgisayar olmasını, ikincisinde varsayılan `https` bağlantı noktasını şart koşar (`imageUrlAllowed()`); aksi halde `IMAGE_URL_NOT_ALLOWED`. Liste virgülle ayrılmış ana bilgisayar adlarıdır, başlangıçta Zod ile doğrulanır; boşsa yalnızca platformun kendi yüklemeleri kabul edilir. En kolay yol logoyu dosya olarak yüklemektir (`docs/TASARIM.md`).
+- **Content-Security-Policy**: web uygulaması her yanıta `img-src 'self' data: <yükleme kaynağı> <izin listesi> <harita karo kaynağı>; object-src 'none'; base-uri 'self'` başlığını ekler. Başlık `middleware.ts` içinde istek anında sunucunun ortamından (`PUBLIC_API_URL`, `IMAGE_HOST_ALLOWLIST`, `MAP_TILE_URL`) kurulur; `next.config.ts` başlıkları imaj CI'da derlenirken sabitlendiği için orada tutulmaz. Böylece veritabanında kalmış eski bir harici logo da tarayıcıda engellenir ve istek ağa çıkmaz. Betik kuralı (`script-src`) bugünkü gibi bırakılmıştır; Next.js'in satır içi başlatma betikleri çalışmaya devam eder. Karo adresindeki baştaki `{s}.` yer tutucusu `*.` joker karakterine çevrilir.
+- Önceden harici bir logo veya görsel bağlantısı kaydetmiş restoranın görseli artık gösterilmez; panelde marka ayarlarını kaydetmek için görseli yüklemesi veya bağlantıyı temizlemesi gerekir.
+
 ## Yetkiler
 
 - Bir yönetici kendinde olmayan yetkiyi veremez, kendi rolünü ve üyeliğini değiştiremez (`ROLE_ESCALATION`, `docs/PERSONEL.md`).

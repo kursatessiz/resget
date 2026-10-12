@@ -202,10 +202,20 @@ export class StaffService {
       if (role.isOwner) throw conflict('ROLE_PROTECTED', 'The owner role cannot be assigned');
       this.assertGrantable(tenant, role.permissions);
     }
-    const updated = await this.prisma.membership.update({
-      where: { id: membershipId },
-      data: input,
-      select: memberSelect,
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // A closed member's pending invites die with their access; redemption also re-checks the issuer's authority.
+      if (input.status === 'PASSIVE') {
+        await tx.inviteToken.updateMany({
+          where: {
+            restaurantId: tenant.restaurantId,
+            createdByUserId: membership.user.id,
+            usedAt: null,
+            expiresAt: { gt: new Date() },
+          },
+          data: { expiresAt: new Date() },
+        });
+      }
+      return tx.membership.update({ where: { id: membershipId }, data: input, select: memberSelect });
     });
     return this.toMember(updated);
   }
@@ -292,10 +302,20 @@ export class StaffService {
     if (role.isOwner) throw badRequest('ROLE_PROTECTED', 'The owner role cannot be invited');
     this.assertGrantable(tenant, role.permissions);
     const existing = await this.prisma.membership.findFirst({
-      where: { restaurantId: tenant.restaurantId, status: 'ACTIVE', user: { phone: input.phone } },
-      select: { id: true },
+      where: { restaurantId: tenant.restaurantId, user: { phone: input.phone } },
+      select: { status: true, roleTemplate: { select: { id: true, isOwner: true } } },
     });
-    if (existing) throw conflict('STAFF_ALREADY_MEMBER', 'Phone already belongs to an active member');
+    if (existing?.status === 'ACTIVE')
+      throw conflict('STAFF_ALREADY_MEMBER', 'Phone already belongs to an active member');
+    if (existing?.roleTemplate.isOwner) {
+      throw conflict('STAFF_OWNER_PROTECTED', 'The owner membership cannot be changed by an invite');
+    }
+    // Redeeming reopens a closed membership, so as in updateMember a manager may only invite back someone whose
+    // present role carries nothing beyond what the manager holds; a superior the owner closed stays closed.
+    if (existing && !this.unrestricted(tenant)) {
+      const current = await this.requireRole(tenant.restaurantId, existing.roleTemplate.id);
+      this.assertGrantable(tenant, current.permissions);
+    }
     if (input.channel !== 'SHOWN') await this.assertMessageAllowance(tenant.restaurantId, input.phone);
 
     const restaurant = await this.prisma.restaurant.findUniqueOrThrow({

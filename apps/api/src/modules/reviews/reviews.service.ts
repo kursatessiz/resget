@@ -143,10 +143,14 @@ export class ReviewsService {
   }
 
   async decide(id: string, input: ReviewDecisionInput, actorUserId: string): Promise<AdminReviewDTO> {
-    const row = await this.prisma.orderRating.findUnique({ where: { id }, select: reviewSelect });
-    if (!row) throw notFound('REVIEW_NOT_FOUND', 'Review not found');
+    const exists = await this.prisma.orderRating.findUnique({ where: { id }, select: { id: true } });
+    if (!exists) throw notFound('REVIEW_NOT_FOUND', 'Review not found');
     const now = new Date();
     await this.prisma.$transaction(async (tx) => {
+      // Read the score and state under the row lock the customer's edit also takes, so the sum moves by the score
+      // the review holds at the moment it is hidden or restored.
+      await tx.$queryRaw`SELECT id FROM order_ratings WHERE id = ${id} FOR UPDATE`;
+      const row = await tx.orderRating.findUniqueOrThrow({ where: { id }, select: reviewSelect });
       if (input.action === 'HIDE' && !row.hiddenAt) {
         await tx.orderRating.update({
           where: { id },

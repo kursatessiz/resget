@@ -88,6 +88,9 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.INVITE_USED': 'This invite was already used.',
   'errors.INVITE_PHONE_MISMATCH':
     'This invite was sent to a different phone number. Sign in with the number it was sent to.',
+  'errors.INVITE_REVOKED': 'This invite is no longer valid. Ask the business for a new one.',
+  'errors.IMAGE_URL_NOT_ALLOWED':
+    'Images can only come from files uploaded to the platform or from an approved https address. Upload the image instead.',
   'errors.ROLE_PROTECTED': 'The owner role cannot be changed or used for invites.',
   'errors.ROLE_ESCALATION': 'You can only give access you have yourself, and only the owner changes your own role.',
   'errors.PAYLOAD_TOO_LARGE': 'The file or form is too large.',

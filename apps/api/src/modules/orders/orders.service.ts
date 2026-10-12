@@ -1093,11 +1093,18 @@ export class OrdersService {
     if (!row || !row.rating) throw notFound('REVIEW_NOT_FOUND', 'Review not found');
     await this.features.assertEnabled('public_reviews', row.restaurantId);
     if (!withinEditWindow(row.rating.createdAt)) throw conflict('REVIEW_EDIT_CLOSED', 'The time to edit is over');
-    const rating = row.rating;
-    const score = input.score ?? rating.score;
+    const ratingId = row.rating.id;
     await this.prisma.$transaction(async (tx) => {
+      // The delta comes from the row as it stands under the lock, so parallel edits (and a moderation decision,
+      // which takes the same lock) each move the restaurant's sum from the score the previous one left.
+      await tx.$queryRaw`SELECT id FROM order_ratings WHERE id = ${ratingId} FOR UPDATE`;
+      const rating = await tx.orderRating.findUniqueOrThrow({
+        where: { id: ratingId },
+        select: { score: true, hiddenAt: true },
+      });
+      const score = input.score ?? rating.score;
       await tx.orderRating.update({
-        where: { id: rating.id },
+        where: { id: ratingId },
         data: {
           score,
           ...(input.comment !== undefined ? { comment: input.comment } : {}),

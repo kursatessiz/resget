@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@resget/database';
 import { DeliveryFeePolicySchema, dispatchSettingsFrom } from '@resget/shared';
 import type { RestaurantSettingsDTO, UpdateRestaurantSettingsInput } from '@resget/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { conflict, notFound } from '../../common/api-error';
+import { assertImageUrlAllowed } from '../../common/image-url-policy';
 
 const settingsSelect = Prisma.validator<Prisma.RestaurantSelect>()({
   id: true,
@@ -41,7 +43,10 @@ const settingsSelect = Prisma.validator<Prisma.RestaurantSelect>()({
 
 @Injectable()
 export class RestaurantsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   async settings(tenant: TenantContext): Promise<RestaurantSettingsDTO> {
     const restaurant = await this.prisma.restaurant.findUnique({
@@ -54,6 +59,8 @@ export class RestaurantsService {
 
   /** Owner-editable settings only; commission, fees and listing are platform data (see shared schema). */
   async update(tenant: TenantContext, input: UpdateRestaurantSettingsInput): Promise<RestaurantSettingsDTO> {
+    // The logo loads in every diner's browser: only the platform's uploads or an allowlisted https host.
+    assertImageUrlAllowed(this.config, input.logoUrl);
     const { deliveryFeePolicy, dispatchSettings, ...scalars } = input;
     const data: Prisma.RestaurantUpdateInput = { ...scalars };
     if (deliveryFeePolicy !== undefined) {

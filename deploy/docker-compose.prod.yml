@@ -41,6 +41,8 @@ services:
       PUBLIC_APP_URL: https://${WEB_DOMAIN}
       PUBLIC_API_URL: https://${API_DOMAIN}
       UPLOADS_DIR: /app/uploads
+      # Extra https hosts logos and menu images may come from (docs/GUVENLIK.md); empty allows only the uploads.
+      IMAGE_HOST_ALLOWLIST: ${IMAGE_HOST_ALLOWLIST:-}
       # Every optional key of apps/api/src/config/env.ts is listed so a key can
       # never be silently missing; unset ones arrive empty and read as unset.
       SMS_PROVIDER: ${SMS_PROVIDER:-MOCK}
@@ -164,6 +166,8 @@ services:
       APP_RELEASE: ${RELEASE_TAG:-dev}
       # Served at /indexnow/<key>.txt so search engines can verify IndexNow pings (docs/SEO.md).
       INDEXNOW_KEY: ${INDEXNOW_KEY:-}
+      # The same image host allowlist as the API: the Content-Security-Policy img-src is built from it (docs/GUVENLIK.md).
+      IMAGE_HOST_ALLOWLIST: ${IMAGE_HOST_ALLOWLIST:-}
       # Map tiles (docs/SIPARIS_VE_SEVK.md): empty keeps the OpenStreetMap default; production sets a provider.
       MAP_TILE_URL: ${MAP_TILE_URL:-}
       MAP_ATTRIBUTION: ${MAP_ATTRIBUTION:-}

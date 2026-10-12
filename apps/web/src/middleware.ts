@@ -11,6 +11,7 @@ import {
 } from '@/lib/session';
 import { BoundedTtlCache } from '@/lib/host-cache';
 import { hostOf, isPlatformHost } from '@/lib/hosts';
+import { contentSecurityPolicyHeader } from '@/lib/server-env';
 
 /**
  * Which restaurant a custom host serves, remembered briefly so the home page does not ask the API on every hit.
@@ -41,7 +42,7 @@ async function slugForHost(host: string): Promise<string | null> {
 }
 
 /**
- * Three jobs before a page renders:
+ * Sets the Content-Security-Policy on every route. On SESSION_PATHS, three jobs before a page renders:
  * - /: on a restaurant's own domain (docs/VITRIN.md), show that restaurant's
  *   ordering page instead of the platform landing page.
  * Then:
@@ -55,6 +56,29 @@ async function slugForHost(host: string): Promise<string | null> {
  *   keeps working; without a session the API answers, never a redirect.
  */
 export async function middleware(req: NextRequest): Promise<NextResponse> {
+  const res = SESSION_PATHS.some((pattern) => pattern.test(req.nextUrl.pathname))
+    ? await sessionMiddleware(req)
+    : NextResponse.next();
+  // Every page carries the deployment's Content-Security-Policy (docs/GUVENLIK.md, "Görsel bağlantıları"); it is
+  // built here at request time because next.config.ts headers are fixed when CI builds the image.
+  res.headers.set('Content-Security-Policy', contentSecurityPolicyHeader());
+  return res;
+}
+
+/** The paths the jobs below apply to; anything else only receives the security headers. */
+const SESSION_PATHS: readonly RegExp[] = [
+  /^\/$/,
+  /^\/panel(?:\/|$)/,
+  /^\/admin(?:\/|$)/,
+  /^\/pazarlama(?:\/|$)/,
+  /^\/kayit$/,
+  /^\/hesabim$/,
+  /^\/m(?:\/|$)/,
+  /^\/api\/bff(?:\/|$)/,
+  /^\/api\/oauth(?:\/|$)/,
+];
+
+async function sessionMiddleware(req: NextRequest): Promise<NextResponse> {
   const { pathname, search } = req.nextUrl;
   const secure = process.env.NODE_ENV === 'production';
 
@@ -140,15 +164,7 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
 }
 
 export const config = {
-  matcher: [
-    '/',
-    '/panel/:path*',
-    '/admin/:path*',
-    '/pazarlama/:path*',
-    '/kayit',
-    '/hesabim',
-    '/m/:path*',
-    '/api/bff/:path*',
-    '/api/oauth/:path*',
-  ],
+  // Every route except Next.js build assets, so each page gets the Content-Security-Policy; the session jobs above
+  // still run only on SESSION_PATHS.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

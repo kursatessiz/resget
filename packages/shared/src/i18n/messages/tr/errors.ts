@@ -85,6 +85,9 @@ export const trErrors = {
   'errors.INVITE_USED': 'Bu davet daha önce kullanılmış.',
   'errors.INVITE_PHONE_MISMATCH':
     'Bu davet başka bir telefon numarası için gönderilmiş. Davetin gönderildiği numarayla giriş yapın.',
+  'errors.INVITE_REVOKED': 'Bu davet artık geçerli değil. İşletmeden yeni bir davet isteyin.',
+  'errors.IMAGE_URL_NOT_ALLOWED':
+    'Görseller yalnızca platforma yüklenen dosyalardan veya onaylı bir https adresinden gelebilir. Görseli yükleyerek ekleyin.',
   'errors.ROLE_PROTECTED': 'Sahip rolü değiştirilemez ve davet için kullanılamaz.',
   'errors.ROLE_ESCALATION':
     'Yalnızca kendinizde olan yetkileri verebilirsiniz; kendi rolünüzü yalnızca işletme sahibi değiştirir.',
