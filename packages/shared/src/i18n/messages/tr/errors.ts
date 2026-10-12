@@ -46,6 +46,7 @@ export const trErrors = {
     'Bir ürün seçeneğinin fiyatı değişti. Ürünü sepetten çıkarıp güncel fiyatla yeniden ekleyin.',
   'errors.PAYMENT_METHOD_NOT_ACCEPTED': 'İşletme bu ödeme yöntemini kabul etmiyor.',
   'errors.PAYMENT_STATE_INVALID': 'Bu sipariş için ödeme işlemi bu aşamada yapılamaz.',
+  'errors.CHECKOUT_IN_PROGRESS': 'Ödeme sayfası açılıyor. Birkaç saniye sonra yeniden deneyin.',
   'errors.REFUND_NOT_ALLOWED':
     'Bu sipariş için iade yapılamaz: iade edilecek ödeme yok, sipariş henüz kapanmadı veya zaten iade edildi.',
   'errors.OWNERSHIP_TRANSFER_FORBIDDEN': 'İşletmeyi yalnızca sahibi devredebilir.',
@@ -187,6 +188,8 @@ export const trErrors = {
   'errors.TIP_UNAVAILABLE': 'Bu sipariş için bahşiş verilemiyor.',
   'errors.TIP_ALREADY_PAID': 'Bu sipariş için bahşiş zaten verildi.',
   'errors.TIP_AMOUNT_INVALID': 'Bahşiş tutarı sınırların dışında.',
+  'errors.TIP_SESSION_OPEN':
+    'Bu bahşiş için açık bir ödeme sayfası var. Aynı tutarla devam edin veya birkaç dakika sonra yeni tutarla deneyin.',
   'errors.TIP_REFUND_NOT_ALLOWED': 'Yalnızca tahsil edilmiş bir bahşiş iade edilebilir.',
   'errors.TIP_REFUND_IN_PROGRESS': 'Bu bahşişin iadesi şu anda işleniyor.',
   'errors.TIP_REFUND_DECLINED': 'Ödeme sağlayıcısı bahşiş iadesini reddetti. Sağlayıcının panelinden kontrol edin.',
