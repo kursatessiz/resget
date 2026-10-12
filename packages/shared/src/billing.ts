@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { CommissionInvoiceStatus } from './enums';
 import type { SavedPaymentMethodDTO } from './payments';
 import { PaginationSchema, UuidSchema } from './validators';
+import { effectivePermissions } from './permissions';
 
 /**
  * Commission billing (docs/FATURALAMA.md). An OWN_POS restaurant collects its
@@ -101,6 +102,16 @@ export interface BillingRunReportDTO {
   suspended: number;
   /** Weekly payouts rolled in this run (PLATFORM_PSP, docs/MUTABAKAT.md). */
   payoutsCreated: number;
+  /**
+   * Restaurants a step could not process (docs/FATURALAMA.md, "Günlük iş"). The step went on with the others; the
+   * next run retries them, since every step is idempotent.
+   */
+  tenantFailures: BillingTenantFailureDTO[];
+}
+
+export interface BillingTenantFailureDTO {
+  step: 'issue' | 'collect' | 'payouts';
+  restaurantId: string;
 }
 
 export const AdminInvoiceQuerySchema = PaginationSchema.extend({
@@ -158,6 +169,18 @@ export function collectionIsDue(
   if (invoice.collectionAttempts >= MAX_COLLECTION_ATTEMPTS) return false;
   if (!invoice.lastCollectionAt) return true;
   return now.getTime() - new Date(invoice.lastCollectionAt).getTime() >= COLLECTION_RETRY_HOURS * 3_600_000;
+}
+
+/**
+ * Whether a card may stay the restaurant's billing card (docs/FATURALAMA.md, "Fatura kartı"): only while its holder
+ * is an ACTIVE member who holds payments.manage (the owner always does). Changing a member to PASSIVE or to a role
+ * without that permission detaches their card, and every charge path checks it again before charging.
+ */
+export function mayHoldBillingCard(
+  membership: { status: string; isOwner: boolean; permissionKeys: readonly string[] } | null,
+): boolean {
+  if (!membership || membership.status !== 'ACTIVE') return false;
+  return effectivePermissions(membership.isOwner, membership.permissionKeys).has('payments.manage');
 }
 
 /** Open means the restaurant still owes it. */

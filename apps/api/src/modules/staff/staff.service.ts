@@ -11,6 +11,7 @@ import {
   createTranslator,
   inviteUrl,
   isPermissionKey,
+  mayHoldBillingCard,
 } from '@resget/shared';
 import type {
   CreateInviteInput,
@@ -178,6 +179,7 @@ export class StaffService {
     tenant: TenantContext,
     membershipId: string,
     input: UpdateMembershipInput,
+    actorUserId: string,
   ): Promise<StaffMemberDTO> {
     const membership = await this.prisma.membership.findFirst({
       where: { id: membershipId, restaurantId: tenant.restaurantId },
@@ -202,10 +204,43 @@ export class StaffService {
       if (role.isOwner) throw conflict('ROLE_PROTECTED', 'The owner role cannot be assigned');
       this.assertGrantable(tenant, role.permissions);
     }
-    const updated = await this.prisma.membership.update({
-      where: { id: membershipId },
-      data: input,
-      select: memberSelect,
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.membership.update({
+        where: { id: membershipId },
+        data: input,
+        select: {
+          ...memberSelect,
+          roleTemplate: {
+            select: { ...memberSelect.roleTemplate.select, permissions: { select: { permissionKey: true } } },
+          },
+        },
+      });
+      // The billing card follows its holder (docs/FATURALAMA.md, "Fatura kartı"): a member made passive or moved to a
+      // role without payments.manage no longer pays for the business, so their card is detached, as on a transfer.
+      const allowed = mayHoldBillingCard({
+        status: row.status,
+        isOwner: row.roleTemplate.isOwner,
+        permissionKeys: row.roleTemplate.permissions.map((p) => p.permissionKey),
+      });
+      if (!allowed) {
+        const detached = await tx.restaurant.updateMany({
+          where: { id: tenant.restaurantId, billingPaymentMethod: { userId: row.user.id } },
+          data: { billingPaymentMethodId: null },
+        });
+        if (detached.count > 0) {
+          await tx.auditLog.create({
+            data: {
+              restaurantId: tenant.restaurantId,
+              actorUserId,
+              action: 'billing.card_detached',
+              entity: 'Membership',
+              entityId: row.id,
+              meta: { reason: row.status === 'ACTIVE' ? 'permission_removed' : 'member_passive' },
+            },
+          });
+        }
+      }
+      return row;
     });
     return this.toMember(updated);
   }

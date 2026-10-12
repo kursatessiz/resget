@@ -108,6 +108,11 @@ export function AdminPayouts({ locale }: { locale: string }) {
             })}
           </p>
         )}
+        {report && report.failedRestaurantIds.length > 0 && (
+          <p role="alert" className="ui-caption">
+            {t('admin.payouts.reportFailures', { count: report.failedRestaurantIds.length })}
+          </p>
+        )}
       </Card>
       <Card title={t('finance.payouts.title')}>
         {page && page.items.length === 0 && <p className="ui-text-muted">{t('admin.payouts.empty')}</p>}

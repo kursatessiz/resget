@@ -51,6 +51,13 @@ test.describe('Courier tips', () => {
       method: 'POST',
       data: { categoryId: category.id, name: 'Klasik burger', priceMinor: 32000, vatRateBps: 1000 },
     });
+    // The platform sets the restaurant's PSP rate before it may switch to platform collection (docs/ODEME.md).
+    const rates = await browser.newContext({ storageState: ADMIN_STATE, locale: 'tr-TR' });
+    await bff((await rates.newPage()).request, `admin/restaurants/${restaurant.id}`, {
+      method: 'PATCH',
+      data: { pspPercentBps: 200, pspFixedMinor: 25 },
+    });
+    await rates.close();
     // The platform's merchant collects, so no POS connection is needed for the tip.
     await bff(page.request, `${base}/payments/mode`, { method: 'PUT', data: { paymentMode: 'PLATFORM_PSP' } });
     const order = await bff<OrderDetailDTO & { trackingUrl: string }>(page.request, `${base}/orders`, {

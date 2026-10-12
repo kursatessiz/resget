@@ -129,6 +129,11 @@ export function AdminInvoices({ locale }: { locale: string }) {
             })}
           </p>
         )}
+        {report && report.tenantFailures.length > 0 && (
+          <p role="alert" className="ui-caption">
+            {t('admin.invoices.reportFailures', { count: report.tenantFailures.length })}
+          </p>
+        )}
       </Card>
 
       <Card title={t('billing.invoices.title')}>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { SIGNUP_COUNTRIES, slugify } from '@resget/shared';
+import { SELF_SIGNUP_COUNTRIES, slugify } from '@resget/shared';
 import type { RestaurantCreatedDTO, SignupCountryCode } from '@resget/shared';
 import { Button, SelectField, TextField } from '@/components/ui';
 import { ApiError, bffJson } from '@/lib/client-api';
@@ -22,7 +22,8 @@ export function SignupForm({
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [slugTouched, setSlugTouched] = useState(false);
-  const [country, setCountry] = useState<SignupCountryCode>('TR');
+  // Only countries with platform settlement rules are open to self sign-up (docs/MUTABAKAT.md).
+  const [country, setCountry] = useState<SignupCountryCode>(SELF_SIGNUP_COUNTRIES[0].code);
   const [legalName, setLegalName] = useState('');
   const [taxId, setTaxId] = useState('');
   const [branchName, setBranchName] = useState('');
@@ -33,7 +34,7 @@ export function SignupForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-  const selected = SIGNUP_COUNTRIES.find((c) => c.code === country) ?? SIGNUP_COUNTRIES[0];
+  const selected = SELF_SIGNUP_COUNTRIES.find((c) => c.code === country) ?? SELF_SIGNUP_COUNTRIES[0];
 
   const submit = async () => {
     setBusy(true);
@@ -109,7 +110,7 @@ export function SignupForm({
           value={country}
           onChange={(e) => setCountry(e.target.value as SignupCountryCode)}
         >
-          {SIGNUP_COUNTRIES.map((c) => (
+          {SELF_SIGNUP_COUNTRIES.map((c) => (
             <option key={c.code} value={c.code}>
               {regionNames.of(c.code) ?? c.code}
             </option>

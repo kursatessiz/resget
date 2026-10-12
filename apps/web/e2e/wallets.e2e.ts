@@ -39,11 +39,15 @@ test.describe('Platform wallets', () => {
       method: 'POST',
       data: { categoryId: category.id, name: 'Kunefe', priceMinor: 18000, vatRateBps: 1000 },
     });
-    // Wallet charges run at the platform's merchant, so only a platform-collected restaurant takes them.
-    await bff(page.request, `${base}/payments/mode`, { method: 'PUT', data: { paymentMode: 'PLATFORM_PSP' } });
-
     const admin = await browser.newContext({ storageState: ADMIN_STATE, locale: 'tr-TR' });
     const consolePage = await admin.newPage();
+    // Wallet charges run at the platform's merchant, so only a platform-collected restaurant takes them; the
+    // platform sets the restaurant's PSP rate first (docs/ODEME.md).
+    await bff(consolePage.request, `admin/restaurants/${restaurant.id}`, {
+      method: 'PATCH',
+      data: { pspPercentBps: 200, pspFixedMinor: 25 },
+    });
+    await bff(page.request, `${base}/payments/mode`, { method: 'PUT', data: { paymentMode: 'PLATFORM_PSP' } });
     await bff(consolePage.request, 'admin/features/platform_wallets', { method: 'PUT', data: { enabled: true } });
 
     try {
