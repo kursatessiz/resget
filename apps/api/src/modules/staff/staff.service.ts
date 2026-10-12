@@ -27,9 +27,10 @@ import type {
 import { PrismaService } from '../prisma/prisma.service';
 import { maskPhone } from '../messaging/sms.provider';
 import { MessagingService } from '../messaging/messaging.service';
+import { RateLimiterService } from '../redis/rate-limiter.service';
 import type { TenantContext } from '../auth/tenant-context';
 import { renderQrPng } from '../tables/qr-label';
-import { badRequest, conflict, forbidden, notFound } from '../../common/api-error';
+import { badRequest, conflict, forbidden, notFound, tooManyRequests } from '../../common/api-error';
 
 const roleSelect = Prisma.validator<Prisma.RoleTemplateSelect>()({
   id: true,
@@ -63,6 +64,8 @@ type RoleRow = Prisma.RoleTemplateGetPayload<{ select: typeof roleSelect }>;
 type MemberRow = Prisma.MembershipGetPayload<{ select: typeof memberSelect }>;
 type InviteRow = Prisma.InviteTokenGetPayload<{ select: typeof inviteSelect }>;
 
+const DAY_SECONDS = 86_400;
+
 /** Staff, invites and roles of a restaurant (docs/PERSONEL.md). */
 @Injectable()
 export class StaffService {
@@ -70,6 +73,7 @@ export class StaffService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly messaging: MessagingService,
+    private readonly limiter: RateLimiterService,
   ) {}
 
   async overview(restaurantId: string): Promise<StaffOverviewDTO> {
@@ -292,6 +296,7 @@ export class StaffService {
       select: { id: true },
     });
     if (existing) throw conflict('STAFF_ALREADY_MEMBER', 'Phone already belongs to an active member');
+    if (input.channel !== 'SHOWN') await this.assertMessageAllowance(tenant.restaurantId, input.phone);
 
     const restaurant = await this.prisma.restaurant.findUniqueOrThrow({
       where: { id: tenant.restaurantId },
@@ -341,6 +346,19 @@ export class StaffService {
       sentVia = result.status === 'SENT' ? result.channel : null;
     }
     return this.toInvite(invite, role, smsAccepted, sentVia);
+  }
+
+  /**
+   * A messaged invite is platform traffic (billable false), so the platform bears the cost of every one: capped per
+   * restaurant and per recipient phone per day (docs/PERSONEL.md). The QR channel sends nothing and is not counted.
+   */
+  private async assertMessageAllowance(restaurantId: string, phone: string): Promise<void> {
+    const perRestaurant = this.config.get<number>('STAFF_INVITE_RESTAURANT_DAILY_LIMIT') ?? 20;
+    const perRecipient = this.config.get<number>('STAFF_INVITE_RECIPIENT_DAILY_LIMIT') ?? 3;
+    if ((await this.limiter.hit(`rl:staffinvite:restaurant:${restaurantId}`, DAY_SECONDS)) > perRestaurant)
+      throw tooManyRequests('STAFF_INVITE_RESTAURANT_LIMIT', 'Daily limit of messaged invites reached');
+    if ((await this.limiter.hit(`rl:staffinvite:phone:${phone}`, DAY_SECONDS)) > perRecipient)
+      throw tooManyRequests('STAFF_INVITE_RECIPIENT_LIMIT', 'Daily limit of messaged invites to this phone reached');
   }
 
   async revokeInvite(restaurantId: string, inviteId: string): Promise<void> {

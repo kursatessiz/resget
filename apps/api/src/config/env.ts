@@ -162,6 +162,12 @@ export const EnvSchema = z
     CONSENT_REGISTRY_PROVIDER: z.enum(['MOCK']).default('MOCK'),
     /** Fiscal document integrator for commission invoices; MOCK until a contract exists. */
     INVOICE_PROVIDER: z.enum(['MOCK']).default('MOCK'),
+    /**
+     * Staff invites sent by SMS or WhatsApp cost the platform a message (docs/PERSONEL.md): per restaurant per day,
+     * and per recipient phone per day across all restaurants. The QR (SHOWN) channel is never limited.
+     */
+    STAFF_INVITE_RESTAURANT_DAILY_LIMIT: z.coerce.number().int().min(1).max(100000).default(20),
+    STAFF_INVITE_RECIPIENT_DAILY_LIMIT: z.coerce.number().int().min(1).max(1000).default(3),
     PUBLIC_ORDER_RATE_LIMIT: z.coerce.number().int().min(1).max(1000).default(10),
     PUBLIC_FUNNEL_RATE_LIMIT: z.coerce.number().int().min(1).max(10000).default(60),
     /** Table QR menu views per client per 10 minutes; each new session id adds a funnel row (docs/MASA_QR.md). */

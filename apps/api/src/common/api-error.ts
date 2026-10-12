@@ -191,6 +191,8 @@ export type ApiErrorCode =
   | 'SITE_PAGE_PATH_TAKEN'
   | 'PLATFORM_ONLY'
   | 'RATE_LIMITED'
+  | 'STAFF_INVITE_RESTAURANT_LIMIT'
+  | 'STAFF_INVITE_RECIPIENT_LIMIT'
   | 'AI_NOT_CONFIGURED'
   | 'AI_BUDGET_EXHAUSTED'
   | 'AI_REFUSED'
@@ -233,6 +235,11 @@ export function badRequest(code: ApiErrorCode, message: string): BadRequestExcep
 /** An upstream service (an AI or other provider) failed or answered unusably (502). */
 export function badGateway(code: ApiErrorCode, message: string): HttpException {
   return new HttpException({ statusCode: 502, code, message }, 502);
+}
+
+/** The caller is over a rate or quota limit (429); retrying later is the fix. */
+export function tooManyRequests(code: ApiErrorCode, message: string): HttpException {
+  return new HttpException({ statusCode: 429, code, message }, 429);
 }
 
 export function unauthorized(
