@@ -35,6 +35,7 @@ Siparişin müşterisi, takip sayfasından (`/t/<token>`) veya uygulamanın taki
 Bahşiş, siparişin çevrim içi ödemesiyle aynı sağlayıcıdan hosted ödeme sayfasıyla alınır. Kart numarası platforma girmez.
 
 - `POST /public/orders/:token/tip` (`{ amountMinor, returnUrl }`) bir `CourierTip` satırı açar veya yarıda kalanı günceller. Ardından hosted oturumu başlatır ve `redirectUrl` döner. Sağlayıcıya giden sipariş referansı bahşişin kimliğidir.
+  - Bahşişin aynı anda tek ödenebilir oturumu vardır (`docs/ODEME.md`, "Tek açık oturum"). Bekleyen bahşişin oturumu 15 dakikadan kısa süre önce açıldıysa ve sağlayıcıda süresi dolmadıysa aynı tutarla yapılan çağrı yeni oturum açmaz, aynı oturumu döner; başka tutar `TIP_SESSION_OPEN` (409) ile reddedilir. Sağlayıcı denemenin başarısız olduğunu bildirdiyse (`FAILED`) veya pencere geçtiyse yeni tutarla yeni oturum açılır. Aynı anda gelen iki çağrıdan yalnızca biri oturum açar, diğeri onu alır veya `CHECKOUT_IN_PROGRESS` alır.
 - **`OWN_POS`**: ödeme restoranın kendi POS'undan alınır. Bildirim, bağlantının mevcut webhook adresine gelir (`/webhooks/payments/pos/<connectionId>`).
 - **`PLATFORM_PSP`**: ödeme platformun üye işyerinden alınır. Bildirim platformun webhook adresine gelir (`/webhooks/payments/platform/<providerCode>`). İmza, platformun ortamdaki üye işyeri bilgileriyle doğrulanır.
   - Bu adres, platformun tahsil ettiği sipariş ödemeleri için de kullanılır. Hosted oturum bu adresi bildirim adresi olarak gönderir; iyzico bu adres olmadan oturum açamaz.

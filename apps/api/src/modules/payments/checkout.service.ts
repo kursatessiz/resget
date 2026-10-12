@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PaymentConnectionStatus, Prisma } from '@resget/database';
-import { isPaidBeforePlacement, isTerminalOrderStatus, paymentWebhookUrl } from '@resget/shared';
+import { hostedSessionSlot, isPaidBeforePlacement, isTerminalOrderStatus, paymentWebhookUrl } from '@resget/shared';
 import type {
   CheckoutSessionDTO,
   CollectPaymentInput,
@@ -47,19 +47,47 @@ export interface OpenedHostedCheckout {
 }
 
 /**
- * A provider transaction that arrived for an order payment or a courier tip
- * that another transaction already captured (docs/ODEME.md, "Mükerrer
- * tahsilat"): who it belongs to, how its row is locked while the notice is
- * claimed, and the account that took the money and gives it back.
+ * A provider transaction that arrived for an order payment, a courier tip or
+ * an open tab share that another transaction already captured (docs/ODEME.md,
+ * "Mükerrer tahsilat"): who it belongs to, how its row is locked while the
+ * notice is claimed, and the account that took the money and gives it back.
  */
 export interface ExtraCapture {
-  kind: 'payment' | 'tip';
-  entity: 'Payment' | 'CourierTip';
+  kind: 'payment' | 'tip' | 'tab';
+  entity: 'Payment' | 'CourierTip' | 'TabPayment';
   entityId: string;
   restaurantId: string;
   /** Takes the row lock inside the claiming transaction, so two deliveries of one notice refund once. */
   lock: (tx: Prisma.TransactionClient) => Promise<unknown>;
   target: { method: string; provider: string; paymentMode: 'OWN_POS' | 'PLATFORM_PSP' };
+}
+
+/**
+ * A row that holds one hosted session at a time, an order payment or a
+ * courier tip (docs/ODEME.md, "Tek açık oturum"): what was read, and the
+ * moves that claim, store or give back its session slot.
+ */
+export interface HostedSessionHolder {
+  checkoutSession: Prisma.JsonValue | null;
+  checkoutOpenedAt: Date | null;
+  /** Takes the slot at `at` if it still holds what was read (compare and swap on `checkoutOpenedAt`). */
+  claim: (at: Date) => Promise<boolean>;
+  /** The slot as it is now, after another call took it; null when its session may not be handed back here. */
+  reload: () => Promise<Pick<HostedSessionHolder, 'checkoutSession' | 'checkoutOpenedAt'> | null>;
+  /** Stores the session opened under the claim taken at `at`; throws when the row no longer waits for it. */
+  save: (session: HostedCheckoutSession, at: Date) => Promise<void>;
+  /** Frees the claim taken at `at` when the provider did not open a session. */
+  release: (at: Date) => Promise<void>;
+}
+
+/** The stored form of a hosted session: only what is handed back, a page link and never card data. */
+export function storedSession(session: HostedCheckoutSession): Prisma.InputJsonObject {
+  return {
+    providerCode: session.providerCode,
+    sessionId: session.sessionId,
+    redirectUrl: session.redirectUrl,
+    expiresAt: session.expiresAt,
+  };
 }
 
 /** Captured states whose provider reference names the transaction that paid; another reference is a second payment. */
@@ -307,23 +335,92 @@ export class CheckoutService {
       ...(customerIp ? { customerIp } : {}),
     };
 
+    let open: () => Promise<HostedCheckoutSession>;
     if (payment.method === 'MEAL_CARD') {
-      const connectionId = await this.mealCards.onlineConnectionFor(order.restaurantId, payment.provider);
-      const connection = connectionId ? await this.mealCards.onlineCredentials(connectionId) : null;
-      const adapter = this.issuers.get(payment.provider);
-      if (!connection || !adapter) throw conflict('PAYMENT_METHOD_NOT_ACCEPTED', 'Issuer is no longer accepted online');
-      const session = await adapter.createHostedCheckout(connection.credentials, params);
-      await this.prisma.payment.update({ where: { id: payment.id }, data: { providerRef: session.sessionId } });
-      return { paymentId: payment.id, session };
+      open = async () => {
+        const connectionId = await this.mealCards.onlineConnectionFor(order.restaurantId, payment.provider);
+        const connection = connectionId ? await this.mealCards.onlineCredentials(connectionId) : null;
+        const adapter = this.issuers.get(payment.provider);
+        if (!connection || !adapter) {
+          throw conflict('PAYMENT_METHOD_NOT_ACCEPTED', 'Issuer is no longer accepted online');
+        }
+        return adapter.createHostedCheckout(connection.credentials, params);
+      };
+    } else if (payment.method === 'ONLINE_CARD') {
+      // The platform's merchant answers on its own webhook address; the restaurant's POS on its connection's.
+      open = async () => (await this.openHostedCheckout(order.restaurantId, params)).session;
+    } else {
+      throw conflict('PAYMENT_STATE_INVALID', `${payment.method} is collected at the door, not online`);
     }
 
-    if (payment.method === 'ONLINE_CARD') {
-      // The platform's merchant answers on its own webhook address; the restaurant's POS on its connection's.
-      const { session } = await this.openHostedCheckout(order.restaurantId, params);
-      await this.prisma.payment.update({ where: { id: payment.id }, data: { providerRef: session.sessionId } });
-      return { paymentId: payment.id, session };
+    // Staff and customer pages, a second tap or a second tab all get the session that is still payable.
+    const pending = { id: payment.id, status: 'PENDING' as const };
+    const session = await this.oneHostedSession(
+      {
+        checkoutSession: payment.checkoutSession,
+        checkoutOpenedAt: payment.checkoutOpenedAt,
+        claim: async (at) =>
+          (
+            await this.prisma.payment.updateMany({
+              where: { ...pending, checkoutOpenedAt: payment.checkoutOpenedAt },
+              data: { checkoutOpenedAt: at, checkoutSession: Prisma.DbNull },
+            })
+          ).count === 1,
+        reload: () =>
+          this.prisma.payment.findFirst({
+            where: pending,
+            select: { checkoutSession: true, checkoutOpenedAt: true },
+          }),
+        save: async (opened, at) => {
+          const { count } = await this.prisma.payment.updateMany({
+            where: { ...pending, checkoutOpenedAt: at },
+            data: { checkoutSession: storedSession(opened), providerRef: opened.sessionId },
+          });
+          // Paid or replaced meanwhile: this session is not handed out.
+          if (count === 0) throw conflict('PAYMENT_STATE_INVALID', 'The payment moved on while its page was opened');
+        },
+        release: async (at) => {
+          await this.prisma.payment.updateMany({
+            where: { id: payment.id, checkoutOpenedAt: at, checkoutSession: { equals: Prisma.DbNull } },
+            data: { checkoutOpenedAt: null },
+          });
+        },
+      },
+      open,
+    );
+    return { paymentId: payment.id, session };
+  }
+
+  /**
+   * One payable hosted session per payment or tip (docs/ODEME.md, "Tek açık
+   * oturum"). A session opened less than HOSTED_SESSION_REUSE_MS ago and not
+   * expired at the provider is handed back as it is; otherwise the slot is
+   * claimed atomically, so of two calls at once only one opens a session,
+   * and the new session replaces the old one. The other call gets the new
+   * session, or CHECKOUT_IN_PROGRESS while it is still being opened.
+   */
+  async oneHostedSession(
+    holder: HostedSessionHolder,
+    open: () => Promise<HostedCheckoutSession>,
+  ): Promise<HostedCheckoutSession> {
+    const now = new Date();
+    const slot = hostedSessionSlot(holder.checkoutSession, holder.checkoutOpenedAt, now);
+    if (slot.state === 'LIVE') return slot.session;
+    if (slot.state === 'OPENING' || !(await holder.claim(now))) {
+      const current = slot.state === 'OPENING' ? null : await holder.reload();
+      const after = current ? hostedSessionSlot(current.checkoutSession, current.checkoutOpenedAt, new Date()) : null;
+      if (after?.state === 'LIVE') return after.session;
+      throw conflict('CHECKOUT_IN_PROGRESS', 'A payment page is being opened for this payment');
     }
-    throw conflict('PAYMENT_STATE_INVALID', `${payment.method} is collected at the door, not online`);
+    let session: HostedCheckoutSession;
+    try {
+      session = await open();
+    } catch (err) {
+      await holder.release(now);
+      throw err;
+    }
+    await holder.save(session, now);
+    return session;
   }
 
   /**
@@ -502,8 +599,8 @@ export class CheckoutService {
   }
 
   /**
-   * Gives back a second, distinct provider transaction for a payment or a tip
-   * that is already captured: a customer who paid twice, for example through
+   * Gives back a second, distinct provider transaction for a payment, a tip or
+   * a tab share that is already captured: a customer who paid twice, for example through
    * two open hosted sessions. It never reaches the order, the ledger or the
    * payout; it goes back on the account that took it, once per provider
    * reference, and the notice and the outcome stay in the audit log. A

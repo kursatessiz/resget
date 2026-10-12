@@ -6,6 +6,7 @@ import {
   REFUND_CLAIM_STALE_MS,
   courierDisplayName,
   formatMoney,
+  hostedSessionSlot,
   orderShortCode,
   tipLimits,
   tipNetMinor,
@@ -15,6 +16,7 @@ import {
 import type {
   CourierTipsRowDTO,
   GatewayWebhookEvent,
+  HostedCheckoutSession,
   NetworkTipsRowDTO,
   OrderTrackingDTO,
   RefundTipInput,
@@ -30,7 +32,7 @@ import { RealtimeService } from '../realtime/realtime.service';
 import { FeatureFlagsService } from '../features/feature-flags.service';
 import { OrdersService } from '../orders/orders.service';
 import type { OrderRow } from '../orders/orders.service';
-import { CheckoutService, isExtraCapture } from '../payments/checkout.service';
+import { CheckoutService, isExtraCapture, storedSession } from '../payments/checkout.service';
 import { RefundsService } from '../payments/refunds.service';
 import type { WebhookScope } from '../payments/checkout.service';
 import { MealCardsService } from '../payments/meal-cards.service';
@@ -183,15 +185,17 @@ export class TipsService {
       courierMembershipId: recipient.kind === 'OWN' ? recipient.membershipId : null,
       deliveryRequestId: recipient.kind === 'NETWORK' ? recipient.deliveryRequestId : null,
     };
-    let tipId: string;
+    let tip: Pick<CourierTip, 'id' | 'status' | 'amountMinor' | 'checkoutSession' | 'checkoutOpenedAt'>;
     if (existing) {
-      // An abandoned or failed attempt starts again; a capture that lands meanwhile wins.
-      const { count } = await this.prisma.courierTip.updateMany({
-        where: { id: existing.id, status: { in: RESTARTABLE } },
-        data: { ...fields, status: 'PENDING' },
-      });
-      if (count === 0) throw conflict('TIP_ALREADY_PAID', 'This order has a tip');
-      tipId = existing.id;
+      // A session still payable for another amount would leave two payable sessions (docs/BAHSIS.md).
+      const slot =
+        existing.status === 'PENDING'
+          ? hostedSessionSlot(existing.checkoutSession, existing.checkoutOpenedAt, new Date())
+          : null;
+      if (slot?.state === 'LIVE' && existing.amountMinor !== input.amountMinor) {
+        throw conflict('TIP_SESSION_OPEN', 'A payment page for another amount is still open');
+      }
+      tip = existing;
     } else {
       const created = await this.prisma.courierTip
         .create({
@@ -212,24 +216,64 @@ export class TipsService {
           throw err;
         });
       if (!created) throw conflict('TIP_UNAVAILABLE', 'A tip for this order is being started');
-      tipId = created.id;
+      tip = created;
     }
 
     // The provider sees the tip's own id as the order reference, so its notification finds the tip.
-    const opened = await this.checkout.openHostedCheckout(order.restaurantId, {
-      orderRef: tipId,
-      amountMinor: input.amountMinor,
-      currency: order.currency,
-      returnUrl: input.returnUrl,
-      customerPhone: order.customer?.phone ?? '',
-      ...(order.customer?.fullName ? { customerName: order.customer.fullName } : {}),
-      ...(customerIp ? { customerIp } : {}),
-    });
-    await this.prisma.courierTip.update({
-      where: { id: tipId },
-      data: { providerRef: opened.session.sessionId, provider: opened.providerCode, paymentMode: opened.paymentMode },
-    });
-    return { tipId, session: opened.session };
+    let collectedBy: Pick<CourierTip, 'provider' | 'paymentMode'> | null = null;
+    const open = async (): Promise<HostedCheckoutSession> => {
+      const opened = await this.checkout.openHostedCheckout(order.restaurantId, {
+        orderRef: tip.id,
+        amountMinor: input.amountMinor,
+        currency: order.currency,
+        returnUrl: input.returnUrl,
+        customerPhone: order.customer?.phone ?? '',
+        ...(order.customer?.fullName ? { customerName: order.customer.fullName } : {}),
+        ...(customerIp ? { customerIp } : {}),
+      });
+      collectedBy = { provider: opened.providerCode, paymentMode: opened.paymentMode };
+      return opened.session;
+    };
+    // A failed attempt's session is over at the provider; a pending one is handed back while still payable.
+    const failed = tip.status === 'FAILED';
+    const session = await this.checkout.oneHostedSession(
+      {
+        checkoutSession: failed ? null : tip.checkoutSession,
+        checkoutOpenedAt: failed ? null : tip.checkoutOpenedAt,
+        // An abandoned or failed attempt starts again with the new amount; a capture that lands meanwhile wins.
+        claim: async (at) => {
+          const { count } = await this.prisma.courierTip.updateMany({
+            where: { id: tip.id, status: { in: RESTARTABLE }, checkoutOpenedAt: tip.checkoutOpenedAt },
+            data: { ...fields, status: 'PENDING', checkoutOpenedAt: at, checkoutSession: Prisma.DbNull },
+          });
+          return count === 1;
+        },
+        reload: async () => {
+          const current = await this.prisma.courierTip.findUnique({ where: { id: tip.id } });
+          if (!current || SETTLED.includes(current.status)) throw conflict('TIP_ALREADY_PAID', 'This order has a tip');
+          return current.status === 'PENDING' && current.amountMinor === input.amountMinor ? current : null;
+        },
+        save: async (opened, at) => {
+          const { count } = await this.prisma.courierTip.updateMany({
+            where: { id: tip.id, status: 'PENDING', checkoutOpenedAt: at },
+            data: { checkoutSession: storedSession(opened), providerRef: opened.sessionId, ...(collectedBy ?? {}) },
+          });
+          if (count > 0) return;
+          // Paid, failed or restarted elsewhere meanwhile: this session is not handed out.
+          const current = await this.prisma.courierTip.findUnique({ where: { id: tip.id }, select: { status: true } });
+          if (!current || SETTLED.includes(current.status)) throw conflict('TIP_ALREADY_PAID', 'This order has a tip');
+          throw conflict('CHECKOUT_IN_PROGRESS', 'The tip moved on while its page was opened');
+        },
+        release: async (at) => {
+          await this.prisma.courierTip.updateMany({
+            where: { id: tip.id, checkoutOpenedAt: at, checkoutSession: { equals: Prisma.DbNull } },
+            data: { checkoutOpenedAt: null },
+          });
+        },
+      },
+      open,
+    );
+    return { tipId: tip.id, session };
   }
 
   // -- Provider notifications -------------------------------------------------------------

@@ -1616,6 +1616,10 @@ model Payment {
   refundFailureCode    String?
   refundedAt           DateTime?
   refundProviderRef    String?
+  /// The hosted session handed out for this payment and when it was claimed (docs/ODEME.md, "Tek açık oturum"):
+  /// handed back while still payable, so one payment never has two live sessions. A page link, never card data.
+  checkoutSession      Json?
+  checkoutOpenedAt     DateTime?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
@@ -2121,6 +2125,9 @@ model CourierTip {
   passThroughStatus   TipPassThroughStatus?
   passThroughRef      String?
   passThroughAttempts Int                   @default(0)
+  /// The hosted session handed out for this tip and when it was claimed (docs/BAHSIS.md, docs/ODEME.md "Tek açık oturum").
+  checkoutSession     Json?
+  checkoutOpenedAt    DateTime?
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
 

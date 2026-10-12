@@ -24,10 +24,12 @@ Misafir `/hesap/<token>` sayfasındaki hesaplayıcının verdiği payı (eşit, 
 - **Kimin hesabına**: hesaba yazılan sipariş `OWN_POS` gibi hesaplanır (aşağıda "Para"). Bu yüzden telefondan ödeme yalnızca restoranın kendi POS'u üzerinden alınır. Restoranın aktif POS bağlantısı yoksa, çevrim içi ödeme kapalıysa veya restoran `PLATFORM_PSP` modundaysa seçenek görünmez (`payOnline`).
 - **Başlatma**: `POST /public/tabs/:token/pay` (`{ amountMinor, returnUrl }`, hız sınırlı). Tutar hesabın o anki kalanını geçemez (`PAYMENT_STATE_INVALID`).
   - Bir `TabPayment` kaydı açılır ve POS'un hosted ödeme sayfası başlatılır. Sağlayıcıya giden referans bu kaydın kimliğidir; kart numarası platforma girmez.
+  - Her çağrı yeni bir pay kaydı ve onun tek oturumudur; bir pay için ikinci oturum açılmaz. Ayrı paylar birleştirilmez, çünkü iki misafir aynı tutarı aynı anda ödeyebilir (`docs/ODEME.md`, "Tek açık oturum").
 - **Tahsilat**: POS bağlantısının webhook'u referansı tanır (`docs/BAHSIS.md` ile aynı yönlendirme).
   - Tahsil edilen tutar, kasadaki tahsilat gibi hesap satırı kilitlenerek siparişlere en eskiden dağıtılır (`allocateTabPayment()`).
   - Her parça siparişte `ONLINE_CARD` yöntemiyle, `CAPTURED` ve `OWN_POS` olarak, sağlayıcının işlem referansıyla kaydedilir. Böylece sipariş başına iade POS üzerinden çalışır.
   - Tekrarlanan bildirim etkisizdir. Her şey ödenip servis edildiyse hesap kendiliğinden kapanır.
+  - Tahsil edilmiş (veya sonradan iade edilmiş, chargeback olmuş) bir paya **farklı** sağlayıcı referansıyla gelen `CAPTURED` bildirimi ikinci bir tahsilattır (misafir aynı payın iki oturumunu da ödemiş): hesaba ve siparişlere hiç girmez, restoranın POS'u üzerinden hemen tutarın tamamıyla iade edilir ve `tab.extra_capture` ile `tab.extra_capture_refunded` (veya `tab.extra_capture_refund_failed`) denetim kayıtlarıyla kalır. Aynı referansın yeniden teslimi ikinci iade başlatmaz (`docs/ODEME.md`, "Mükerrer tahsilat").
 - **Fazla ödeme**: misafir öderken kasada da tahsilat yapıldıysa, kalanı aşan kısım (`excessMinor`) hemen POS üzerinden iade edilir (`excessRefundedAt`). İade başarısız olursa kayıtta kalır ve loglanır.
 - **Sağlayıcı panelindeki iade ve chargeback**: payın tamamı POS sağlayıcısının kendi panelinden iade edilirse veya kart sahibinin bankası geri alırsa, bildirim aynı referansla gelir ve pay kendiliğinden siparişlere işlenir:
   - Payın ödediği her sipariş parçası, panelden yapılan iade gibi kaydedilir. Kaynak sağlayıcı iadesinde `PROVIDER`, chargeback'te `CHARGEBACK` olur.

@@ -180,6 +180,54 @@ export interface HostedCheckoutSession {
   expiresAt: string;
 }
 
+/**
+ * How long a hosted session opened for an order payment or a courier tip is
+ * handed back instead of opening another one (docs/ODEME.md, "Tek açık
+ * oturum"). Every session stays payable at the provider until it expires,
+ * so two sessions for one payment could both be paid. The window is at or
+ * below the providers' own session lifetimes (MOCK 15, PayTR 30, iyzico 30
+ * minutes by default), and a session past its own `expiresAt` is never
+ * handed back.
+ */
+export const HOSTED_SESSION_REUSE_MS = 15 * 60_000;
+
+/**
+ * A session being opened (claimed, not stored yet) holds off a second one
+ * this long. Above the gateways' request timeout, so a call that died
+ * half way frees the payment again.
+ */
+export const HOSTED_SESSION_OPENING_MS = 60_000;
+
+/** Where a payment's hosted session stands: still payable, being opened by another call, or free to open. */
+export type HostedSessionSlot =
+  { state: 'LIVE'; session: HostedCheckoutSession } | { state: 'OPENING' } | { state: 'FREE' };
+
+function isHostedCheckoutSession(value: unknown): value is HostedCheckoutSession {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.providerCode === 'string' &&
+    typeof v.sessionId === 'string' &&
+    typeof v.redirectUrl === 'string' &&
+    typeof v.expiresAt === 'string'
+  );
+}
+
+/** Reads the stored session of a payment or a tip (`checkoutSession`, `checkoutOpenedAt`) at `now`. */
+export function hostedSessionSlot(stored: unknown, openedAt: Date | null, now: Date): HostedSessionSlot {
+  if (!openedAt) return { state: 'FREE' };
+  const age = now.getTime() - openedAt.getTime();
+  if (stored === null || stored === undefined) {
+    return age >= 0 && age < HOSTED_SESSION_OPENING_MS ? { state: 'OPENING' } : { state: 'FREE' };
+  }
+  if (!isHostedCheckoutSession(stored)) return { state: 'FREE' };
+  const expiresAt = Date.parse(stored.expiresAt);
+  if (age >= 0 && age < HOSTED_SESSION_REUSE_MS && Number.isFinite(expiresAt) && expiresAt > now.getTime()) {
+    return { state: 'LIVE', session: stored };
+  }
+  return { state: 'FREE' };
+}
+
 export interface GatewayWebhookEvent {
   providerRef: string;
   orderRef: string;
