@@ -41,6 +41,7 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
     'The price of an option has changed. Remove the item and add it again at the current price.',
   'errors.PAYMENT_METHOD_NOT_ACCEPTED': 'The restaurant does not accept this payment method.',
   'errors.PAYMENT_STATE_INVALID': 'A payment cannot be made for this order at this stage.',
+  'errors.CHECKOUT_IN_PROGRESS': 'The payment page is being opened. Try again in a few seconds.',
   'errors.REFUND_NOT_ALLOWED':
     'This order cannot be refunded: there is no payment to refund, the order is still open or it was already refunded.',
   'errors.OWNERSHIP_TRANSFER_FORBIDDEN': 'Only the owner can hand the business over.',
@@ -189,6 +190,8 @@ export const enErrors: Record<keyof typeof trErrors, string> = {
   'errors.TIP_UNAVAILABLE': 'A tip cannot be given for this order.',
   'errors.TIP_ALREADY_PAID': 'A tip was already given for this order.',
   'errors.TIP_AMOUNT_INVALID': 'The tip amount is outside the limits.',
+  'errors.TIP_SESSION_OPEN':
+    'A payment page for this tip is still open. Continue with the same amount or try a new amount in a few minutes.',
   'errors.TIP_REFUND_NOT_ALLOWED': 'Only a collected tip can be refunded.',
   'errors.TIP_REFUND_IN_PROGRESS': 'A refund of this tip is already being processed.',
   'errors.TIP_REFUND_DECLINED': "The payment provider declined the tip refund. Check the provider's dashboard.",

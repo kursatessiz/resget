@@ -7,6 +7,9 @@ import {
   commissionDueAt,
   commissionPeriod,
   computeModeSettlement,
+  HOSTED_SESSION_OPENING_MS,
+  HOSTED_SESSION_REUSE_MS,
+  hostedSessionSlot,
   quickCommission,
 } from './payments';
 import { settlementDefaultsFor } from './settlement';
@@ -121,5 +124,38 @@ describe('ConnectOwnPosSchema', () => {
       credentials: { merchantId: '1', cardNumber: '4111' },
     });
     expect(unknown.success).toBe(false);
+  });
+});
+
+describe('hostedSessionSlot', () => {
+  const now = new Date('2026-06-01T12:00:00Z');
+  const ago = (ms: number) => new Date(now.getTime() - ms);
+  const session = (expiresInMs: number) => ({
+    providerCode: 'MOCK',
+    sessionId: 's-1',
+    redirectUrl: 'https://pay.example.com/s-1',
+    expiresAt: new Date(now.getTime() + expiresInMs).toISOString(),
+  });
+
+  it('hands back a stored session inside the reuse window while the provider still takes it', () => {
+    expect(hostedSessionSlot(session(60_000), ago(1_000), now)).toEqual({ state: 'LIVE', session: session(60_000) });
+    expect(hostedSessionSlot(session(60_000), ago(HOSTED_SESSION_REUSE_MS - 1), now).state).toBe('LIVE');
+  });
+
+  it('frees the payment once the window has passed or the session expired', () => {
+    expect(hostedSessionSlot(session(60_000), ago(HOSTED_SESSION_REUSE_MS), now).state).toBe('FREE');
+    expect(hostedSessionSlot(session(0), ago(1_000), now).state).toBe('FREE');
+    expect(hostedSessionSlot({ sessionId: 's-1' }, ago(1_000), now).state).toBe('FREE');
+    expect(hostedSessionSlot(null, null, now).state).toBe('FREE');
+  });
+
+  it('holds off a second session while one is being opened, until the claim goes stale', () => {
+    expect(hostedSessionSlot(null, ago(1_000), now).state).toBe('OPENING');
+    expect(hostedSessionSlot(null, ago(HOSTED_SESSION_OPENING_MS), now).state).toBe('FREE');
+  });
+
+  it('stays inside every known provider session lifetime', () => {
+    expect(HOSTED_SESSION_REUSE_MS).toBeLessThanOrEqual(15 * 60_000);
+    expect(HOSTED_SESSION_OPENING_MS).toBeLessThan(HOSTED_SESSION_REUSE_MS);
   });
 });

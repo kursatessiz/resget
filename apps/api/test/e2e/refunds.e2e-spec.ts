@@ -313,6 +313,62 @@ describe('Refunds (e2e)', () => {
     ]);
   });
 
+  it('keeps one live hosted session per payment for staff and customer checkouts', async () => {
+    const res = await ctx
+      .http()
+      .post(`/restaurants/${restaurantId}/orders`)
+      .set(bearer(ownerToken))
+      .send({
+        branchId,
+        channel: 'PHONE',
+        fulfillment: 'PICKUP',
+        items: [{ menuItemId, quantity: 1 }],
+        customer: { fullName: 'Oturum Musteri', phone: '0532 999 07 42' },
+        note: NOTE,
+        payment: { method: 'ONLINE_CARD' },
+      })
+      .expect(201);
+    const orderId = res.body.id as string;
+    const trackingToken = (res.body.trackingUrl as string).split('/t/')[1];
+    const staffCheckout = async () =>
+      (
+        await ctx
+          .http()
+          .post(`/restaurants/${restaurantId}/orders/${orderId}/checkout`)
+          .set(bearer(ownerToken))
+          .send({ returnUrl: 'https://app.example.com/odeme' })
+          .expect(200)
+      ).body as { paymentId: string; session: { sessionId: string; redirectUrl: string } };
+    const publicCheckout = async () =>
+      (
+        await ctx
+          .http()
+          .post(`/public/orders/${trackingToken}/checkout`)
+          .send({ returnUrl: 'https://app.example.com/t/odeme' })
+          .expect(200)
+      ).body as { paymentId: string; session: { sessionId: string; redirectUrl: string } };
+
+    const first = await staffCheckout();
+    // A second tap, a second tab or the customer's own page: the session still open is handed back, not a new one.
+    const again = await staffCheckout();
+    const customer = await publicCheckout();
+    expect(again.session).toEqual(first.session);
+    expect(customer.session).toEqual(first.session);
+    expect(customer.paymentId).toBe(first.paymentId);
+    const payment = await ctx.prisma.payment.findUniqueOrThrow({ where: { id: first.paymentId } });
+    expect(payment.providerRef).toBe(first.session.sessionId);
+
+    // Once the reuse window has passed, a new session may be opened and becomes the payment's reference.
+    await ctx.prisma
+      .$executeRaw`UPDATE payments SET "checkoutOpenedAt" = now() - interval '16 minutes' WHERE id = ${first.paymentId}`;
+    const later = await publicCheckout();
+    expect(later.session.sessionId).not.toBe(first.session.sessionId);
+    expect((await ctx.prisma.payment.findUniqueOrThrow({ where: { id: first.paymentId } })).providerRef).toBe(
+      later.session.sessionId,
+    );
+    expect((await publicCheckout()).session).toEqual(later.session);
+  });
+
   it('takes a PLATFORM_PSP refund out of the payout only after completion', async () => {
     await ctx.prisma.restaurant.update({ where: { id: restaurantId }, data: { paymentMode: 'PLATFORM_PSP' } });
     try {

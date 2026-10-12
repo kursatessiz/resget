@@ -85,6 +85,7 @@ describe('Open tab online share (e2e)', () => {
   });
 
   afterAll(async () => {
+    await ctx.prisma.auditLog.deleteMany({ where: { restaurantId, action: { startsWith: 'tab.extra_capture' } } });
     await ctx.prisma.order.deleteMany({ where: { restaurantId, customerNote: NOTE } });
     await ctx.prisma.tabPayment.deleteMany({ where: { tab: { tableId } } });
     await ctx.prisma.tableTab.deleteMany({ where: { tableId } });
@@ -142,6 +143,32 @@ describe('Open tab online share (e2e)', () => {
       status: 'CAPTURED',
       excessMinor: 0,
     });
+  });
+
+  it('gives back a second, distinct capture of a captured share and records it once', async () => {
+    const before = await publicBill();
+    const share = await ctx.prisma.tabPayment.findUniqueOrThrow({ where: { id: shares[0] } });
+    const extraRows = () =>
+      ctx.prisma.auditLog.findMany({
+        where: { entityId: share.id, action: { startsWith: 'tab.extra_capture' } },
+        orderBy: { createdAt: 'asc' },
+      });
+    // Another paid session for the same share: refunded on the restaurant's POS, and a redelivery does nothing more.
+    const extra = { providerRef: 'tab-pay-1b', orderRef: share.id, status: 'CAPTURED', amountMinor: share.amountMinor };
+    expect((await notice(extra)).body.status).toBe('CAPTURED');
+    expect((await notice(extra)).body.status).toBe('CAPTURED');
+    const rows = await extraRows();
+    expect(rows.map((r) => r.action)).toEqual(['tab.extra_capture', 'tab.extra_capture_refunded']);
+    expect(rows[0].meta).toMatchObject({ providerRef: 'tab-pay-1b', amountMinor: share.amountMinor });
+    // The bill, the share and the order payments are untouched.
+    expect(await publicBill()).toMatchObject({ paidMinor: before.paidMinor, dueMinor: before.dueMinor });
+    expect(await ctx.prisma.tabPayment.findUniqueOrThrow({ where: { id: share.id } })).toMatchObject({
+      status: 'CAPTURED',
+      providerRef: 'tab-pay-1',
+      amountMinor: share.amountMinor,
+      excessMinor: 0,
+    });
+    expect(await ctx.prisma.payment.count({ where: { order: { tabId }, providerRef: 'tab-pay-1b' } })).toBe(0);
   });
 
   it('gives back what the counter collected while the guest was paying', async () => {
