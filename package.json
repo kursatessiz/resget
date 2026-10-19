@@ -20,7 +20,7 @@
     "clean": "turbo run clean && rimraf node_modules"
   },
   "devDependencies": {
-    "prettier": "^3.9.9",
+    "prettier": "^3.9.10",
     "rimraf": "^6.1.3",
     "turbo": "^2.11.3",
     "typescript": "^5.9.3"
