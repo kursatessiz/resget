@@ -6,12 +6,13 @@ import {
   PartnerReferralsController,
 } from './partner-referrals.controller';
 import { PartnerReferralsService } from './partner-referrals.service';
+import { PartnerReferralsWatchdog } from './partner-referrals.watchdog';
 
 /** Global so sign-up and order completion can both reach it. */
 @Global()
 @Module({
   controllers: [PartnerReferralsController, PartnerInvitesController, AdminPartnerReferralsController],
-  providers: [PartnerReferralsService, PublicRateLimitGuard],
+  providers: [PartnerReferralsService, PartnerReferralsWatchdog, PublicRateLimitGuard],
   exports: [PartnerReferralsService],
 })
 export class PartnerReferralsModule {}
