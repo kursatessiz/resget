@@ -78,10 +78,10 @@ export class LoyaltyService {
   async resolve(db: Db, restaurantId: string): Promise<ResolvedProgram> {
     const row = await db.restaurant.findUnique({ where: { id: restaurantId }, select: programSelect });
     if (!row) throw notFound('NOT_FOUND', 'Restaurant not found');
-    return this.resolveRow(row);
+    return this.resolveRow(row, db);
   }
 
-  private async resolveRow(row: ProgramRow): Promise<ResolvedProgram> {
+  private async resolveRow(row: ProgramRow, db: Db = this.prisma): Promise<ResolvedProgram> {
     const unit = 10 ** minorDigitsOf(row.currency);
     const program: LoyaltyProgram = row.loyaltyProgram
       ? {
@@ -103,7 +103,8 @@ export class LoyaltyService {
           redeemValueMinor: 10 * unit,
           minOrderMinor: 0,
         };
-    const { entitlements } = await this.plans.resolveFor(row.id, subscriptionLike(row.subscription));
+    // On the caller's client: inside an order transaction the grants are read on that transaction.
+    const { entitlements } = await this.plans.resolveFor(row.id, subscriptionLike(row.subscription), new Date(), db);
     return {
       program,
       currency: row.currency,

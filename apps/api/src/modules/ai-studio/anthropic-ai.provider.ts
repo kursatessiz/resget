@@ -4,8 +4,14 @@ import { z } from 'zod/v4';
 import { AiRefusedError } from './ai-provider';
 import type { AiProvider, AiProviderRequest, AiProviderResult } from './ai-provider';
 
+/**
+ * Room above AI_MAX_VARIANTS: the service keeps only the drafts it asked for,
+ * so a model that writes one too many is trimmed there, not rejected here.
+ */
+const DRAFTS_MAX = 10;
+
 const DraftsSchema = z.object({
-  drafts: z.array(z.object({ subject: z.string(), body: z.string() })),
+  drafts: z.array(z.object({ subject: z.string(), body: z.string() })).max(DRAFTS_MAX),
 });
 
 /**

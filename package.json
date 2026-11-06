@@ -35,13 +35,16 @@
       "deepmerge-ts@<8": "^8.0.0",
       "js-yaml@>=5.0.0 <5.4.1": ">=5.4.1",
       "uuid@<11.1.1": ">=11.1.1",
-      "decode-uri-component@<0.5.0": ">=0.5.0",
-      "handlebars@<4.7.10": "^4.7.10"
+      "decode-uri-component@<0.5.1": ">=0.5.1",
+      "handlebars@<4.7.10": "^4.7.10",
+      "express@>=5.0.0 <5.3.0": "^5.3.0",
+      "body-parser@>=2.0.0 <2.4.0": "^2.4.0",
+      "multer@>=2.0.0 <2.5.0": "^2.5.0",
+      "node-forge@<1.4.1": "^1.4.1"
     },
     "auditConfig": {
       "ignoreGhsas": [
-        "GHSA-vfj7-8cjw-p6xm",
-        "GHSA-86w9-cpqp-85rv"
+        "GHSA-mrhx-c7xc-m3w5"
       ]
     }
   }

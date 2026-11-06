@@ -807,6 +807,7 @@ export class OrdersService {
         await tx.deliveryStop.update({ where: { id: activeStop.id }, data: { status: 'REMOVED' } });
       }
     });
+    await this.afterTransitionCommitted(orderId, input.to);
     // A captured online payment goes back right away; a failure is retried later and never undoes the cancellation.
     if (isAutoRefundStatus(input.to) && this.refundAfterCancel) {
       await this.refundAfterCancel(orderId);
@@ -820,9 +821,19 @@ export class OrdersService {
   }
 
   /**
+   * Work of a transition that must not run inside the order transaction, for every caller of applyTransition
+   * to run once its transaction committed: a referred restaurant's qualifying order rewards the restaurant that
+   * invited it (docs/RESTORAN_TAVSIYE.md). Never throws, so the committed status change always stands.
+   */
+  async afterTransitionCommitted(orderId: string, to: OrderStatusValue): Promise<void> {
+    if (to === 'DELIVERED' || to === 'PICKED_UP') await this.partnerReferrals.onOrderCompletedSafely(orderId);
+  }
+
+  /**
    * Applies one transition inside a transaction: validates it against the
    * state machine, stamps the timestamps, writes the history line. Callers
-   * publish events after their transaction commits (eventsForOrder).
+   * publish events and run afterTransitionCommitted after their transaction
+   * commits (eventsForOrder).
    */
   async applyTransition(
     tx: Prisma.TransactionClient,
@@ -877,8 +888,8 @@ export class OrdersService {
       await this.journeys.recordCompletion(tx, order.id, now);
       // A friend's first order with a personal code rewards the referrer (docs/TAVSIYE.md).
       await this.referrals.recordCompletion(tx, order.id, now);
-      // A referred restaurant's qualifying order rewards the restaurant that invited it (docs/RESTORAN_TAVSIYE.md).
-      await this.partnerReferrals.recordCompletion(tx, order.id, now);
+      // The partner referral reward is not taken here: it waits on a per-referrer lock, so it runs after the
+      // commit (afterTransitionCommitted) and can never hold this transaction open or roll it back.
     }
     if (to === 'REJECTED' || to === 'CANCELLED_BY_RESTAURANT' || to === 'CANCELLED_BY_CUSTOMER' || to === 'REFUNDED') {
       await this.loyalty.recordReversal(tx, order.id, now);

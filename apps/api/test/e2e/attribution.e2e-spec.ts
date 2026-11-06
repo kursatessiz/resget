@@ -210,9 +210,11 @@ describe('Attribution (e2e)', () => {
 
     // Recording is idempotent: the same order never counts twice.
     expect(await ctx.prisma.conversionEvent.count({ where: { restaurantId, sourceId: firstId } })).toBe(1);
-    const activity = await ctx.prisma.contactActivity.count({
-      where: { customerId: visitor.customerId!, type: 'CONVERSION' },
-    });
+    // The contact card line is written right after the conversion row, by the same background listener.
+    const activity = await waitFor(
+      () => ctx.prisma.contactActivity.count({ where: { customerId: visitor.customerId!, type: 'CONVERSION' } }),
+      (count) => count >= 2,
+    );
     expect(activity).toBe(2);
   });
 

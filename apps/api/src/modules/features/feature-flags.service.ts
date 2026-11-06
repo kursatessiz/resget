@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { Prisma } from '@resget/database';
 import { FEATURES, FEATURE_KEYS, enabledFeatures, isFeatureEnabled, moduleNeedsPlan } from '@resget/shared';
 import type {
   AdminFeatureDTO,
@@ -10,6 +11,8 @@ import type {
 import { PrismaService } from '../prisma/prisma.service';
 import { forbidden } from '../../common/api-error';
 import { EntitlementsService } from './entitlements.service';
+
+type Db = Prisma.TransactionClient | PrismaService;
 
 /** How long a process trusts its copy of the switches; writes in this process refresh it at once. */
 const CACHE_TTL_MS = 15_000;
@@ -31,6 +34,10 @@ interface Snapshot {
  * closed as well, refused with PLAN_FEATURE_REQUIRED instead of
  * FEATURE_DISABLED. Plan features (crm, campaigns, ...) keep their own
  * checks, which decide what a restaurant without them still sees.
+ *
+ * A check made inside a transaction passes the transaction client (`db`),
+ * so a reload of the switches and the plan lookup run on that transaction's
+ * connection (docs/SIPARIS_VE_SEVK.md, "İşlem kuralı").
  */
 @Injectable()
 export class FeatureFlagsService {
@@ -42,8 +49,8 @@ export class FeatureFlagsService {
     private readonly plans: EntitlementsService,
   ) {}
 
-  async switchesFor(restaurantId: string | null): Promise<FeatureSwitches> {
-    const snapshot = await this.current();
+  async switchesFor(restaurantId: string | null, db: Db = this.prisma): Promise<FeatureSwitches> {
+    const snapshot = await this.current(db);
     return {
       global: snapshot.global,
       restaurant: restaurantId ? (snapshot.byRestaurant.get(restaurantId) ?? {}) : {},
@@ -52,19 +59,21 @@ export class FeatureFlagsService {
 
   /**
    * Switched on and carried by the restaurant's plan. Callers that already
-   * resolved the restaurant's entitlements (the tenant guard) pass them in.
+   * resolved the restaurant's entitlements (the tenant guard) pass them in;
+   * callers inside a transaction pass its client.
    */
   async isEnabled(
     key: FeatureKey,
     restaurantId: string | null,
     entitlements?: ReadonlySet<EntitlementKey>,
+    db: Db = this.prisma,
   ): Promise<boolean> {
-    return (await this.refusal(key, restaurantId, entitlements)) === null;
+    return (await this.refusal(key, restaurantId, entitlements, db)) === null;
   }
 
   /** Switched on, whatever the plan says: what the panel's switch list and tabs show. */
-  async isSwitchedOn(key: FeatureKey, restaurantId: string | null): Promise<boolean> {
-    return isFeatureEnabled(key, await this.switchesFor(restaurantId));
+  async isSwitchedOn(key: FeatureKey, restaurantId: string | null, db: Db = this.prisma): Promise<boolean> {
+    return isFeatureEnabled(key, await this.switchesFor(restaurantId, db));
   }
 
   /** Every module switched on for the restaurant, in catalogue order. */
@@ -87,11 +96,12 @@ export class FeatureFlagsService {
   private async refusal(
     key: FeatureKey,
     restaurantId: string | null,
-    entitlements?: ReadonlySet<EntitlementKey>,
+    entitlements: ReadonlySet<EntitlementKey> | undefined,
+    db: Db = this.prisma,
   ): Promise<'FEATURE_DISABLED' | 'PLAN_FEATURE_REQUIRED' | null> {
-    if (!(await this.isSwitchedOn(key, restaurantId))) return 'FEATURE_DISABLED';
+    if (!(await this.isSwitchedOn(key, restaurantId, db))) return 'FEATURE_DISABLED';
     if (!restaurantId || !moduleNeedsPlan(key)) return null;
-    const held = entitlements ?? (await this.plans.forRestaurant(restaurantId)).entitlements;
+    const held = entitlements ?? (await this.plans.forRestaurant(restaurantId, new Date(), db)).entitlements;
     return held.has(key) ? null : 'PLAN_FEATURE_REQUIRED';
   }
 
@@ -151,20 +161,23 @@ export class FeatureFlagsService {
 
   // -- Cache --------------------------------------------------------------------
 
-  private async current(): Promise<Snapshot> {
+  private async current(db: Db): Promise<Snapshot> {
     if (this.snapshot && Date.now() - this.snapshot.loadedAt < CACHE_TTL_MS) return this.snapshot;
+    // Inside a transaction the reload runs on that transaction and is not shared: joining a load that runs on
+    // the root client would wait for another pooled connection while this transaction holds one.
+    if (db !== this.prisma) return this.load(db);
     return this.fresh();
   }
 
   private fresh(): Promise<Snapshot> {
-    this.loading ??= this.load().finally(() => {
+    this.loading ??= this.load(this.prisma).finally(() => {
       this.loading = null;
     });
     return this.loading;
   }
 
-  private async load(): Promise<Snapshot> {
-    const rows = await this.prisma.featureFlag.findMany({
+  private async load(db: Db): Promise<Snapshot> {
+    const rows = await db.featureFlag.findMany({
       select: { key: true, scope: true, restaurantId: true, enabled: true },
     });
     const known = new Set<string>(FEATURE_KEYS);
