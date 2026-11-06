@@ -2,6 +2,8 @@
 
 Platformun kimlik doğrulama ve dış dünyaya açık yüzeyindeki denetimleri tek yerde toplar. Modüle özgü ayrıntı ilgili belgededir; burada yalnızca kurallar ve nerede uygulandıkları vardır.
 
+Kaynak kodu denetimlerinin geçmişi (kapsam, bulgular, kapatan PR'lar, ertelenen birimler) `docs/GUVENLIK_DENETIMI.md` içindedir.
+
 ## Giriş kodu (OTP)
 
 - Kod 5 dakika geçerlidir ve tek kullanımlıktır. Aynı telefona 5 dakikada en çok 3 kod istenir (`OtpService`).
