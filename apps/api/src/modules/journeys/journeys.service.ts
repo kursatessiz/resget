@@ -315,7 +315,8 @@ export class JourneysService {
       select: { restaurantId: true, customerUserId: true },
     });
     if (!order?.customerUserId) return 0;
-    if (!(await this.features.isEnabled('journeys', order.restaurantId))) return 0;
+    // On the transaction: a lookup on the root client would wait for a second pooled connection.
+    if (!(await this.features.isEnabled('journeys', order.restaurantId, undefined, tx))) return 0;
     const journeys = await tx.journey.findMany({
       where: { restaurantId: order.restaurantId, status: 'ACTIVE', trigger: { in: [...ORDER_JOURNEY_TRIGGERS] } },
     });

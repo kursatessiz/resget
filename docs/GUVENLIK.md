@@ -2,6 +2,8 @@
 
 Platformun kimlik doğrulama ve dış dünyaya açık yüzeyindeki denetimleri tek yerde toplar. Modüle özgü ayrıntı ilgili belgededir; burada yalnızca kurallar ve nerede uygulandıkları vardır.
 
+Kaynak kodu denetimlerinin geçmişi (kapsam, bulgular, kapatan PR'lar, ertelenen birimler) `docs/GUVENLIK_DENETIMI.md` içindedir.
+
 ## Giriş kodu (OTP)
 
 - Kod 5 dakika geçerlidir ve tek kullanımlıktır. Aynı telefona 5 dakikada en çok 3 kod istenir (`OtpService`).
@@ -71,3 +73,5 @@ Restoranın logosu ve menü ürün görselleri her müşterinin tarayıcısında
 ## İstek boyutu
 
 Caddy her sitede gövdeyi 10 MB ile sınırlar (en büyük yükleme 8 MB'lık sosyal gönderi görselidir). Web BFF aynı sınırı gövdeyi belleğe almadan önce `Content-Length` ile ve okuduktan sonra uygular (`PAYLOAD_TOO_LARGE`). API JSON gövdesi 1 MB ile sınırlıdır.
+
+Gövde sınırı tek başına yetmez: 1 MB'lık bir JSON on binlerce küçük öğe taşıyabilir. Bu yüzden güvenilmeyen girdiyi ayrıştıran her Zod dizi şeması `.max()` ile sınırlanır (sınırlar alanın gerçek ihtiyacından türetilir: sipariş başına 100 satır, grup sepetinde kişi başına 30 satır, durum filtresinde durum sayısı kadar öğe gibi). `packages/shared/src/array-caps.spec.ts` dışa aktarılan her şemayı dolaşır ve sınırsız bir dizi bulursa testi kırar; yalnızca ortam değişkeninden okunan yapılandırma şemaları muaf listededir. Gerekçe ve `zod` istisnası: `docs/CICD_GUIDE.md`.
