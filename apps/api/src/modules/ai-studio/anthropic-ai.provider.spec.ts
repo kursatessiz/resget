@@ -66,6 +66,19 @@ describe('Anthropic AI provider', () => {
     expect(outputConfig.format.type).toBe('json_schema');
   });
 
+  it('caps the drafts array on our side without sending maxItems to the API', async () => {
+    const captured: Captured[] = [];
+    const tooMany = { drafts: Array.from({ length: 11 }, (_, i) => ({ subject: `s${i}`, body: 'b' })) };
+    const provider = new AnthropicAiProvider(
+      'test-key',
+      'claude-opus-5-5',
+      fakeFetch(message(JSON.stringify(tooMany), 'end_turn'), captured),
+    );
+    await expect(provider.draft(request)).rejects.toThrow('Unusable draft output');
+    const format = (captured[0].body.output_config as { format: { schema: unknown } }).format;
+    expect(JSON.stringify(format.schema)).not.toContain('"maxItems"');
+  });
+
   it('reports a refusal with the tokens it cost', async () => {
     const provider = new AnthropicAiProvider('test-key', 'claude-opus-5-5', fakeFetch(message('', 'refusal'), []));
     await expect(provider.draft(request)).rejects.toBeInstanceOf(AiRefusedError);

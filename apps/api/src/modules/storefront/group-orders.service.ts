@@ -2,6 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@resget/database';
 import {
+  GROUP_CART_MAX_LINES,
   GROUP_CART_MAX_PARTICIPANTS,
   GROUP_CART_TOKEN_BYTES,
   GROUP_CART_TTL_HOURS,
@@ -39,7 +40,7 @@ function forSale(item: { isAvailable: boolean; category: { isActive: boolean } }
 
 /** Stored lines were checked on write; anything unreadable counts as no lines. */
 function storedLines(raw: Prisma.JsonValue): OrderLineInput[] {
-  const parsed = OrderLineInputSchema.array().safeParse(raw);
+  const parsed = OrderLineInputSchema.array().max(GROUP_CART_MAX_LINES).safeParse(raw);
   return parsed.success ? parsed.data : [];
 }
 
