@@ -89,10 +89,17 @@ export const SettlementLineSchema = z
   .strict();
 export type SettlementLine = z.infer<typeof SettlementLineSchema>;
 
+/**
+ * Upper bound on the lines of one settlement. A merged group order is the
+ * largest real case (20 participants x 30 lines); the cap only keeps an
+ * oversized array from reaching the validator (GHSA-mrhx-c7xc-m3w5).
+ */
+export const SETTLEMENT_LINES_MAX = 1000;
+
 export const SettlementInputSchema = z
   .object({
     currency: CurrencyCodeSchema,
-    items: z.array(SettlementLineSchema).min(1),
+    items: z.array(SettlementLineSchema).min(1).max(SETTLEMENT_LINES_MAX),
     /** Delivery fee charged to the customer, if any. */
     deliveryFee: SettlementLineSchema.nullable().optional(),
     /** Discount taken off the customer's bill and who funds it. */

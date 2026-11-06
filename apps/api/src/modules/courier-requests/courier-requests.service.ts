@@ -270,6 +270,7 @@ export class CourierRequestsService {
       return request.orderId;
     });
     if (!orderId) return false;
+    for (const status of steps) await this.orders.afterTransitionCommitted(orderId, status);
     await this.publish(orderId);
     for (const status of steps) await this.notifications.notify(orderId, status);
     return true;

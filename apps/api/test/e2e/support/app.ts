@@ -52,7 +52,10 @@ export async function createTestApp(): Promise<TestContext> {
   app.set('trust proxy', 1);
   app.useGlobalFilters(new ErrorCodeFilter());
   await app.init();
+  // Connected right away: a client that never connected keeps its query engine, and with it this test file's
+  // whole module registry, alive after $disconnect (packages/database/src/index.ts).
   const prisma = new PrismaClient();
+  await prisma.$connect();
   const http = () => request(app.getHttpServer() as Parameters<typeof request>[0]);
 
   const login = async (phone: string): Promise<string> => {
@@ -73,6 +76,13 @@ export async function createTestApp(): Promise<TestContext> {
       await app.close();
     },
   };
+}
+
+/** The same database with a connection pool of `limit` connections (Prisma's connection_limit). */
+export function withConnectionLimit(url: string, limit: number): string {
+  const parsed = new URL(url);
+  parsed.searchParams.set('connection_limit', String(limit));
+  return parsed.toString();
 }
 
 export function bearer(token: string, restaurantId?: string): Record<string, string> {

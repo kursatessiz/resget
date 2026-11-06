@@ -35,7 +35,13 @@ Tetikleyiciler: `pull_request`, `workflow_call` (release.yml çağırır), `work
 | `scripts` | `shellcheck -x deploy/scripts/*.sh`, sunucudaki aynı Caddy imajıyla `caddy validate` ve `actionlint` |
 | `images` | API ve web Dockerfile'larının derlenmesi (yalnızca PR'da; push edilmez) |
 
-Zafiyet denetimi istisnaları `package.json` içinde `pnpm.auditConfig.ignoreGhsas` listesindedir ve yalnızca yaması henüz yayımlanmamış, üretim bağımlılıklarına ulaşmayan duyurular için kullanılır (`pnpm audit --prod` temiz kalmalıdır). Mevcut istisnalar: `GHSA-vfj7-8cjw-p6xm` (`braces`, yalnızca jest üzerinden geliştirme bağımlılığı; `braces` düzeltme sürümü çıkınca kaldırılır) ve `GHSA-86w9-cpqp-85rv` (`node-forge`, yalnızca `@expo/cli` üzerinden geliştirme komut satırı; uygulama paketine girmez, yama çıkınca kaldırılır). `uuid`, `decode-uri-component` ve `handlebars` (jest üzerinden gelen geliştirme bağımlılığı) için `pnpm.overrides` ile yamalı sürüm zorlanır.
+Zafiyet denetimi istisnaları `package.json` içinde `pnpm.auditConfig.ignoreGhsas` listesindedir ve yalnızca yaması henüz yayımlanmamış ya da yalnızca bir major sürüm geçişiyle gelen, etkisi kodda başka bir önlemle kapatılmış duyurular için kullanılır. Her istisna burada tarihiyle ve kaldırılma koşuluyla yazılır; `.github/workflows/security.yml` içindeki `allow-ghsas` aynı listeyi yansıtır. Mevcut istisna:
+
+- `GHSA-mrhx-c7xc-m3w5` (2026-11-06, `zod`): uzunluk sınırı olmayan bir dizi şemasıyla çok büyük bir dizi doğrulanırken bellek tükenebilir; yalnızca `zod` 4.6.6 ve sonrası yamalıdır, depo ise `zod` 3.25 kullanır (doğrudan ve `@anthropic-ai/sdk` üzerinden). Önlem: güvenilmeyen girdiyi ayrıştıran her dizi şeması `.max()` taşır (paylaşılan istek şemaları, API gövde ve sorgu şemaları, webhook gövdeleri, saklı JSON'u okuyan şemalar); `packages/shared/src/array-caps.spec.ts` dışa aktarılan her şemayı dolaşır ve sınırsız bir dizide testi kırar. API JSON gövdesi zaten 1 MB ile sınırlıdır (`docs/GUVENLIK.md`). Kaldırılma koşulu: `zod` 4'e geçiş yapıldığında istisna ve `allow-ghsas` satırı silinir; test kalabilir.
+
+Önceki istisnalar `GHSA-vfj7-8cjw-p6xm` (`braces`) ve `GHSA-86w9-cpqp-85rv` (`node-forge`) 2026-11-06'da kaldırıldı: ağaçtaki sürümler artık bu duyuruların kapsamında değildir (`node-forge` 1.4.3).
+
+Yaması aynı major içinde çıkmış geçişli bağımlılıklar için `pnpm.overrides` ile yamalı sürüm zorlanır: `uuid`, `decode-uri-component` (0.5.1 ve sonrası, `expo-router` üzerinden), `handlebars` (jest üzerinden), `node-forge` (1.4.1 ve sonrası, `@expo/cli` üzerinden), `express` (5.3.0 ve sonrası), `body-parser` (2.4.0 ve sonrası) ve `multer` (2.5.0 ve sonrası). Son üçü `@nestjs/platform-express` 11.2.8'in sabitlediği `express` 5.2.1 ve `multer` 2.4.0'ı yamalı sürümlere taşır; böylece API'nin kendi `express` bağımlılığıyla tek kopya kalır. Nest bu sürümleri kendisi yükselttiğinde bu üç satır kaldırılabilir. `next` 15.5.29'dur; Image Optimization duyurusunun (GHSA-2464-fhr4-w9xw) önlemi olarak çözülen `sharp` 0.35.5 ve sonrasıdır.
 
 ### e2e testleri yerelde
 
@@ -53,6 +59,15 @@ JWT_SECRET=local-e2e-secret-0123456789abcdef0123456789 pnpm --filter @resget/web
 Tarayıcı indirilemeyen ortamlarda (sandbox) önceden kurulu Chromium `PW_CHROMIUM_EXECUTABLE=/yol/chrome` ile gösterilir; CI bu değişkeni kullanmaz ve `playwright install --with-deps chromium` çalıştırır.
 
 Seed, testlerin dayandığı sabit değerleri yazar: sahip `05320000002`, süper admin `05320000001`, misafir `05320000003`, 1 numaralı masanın QR token'ı `demo-masa-1-sabit-token-0001`. Her suite oluşturduğu satırları temizler; API suite'leri tek işçiyle (`maxWorkers: 1`) koşar.
+
+API suite'leri tek süreçte sırayla koşar ve her test dosyası kendi modül kayıt alanını (realm) açar; bellek yalnızca biten dosyanın kayıt alanı serbest kalırsa düz kalır. İki kural bunu korur:
+
+- Hiçbir modül, içe aktarıldığı anda `PrismaClient` oluşturmaz (`packages/database/src/index.ts` yalnızca istemciyi yeniden dışa aktarır). Bağlanmamış bir istemcinin sorgu motoru hiç bırakılmaz ve Jest altında her test dosyasının bütün modül grafiğini bellekte tutar; eskiden paketin hazır `prisma` örneği yüzünden suite başına onlarca MB birikiyor ve CI işi yaklaşık 85. dosyada 2 GB yığın sınırında düşüyordu. Testler kendi istemcisini hemen bağlar (`createTestApp`) ve `close()` ile kapatır.
+- `apps/api/test/e2e/support/global-setup.ts` V8'in harita saklama sezgisini kapatır (`--retain-maps-for-n-gc=0`). Express, her uygulamanın istek ve yanıt nesnelerini Node'un paylaşılan `http` prototipleri üzerine kurar; V8 bu nesnelerin haritalarını ve onlar üzerinden biten dosyaların kayıt alanlarını sıradan toplamalarda tutar, yalnızca yığın sınırına yaklaşınca bırakır. Ayar yalnızca çöp toplama sezgisidir, testlerin gözlediği hiçbir şeyi değiştirmez.
+
+Bellek tüketimini ölçmek için: `node --expose-gc node_modules/jest/bin/jest.js --config test/jest-e2e.config.js --logHeapUsage` (`apps/api` içinde); her dosyadan sonra yazılan yığın değeri dosyalar boyunca artmamalıdır.
+
+CI çalıştırıcısının Prisma bağlantı havuzu (fiziksel çekirdek sayısının iki katı artı bir) geliştirici makinesininkinden küçüktür. Havuz baskısı altındaki hataları yerelde görmek için `DATABASE_URL` sonuna `&connection_limit=3` eklenerek suite koşturulur; sipariş geçişinin işlem kuralı `docs/SIPARIS_VE_SEVK.md` ("İşlem kuralı") içindedir.
 
 ## 2a. `lighthouse.yml`
 
