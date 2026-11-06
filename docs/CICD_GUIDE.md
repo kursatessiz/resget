@@ -54,6 +54,13 @@ Tarayıcı indirilemeyen ortamlarda (sandbox) önceden kurulu Chromium `PW_CHROM
 
 Seed, testlerin dayandığı sabit değerleri yazar: sahip `05320000002`, süper admin `05320000001`, misafir `05320000003`, 1 numaralı masanın QR token'ı `demo-masa-1-sabit-token-0001`. Her suite oluşturduğu satırları temizler; API suite'leri tek işçiyle (`maxWorkers: 1`) koşar.
 
+API suite'leri tek süreçte sırayla koşar ve her test dosyası kendi modül kayıt alanını (realm) açar; bellek yalnızca biten dosyanın kayıt alanı serbest kalırsa düz kalır. İki kural bunu korur:
+
+- Hiçbir modül, içe aktarıldığı anda `PrismaClient` oluşturmaz (`packages/database/src/index.ts` yalnızca istemciyi yeniden dışa aktarır). Bağlanmamış bir istemcinin sorgu motoru hiç bırakılmaz ve Jest altında her test dosyasının bütün modül grafiğini bellekte tutar; eskiden paketin hazır `prisma` örneği yüzünden suite başına onlarca MB birikiyor ve CI işi yaklaşık 85. dosyada 2 GB yığın sınırında düşüyordu. Testler kendi istemcisini hemen bağlar (`createTestApp`) ve `close()` ile kapatır.
+- `apps/api/test/e2e/support/global-setup.ts` V8'in harita saklama sezgisini kapatır (`--retain-maps-for-n-gc=0`). Express, her uygulamanın istek ve yanıt nesnelerini Node'un paylaşılan `http` prototipleri üzerine kurar; V8 bu nesnelerin haritalarını ve onlar üzerinden biten dosyaların kayıt alanlarını sıradan toplamalarda tutar, yalnızca yığın sınırına yaklaşınca bırakır. Ayar yalnızca çöp toplama sezgisidir, testlerin gözlediği hiçbir şeyi değiştirmez.
+
+Bellek tüketimini ölçmek için: `node --expose-gc node_modules/jest/bin/jest.js --config test/jest-e2e.config.js --logHeapUsage` (`apps/api` içinde); her dosyadan sonra yazılan yığın değeri dosyalar boyunca artmamalıdır.
+
 ## 2a. `lighthouse.yml`
 
 PR'larda açılış sayfası ve masa QR menü sayfası için Lighthouse CI (`apps/web/lighthouserc.json`). SEO ve erişilebilirlik 0,9 altında işi kırar; performans ve best-practices yalnızca uyarır. Rapor artifact olarak saklanır.
