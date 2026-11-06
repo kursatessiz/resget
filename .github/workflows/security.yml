@@ -42,11 +42,12 @@ jobs:
           # tooling) and never ships in the app bundle. Every other dependency
           # stays denied.
           allow-dependencies-licenses: pkg:githubactions/trufflesecurity/trufflehog, pkg:npm/node-forge
-          # No patched node-forge release exists for this advisory; the
-          # affected code runs only in the Expo development CLI. Mirrors the
-          # pnpm.auditConfig.ignoreGhsas entry in package.json; both go once
-          # a fixed release is published.
-          allow-ghsas: GHSA-86w9-cpqp-85rv
+          # zod 3 memory exhaustion on uncapped arrays: only zod 4 is
+          # patched, and every untrusted array schema carries a .max()
+          # (packages/shared/src/array-caps.spec.ts). Mirrors the
+          # pnpm.auditConfig.ignoreGhsas entry in package.json; both go with
+          # the zod 4 migration (docs/CICD_GUIDE.md).
+          allow-ghsas: GHSA-mrhx-c7xc-m3w5
 
   secrets:
     name: Secret scan

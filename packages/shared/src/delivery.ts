@@ -546,7 +546,7 @@ export type OrderTransitionInput = z.infer<typeof OrderTransitionSchema>;
 
 export const OrdersQuerySchema = z
   .object({
-    status: z.array(OrderStatusValueSchema).optional(),
+    status: z.array(OrderStatusValueSchema).max(OrderStatusValueSchema.options.length).optional(),
     fulfillment: FulfillmentTypeValueSchema.optional(),
     /** Only orders that still need attention (not terminal). */
     active: z.coerce.boolean().optional(),
@@ -611,7 +611,7 @@ export type LocationPingInput = z.infer<typeof LocationPingSchema>;
 
 export const TripsQuerySchema = z
   .object({
-    status: z.array(z.nativeEnum(DeliveryTripStatus)).optional(),
+    status: z.array(z.nativeEnum(DeliveryTripStatus)).max(DeliveryTripStatusValueSchema.options.length).optional(),
     limit: z.coerce.number().int().min(1).max(100).default(50),
   })
   .strict();

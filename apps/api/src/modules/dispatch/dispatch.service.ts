@@ -438,6 +438,7 @@ export class DispatchService {
       await this.orders.applyTransition(tx, order, 'DELIVERED', actor.role, actor.userId, { fromTrip: true });
       await this.advance(tx, tripId);
     });
+    await this.orders.afterTransitionCommitted(stop.orderId, 'DELIVERED');
     await this.refreshEstimates(restaurantId, tripId);
     await this.publishTrip(tripId, [], [stop.orderId]);
     // The customer hears about the delivery when it happens, never when a stop is merely taken off a trip.

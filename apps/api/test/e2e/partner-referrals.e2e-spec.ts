@@ -3,6 +3,8 @@ import type { MyPartnerReferralsDTO, RestaurantCreatedDTO, SubscriptionState } f
 import { SEED, bearer, createTestApp } from './support/app';
 import type { TestContext } from './support/app';
 import { deleteTestRestaurants } from './support/cleanup';
+import { partnerReferralCapLockKey } from '../../src/modules/partner-referrals/partner-referrals.service';
+import { PartnerReferralsWatchdog } from '../../src/modules/partner-referrals/partner-referrals.watchdog';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -19,6 +21,7 @@ describe('Restaurant referrals (e2e)', () => {
   const NEW_OWNER_2 = `05352${stamp}`;
   const SYBIL_OWNER = `05353${stamp}`;
   const RACE_OWNERS = [`05391${stamp}`, `05392${stamp}`, `05393${stamp}`];
+  const LOCKED_OWNER = `05394${stamp}`;
 
   const owner = () => bearer(ownerToken, referrerId);
   const setSwitch = (enabled: boolean | null) =>
@@ -169,7 +172,11 @@ describe('Restaurant referrals (e2e)', () => {
     await ctx.prisma.user.deleteMany({
       where: {
         OR: [
-          { phone: { in: [NEW_OWNER_1, NEW_OWNER_2, SYBIL_OWNER, ...RACE_OWNERS].map((p) => normalizePhone(p)!) } },
+          {
+            phone: {
+              in: [NEW_OWNER_1, NEW_OWNER_2, SYBIL_OWNER, LOCKED_OWNER, ...RACE_OWNERS].map((p) => normalizePhone(p)!),
+            },
+          },
           { phone: { startsWith: `+90538${stamp.slice(-5)}` } },
         ],
       },
@@ -342,5 +349,40 @@ describe('Restaurant referrals (e2e)', () => {
     expect(
       await ctx.prisma.partnerReferral.count({ where: { referrerRestaurantId: referrerId, status: 'REWARDED' } }),
     ).toBe(rewardedBefore + 1);
+  });
+
+  it('completes the order while the referrer is locked and leaves the reward to the sweep', async () => {
+    await config({ qualifyingOrders: 1, yearlyCapPerReferrer: 100 });
+    const mine = (await ctx.http().get(`/restaurants/${referrerId}/partner-referrals`).set(owner()).expect(200))
+      .body as MyPartnerReferralsDTO;
+    const token = await ctx.login(LOCKED_OWNER);
+    const restaurant = await signup(token, mine.code!);
+    const orderId = await placeReadyOrder(restaurant, token, nextCustomerPhone());
+    const statusOf = async () =>
+      (await ctx.prisma.partnerReferral.findUniqueOrThrow({ where: { refereeRestaurantId: restaurant.id } })).status;
+    // Another instance holds the referrer's cap lock for longer than the reward step waits for it.
+    await ctx.prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${partnerReferralCapLockKey(referrerId)}))`;
+        const res = await transition(restaurant.id, token, orderId, 'PICKED_UP');
+        expect(res.status).toBe(200);
+        expect(res.body.status).toBe('PICKED_UP');
+        // Read on the holding transaction, so this check needs no second connection of the test client.
+        const pending = await tx.partnerReferral.findUniqueOrThrow({ where: { refereeRestaurantId: restaurant.id } });
+        expect(pending.status).toBe('PENDING');
+      },
+      { timeout: 20_000 },
+    );
+    expect((await ctx.prisma.order.findUniqueOrThrow({ where: { id: orderId } })).status).toBe('PICKED_UP');
+    expect(await ctx.app.get(PartnerReferralsWatchdog).tick()).toBeGreaterThanOrEqual(1);
+    expect(await statusOf()).toBe('REWARDED');
+    // Settled once: another pass leaves it alone.
+    await ctx.app.get(PartnerReferralsWatchdog).tick();
+    const referral = await ctx.prisma.partnerReferral.findUniqueOrThrow({
+      where: { refereeRestaurantId: restaurant.id },
+    });
+    expect(
+      await ctx.prisma.auditLog.count({ where: { action: 'partner_referral.rewarded', entityId: referral.id } }),
+    ).toBe(1);
   });
 });
