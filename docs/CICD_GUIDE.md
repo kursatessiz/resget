@@ -206,7 +206,7 @@ Karar: bu değişiklikte uygulanmadı. Gerekçeler:
 - **`security.yml`**: PR'larda dependency review (high'da kırar, copyleft lisansları reddeder; tek istisna yalnızca CI aracı olarak çalışan ve ürüne girmeyen AGPL lisanslı TruffleHog action'ıdır, `allow-dependencies-licenses` ile izinlidir), TruffleHog gizli bilgi taraması (`.github/trufflehog-exclude.txt` yalnızca `.env.example`'ı dışlar), zizmor workflow denetimi.
 - **`scorecard.yml`**: OpenSSF Scorecard, `main` ve haftalık.
 
-Tüm action'lar commit SHA'sına sabitlidir; Docker taban imajları digest ile sabitlidir; Dependabot üçünü de haftalık günceller (`.github/dependabot.yml`, 7 gün bekleme, major'lar elle).
+Tüm action'lar commit SHA'sına sabitlidir; Docker taban imajları digest ile sabitlidir; Dependabot üçünü de haftalık günceller (`.github/dependabot.yml`, 7 gün bekleme, major'lar elle). React, React Native ve Expo SDK'nın sabitlediği yerel modüllerin (`react`, `react-dom`, `@types/react`, `@types/react-dom`, `react-native`, `react-native-*`) minor sürümleri de bot PR'ı değildir: Expo her SDK için bu sürümleri `expo/bundledNativeModules.json` içinde sabitler, ötesine geçen bir sürüm mobil derlemeyi kırar. Bunlar Expo SDK yükseltmesiyle birlikte `npx expo install --fix` ile, web tarafında da aynı planlı yükseltmeyle taşınır.
 
 ### Private repository notu
 
