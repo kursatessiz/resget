@@ -61,6 +61,8 @@ API suite'leri tek süreçte sırayla koşar ve her test dosyası kendi modül k
 
 Bellek tüketimini ölçmek için: `node --expose-gc node_modules/jest/bin/jest.js --config test/jest-e2e.config.js --logHeapUsage` (`apps/api` içinde); her dosyadan sonra yazılan yığın değeri dosyalar boyunca artmamalıdır.
 
+CI çalıştırıcısının Prisma bağlantı havuzu (fiziksel çekirdek sayısının iki katı artı bir) geliştirici makinesininkinden küçüktür. Havuz baskısı altındaki hataları yerelde görmek için `DATABASE_URL` sonuna `&connection_limit=3` eklenerek suite koşturulur; sipariş geçişinin işlem kuralı `docs/SIPARIS_VE_SEVK.md` ("İşlem kuralı") içindedir.
+
 ## 2a. `lighthouse.yml`
 
 PR'larda açılış sayfası ve masa QR menü sayfası için Lighthouse CI (`apps/web/lighthouserc.json`). SEO ve erişilebilirlik 0,9 altında işi kırar; performans ve best-practices yalnızca uyarır. Rapor artifact olarak saklanır.

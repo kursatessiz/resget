@@ -367,7 +367,9 @@ describe('Restaurant referrals (e2e)', () => {
         const res = await transition(restaurant.id, token, orderId, 'PICKED_UP');
         expect(res.status).toBe(200);
         expect(res.body.status).toBe('PICKED_UP');
-        expect(await statusOf()).toBe('PENDING');
+        // Read on the holding transaction, so this check needs no second connection of the test client.
+        const pending = await tx.partnerReferral.findUniqueOrThrow({ where: { refereeRestaurantId: restaurant.id } });
+        expect(pending.status).toBe('PENDING');
       },
       { timeout: 20_000 },
     );
