@@ -78,6 +78,13 @@ export async function createTestApp(): Promise<TestContext> {
   };
 }
 
+/** The same database with a connection pool of `limit` connections (Prisma's connection_limit). */
+export function withConnectionLimit(url: string, limit: number): string {
+  const parsed = new URL(url);
+  parsed.searchParams.set('connection_limit', String(limit));
+  return parsed.toString();
+}
+
 export function bearer(token: string, restaurantId?: string): Record<string, string> {
   const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
   if (restaurantId) headers['x-restaurant-id'] = restaurantId;
