@@ -18,6 +18,15 @@ import { conflict, notFound } from '../../common/api-error';
 type Db = Prisma.TransactionClient | PrismaService;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const COMPLETED = ['DELIVERED', 'PICKED_UP'] as const;
+/** The sweep looks at referred restaurants that completed an order this recently, at most a batch per pass. */
+const PARTNER_SWEEP_LOOKBACK_DAYS = 7;
+const PARTNER_SWEEP_BATCH = 200;
+
+/** The advisory lock key the yearly cap of one referrer is counted under. */
+export function partnerReferralCapLockKey(referrerRestaurantId: string): string {
+  return `partner-referral-cap:${referrerRestaurantId}`;
+}
+
 const DEFAULTS: UpdatePartnerReferralConfigInput = {
   isActive: false,
   referrerRewardDays: 30,
@@ -30,8 +39,9 @@ const DEFAULTS: UpdatePartnerReferralConfigInput = {
  * Restaurant-to-restaurant referrals (docs/RESTORAN_TAVSIYE.md). Every
  * reward is PRO time added to a subscription (proExtension in shared);
  * commission, invoices and settlement are never touched. The new
- * restaurant's bonus lands at sign-up, the referrer's when the new
- * restaurant completes its qualifying order, in that order's transaction.
+ * restaurant's bonus lands at sign-up, the referrer's right after the new
+ * restaurant's qualifying order completed (onOrderCompletedSafely, with
+ * the sweep in PartnerReferralsWatchdog behind it).
  */
 @Injectable()
 export class PartnerReferralsService {
@@ -223,47 +233,107 @@ export class PartnerReferralsService {
 
   // -- Orders --------------------------------------------------------------------------
 
-  /** The referred restaurant's qualifying completed order rewards the referrer, once. */
-  async recordCompletion(tx: Prisma.TransactionClient, orderId: string, now: Date): Promise<void> {
-    const order = await tx.order.findUnique({ where: { id: orderId }, select: { restaurantId: true } });
-    if (!order) return;
-    const referral = await tx.partnerReferral.findUnique({ where: { refereeRestaurantId: order.restaurantId } });
-    if (!referral || referral.status !== 'PENDING') return;
-    const config = await this.config(tx);
-    const [qualifying] = (
-      await this.qualifyingCounts([{ refereeId: order.restaurantId, referrerId: referral.referrerRestaurantId }], tx)
-    ).values();
-    if ((qualifying ?? 0) < config.qualifyingOrders) return;
-    // The yearly cap is counted under a lock on the referrer: referees completing at the same moment would
-    // otherwise each read the same count and all be rewarded. The next one waits, then sees the committed rows.
-    await tx.$queryRaw`SELECT id FROM restaurants WHERE id = ${referral.referrerRestaurantId} FOR UPDATE`;
-    const recent = await tx.partnerReferral.count({
-      where: {
-        referrerRestaurantId: referral.referrerRestaurantId,
-        status: 'REWARDED',
-        rewardedAt: { gte: new Date(now.getTime() - PARTNER_REFERRAL_CAP_WINDOW_DAYS * DAY_MS) },
-      },
-    });
-    const capped = recent >= config.yearlyCapPerReferrer;
-    // Claimed while still PENDING: two orders completing at once cannot both reward the referrer.
-    const claimed = await tx.partnerReferral.updateMany({
-      where: { id: referral.id, status: 'PENDING' },
-      data: capped
-        ? { status: 'CAPPED', rewardedAt: now }
-        : { status: 'REWARDED', rewardDays: config.referrerRewardDays, rewardedAt: now },
-    });
-    if (claimed.count === 0 || capped) return;
-    if (config.referrerRewardDays > 0) {
-      await this.addProDays(tx, referral.referrerRestaurantId, config.referrerRewardDays, now);
+  /**
+   * Rewards the referrer once the referred restaurant's completed order made it qualify. Runs after the order's
+   * completion committed, never inside the order transaction: the yearly cap is counted under a per-referrer lock,
+   * and held in the order transaction that lock made concurrent completions of one referrer's referees wait on
+   * each other until the order change itself rolled back. Never throws: a failure leaves the referral PENDING
+   * and the sweep (settlePending) finishes it.
+   */
+  async onOrderCompletedSafely(orderId: string, now: Date = new Date()): Promise<void> {
+    try {
+      const order = await this.prisma.order.findUnique({ where: { id: orderId }, select: { restaurantId: true } });
+      if (!order) return;
+      const referral = await this.prisma.partnerReferral.findUnique({
+        where: { refereeRestaurantId: order.restaurantId },
+        select: { id: true, referrerRestaurantId: true, refereeRestaurantId: true, status: true },
+      });
+      if (!referral || referral.status !== 'PENDING') return;
+      await this.settle(referral, now);
+    } catch (err) {
+      this.logger.warn(
+        `Partner referral of order ${orderId} left for the sweep: ${err instanceof Error ? err.message : 'unknown error'}`,
+      );
     }
-    await tx.auditLog.create({
-      data: {
-        restaurantId: referral.referrerRestaurantId,
-        action: 'partner_referral.rewarded',
-        entity: 'PartnerReferral',
-        entityId: referral.id,
-        meta: { days: config.referrerRewardDays },
+  }
+
+  /**
+   * The sweep behind onOrderCompletedSafely: PENDING referrals whose referred restaurant completed an order in the
+   * last PARTNER_SWEEP_LOOKBACK_DAYS are settled when they qualify. Returns how many were settled.
+   */
+  async settlePending(now: Date = new Date()): Promise<number> {
+    const since = new Date(now.getTime() - PARTNER_SWEEP_LOOKBACK_DAYS * DAY_MS);
+    const pending = await this.prisma.partnerReferral.findMany({
+      where: {
+        status: 'PENDING',
+        referee: { orders: { some: { status: { in: [...COMPLETED] }, completedAt: { gte: since } } } },
       },
+      select: { id: true, referrerRestaurantId: true, refereeRestaurantId: true },
+      orderBy: { createdAt: 'asc' },
+      take: PARTNER_SWEEP_BATCH,
+    });
+    let settled = 0;
+    for (const referral of pending) {
+      try {
+        if (await this.settle(referral, now)) settled += 1;
+      } catch (err) {
+        this.logger.warn(
+          `Partner referral ${referral.id} not settled: ${err instanceof Error ? err.message : 'unknown error'}`,
+        );
+      }
+    }
+    return settled;
+  }
+
+  /** Rewards or caps one PENDING referral that reached the threshold; false when it has not or was settled meanwhile. */
+  private async settle(
+    referral: { id: string; referrerRestaurantId: string; refereeRestaurantId: string },
+    now: Date,
+  ): Promise<boolean> {
+    const config = await this.config();
+    const [qualifying] = (
+      await this.qualifyingCounts([
+        { refereeId: referral.refereeRestaurantId, referrerId: referral.referrerRestaurantId },
+      ])
+    ).values();
+    if ((qualifying ?? 0) < config.qualifyingOrders) return false;
+    // A short transaction of its own. The yearly cap is counted under an advisory lock per referrer: referees
+    // completing at the same moment would otherwise each read the same count and all be rewarded; the next one
+    // waits, then sees the committed rows. An advisory lock, not a row lock on the referrer restaurant, so the
+    // referrer's own orders and writes never wait on it; lock_timeout bounds the wait and the sweep retries.
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SET LOCAL lock_timeout = '2s'`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${partnerReferralCapLockKey(referral.referrerRestaurantId)}))`;
+      const recent = await tx.partnerReferral.count({
+        where: {
+          referrerRestaurantId: referral.referrerRestaurantId,
+          status: 'REWARDED',
+          rewardedAt: { gte: new Date(now.getTime() - PARTNER_REFERRAL_CAP_WINDOW_DAYS * DAY_MS) },
+        },
+      });
+      const capped = recent >= config.yearlyCapPerReferrer;
+      // Claimed while still PENDING: two orders completing at once cannot both reward the referrer.
+      const claimed = await tx.partnerReferral.updateMany({
+        where: { id: referral.id, status: 'PENDING' },
+        data: capped
+          ? { status: 'CAPPED', rewardedAt: now }
+          : { status: 'REWARDED', rewardDays: config.referrerRewardDays, rewardedAt: now },
+      });
+      if (claimed.count === 0) return false;
+      if (capped) return true;
+      if (config.referrerRewardDays > 0) {
+        await this.addProDays(tx, referral.referrerRestaurantId, config.referrerRewardDays, now);
+      }
+      await tx.auditLog.create({
+        data: {
+          restaurantId: referral.referrerRestaurantId,
+          action: 'partner_referral.rewarded',
+          entity: 'PartnerReferral',
+          entityId: referral.id,
+          meta: { days: config.referrerRewardDays },
+        },
+      });
+      return true;
     });
   }
 
