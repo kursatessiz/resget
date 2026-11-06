@@ -15,6 +15,22 @@ updates:
     ignore:
       - dependency-name: '*'
         update-types: [version-update:semver-major]
+      # The Expo SDK pins React, React Native and the native modules it
+      # bundles (expo/bundledNativeModules.json); a minor bump past that pin
+      # breaks the mobile build. They move with the Expo SDK upgrade instead.
+      # React is shared with web, so its minors are planned upgrades too.
+      - dependency-name: 'react'
+        update-types: [version-update:semver-minor]
+      - dependency-name: 'react-dom'
+        update-types: [version-update:semver-minor]
+      - dependency-name: '@types/react'
+        update-types: [version-update:semver-minor]
+      - dependency-name: '@types/react-dom'
+        update-types: [version-update:semver-minor]
+      - dependency-name: 'react-native'
+        update-types: [version-update:semver-minor]
+      - dependency-name: 'react-native-*'
+        update-types: [version-update:semver-minor]
     groups:
       minor-and-patch:
         update-types: [minor, patch]
