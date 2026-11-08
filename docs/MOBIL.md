@@ -126,6 +126,8 @@ Expo Go ile telefondan QR okutulur. Arka plan konumu Expo Go'da sınırlıdır; 
 
 Doğrulama: `pnpm --filter @resget/mobile typecheck` ve `pnpm --filter @resget/mobile test` (turbo bunları kök `typecheck` ve `test` görevlerinde çalıştırır). Testler yalnızca saf mantığı kapsar: API istemcisi (yenileme, oturum kapatma, hata kodu), konum kuyruğu, sekme / üyelik seçimi, sevk panosu kuralları, harita modelleri (kurye, müşteri takibi, sevk) ve navigasyon bağlantıları. Ekranlar cihazda denenir.
 
+Bağımlılık sürümleri: `react`, `react-native` ve Expo'nun paketlediği yerel modüller Expo SDK'nın sabitlediği sürümlerde tutulur. `pnpm --filter @resget/mobile run deps:check` bunu denetler (CI'da da çalışır); SDK yükseltmesinde `npx expo install --fix` sürümleri birlikte taşır. Bu paketler Dependabot ile güncellenmez (`docs/CICD_GUIDE.md`).
+
 ## 5. İzinler ve mağaza notları
 
 - Android: `ACCESS_FINE_LOCATION`, `ACCESS_BACKGROUND_LOCATION`, `FOREGROUND_SERVICE_LOCATION`. Arka plan konumu için Play Console'da kullanım gerekçesi ve kısa video istenir; gerekçe "kurye seferi boyunca müşteriye canlı takip" olarak yazılır.

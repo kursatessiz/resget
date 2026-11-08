@@ -16,21 +16,19 @@ updates:
       - dependency-name: '*'
         update-types: [version-update:semver-major]
       # The Expo SDK pins React, React Native and the native modules it
-      # bundles (expo/bundledNativeModules.json); a minor bump past that pin
-      # breaks the mobile build. They move with the Expo SDK upgrade instead.
-      # React is shared with web, so its minors are planned upgrades too.
+      # bundles (expo/bundledNativeModules.json), and React Native refuses to
+      # start when react differs from its bundled renderer, even by a patch.
+      # Dependabot applies one version to every manifest of a workspace, so a
+      # web React bump also moves the mobile pin. These move by hand: mobile
+      # with the Expo SDK upgrade (`npx expo install --fix`), web as a planned
+      # upgrade. Advisories still surface through pnpm audit and Dependabot
+      # alerts; CI enforces the pins (`deps:check`).
       - dependency-name: 'react'
-        update-types: [version-update:semver-minor]
       - dependency-name: 'react-dom'
-        update-types: [version-update:semver-minor]
       - dependency-name: '@types/react'
-        update-types: [version-update:semver-minor]
       - dependency-name: '@types/react-dom'
-        update-types: [version-update:semver-minor]
       - dependency-name: 'react-native'
-        update-types: [version-update:semver-minor]
       - dependency-name: 'react-native-*'
-        update-types: [version-update:semver-minor]
     groups:
       minor-and-patch:
         update-types: [minor, patch]
