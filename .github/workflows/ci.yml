@@ -44,6 +44,13 @@ jobs:
       - name: Validate Prisma schema
         run: pnpm --filter @resget/database exec prisma validate
 
+      # The Expo SDK pins react, react-native and its native modules
+      # (expo/bundledNativeModules.json); a version off that pin installs and
+      # typechecks but crashes the app at start. Offline: the pins ship in the
+      # installed expo package, no Expo API call is needed.
+      - name: Mobile dependencies match the Expo SDK
+        run: pnpm --filter @resget/mobile run deps:check
+
       - name: Formatting (prettier)
         run: pnpm exec prettier --check "apps/**/*.{ts,tsx,css}" "packages/**/*.ts" "*.json" ".github/**/*.yml" "deploy/**/*.yml"
 

@@ -8,7 +8,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "typecheck": "tsc --noEmit",
-    "test": "jest"
+    "test": "jest",
+    "deps:check": "EXPO_OFFLINE=1 expo install --check"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.18",
