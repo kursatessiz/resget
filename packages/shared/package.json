@@ -10,7 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "libphonenumber-js": "1.13.15",
+    "libphonenumber-js": "1.13.16",
     "zod": "^3.25.76"
   },
   "devDependencies": {
